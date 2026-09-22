@@ -25,10 +25,29 @@
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 
-	<!-- §15: portrait only -->
+	<!-- §15: portrait only, on iPhone. -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+
+	<!--
+	  The device family is "1,2" (iPhone + iPad), and Apple's upload validator
+	  requires an iPad-eligible app to support all four orientations for
+	  multitasking (Split View / Slide Over) — confirmed by a real rejected
+	  upload: "Invalid bundle... you need to include all of the
+	  UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown,
+	  UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight
+	  orientations to support iPad multitasking." The ~ipad-suffixed key
+	  overrides the base key on iPad only, so the phone stays portrait-only
+	  exactly as §15 specifies while iPad satisfies Apple's own requirement.
+	-->
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 
 	<key>UILaunchScreen</key>
