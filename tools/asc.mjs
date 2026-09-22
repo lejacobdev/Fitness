@@ -27,6 +27,9 @@
  *   node tools/asc.mjs versions <bundle-id>
  *   node tools/asc.mjs builds <bundle-id> [limit]
  *   node tools/asc.mjs build-bundles <build-id>
+ *   node tools/asc.mjs create-bundle-id <bundle-id> <name>
+ *   node tools/asc.mjs enable-capability <bundle-id> <CAPABILITY_TYPE>
+ *   node tools/asc.mjs provision <bundle-id> <name>   (create-bundle-id + every capability §19 needs)
  */
 
 import crypto from 'node:crypto';
@@ -70,10 +73,16 @@ export function mintToken() {
 }
 
 let cachedToken;
-async function api(path) {
+async function api(path, { method = 'GET', body: requestBody } = {}) {
   cachedToken ??= mintToken();
   const res = await fetch(`${BASE}${path}`, {
-    headers: { authorization: `Bearer ${cachedToken}`, accept: 'application/json' },
+    method,
+    headers: {
+      authorization: `Bearer ${cachedToken}`,
+      accept: 'application/json',
+      ...(requestBody ? { 'content-type': 'application/json' } : {}),
+    },
+    body: requestBody ? JSON.stringify(requestBody) : undefined,
   });
   const text = await res.text();
   let body;
@@ -121,8 +130,11 @@ const commands = {
     console.log(`  platform: ${bundle.attributes.platform}`);
 
     // (2) Read capabilities through this bundle's own relationship, never the
-    // pooled `included` array of a prefix-matched list response.
-    const caps = await api(`/v1/bundleIds/${bundle.id}/bundleIdCapabilities?limit=200`);
+    // pooled `included` array of a prefix-matched list response. Unlike most
+    // list endpoints this one rejects `limit` outright (400: "This
+    // relationship does not support this parameter") — a bundle only ever
+    // has a handful of capabilities, so there is nothing to paginate anyway.
+    const caps = await api(`/v1/bundleIds/${bundle.id}/bundleIdCapabilities`);
     const enabled = caps.data.map((c) => c.attributes.capabilityType).sort();
     console.log(`  capabilities (${enabled.length}):`);
     for (const c of enabled) console.log(`    - ${c}`);
@@ -207,6 +219,120 @@ const commands = {
         }
       }
     }
+  },
+
+  /** Registers a new App ID. Idempotent: if it already exists, returns it. */
+  async 'create-bundle-id'(identifier, name) {
+    if (!identifier || !name) throw new Error('usage: create-bundle-id <bundle-id> <name>');
+    try {
+      const existing = await exactBundle(identifier);
+      console.log(`already exists: ${existing.attributes.identifier} (${existing.id})`);
+      return existing;
+    } catch {
+      // fall through to create
+    }
+    const body = await api('/v1/bundleIds', {
+      method: 'POST',
+      body: {
+        data: {
+          type: 'bundleIds',
+          attributes: { identifier, name, platform: 'IOS' },
+        },
+      },
+    });
+    console.log(`created: ${body.data.attributes.identifier} (${body.data.id})`);
+    return body.data;
+  },
+
+  /**
+   * §19: enabling most capabilities is an ordinary POST. Two exceptions this
+   * command knows about — Sign in with Apple is rejected as a bare
+   * capability (409, "select at least one configuration") without the
+   * APPLE_ID_AUTH_APP_CONSENT/PRIMARY_APP_CONSENT setting; App Groups can be
+   * *enabled* this way but the actual group container still has to be
+   * created and attached in the portal by a human — an API key cannot do
+   * that part, and skipping it fails the archive with a bearer-token error.
+   */
+  async 'enable-capability'(identifier, capabilityType) {
+    if (!identifier || !capabilityType) throw new Error('usage: enable-capability <bundle-id> <CAPABILITY_TYPE>');
+    const bundle = await exactBundle(identifier);
+
+    const settings = capabilityType === 'APPLE_ID_AUTH'
+      ? [{ key: 'APPLE_ID_AUTH_APP_CONSENT', options: [{ key: 'PRIMARY_APP_CONSENT' }] }]
+      : [];
+
+    try {
+      const body = await api('/v1/bundleIdCapabilities', {
+        method: 'POST',
+        body: {
+          data: {
+            type: 'bundleIdCapabilities',
+            attributes: { capabilityType, settings },
+            relationships: { bundleId: { data: { type: 'bundleIds', id: bundle.id } } },
+          },
+        },
+      });
+      console.log(`enabled ${capabilityType} (${body.data.id})`);
+    } catch (err) {
+      if (/already exists|already enabled/i.test(err.message)) {
+        console.log(`${capabilityType} already enabled`);
+        return;
+      }
+      throw err;
+    }
+    if (capabilityType === 'APP_GROUPS') {
+      console.log('  note: the capability flag is on, but the App Group container itself');
+      console.log('  (group.com.lejacobdev.studentathlete) still needs to be created and');
+      console.log('  attached in the portal — Certificates, Identifiers & Profiles >');
+      console.log('  Identifiers > App Groups tab. An API key cannot do this step (§19).');
+    }
+  },
+
+  /**
+   * Attempts the App Store Connect app record — the thing a TestFlight build
+   * actually uploads into. CONFIRMED (not a permission issue with this key,
+   * a hard API restriction): `POST /v1/apps` returns 403 "The resource
+   * 'apps' does not allow 'CREATE'. Allowed operations are: GET_COLLECTION,
+   * GET_INSTANCE, UPDATE" for every key role. Creating a new app has always
+   * required the App Store Connect web UI (My Apps > +) — kept here so the
+   * error is self-documenting rather than a silent gap, and so `provision`
+   * can still report the exact next manual step.
+   */
+  async 'create-app'(identifier, name, sku) {
+    if (!identifier || !name || !sku) throw new Error('usage: create-app <bundle-id> <name> <sku>');
+    const apps = await api(`/v1/apps?filter[bundleId]=${encodeURIComponent(identifier)}`);
+    const existing = apps.data.find((a) => a.attributes.bundleId === identifier);
+    if (existing) {
+      console.log(`already exists: ${existing.attributes.name} (${existing.id})`);
+      return existing;
+    }
+    const body = await api('/v1/apps', {
+      method: 'POST',
+      body: {
+        data: {
+          type: 'apps',
+          attributes: { bundleId: identifier, name, sku, primaryLocale: 'en-US' },
+        },
+      },
+    });
+    console.log(`created app: ${body.data.attributes.name} (${body.data.id})`);
+    return body.data;
+  },
+
+  /** create-bundle-id, then every §19-required capability, in one call. */
+  async provision(identifier, name) {
+    if (!identifier || !name) throw new Error('usage: provision <bundle-id> <name>');
+    await commands['create-bundle-id'](identifier, name);
+    const required = ['HEALTHKIT', 'APPLE_ID_AUTH', 'IN_APP_PURCHASE', 'APP_GROUPS', 'PUSH_NOTIFICATIONS'];
+    for (const cap of required) {
+      try {
+        await commands['enable-capability'](identifier, cap);
+      } catch (err) {
+        console.error(`  FAILED to enable ${cap}: ${err.message}`);
+      }
+    }
+    console.log('');
+    await commands.capabilities(identifier);
   },
 };
 

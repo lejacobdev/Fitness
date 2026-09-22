@@ -84,30 +84,58 @@ that CI must import **one** certificate rather than minting one per run, because
 every runner starts with an empty keychain and the account's 15-certificate
 ceiling stops builds dead once reached.
 
-## 3. Capabilities on the App ID, before the first archive
+## 3. App ID and capabilities — automatable, `tools/asc.mjs` does this
 
 Automatic signing builds the profile from the entitlements file, so a capability
 that is missing on the App ID fails the **build**, not the upload. Five are
 needed: HealthKit, Sign in with Apple, In-App Purchase, App Groups, Push
-Notifications.
+Notifications. Unlike app-record creation below, App Store Connect's API
+*does* allow creating a bundle ID and enabling capabilities — confirmed by
+actually calling it, not assumed:
 
-Verify with the read-only workflow, which exits non-zero if any is absent:
+```bash
+ASC_KEY_ID=... ASC_ISSUER_ID=... ASC_PRIVATE_KEY="$(cat AuthKey_*.p8)" \
+  node tools/asc.mjs provision com.lejacobdev.studentathlete "Student Athlete"
+```
+
+Safe to re-run — both the bundle-id creation and each capability enable are
+idempotent (Apple returns the existing resource rather than erroring or
+duplicating on a second call). Or drive it through CI instead of locally:
 
 ```bash
 gh workflow run asc-inspect.yml --repo lejacobdev/Fitness
 ```
 
-Two of them have specific traps (§19):
+`asc-inspect.yml` is read-only (capability *checking* only); `provision` is
+the one that actually creates things, so it is a local/manual `node` call
+against the live API, not a workflow — a deliberate choice, since it mutates
+the Apple Developer account. Two capabilities have specific traps (§19), both
+of which `tools/asc.mjs` already handles:
 
-- **App Groups cannot be attached to an App ID by an API key.** Enabling the
-  capability works over the API; attaching `group.com.lejacobdev.studentathlete`
-  to the App ID is a manual step in the portal. Skipping it fails the archive
-  with `Authentication failed … bearer token` on whichever target needed it.
-- **Sign in with Apple is rejected as a bare capability** (409, "select at least
-  one configuration"). It needs the setting
-  `[{key: APPLE_ID_AUTH_APP_CONSENT, options: [{key: PRIMARY_APP_CONSENT}]}]`.
+- **App Groups cannot be fully attached to an App ID by an API key.** Enabling
+  the capability flag works over the API (`provision` does this); attaching
+  the actual `group.com.lejacobdev.studentathlete` container to the App ID is
+  still a manual step — Certificates, Identifiers & Profiles → Identifiers →
+  App Groups tab → create the group → back on the App ID's Capabilities →
+  App Groups → select it. Skipping it fails the archive with
+  `Authentication failed … bearer token` on whichever target needed it.
+- **Sign in with Apple is rejected as a bare capability** (409, "select at
+  least one configuration") — `provision` sends the required setting
+  (`APPLE_ID_AUTH_APP_CONSENT` / `PRIMARY_APP_CONSENT`) automatically.
 
-## 4. First build
+## 4. The App Store Connect app record — this one is NOT automatable
+
+Confirmed by calling it: `POST /v1/apps` returns `403 "The resource 'apps'
+does not allow 'CREATE'"` for every key role. Creating a *new* app has always
+required the web UI, full stop — this is the one piece of the whole pipeline
+that cannot be scripted.
+
+App Store Connect → My Apps → **+** → New App → iOS → bundle ID
+`com.lejacobdev.studentathlete` → pick a unique app name and SKU (the SKU is
+internal-only, never shown to users). `xcrun altool --upload-app` fails with
+"No suitable application records were found" until this exists.
+
+## 5. First build
 
 ```bash
 gh workflow run testflight.yml --repo lejacobdev/Fitness
