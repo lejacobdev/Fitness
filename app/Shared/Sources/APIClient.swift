@@ -49,6 +49,70 @@ public struct APIClient: Sendable {
         case transport(underlying: Error)
     }
 
+    /// §14/M5: one logged session plus its sets, exactly what `POST
+    /// /sync/sessions` expects. Field names and shapes mirror
+    /// backend/src/routes/sync.js's validation directly.
+    public struct SyncSessionRequest: Sendable {
+        public let session: SessionPayload
+        public let sets: [SetPayload]
+
+        public init(session: SessionPayload, sets: [SetPayload]) {
+            self.session = session
+            self.sets = sets
+        }
+
+        public struct SessionPayload: Sendable {
+            public let clientId: String
+            public let startedAt: Date
+            public let endedAt: Date?
+            public let sessionRPE: Int?
+            public let minutes: Int
+            public let source: String
+            public let plannedSessionId: String?
+
+            public init(
+                clientId: String, startedAt: Date, endedAt: Date? = nil, sessionRPE: Int? = nil,
+                minutes: Int, source: String, plannedSessionId: String? = nil
+            ) {
+                self.clientId = clientId
+                self.startedAt = startedAt
+                self.endedAt = endedAt
+                self.sessionRPE = sessionRPE
+                self.minutes = minutes
+                self.source = source
+                self.plannedSessionId = plannedSessionId
+            }
+        }
+
+        public struct SetPayload: Sendable {
+            public let clientId: String
+            public let itemSlug: String
+            public let setIndex: Int
+            public let reps: Int?
+            public let weightKg: Double?
+            public let seconds: Int?
+            public let distanceM: Double?
+            public let contacts: Int?
+            public let side: String?
+
+            public init(
+                clientId: String, itemSlug: String, setIndex: Int, reps: Int? = nil,
+                weightKg: Double? = nil, seconds: Int? = nil, distanceM: Double? = nil,
+                contacts: Int? = nil, side: String? = nil
+            ) {
+                self.clientId = clientId
+                self.itemSlug = itemSlug
+                self.setIndex = setIndex
+                self.reps = reps
+                self.weightKg = weightKg
+                self.seconds = seconds
+                self.distanceM = distanceM
+                self.contacts = contacts
+                self.side = side
+            }
+        }
+    }
+
     /// POST /auth/apple. `birthDate` is required only on a first sign-in
     /// (§2's age gate happens client-side before this call, so the client
     /// already knows the athlete's birth date by the time it gets here) —
@@ -106,6 +170,56 @@ public struct APIClient: Sendable {
         let withoutFractional = ISO8601DateFormatter()
         withoutFractional.formatOptions = [.withInternetDateTime]
         return withoutFractional.date(from: string)
+    }
+
+    /// POST /sync/sessions, authenticated (§3's sync responsibility, M5's
+    /// slice of it). Idempotent on the server by `clientId` — safe to call
+    /// again for the same session (SyncQueue does exactly that on every
+    /// retry) without ever producing a duplicate row.
+    public func syncSession(_ request: SyncSessionRequest, sessionToken: String) async throws {
+        var sessionJSON: [String: Any] = [
+            "clientId": request.session.clientId,
+            "startedAt": Self.iso8601String(request.session.startedAt),
+            "minutes": request.session.minutes,
+            "source": request.session.source,
+        ]
+        if let endedAt = request.session.endedAt {
+            sessionJSON["endedAt"] = Self.iso8601String(endedAt)
+        }
+        if let rpe = request.session.sessionRPE { sessionJSON["sessionRPE"] = rpe }
+        if let plannedSessionId = request.session.plannedSessionId {
+            sessionJSON["plannedSessionId"] = plannedSessionId
+        }
+
+        let setsJSON: [[String: Any]] = request.sets.map { set in
+            var setJSON: [String: Any] = [
+                "clientId": set.clientId, "itemSlug": set.itemSlug, "setIndex": set.setIndex,
+            ]
+            if let reps = set.reps { setJSON["reps"] = reps }
+            if let weightKg = set.weightKg { setJSON["weightKg"] = weightKg }
+            if let seconds = set.seconds { setJSON["seconds"] = seconds }
+            if let distanceM = set.distanceM { setJSON["distanceM"] = distanceM }
+            if let contacts = set.contacts { setJSON["contacts"] = contacts }
+            if let side = set.side { setJSON["side"] = side }
+            return setJSON
+        }
+
+        var urlRequest = URLRequest(url: baseURL.appending(path: "sync/sessions"))
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization")
+        urlRequest.httpBody = try JSONSerialization.data(withJSONObject: ["session": sessionJSON, "sets": setsJSON])
+
+        let (data, response) = try await perform(urlRequest)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw apiError(from: response, data: data)
+        }
+    }
+
+    private static func iso8601String(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.string(from: date)
     }
 
     /// GET /packs/manifest.json — the checksummed index every pack download

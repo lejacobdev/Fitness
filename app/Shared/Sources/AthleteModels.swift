@@ -304,6 +304,11 @@ public final class Session {
     public var healthKitWorkoutId: String?
     public var notes: String?
     public var clientId: String
+    /// §3/§21: nil means "not yet pushed to the backend" — SyncQueue's whole
+    /// job. Device-local bookkeeping only; never synced itself (there is no
+    /// server-side column for it), so it can't collide with the `clientId`
+    /// idempotency key that actually protects the sync.
+    public var syncedAt: Date?
     public var athlete: Athlete?
     public var plannedSession: PlannedSession?
 
@@ -314,7 +319,8 @@ public final class Session {
         id: String = UUID().uuidString, startedAt: Date, endedAt: Date? = nil,
         sessionRPE: Int? = nil, minutes: Int = 0, source: SessionSource,
         healthKitWorkoutId: String? = nil, notes: String? = nil,
-        clientId: String = UUID().uuidString, athlete: Athlete? = nil, plannedSession: PlannedSession? = nil
+        clientId: String = UUID().uuidString, syncedAt: Date? = nil,
+        athlete: Athlete? = nil, plannedSession: PlannedSession? = nil
     ) {
         self.id = id
         self.startedAt = startedAt
@@ -325,6 +331,7 @@ public final class Session {
         self.healthKitWorkoutId = healthKitWorkoutId
         self.notes = notes
         self.clientId = clientId
+        self.syncedAt = syncedAt
         self.athlete = athlete
         self.plannedSession = plannedSession
     }

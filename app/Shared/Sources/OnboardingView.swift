@@ -110,6 +110,11 @@ public struct OnboardingView: View {
                 let response = try await apiClient.signInWithApple(
                     identityToken: identityToken, rawNonce: rawNonce, birthDate: birthDate
                 )
+                // Best-effort: a Keychain write failing here shouldn't block
+                // onboarding — it only means the very first sync drain after
+                // this session has nothing to authenticate with and quietly
+                // no-ops (SyncQueue) until the athlete signs in again.
+                try? KeychainTokenStore().save(response.sessionToken)
                 persistAthlete(from: response)
                 step = .downloadingCore
                 await downloadCorePack()

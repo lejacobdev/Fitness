@@ -38,15 +38,18 @@ struct RootView: View {
     }
 
     private var packDownloader: PackDownloader {
-        let directory = (try? FileManager.default.url(
-            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
-        ).appending(path: "packs")) ?? FileManager.default.temporaryDirectory.appending(path: "packs")
-        return PackDownloader(client: apiClient, packsDirectory: directory)
+        PackDownloader(client: apiClient, packsDirectory: AppConfig.packsDirectory())
     }
 
     var body: some View {
-        if athletes.first != nil || onboardingComplete {
-            PipelinePlaceholderView()
+        if let athlete = athletes.first {
+            PipelinePlaceholderView(athlete: athlete, apiClient: apiClient)
+        } else if onboardingComplete {
+            // @Query can lag a `save()` by a run-loop tick; a nil athlete
+            // here is that transient race, not a real "needs onboarding"
+            // state, so this falls back to a brief loading state rather than
+            // flashing back to the age gate.
+            ProgressView()
         } else {
             OnboardingView(apiClient: apiClient, packDownloader: packDownloader) {
                 onboardingComplete = true
@@ -55,15 +58,19 @@ struct RootView: View {
     }
 }
 
-/// Still transitional — the real five-tab navigation (§15) is later work,
-/// built once M4 (accounts and packs) gives the app something to actually
-/// browse. This screen's job has grown from M0's alone (report what the
-/// signed binary can see) to also demonstrating M3's rendering is real and
-/// not just compiled, unused data — every value below is compiled-in content
-/// (musclesBySlug, posePatternsBySlug, propsBySlug), not a downloaded pack,
-/// since packs don't exist yet.
+/// Still transitional — the real five-tab navigation (§15) is later work.
+/// This screen's job has grown from M0's alone (report what the signed
+/// binary can see) to also demonstrating M3's rendering is real, and now M5's
+/// session logging is reachable and real too, not just compiled-in.
+@MainActor
 struct PipelinePlaceholderView: View {
+    let athlete: Athlete
+    let apiClient: APIClient
+
     private let evidence = BuildEvidence()
+    @Environment(\.modelContext) private var modelContext
+    @State private var showingLiveSession = false
+    @State private var showingHistory = false
 
     var body: some View {
         ScrollView {
@@ -86,6 +93,8 @@ struct PipelinePlaceholderView: View {
                 .padding()
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
 
+                trainingSection
+
                 M3RenderingDemo()
 
                 Text("Not a medical device. Student Athlete never predicts injury, "
@@ -97,6 +106,33 @@ struct PipelinePlaceholderView: View {
             }
             .padding(24)
         }
+        .sheet(isPresented: $showingLiveSession) {
+            LiveSessionView(athlete: athlete, apiClient: apiClient)
+        }
+        .sheet(isPresented: $showingHistory) {
+            SessionHistoryView()
+        }
+        .task {
+            // Best-effort, silent: a fresh launch with connectivity drains
+            // anything logged offline since the last one. Failure here is
+            // not surfaced — SyncQueue leaves unsynced rows untouched, so
+            // the next launch (or the next call to this) just retries them.
+            await SyncQueue(
+                apiClient: apiClient, tokenStore: KeychainTokenStore(), modelContext: modelContext
+            ).drainPendingSessions()
+        }
+    }
+
+    private var trainingSection: some View {
+        VStack(spacing: 12) {
+            Text("§5 — Log a session (M5)").font(.headline)
+            Button("Start training session") { showingLiveSession = true }
+                .buttonStyle(.borderedProminent)
+            Button("History") { showingHistory = true }
+                .buttonStyle(.bordered)
+        }
+        .padding()
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func row(_ label: String, _ value: String, ok: Bool) -> some View {
@@ -151,5 +187,9 @@ struct M3RenderingDemo: View {
 }
 
 #Preview {
-    PipelinePlaceholderView()
+    let container = try! AthleteStore.makeContainer(inMemory: true)
+    let athlete = Athlete(appleUserId: "preview-sub", birthDate: .now)
+    container.mainContext.insert(athlete)
+    return PipelinePlaceholderView(athlete: athlete, apiClient: APIClient(baseURL: AppConfig.backendBaseURL))
+        .modelContainer(container)
 }

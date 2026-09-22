@@ -5,6 +5,7 @@ import express from 'express';
 import { createAppleKeyStore } from './lib/appleIdentity.js';
 import { installAsyncRejectionForwarding } from './lib/asyncRejection.js';
 import { authRouter } from './routes/auth.js';
+import { syncRouter } from './routes/sync.js';
 
 // §19: this must run before any route is registered. Installing it here, at
 // module scope and above every import that registers routes, is deliberate.
@@ -41,6 +42,10 @@ export function createApp({
 
   if (prisma && appleBundleId && sessionSecret) {
     app.use('/auth', authRouter({ prisma, keyStore: appleKeyStore, appleBundleId, sessionSecret }));
+  }
+
+  if (prisma && sessionSecret) {
+    app.use('/sync', syncRouter({ prisma, sessionSecret }));
   }
 
   // §3: "content packs, per-sport bundles, versioned and served over HTTPS
