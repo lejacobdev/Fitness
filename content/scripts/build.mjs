@@ -30,6 +30,7 @@ import { POSE_MODEL_VERSION, POSE_PATTERNS } from '../src/poses.js';
 import { PROPS } from '../src/props.js';
 import { QUALITIES, QUALITY_MODEL_VERSION } from '../src/qualities.js';
 import { REST_POINTS, SEGMENTS, segmentHalfWidthAt } from '../src/rig.js';
+import { EQUIPMENT, EQUIPMENT_LEVELS, PLYOMETRIC_DOSE_KIND } from '../src/schema.js';
 import { SPORT_CATALOGUE_VERSION, SPORTS } from '../src/sports.js';
 import {
   generatedHeader, swiftArray, swiftDict, swiftDoubleLiteral,
@@ -71,7 +72,7 @@ function genQualitiesSwift() {
 /// was authored against a different quality model than this binary compiles.
 public let qualityModelVersion = ${QUALITY_MODEL_VERSION}
 
-public enum QualityGroup: String, CaseIterable, Codable, Sendable {
+public enum QualityGroup: String, CaseIterable, Codable, Sendable, Hashable {
 ${groupEnumCases}
 }
 
@@ -87,6 +88,52 @@ public let qualities: [QualityInfo] = ${swiftArray(structs)}
 
 public let qualitiesBySlug: [String: QualityInfo] =
     Dictionary(uniqueKeysWithValues: qualities.map { ($0.id, $0) })
+`;
+}
+
+/**
+ * §10's plan generator needs the same equipment-level table
+ * content/src/schema.js already validates every item against, so the
+ * generator's eligibility check can never mean something different from
+ * what the sport-coverage tests (§21) already proved every sport satisfies.
+ */
+function genEquipmentSwift() {
+  const levelEnumCases = EQUIPMENT_LEVELS.map((l) => `    case ${camel(l)} = ${swiftStringLiteral(l)}`).join('\n');
+  const rankCases = EQUIPMENT_LEVELS.map((l, i) => `        case .${camel(l)}: return ${i}`).join('\n');
+  const tagEntries = Object.entries(EQUIPMENT).map(
+    ([tag, level]) => `${swiftStringLiteral(tag)}: .${camel(level)}`,
+  );
+
+  return `${generatedHeader('content/src/schema.js')}import Foundation
+
+/// \`.none\` means the athlete needs nothing they would not already have.
+/// Ordered low to high so a higher level is always assumed to include every
+/// lower one (an athlete with \`.full\` gym access also has whatever \`.minimal\`
+/// or \`.none\` needs).
+public enum EquipmentLevel: String, CaseIterable, Codable, Sendable, Comparable {
+${levelEnumCases}
+
+    private var rank: Int {
+        switch self {
+${rankCases}
+        }
+    }
+
+    public static func < (lhs: EquipmentLevel, rhs: EquipmentLevel) -> Bool {
+        lhs.rank < rhs.rank
+    }
+}
+
+/// Every equipment tag an item may require, and the lowest level at which it
+/// is available (content/src/schema.js's own EQUIPMENT table, verbatim).
+public let equipmentLevelByTag: [String: EquipmentLevel] = ${swiftDict(tagEntries)}
+
+/// §7/§10: "plyometric volume is prescribed in ground contacts... An item
+/// whose dose kind is \`contacts\` is a plyometric as far as §10's volume cap
+/// is concerned" — schema.js's own PLYOMETRIC_DOSE_KIND, verbatim, so the
+/// generator's ground-contact cap can never drift from what content
+/// considers a plyometric.
+public let plyometricDoseKind = ${swiftStringLiteral(PLYOMETRIC_DOSE_KIND)}
 `;
 }
 
@@ -412,6 +459,7 @@ function main() {
   console.log(`sports: ${SPORTS.length}, qualities: ${QUALITIES.length}, muscles: ${MUSCLES.length}`);
 
   writeFile(path.join(SWIFT_OUT, 'Qualities.swift'), genQualitiesSwift());
+  writeFile(path.join(SWIFT_OUT, 'Equipment.swift'), genEquipmentSwift());
   writeFile(path.join(SWIFT_OUT, 'Muscles.swift'), genMusclesSwift());
   writeFile(path.join(SWIFT_OUT, 'MuscleMapPaths.swift'), genMuscleMapPathsSwift(buildMuscleMapPaths()));
   writeFile(path.join(SWIFT_OUT, 'BodySilhouette.swift'), genBodySilhouetteSwift(buildBodySilhouettePaths()));
