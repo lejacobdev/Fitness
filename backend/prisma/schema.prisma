@@ -1,0 +1,240 @@
+// Postgres is the source of truth for the account and the sync (§14). SwiftData
+// on the device is the source of truth for the UI. Field names match on both
+// sides so the mapping stays mechanical — do not rename one side only.
+//
+// The catalogue (Sport, Item, Quality, Muscle, PosePair, Prop …) is deliberately
+// absent: it is read-only, arrives in versioned packs as static files, and is
+// never user-edited (§3). Putting it here would create a second source of truth.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UnitSystem {
+  METRIC
+  IMPERIAL
+}
+
+enum CompetitionKind {
+  GAME
+  TOURNAMENT
+  MEET
+}
+
+enum SessionSource {
+  PHONE
+  WATCH
+}
+
+enum ReadinessBand {
+  GREEN
+  AMBER
+  RED
+}
+
+model Athlete {
+  id       String @id @default(uuid())
+  /// The Apple `sub` and nothing else. No email, no name, no other Apple data (§3).
+  appleUserId String @unique
+
+  displayName        String?
+  birthDate          DateTime
+  unitSystem         UnitSystem @default(METRIC)
+  trainsUnderCoach   Boolean    @default(false)
+  equipmentAvailable String[]   @default([])
+
+  /// Written ONLY by the App Store Server Notifications webhook (§18). The client
+  /// never reports its own entitlement; there is no route that lets it.
+  proUntil              DateTime?
+  originalTransactionId String?   @unique
+
+  createdAt DateTime @default(now())
+
+  sports       AthleteSport[]
+  competitions Competition[]
+  checkIns     CheckIn[]
+  plans        Plan[]
+  sessions     Session[]
+  skillBlocks  SkillBlock[]
+  coachReports CoachReport[]
+}
+
+model AthleteSport {
+  id           String   @id @default(uuid())
+  athleteId    String
+  sportSlug    String
+  positionSlug String?
+  seasonStart  DateTime
+  seasonEnd    DateTime
+  isPrimary    Boolean  @default(false)
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId])
+}
+
+/// Drives the taper in §10.
+model Competition {
+  id        String          @id @default(uuid())
+  athleteId String
+  sportSlug String
+  date      DateTime
+  kind      CompetitionKind
+  isHome    Boolean         @default(true)
+  notes     String?
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId, date])
+}
+
+model CheckIn {
+  id           String         @id @default(uuid())
+  athleteId    String
+  date         DateTime       @db.Date
+  sleepQuality Int
+  sleepHours   Float?
+  soreness     Int
+  sorenessAreas String[]      @default([])
+  energy       Int
+  stress       Int
+  readinessBand ReadinessBand?
+  readinessZ   Float?
+  clientId     String
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  /// Unique per athlete per day (§14): a second check-in edits the first rather
+  /// than creating a duplicate day, which would corrupt every rolling baseline
+  /// in §11.
+  @@unique([athleteId, date])
+  @@unique([clientId])
+  @@index([athleteId, date])
+}
+
+model Plan {
+  id          String   @id @default(uuid())
+  athleteId   String
+  weekStart   DateTime @db.Date
+  phase       String
+  seed        String
+  generatedAt DateTime @default(now())
+
+  athlete  Athlete          @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  sessions PlannedSession[]
+
+  @@unique([athleteId, weekStart])
+  @@index([athleteId])
+}
+
+model PlannedSession {
+  id               String   @id @default(uuid())
+  planId           String
+  date             DateTime @db.Date
+  title            String
+  focusQualities   String[] @default([])
+  estimatedMinutes Int
+
+  plan  Plan          @relation(fields: [planId], references: [id], onDelete: Cascade)
+  items PlannedItem[]
+  sessions Session[]
+
+  @@index([planId, date])
+}
+
+model PlannedItem {
+  id                String @id @default(uuid())
+  plannedSessionId  String
+  itemSlug          String
+  order             Int
+  dose              Json
+  restSec           Int
+  rationale         String
+
+  plannedSession PlannedSession @relation(fields: [plannedSessionId], references: [id], onDelete: Cascade)
+
+  @@index([plannedSessionId, order])
+}
+
+model Session {
+  id                String        @id @default(uuid())
+  athleteId         String
+  plannedSessionId  String?
+  startedAt         DateTime
+  endedAt           DateTime?
+  sessionRPE        Int?
+  minutes           Int           @default(0)
+  source            SessionSource
+  healthKitWorkoutId String?
+  notes             String?
+  clientId          String
+
+  athlete        Athlete         @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  plannedSession PlannedSession? @relation(fields: [plannedSessionId], references: [id], onDelete: SetNull)
+  sets           SetLog[]
+
+  /// The idempotency key that makes the offline queue safe to retry (§14). Without
+  /// it a flaky reconnect duplicates a whole session.
+  @@unique([clientId])
+  /// §16: the Watch writes one HKWorkout and stores its UUID so the phone cannot
+  /// write a second for the same session.
+  @@unique([healthKitWorkoutId])
+  @@index([athleteId, startedAt])
+}
+
+model SetLog {
+  id        String @id @default(uuid())
+  sessionId String
+  itemSlug  String
+  setIndex  Int
+  reps      Int?
+  weightKg  Float?
+  seconds   Int?
+  distanceM Float?
+  contacts  Int?
+  side      String?
+  clientId  String
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId])
+  @@index([sessionId, setIndex])
+}
+
+/// The §8 output, kept so it can be revisited.
+model SkillBlock {
+  id          String   @id @default(uuid())
+  athleteId   String
+  sportSlug   String
+  skillSlug   String
+  targetDate  DateTime @db.Date
+  generatedAt DateTime @default(now())
+  seed        String
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId, generatedAt])
+}
+
+model CoachReport {
+  id                 String   @id @default(uuid())
+  athleteId          String
+  weekStart          DateTime @db.Date
+  templateSetVersion Int
+  headline           String
+  observations       Json
+  recommendations    Json
+  encouragement      String
+  templateIndexes    Json
+  createdAt          DateTime @default(now())
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@unique([athleteId, weekStart])
+  @@index([athleteId])
+}

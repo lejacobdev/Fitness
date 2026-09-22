@@ -1,0 +1,25 @@
+{
+  "name": "student-athlete-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20 <21"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "generate": "prisma generate",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "express": "4.21.2",
+    "methods": "1.1.2"
+  },
+  "devDependencies": {
+    "prisma": "5.22.0"
+  }
+}

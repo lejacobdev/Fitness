@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Student Athlete</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+
+	<!-- watchOS 10 single-target watch app -->
+	<key>WKApplication</key>
+	<true/>
+	<key>WKCompanionAppBundleIdentifier</key>
+	<string>com.lejacobdev.studentathlete</string>
+
+	<!--
+	  §16: the session must survive a screen-off wrist-down for the length of a
+	  training session. workout-processing is what keeps HKWorkoutSession alive.
+	-->
+	<key>WKBackgroundModes</key>
+	<array>
+		<string>workout-processing</string>
+	</array>
+
+	<key>NSHealthShareUsageDescription</key>
+	<string>Student Athlete reads your heart rate and workouts during a session so your training load is accurate. You can log sessions without granting this.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Student Athlete saves each session you log to Health so it appears alongside your other activity.</string>
+</dict>
+</plist>

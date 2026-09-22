@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Student Athlete</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+
+	<!-- §15: portrait only -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
+
+	<!--
+	  §17: both strings are mandatory. An app with the HealthKit entitlement and
+	  only one of these is rejected at upload.
+	-->
+	<key>NSHealthShareUsageDescription</key>
+	<string>Student Athlete reads your sleep, workouts and heart rate so your morning check-in and training load reflect what your body actually did. You can use the whole app without granting this.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Student Athlete saves the sessions you log to Health so they appear alongside your other activity. You can use the whole app without granting this.</string>
+
+	<!--
+	  §17: healthkit must NOT appear in UIRequiredDeviceCapabilities. Declaring it
+	  makes the app undownloadable on devices App Review may use, and the app is
+	  required to work fully with every permission denied anyway.
+	-->
+
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>
