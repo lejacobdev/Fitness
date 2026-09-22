@@ -55,6 +55,8 @@ export const EQUIPMENT = {
   'slider': 'minimal',
   'foam-roller': 'minimal',
   'pull-up-bar': 'minimal',
+  /** Any low horizontal anchor — rack pins, a sturdy table, suspension straps. */
+  'low-bar': 'minimal',
   'stick': 'minimal',
   'racket': 'minimal',
   'bat': 'minimal',
