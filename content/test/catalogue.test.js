@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { expandCatalogue } from '../src/expand.js';
+import { BASE_ITEMS, CATALOGUE } from '../src/catalogue.js';
+import { DRILLS } from '../src/items/drills.js';
 import { EXERCISES } from '../src/items/exercises.js';
 import { isMuscle } from '../src/muscles.js';
 import { isPosePattern } from '../src/poses.js';
@@ -9,15 +10,18 @@ import { isProp } from '../src/props.js';
 import { isQuality, QUALITY_SLUGS } from '../src/qualities.js';
 import { itemAvailableAt, itemEquipmentLevel, validateItem } from '../src/schema.js';
 
-const CATALOGUE = expandCatalogue(EXERCISES);
 const BY_SLUG = new Map(CATALOGUE.map((i) => [i.slug, i]));
 
 test('base exercise count is a real, growing base (not a stub)', () => {
   assert.ok(EXERCISES.length >= 40, `only ${EXERCISES.length} base exercises`);
 });
 
-test('every base exercise slug is unique', () => {
-  const slugs = EXERCISES.map((i) => i.slug);
+test('base drill count covers every §7- and §8-named example drill', () => {
+  assert.ok(DRILLS.length >= 8, `only ${DRILLS.length} base drills`);
+});
+
+test('every base item slug (exercises + drills) is unique', () => {
+  const slugs = BASE_ITEMS.map((i) => i.slug);
   assert.equal(new Set(slugs).size, slugs.length);
 });
 
@@ -70,7 +74,7 @@ test('every declared prop resolves to a real §9 prop', () => {
 
 test('every substitutes/progressions/regressions reference resolves within the catalogue', () => {
   const missing = [];
-  for (const item of EXERCISES) {
+  for (const item of BASE_ITEMS) {
     for (const field of ['substitutes', 'progressions', 'regressions']) {
       for (const ref of item[field]) {
         if (!BY_SLUG.has(ref)) missing.push(`${item.slug}.${field} -> ${ref}`);
@@ -84,8 +88,8 @@ test('every reference is to a real base item slug, not a stray derived-only slug
   // References should point at base items (the canonical, stable target), not
   // at one specific equipment/tempo derivative — a derivative's own baseSlug
   // resolving is what expand.test.js already covers.
-  const baseSlugs = new Set(EXERCISES.map((i) => i.slug));
-  for (const item of EXERCISES) {
+  const baseSlugs = new Set(BASE_ITEMS.map((i) => i.slug));
+  for (const item of BASE_ITEMS) {
     for (const field of ['substitutes', 'progressions', 'regressions']) {
       for (const ref of item[field]) {
         assert.ok(baseSlugs.has(ref), `${item.slug}.${field} -> ${ref} is not a base item slug`);
@@ -95,7 +99,7 @@ test('every reference is to a real base item slug, not a stray derived-only slug
 });
 
 test('no item lists itself as its own substitute, progression or regression', () => {
-  for (const item of EXERCISES) {
+  for (const item of BASE_ITEMS) {
     for (const field of ['substitutes', 'progressions', 'regressions']) {
       assert.ok(!item[field].includes(item.slug), `${item.slug}.${field} includes itself`);
     }
@@ -103,7 +107,7 @@ test('no item lists itself as its own substitute, progression or regression', ()
 });
 
 test('COACHED items all carry minAge >= 15 (§2, §7)', () => {
-  for (const item of EXERCISES) {
+  for (const item of BASE_ITEMS) {
     if (item.supervisionLevel === 'COACHED') {
       assert.ok(item.minAge >= 15, `${item.slug} is COACHED but minAge is ${item.minAge}`);
     }
@@ -111,7 +115,7 @@ test('COACHED items all carry minAge >= 15 (§2, §7)', () => {
 });
 
 test('every dose load description avoids %1RM language for every item (§2)', () => {
-  for (const item of EXERCISES) {
+  for (const item of BASE_ITEMS) {
     const load = item.defaultDose.load;
     if (typeof load === 'string') {
       assert.doesNotMatch(load, /%|1rm|one[- ]rep/i, `${item.slug} dose.load reads as a %1RM: ${load}`);
@@ -126,7 +130,7 @@ test('reps-kind doses PRIMARILY targeting a strength quality stay within the NSC
   // to also load the legs — is governed by its own primary quality's dosing
   // norms instead; power work legitimately uses fewer reps and more sets.
   const strengthQualities = ['lower-body-strength', 'upper-body-push', 'upper-body-pull'];
-  for (const item of EXERCISES) {
+  for (const item of BASE_ITEMS) {
     const isStrengthPrimary = strengthQualities.some((q) => (item.qualities[q] ?? 0) >= 0.95);
     if (isStrengthPrimary && item.defaultDose.kind === 'reps') {
       assert.ok(item.defaultDose.sets >= 1 && item.defaultDose.sets <= 3,
@@ -165,6 +169,32 @@ test('an athlete with zero equipment still gets at least one exercise per qualit
     assert.ok(items.length >= 1, `no bodyweight item develops any ${group} quality`);
   }
 });
+
+test('§7\'s own four named example drills all exist', () => {
+  for (const slug of [
+    'soccer-instep-drive-progression',
+    'hockey-edge-work-figure-eights',
+    'volleyball-approach-and-swing-footwork',
+    'sprint-block-starts',
+  ]) {
+    assert.ok(hasBaseSlug(slug), `§7-named drill ${slug} is missing`);
+  }
+});
+
+test('§8\'s worked example ("soccer · shooting power · game in 7 days") drills all exist', () => {
+  for (const slug of [
+    'soccer-instep-drive-progression',
+    'soccer-plant-and-strike',
+    'soccer-one-touch-finishing',
+    'soccer-weak-foot-volume',
+  ]) {
+    assert.ok(hasBaseSlug(slug), `§8 worked-example drill ${slug} is missing`);
+  }
+});
+
+function hasBaseSlug(slug) {
+  return BASE_ITEMS.some((i) => i.slug === slug);
+}
 
 test('itemAvailableAt is consistent: a "full" item is never available at "none"', () => {
   for (const item of CATALOGUE) {
