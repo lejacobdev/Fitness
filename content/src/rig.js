@@ -19,9 +19,9 @@ export const MIDLINE_X = 50;
 
 /** Canonical (right-side) joint positions for the static reference pose. */
 export const REST_POINTS = {
-  headTop: { x: 50, y: 2 },
-  headCenter: { x: 50, y: 12 },
-  neckBase: { x: 50, y: 22 },
+  headTop: { x: 50, y: 3 },
+  headCenter: { x: 50, y: 13 },
+  neckBase: { x: 50, y: 24 },
   // The classic muscle-chart A-pose: arms held clearly clear of the torso so
   // the two silhouettes read as distinct shapes rather than overlapping.
   shoulderR: { x: 75, y: 29 },
@@ -42,21 +42,31 @@ export function mirrorX(x) {
 
 /**
  * Segments the figure is built from. `kind: 'line'` runs between two named
- * points with a half-width; `kind: 'point'` is a small round region (deltoid,
- * glute cap) centred on one point. Every drawable muscle attaches to exactly
- * one segment.
+ * points; `kind: 'point'` is a small round region (head, deltoid, glute cap)
+ * centred on one point. A line segment's width is `halfWidth` if constant, or
+ * `halfWidthA` (at point `a`) tapering linearly to `halfWidthB` (at point
+ * `b`) if the two differ — a real torso is wider at the chest than the waist,
+ * and a rectangle never reads as one no matter how its corners are rounded.
+ * Every drawable muscle attaches to exactly one segment.
  */
 export const SEGMENTS = {
+  head: { kind: 'point', center: 'headCenter', radius: 9 },
   neck: { kind: 'line', a: 'neckBase', b: 'headCenter', halfWidth: 5 },
-  'trunk-upper': { kind: 'line', a: 'neckBase', b: 'waist', halfWidth: 17 },
-  'trunk-lower': { kind: 'line', a: 'waist', b: 'pelvisCenter', halfWidth: 15 },
+  'trunk-upper': { kind: 'line', a: 'neckBase', b: 'waist', halfWidthA: 17, halfWidthB: 12.5 },
+  'trunk-lower': { kind: 'line', a: 'waist', b: 'pelvisCenter', halfWidthA: 12.5, halfWidthB: 15.5 },
   shoulderCap: { kind: 'point', center: 'shoulderR', radius: 7.5 },
-  upperArm: { kind: 'line', a: 'shoulderR', b: 'elbowR', halfWidth: 6 },
-  forearm: { kind: 'line', a: 'elbowR', b: 'wristR', halfWidth: 5 },
+  upperArm: { kind: 'line', a: 'shoulderR', b: 'elbowR', halfWidthA: 6.5, halfWidthB: 5 },
+  forearm: { kind: 'line', a: 'elbowR', b: 'wristR', halfWidthA: 5.5, halfWidthB: 3.8 },
   hipCap: { kind: 'point', center: 'hipR', radius: 9.5 },
-  thigh: { kind: 'line', a: 'hipR', b: 'kneeR', halfWidth: 8.5 },
-  shin: { kind: 'line', a: 'kneeR', b: 'ankleR', halfWidth: 6 },
+  thigh: { kind: 'line', a: 'hipR', b: 'kneeR', halfWidthA: 9, halfWidthB: 6.5 },
+  shin: { kind: 'line', a: 'kneeR', b: 'ankleR', halfWidthA: 6.3, halfWidthB: 4 },
   foot: { kind: 'line', a: 'ankleR', b: 'footTipR', halfWidth: 5 },
 };
 
 export const SEGMENT_IDS = Object.keys(SEGMENTS);
+
+/** The segment's half-width at parameter `t` (0 at point `a`, 1 at point `b`). */
+export function segmentHalfWidthAt(seg, t) {
+  if (seg.halfWidth !== undefined) return seg.halfWidth;
+  return seg.halfWidthA + (seg.halfWidthB - seg.halfWidthA) * t;
+}

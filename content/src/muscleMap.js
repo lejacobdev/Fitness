@@ -6,7 +6,11 @@
 
 import { DRAWABLE_MUSCLES } from './muscles.js';
 import { MUSCLE_REGIONS } from './muscleRegions.js';
-import { mirrorPolygon, polygonArea, polygonToSvgPath, regionPolygon } from './geometry.js';
+import { mirrorPolygon, polygonArea, regionPolygon, roundedPolygonToSvgPath } from './geometry.js';
+
+/** Muscle patches get a gentler rounding than the body silhouette (0.42) —
+ * enough to soften the corners without shrinking small patches too much. */
+const MUSCLE_CORNER_FRAC = 0.3;
 
 /** A minimum area (in the 100x200 canonical space) below which a region is degenerate. */
 const MIN_REGION_AREA = 1;
@@ -29,10 +33,10 @@ export function buildMuscleMapPaths() {
       if (area < MIN_REGION_AREA) {
         throw new Error(`${muscle.slug}.${view}.right region is degenerate (area ${area})`);
       }
-      paths[`${muscle.slug}.${view}.right`] = polygonToSvgPath(rightPolygon);
+      paths[`${muscle.slug}.${view}.right`] = roundedPolygonToSvgPath(rightPolygon, MUSCLE_CORNER_FRAC);
 
       const leftPolygon = mirrorPolygon(rightPolygon);
-      paths[`${muscle.slug}.${view}.left`] = polygonToSvgPath(leftPolygon);
+      paths[`${muscle.slug}.${view}.left`] = roundedPolygonToSvgPath(leftPolygon, MUSCLE_CORNER_FRAC);
     }
 
     // Every placement entry must be used by a view muscles.js actually declares
