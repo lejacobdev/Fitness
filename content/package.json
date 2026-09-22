@@ -1,0 +1,15 @@
+{
+  "name": "student-athlete-content",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Authored catalogue for the Student Athlete Companion. Nothing here is imported, scraped or licensed (§7).",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/",
+    "build": "node scripts/build.mjs",
+    "verify": "node scripts/verify-packs.mjs dist"
+  }
+}
