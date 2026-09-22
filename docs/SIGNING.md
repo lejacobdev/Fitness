@@ -95,7 +95,7 @@ actually calling it, not assumed:
 
 ```bash
 ASC_KEY_ID=... ASC_ISSUER_ID=... ASC_PRIVATE_KEY="$(cat AuthKey_*.p8)" \
-  node tools/asc.mjs provision com.lejacobdev.studentathlete "Student Athlete"
+  node tools/asc.mjs provision com.studentathlete.app "Student Athlete"
 ```
 
 Safe to re-run — both the bundle-id creation and each capability enable are
@@ -114,7 +114,7 @@ of which `tools/asc.mjs` already handles:
 
 - **App Groups cannot be fully attached to an App ID by an API key.** Enabling
   the capability flag works over the API (`provision` does this); attaching
-  the actual `group.com.lejacobdev.studentathlete` container to the App ID is
+  the actual `group.com.studentathlete.app` container to the App ID is
   still a manual step — Certificates, Identifiers & Profiles → Identifiers →
   App Groups tab → create the group → back on the App ID's Capabilities →
   App Groups → select it. Skipping it fails the archive with
@@ -131,7 +131,7 @@ required the web UI, full stop — this is the one piece of the whole pipeline
 that cannot be scripted.
 
 App Store Connect → My Apps → **+** → New App → iOS → bundle ID
-`com.lejacobdev.studentathlete` → pick a unique app name and SKU (the SKU is
+`com.studentathlete.app` → pick a unique app name and SKU (the SKU is
 internal-only, never shown to users). `xcrun altool --upload-app` fails with
 "No suitable application records were found" until this exists.
 

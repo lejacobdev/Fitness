@@ -15,7 +15,7 @@
 name: StudentAthlete
 
 options:
-  bundleIdPrefix: com.lejacobdev.studentathlete
+  bundleIdPrefix: com.studentathlete.app
   createIntermediateGroups: true
   groupSortPosition: top
   generateEmptyDirectories: true
@@ -65,7 +65,7 @@ targets:
         buildPhase: resources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.lejacobdev.studentathlete
+        PRODUCT_BUNDLE_IDENTIFIER: com.studentathlete.app
         PRODUCT_NAME: Student Athlete
         INFOPLIST_FILE: StudentAthlete/Info.plist
         # Trap 1: must be stated explicitly.
@@ -83,7 +83,7 @@ targets:
         com.apple.developer.applesignin:
           - Default
         com.apple.security.application-groups:
-          - group.com.lejacobdev.studentathlete
+          - group.com.studentathlete.app
         aps-environment: production
     dependencies:
       - target: StudentAthleteWatch
@@ -100,7 +100,7 @@ targets:
       - path: Shared/Sources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.lejacobdev.studentathlete.widget
+        PRODUCT_BUNDLE_IDENTIFIER: com.studentathlete.app.widget
         PRODUCT_NAME: Student Athlete Widget
         INFOPLIST_FILE: StudentAthleteWidget/Info.plist
         CODE_SIGN_ENTITLEMENTS: StudentAthleteWidget/StudentAthleteWidget.entitlements
@@ -110,7 +110,7 @@ targets:
       path: StudentAthleteWidget/StudentAthleteWidget.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.com.lejacobdev.studentathlete
+          - group.com.studentathlete.app
 
   # ─────────────────────────────────────────────────────────── Watch app
   StudentAthleteWatch:
@@ -123,7 +123,7 @@ targets:
         buildPhase: resources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.lejacobdev.studentathlete.watchkitapp
+        PRODUCT_BUNDLE_IDENTIFIER: com.studentathlete.app.watchkitapp
         PRODUCT_NAME: Student Athlete
         INFOPLIST_FILE: StudentAthleteWatch/Info.plist
         CODE_SIGN_ENTITLEMENTS: StudentAthleteWatch/StudentAthleteWatch.entitlements
@@ -137,7 +137,7 @@ targets:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
         com.apple.security.application-groups:
-          - group.com.lejacobdev.studentathlete
+          - group.com.studentathlete.app
     dependencies:
       - target: StudentAthleteWatchWidget
         embed: true
@@ -155,7 +155,7 @@ targets:
         # rejects outright (409 "is not available", confirmed by trying it) --
         # not a real collision, just a blocked keyword. Named for what it is
         # anyway: this extension is the watch face complication.
-        PRODUCT_BUNDLE_IDENTIFIER: com.lejacobdev.studentathlete.watchkitapp.watchface
+        PRODUCT_BUNDLE_IDENTIFIER: com.studentathlete.app.watchkitapp.watchface
         PRODUCT_NAME: Student Athlete Complication
         INFOPLIST_FILE: StudentAthleteWatchWidget/Info.plist
         CODE_SIGN_ENTITLEMENTS: StudentAthleteWatchWidget/StudentAthleteWatchWidget.entitlements
@@ -166,7 +166,7 @@ targets:
       path: StudentAthleteWatchWidget/StudentAthleteWatchWidget.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.com.lejacobdev.studentathlete
+          - group.com.studentathlete.app
 
 schemes:
   StudentAthlete:

@@ -8,7 +8,7 @@ on:
       bundle_id:
         description: 'Bundle identifier to inspect'
         required: false
-        default: 'com.lejacobdev.studentathlete'
+        default: 'com.studentathlete.app'
       build_id:
         description: 'Optional build id, to dump what App Store Connect recorded inside it'
         required: false

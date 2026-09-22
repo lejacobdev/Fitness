@@ -11,7 +11,7 @@
  *
  *  2. `filter[identifier]` on /v1/bundleIds is a PREFIX match, and `included`
  *     pools capabilities across every match. Asking for
- *     `com.lejacobdev.studentathlete` also returns the watch app, the
+ *     `com.studentathlete.app` also returns the watch app, the
  *     complication and the widget, so capabilities must be read through the
  *     exact bundle's own relationship ids rather than off the top-level
  *     `included` array.
@@ -282,7 +282,7 @@ const commands = {
     }
     if (capabilityType === 'APP_GROUPS') {
       console.log('  note: the capability flag is on, but the App Group container itself');
-      console.log('  (group.com.lejacobdev.studentathlete) still needs to be created and');
+      console.log('  (group.com.studentathlete.app) still needs to be created and');
       console.log('  attached in the portal — Certificates, Identifiers & Profiles >');
       console.log('  Identifiers > App Groups tab. An API key cannot do this step (§19).');
     }

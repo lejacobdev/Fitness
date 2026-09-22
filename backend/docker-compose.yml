@@ -36,7 +36,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-athlete}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-student_athlete}?schema=public
       PORT: 8080
       APP_VERSION: ${APP_VERSION:-dev}
-      APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-com.lejacobdev.studentathlete}
+      APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-com.studentathlete.app}
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
     ports:
       - "${API_PORT:-8080}:8080"

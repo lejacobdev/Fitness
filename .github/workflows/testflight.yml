@@ -19,7 +19,7 @@ concurrency:
 env:
   DEVELOPMENT_TEAM: ${{ vars.APPLE_TEAM_ID }}
   BUILD_NUMBER: ${{ github.run_number }}
-  BUNDLE_ID: com.lejacobdev.studentathlete
+  BUNDLE_ID: com.studentathlete.app
 
 jobs:
   upload:

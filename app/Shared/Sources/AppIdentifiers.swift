@@ -7,8 +7,8 @@ import Foundation
 /// complication silently shows nothing — so the M0 placeholder screen reports
 /// this value rather than assuming it.
 public enum AppIdentifiers {
-    public static let appGroup = "group.com.lejacobdev.studentathlete"
-    public static let bundlePrefix = "com.lejacobdev.studentathlete"
+    public static let appGroup = "group.com.studentathlete.app"
+    public static let bundlePrefix = "com.studentathlete.app"
 
     public static var sharedContainer: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)

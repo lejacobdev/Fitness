@@ -23,7 +23,7 @@
 	<key>WKApplication</key>
 	<true/>
 	<key>WKCompanionAppBundleIdentifier</key>
-	<string>com.lejacobdev.studentathlete</string>
+	<string>com.studentathlete.app</string>
 
 	<!--
 	  §16: the session must survive a screen-off wrist-down for the length of a

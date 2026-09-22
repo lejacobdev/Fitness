@@ -9,7 +9,7 @@ import {
   verifyAppleIdentityToken,
 } from '../src/lib/appleIdentity.js';
 
-const AUDIENCE = 'com.lejacobdev.studentathlete';
+const AUDIENCE = 'com.studentathlete.app';
 const KID = 'test-key-1';
 const NOW_S = 1_800_000_000;
 

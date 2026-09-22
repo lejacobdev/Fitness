@@ -169,8 +169,8 @@ jobs:
         run: |
           fail=0
           for pair in \
-            'Student Athlete.app:Debug-iphonesimulator:com.lejacobdev.studentathlete' \
-            'Student Athlete.app:Debug-watchsimulator:com.lejacobdev.studentathlete.watchkitapp'
+            'Student Athlete.app:Debug-iphonesimulator:com.studentathlete.app' \
+            'Student Athlete.app:Debug-watchsimulator:com.studentathlete.app.watchkitapp'
           do
             name="${pair%%:*}"; rest="${pair#*:}"; config="${rest%%:*}"; expected="${rest##*:}"
             path=$(find ~/Library/Developer/Xcode/DerivedData -type d -name "$name" -path "*${config}*" | head -1)
@@ -206,7 +206,7 @@ jobs:
           app_path=$(find ~/Library/Developer/Xcode/DerivedData -name 'Student Athlete.app' -path '*Debug-iphonesimulator*' | head -1)
           echo "app bundle: $app_path"
           xcrun simctl install "$device" "$app_path"
-          xcrun simctl launch "$device" com.lejacobdev.studentathlete
+          xcrun simctl launch "$device" com.studentathlete.app
           sleep 6
           xcrun simctl io "$device" screenshot ../artifacts/today-placeholder.png
 
