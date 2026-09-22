@@ -1,12 +1,19 @@
 import express from 'express';
 
+import { createAppleKeyStore } from './lib/appleIdentity.js';
 import { installAsyncRejectionForwarding } from './lib/asyncRejection.js';
+import { authRouter } from './routes/auth.js';
 
 // §19: this must run before any route is registered. Installing it here, at
 // module scope and above every import that registers routes, is deliberate.
 installAsyncRejectionForwarding();
 
-export function createApp({ prisma } = {}) {
+export function createApp({
+  prisma,
+  appleBundleId = process.env.APPLE_BUNDLE_ID,
+  sessionSecret = process.env.SESSION_SECRET,
+  appleKeyStore = createAppleKeyStore(),
+} = {}) {
   const app = express();
 
   app.disable('x-powered-by');
@@ -28,6 +35,10 @@ export function createApp({ prisma } = {}) {
     await prisma.$queryRaw`SELECT 1`;
     res.json({ ok: true });
   });
+
+  if (prisma && appleBundleId && sessionSecret) {
+    app.use('/auth', authRouter({ prisma, keyStore: appleKeyStore, appleBundleId, sessionSecret }));
+  }
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'not_found' });
