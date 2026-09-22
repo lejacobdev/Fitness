@@ -169,7 +169,7 @@ jobs:
         run: |
           fail=0
           for pair in \
-            'StudentAthlete.app:Debug-iphonesimulator:com.lejacobdev.studentathlete' \
+            'Student Athlete.app:Debug-iphonesimulator:com.lejacobdev.studentathlete' \
             'Student Athlete.app:Debug-watchsimulator:com.lejacobdev.studentathlete.watchkitapp'
           do
             name="${pair%%:*}"; rest="${pair#*:}"; config="${rest%%:*}"; expected="${rest##*:}"
