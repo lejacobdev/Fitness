@@ -2,6 +2,22 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!--
+	  Xcode's default template always carries these four keys as build-setting
+	  placeholders. Omitting CFBundleIdentifier in particular produces an app
+	  with no bundle ID: it builds cleanly but the simulator (and, identically,
+	  a real device) refuses to install it — "Missing bundle ID" — which is
+	  otherwise indistinguishable from a signing problem until you look closely.
+	-->
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+
 	<key>CFBundleDisplayName</key>
 	<string>Student Athlete</string>
 	<key>CFBundleShortVersionString</key>

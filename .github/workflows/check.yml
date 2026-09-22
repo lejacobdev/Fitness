@@ -38,13 +38,15 @@ jobs:
           npx prisma generate
           npm test
 
+      # No working-directory: it is resolved before the script runs, so a missing
+      # content/ would fail the step rather than reach the guard inside it.
       - name: Content catalogue integrity and codegen (§21)
-        working-directory: content
         run: |
-          if [ ! -f package.json ]; then
+          if [ ! -f content/package.json ]; then
             echo "content/ has no package.json yet — M1 has not landed."
             exit 0
           fi
+          cd content
           npm ci
           npm test
           npm run build
@@ -157,6 +159,35 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             | tail -40
 
+      # A hand-written Info.plist that omits CFBundleIdentifier (or the other
+      # three boilerplate keys Xcode's default template always carries) builds
+      # cleanly but produces an app simctl/a real device refuses to install:
+      # "Missing bundle ID" — indistinguishable from a signing problem until you
+      # look at the built Info.plist directly. This caught exactly that bug once
+      # already, so it stays as a permanent guard.
+      - name: 'Evidence: every built app has a resolved CFBundleIdentifier'
+        run: |
+          fail=0
+          for pair in \
+            'StudentAthlete.app:Debug-iphonesimulator:com.lejacobdev.studentathlete' \
+            'Student Athlete.app:Debug-watchsimulator:com.lejacobdev.studentathlete.watchkitapp'
+          do
+            name="${pair%%:*}"; rest="${pair#*:}"; config="${rest%%:*}"; expected="${rest##*:}"
+            path=$(find ~/Library/Developer/Xcode/DerivedData -type d -name "$name" -path "*${config}*" | head -1)
+            if [ -z "$path" ]; then
+              echo "::error::no built app matching $name under $config was found"
+              fail=1
+              continue
+            fi
+            actual=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$path/Info.plist" 2>/dev/null || echo '<MISSING>')
+            printf '%-40s CFBundleIdentifier = %s\n' "$path" "$actual"
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::$path has CFBundleIdentifier=$actual, expected $expected. A source Info.plist missing the CFBundleIdentifier/CFBundleName/CFBundleExecutable/CFBundlePackageType boilerplate builds fine but cannot be installed."
+              fail=1
+            fi
+          done
+          exit $fail
+
       - name: Simulator screenshots
         working-directory: app
         run: |
@@ -167,6 +198,9 @@ jobs:
             echo "no simulator device could be created; skipping screenshots"
             exit 0
           fi
+          cleanup() { xcrun simctl shutdown "$device" 2>/dev/null || true; xcrun simctl delete "$device" 2>/dev/null || true; }
+          trap cleanup EXIT
+
           xcrun simctl boot "$device"
           xcrun simctl bootstatus "$device" -b
           app_path=$(find ~/Library/Developer/Xcode/DerivedData -name 'Student Athlete.app' -path '*Debug-iphonesimulator*' | head -1)
@@ -175,8 +209,6 @@ jobs:
           xcrun simctl launch "$device" com.lejacobdev.studentathlete
           sleep 6
           xcrun simctl io "$device" screenshot ../artifacts/today-placeholder.png
-          xcrun simctl shutdown "$device"
-          xcrun simctl delete "$device"
 
       - uses: actions/upload-artifact@v4
         if: always()
