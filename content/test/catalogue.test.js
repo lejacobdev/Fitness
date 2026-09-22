@@ -9,6 +9,7 @@ import { isPosePattern } from '../src/poses.js';
 import { isProp } from '../src/props.js';
 import { isQuality, QUALITY_SLUGS } from '../src/qualities.js';
 import { itemAvailableAt, itemEquipmentLevel, validateItem } from '../src/schema.js';
+import { isSport } from '../src/sports.js';
 
 const BY_SLUG = new Map(CATALOGUE.map((i) => [i.slug, i]));
 
@@ -167,6 +168,18 @@ test('an athlete with zero equipment still gets at least one exercise per qualit
   }
   for (const [group, items] of Object.entries(groups)) {
     assert.ok(items.length >= 1, `no bodyweight item develops any ${group} quality`);
+  }
+});
+
+test('every drill\'s sport field references a real sport (§3\'s per-sport pack partitioning)', () => {
+  for (const drill of DRILLS) {
+    assert.ok(isSport(drill.sport), `${drill.slug}.sport ${drill.sport} is not a real sport`);
+  }
+});
+
+test('no exercise declares a sport field — exercises are sport-agnostic by definition (§7)', () => {
+  for (const ex of EXERCISES) {
+    assert.equal(ex.sport, undefined, `${ex.slug} is an exercise but declares sport ${ex.sport}`);
   }
 });
 

@@ -54,6 +54,7 @@ function baseDrill(overrides = {}) {
     slug: 'soccer-instep-strike',
     name: 'Instep Strike Progression',
     kind: 'drill',
+    sport: 'soccer',
     qualities: { 'rotational-power': 0.9, 'single-leg-stability': 0.5 },
     muscles: { 'rectus-femoris': 0.8, 'gluteus-maximus': 0.6 },
     equipment: ['ball', 'goal'],

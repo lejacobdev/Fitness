@@ -190,6 +190,17 @@ export function validateItem(item, errors = []) {
     fail(errors, slug, `kind ${JSON.stringify(item?.kind)} is not exercise or drill`);
   }
 
+  // §7: drills require that sport's equipment and surface — they are
+  // sport-specific by definition, which is also what lets the pack builder
+  // (§3) partition drills into per-sport packs. Exercises are sport-agnostic
+  // by definition, so a `sport` field there would be a contradiction.
+  if (item?.kind === 'drill' && (typeof item?.sport !== 'string' || item.sport.length === 0)) {
+    fail(errors, slug, 'drill is missing its sport slug');
+  }
+  if (item?.kind === 'exercise' && item?.sport !== undefined) {
+    fail(errors, slug, 'exercise must not declare a sport — exercises are sport-agnostic by definition (§7)');
+  }
+
   checkWeightMap(errors, slug, 'qualities', item?.qualities, isQuality, 'quality');
   checkWeightMap(errors, slug, 'muscles', item?.muscles, isMuscle, 'muscle');
 
