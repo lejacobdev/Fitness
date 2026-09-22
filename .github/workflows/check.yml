@@ -147,6 +147,17 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             | tail -40
 
+      - name: 'Run iOS unit tests (§21: age gate, model cascade rules, API decoding, offline pack behaviour)'
+        working-directory: app
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project StudentAthlete.xcodeproj \
+            -scheme StudentAthlete \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO \
+            | tail -150
+
       - name: Build Watch app (unsigned, simulator)
         working-directory: app
         run: |

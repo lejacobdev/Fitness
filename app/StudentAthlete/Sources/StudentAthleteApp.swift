@@ -1,10 +1,56 @@
+import SwiftData
 import SwiftUI
 
 @main
 struct StudentAthleteApp: App {
+    private let container: ModelContainer
+
+    init() {
+        do {
+            container = try AthleteStore.makeContainer()
+        } catch {
+            // §14's local store is the device's only copy of everything not
+            // yet synced — a container that fails to open is not a state the
+            // app can silently paper over with an in-memory fallback.
+            fatalError("Could not open the on-device store: \(error)")
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
+            RootView()
+        }
+        .modelContainer(container)
+    }
+}
+
+/// §15: onboarding runs once per device. Whether it has already run is
+/// decided by whether a local `Athlete` row exists yet, the same signal an
+/// offline-first app with no separate "is onboarded" flag would use anywhere
+/// else in the store.
+@MainActor
+struct RootView: View {
+    @Query private var athletes: [Athlete]
+    @State private var onboardingComplete = false
+
+    private var apiClient: APIClient {
+        APIClient(baseURL: AppConfig.backendBaseURL)
+    }
+
+    private var packDownloader: PackDownloader {
+        let directory = (try? FileManager.default.url(
+            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
+        ).appending(path: "packs")) ?? FileManager.default.temporaryDirectory.appending(path: "packs")
+        return PackDownloader(client: apiClient, packsDirectory: directory)
+    }
+
+    var body: some View {
+        if athletes.first != nil || onboardingComplete {
             PipelinePlaceholderView()
+        } else {
+            OnboardingView(apiClient: apiClient, packDownloader: packDownloader) {
+                onboardingComplete = true
+            }
         }
     }
 }

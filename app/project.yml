@@ -142,6 +142,22 @@ targets:
       - target: StudentAthleteWatchWidget
         embed: true
 
+  # ─────────────────────────────────────────────────── iOS unit tests (§21)
+  # Standalone/library-based (no TEST_HOST) — Shared/Sources is compiled into
+  # this target the same way it is compiled into the other four, so the
+  # tests reference APIClient/AthleteModels/etc. directly with no @testable
+  # import and no dependency on the host app being built first.
+  StudentAthleteTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: StudentAthleteTests/Sources
+      - path: Shared/Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.studentathlete.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+
   # ────────────────────────────────────── Watch complication (WidgetKit)
   StudentAthleteWatchWidget:
     type: app-extension
@@ -173,6 +189,10 @@ schemes:
     build:
       targets:
         StudentAthlete: all
+        StudentAthleteTests: [test]
+    test:
+      targets:
+        - StudentAthleteTests
     run:
       config: Debug
     archive:

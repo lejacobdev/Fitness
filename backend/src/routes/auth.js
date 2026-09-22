@@ -63,7 +63,17 @@ export function authRouter({ prisma, keyStore, appleBundleId, sessionSecret }) {
     const token = signSessionToken(athlete.id, { secret: sessionSecret });
     res.json({
       sessionToken: token,
-      athlete: { id: athlete.id, createdAt: athlete.createdAt },
+      // appleUserId + birthDate travel back too, not just id/createdAt: a
+      // restore onto a brand-new device (§3) has no local Athlete row yet,
+      // and both are required, non-optional fields on the client's SwiftData
+      // model (AthleteModels.swift) -- the client cannot materialise that
+      // row from `id`/`createdAt` alone.
+      athlete: {
+        id: athlete.id,
+        appleUserId: athlete.appleUserId,
+        birthDate: athlete.birthDate,
+        createdAt: athlete.createdAt,
+      },
     });
   });
 

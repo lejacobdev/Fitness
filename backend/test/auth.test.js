@@ -85,6 +85,10 @@ test('a first-time sign-in with a birth date creates an athlete and returns a se
     const body = await res.json();
     assert.ok(body.sessionToken);
     assert.ok(body.athlete.id);
+    // The client's SwiftData model needs these to materialise a local
+    // Athlete row on a restore, where it has no local copy to fall back on.
+    assert.equal(body.athlete.appleUserId, '001234.abcdef.5678');
+    assert.equal(body.athlete.birthDate, new Date('2010-05-01').toISOString());
 
     const { athleteId } = verifySessionToken(body.sessionToken, { secret: SESSION_SECRET });
     assert.equal(athleteId, body.athlete.id);

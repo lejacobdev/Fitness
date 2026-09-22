@@ -12,12 +12,34 @@ public struct APIClient: Sendable {
         self.session = session
     }
 
-    public struct AuthResponse: Codable, Sendable {
+    public struct AuthResponse: Sendable {
         public let sessionToken: String
         public let athlete: AthleteSummary
-        public struct AthleteSummary: Codable, Sendable {
+        public struct AthleteSummary: Sendable {
             public let id: String
+            /// The Apple `sub`. Needed, not just `id`, because a restore onto
+            /// a brand-new device has no local Athlete row yet and both are
+            /// required fields on the SwiftData model (AthleteModels.swift).
+            public let appleUserId: String
+            public let birthDate: Date
             public let createdAt: Date
+        }
+    }
+
+    /// The over-the-wire shape, decoded as plain strings first. Prisma/Express
+    /// serialise `DateTime` via `Date.prototype.toJSON()`, which always
+    /// includes millisecond fractional seconds (`...T00:00:00.000Z`) —
+    /// `JSONDecoder`'s built-in `.iso8601` strategy uses `withInternetDateTime`
+    /// only and fails closed on every real response this backend sends, so
+    /// both date fields are parsed explicitly instead of trusting it.
+    private struct WireAuthResponse: Decodable {
+        let sessionToken: String
+        let athlete: WireAthleteSummary
+        struct WireAthleteSummary: Decodable {
+            let id: String
+            let appleUserId: String
+            let birthDate: String
+            let createdAt: String
         }
     }
 
@@ -49,13 +71,41 @@ public struct APIClient: Sendable {
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw apiError(from: response, data: data)
         }
+        return try Self.decodeAuthResponse(from: data)
+    }
+
+    static func decodeAuthResponse(from data: Data) throws -> AuthResponse {
+        let wire: WireAuthResponse
         do {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            return try decoder.decode(AuthResponse.self, from: data)
+            wire = try JSONDecoder().decode(WireAuthResponse.self, from: data)
         } catch {
             throw APIError.decoding
         }
+        guard
+            let birthDate = parseISO8601(wire.athlete.birthDate),
+            let createdAt = parseISO8601(wire.athlete.createdAt)
+        else {
+            throw APIError.decoding
+        }
+        return AuthResponse(
+            sessionToken: wire.sessionToken,
+            athlete: .init(
+                id: wire.athlete.id, appleUserId: wire.athlete.appleUserId,
+                birthDate: birthDate, createdAt: createdAt
+            )
+        )
+    }
+
+    /// Tries with fractional seconds first (what this backend actually
+    /// sends) and falls back to the plain form, so a future backend change
+    /// that drops milliseconds does not break decoding either.
+    private static func parseISO8601(_ string: String) -> Date? {
+        let withFractional = ISO8601DateFormatter()
+        withFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = withFractional.date(from: string) { return date }
+        let withoutFractional = ISO8601DateFormatter()
+        withoutFractional.formatOptions = [.withInternetDateTime]
+        return withoutFractional.date(from: string)
     }
 
     /// GET /packs/manifest.json — the checksummed index every pack download
