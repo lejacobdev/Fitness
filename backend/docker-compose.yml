@@ -27,7 +27,13 @@ services:
 
   api:
     build:
-      context: .
+      # Repo root, not backend/ — the image needs to reach the sibling
+      # content/ directory at build time to build the packs it serves (§3).
+      # This is build-time source access only; the running containers still
+      # share no volume or network with anything else, so §23's isolation
+      # still holds at runtime.
+      context: ..
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     depends_on:
       db:

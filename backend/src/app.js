@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+
 import express from 'express';
 
 import { createAppleKeyStore } from './lib/appleIdentity.js';
@@ -13,6 +15,7 @@ export function createApp({
   appleBundleId = process.env.APPLE_BUNDLE_ID,
   sessionSecret = process.env.SESSION_SECRET,
   appleKeyStore = createAppleKeyStore(),
+  packsDir = process.env.PACKS_DIR,
 } = {}) {
   const app = express();
 
@@ -38,6 +41,18 @@ export function createApp({
 
   if (prisma && appleBundleId && sessionSecret) {
     app.use('/auth', authRouter({ prisma, keyStore: appleKeyStore, appleBundleId, sessionSecret }));
+  }
+
+  // §3: "content packs, per-sport bundles, versioned and served over HTTPS
+  // with an ETag" — express.static's conditional-GET support (ETag,
+  // If-None-Match, 304) is exactly this, so there is no hand-rolled caching
+  // logic here. packsDir is built by content/scripts/build.mjs; when it does
+  // not exist (a dev environment that has never run `npm run build` in
+  // content/) this route simply 404s every request rather than crashing the
+  // whole app, since packs are one of four responsibilities, not a
+  // precondition for the other three to work.
+  if (packsDir && fs.existsSync(packsDir)) {
+    app.use('/packs', express.static(packsDir, { etag: true, index: false }));
   }
 
   app.use((_req, res) => {

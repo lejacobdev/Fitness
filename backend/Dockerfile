@@ -1,4 +1,18 @@
 # Node 20 per §3 — the stack shape that is already proven end to end.
+#
+# Build context is the REPO ROOT (see docker-compose.yml), not backend/,
+# specifically so this stage can reach the sibling content/ directory to
+# build the packs it serves — §3's "content packs" responsibility needs the
+# actual pack files, not just the route that serves them.
+FROM node:20-bookworm-slim AS content-packs
+
+WORKDIR /content
+COPY content/package.json content/package-lock.json ./
+RUN npm ci
+COPY content/ ./
+RUN npm run build
+
+
 FROM node:20-bookworm-slim AS deps
 
 WORKDIR /app
@@ -6,10 +20,10 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-COPY package.json package-lock.json ./
+COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --omit=dev
 
-COPY prisma ./prisma
+COPY backend/prisma ./prisma
 RUN npx prisma generate
 
 
@@ -21,11 +35,13 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
+ENV PACKS_DIR=/app/packs
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY package.json package-lock.json ./
-COPY prisma ./prisma
-COPY src ./src
+COPY backend/package.json backend/package-lock.json ./
+COPY backend/prisma ./prisma
+COPY backend/src ./src
+COPY --from=content-packs /content/dist ./packs
 
 USER node
 EXPOSE 8080
