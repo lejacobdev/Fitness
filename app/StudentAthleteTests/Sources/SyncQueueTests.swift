@@ -1,6 +1,14 @@
 import SwiftData
 import XCTest
 
+/// `SyncQueue` is `@MainActor` (it shares a `ModelContext` with SwiftUI's
+/// own MainActor-confined access — see SyncQueue.swift's doc comment), so
+/// constructing it from a plain `async throws` test method fails actor
+/// isolation checking under `SWIFT_STRICT_CONCURRENCY = complete` even
+/// though the equivalent synchronous-context calls elsewhere in this test
+/// target were tolerated. Marking the whole case `@MainActor` is the
+/// standard fix for testing MainActor-isolated code with XCTest.
+@MainActor
 final class SyncQueueTests: XCTestCase {
     override func tearDown() {
         StubURLProtocol.handler = nil
