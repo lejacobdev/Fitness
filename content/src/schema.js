@@ -9,6 +9,7 @@
  */
 
 import { isMuscle } from './muscles.js';
+import { isProp } from './props.js';
 import { isQuality } from './qualities.js';
 
 export const ITEM_KINDS = ['exercise', 'drill'];
@@ -240,6 +241,15 @@ export function validateItem(item, errors = []) {
   }
   if (typeof item?.endPose !== 'string' || item.endPose.length === 0) {
     fail(errors, slug, 'endPose is missing');
+  }
+
+  // §9: "sport drills get a prop layer" — a small named shape positioned
+  // relative to a joint. Optional (a bodyweight exercise has nothing to hold),
+  // but when present it must be one of the §9 prop shapes, not an equipment
+  // slug — `equipment` gates what an athlete needs to perform the item;
+  // `prop` says what the rig draws in its hand.
+  if (item?.prop !== undefined && !isProp(item.prop)) {
+    fail(errors, slug, `prop ${JSON.stringify(item.prop)} is not a known §9 prop`);
   }
 
   return errors;
