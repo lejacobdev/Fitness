@@ -80,7 +80,7 @@ public enum PlanGenerator {
         var weeklyContacts = 0
         var sessions: [GeneratedSession] = []
         for (index, date) in dates.enumerated() {
-            let targetQualities = roundRobinSlice(qualityOrder, offset: index, stride: dates.count, count: 3)
+            let targetQualities = roundRobinSlice(qualityOrder, offset: index, count: 3)
             sessions.append(buildSession(
                 date: date, targetQualities: targetQualities, input: input,
                 isYouthEnvelope: isYouthEnvelope, age: age,
@@ -130,26 +130,30 @@ public enum PlanGenerator {
         }.map(\.key)
     }
 
-    /// Distributes the ranked qualities round-robin across the week's
-    /// sessions (session `offset` gets qualities at `offset, offset+stride,
-    /// …`) so a multi-session week doesn't train the exact same top
-    /// qualities every day. Bounded by `seen.count == qualities.count`
-    /// rather than the naive "stop once we can't afford more," which can
-    /// spin forever once `i` walks past the end of a short quality list
-    /// without ever wrapping back into range.
-    private static func roundRobinSlice(_ qualities: [String], offset: Int, stride: Int, count: Int) -> [String] {
-        guard !qualities.isEmpty, stride > 0, count > 0 else { return [] }
+    /// Distributes the ranked qualities across the week's sessions — session
+    /// `offset` starts its slice at a different rotation of the list, so a
+    /// multi-session week doesn't train the exact same top qualities every
+    /// day. Deliberately walks forward by a plain step of 1 (wrapping via
+    /// modulo) rather than by `stride`: a previous version stepped by
+    /// `stride` and relied on eventually revisiting every index to know when
+    /// to stop, which is a REAL infinite loop whenever
+    /// `gcd(stride, qualities.count) > 1` — confirmed the hard way, as a CI
+    /// run stuck for 7+ minutes on `xcodebuild test` with zero output
+    /// (traced by hand: 3 qualities, stride 3, `i` lands on the same index
+    /// forever and the loop's exit condition never becomes true). Bounding
+    /// this by a `for _ in 0..<qualities.count` loop makes it unconditionally
+    /// terminate regardless of what `stride` and `qualities.count` are,
+    /// which is the property that actually matters here — not the exact
+    /// distribution pattern.
+    private static func roundRobinSlice(_ qualities: [String], offset: Int, count: Int) -> [String] {
+        guard !qualities.isEmpty, count > 0 else { return [] }
         let target = min(count, qualities.count)
         var result: [String] = []
-        var seen = Set<Int>()
         var i = offset % qualities.count
-        while result.count < target {
-            if !seen.contains(i) {
-                result.append(qualities[i])
-                seen.insert(i)
-            }
-            i = (i + stride) % qualities.count
-            if seen.count == qualities.count { break }
+        for _ in 0..<qualities.count {
+            if result.count == target { break }
+            result.append(qualities[i])
+            i = (i + 1) % qualities.count
         }
         return result
     }
