@@ -1,6 +1,12 @@
 import SwiftData
 import XCTest
 
+/// `SessionLogger` is `@MainActor` — calling its isolated init/methods needs
+/// this whole case isolated too, same fix and same root cause as
+/// SyncQueueTests (see its own doc comment): a plain synchronous test method
+/// is a "nonisolated context" just as much as an async one is, contrary to
+/// what the first version of this fix assumed.
+@MainActor
 final class SessionLoggerTests: XCTestCase {
     private func makeContext() throws -> ModelContext {
         ModelContext(try AthleteStore.makeContainer(inMemory: true))
