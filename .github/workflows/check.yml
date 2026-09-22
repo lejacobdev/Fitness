@@ -1,0 +1,186 @@
+name: check
+
+# §19: every iOS action is dispatchable, and every run prints evidence rather
+# than a bare pass/fail. The push trigger is added because macOS minutes are
+# free on a public repository — remove it if this repo is ever made private.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'app/**'
+      - 'backend/**'
+      - 'content/**'
+      - '.github/workflows/check.yml'
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEVELOPMENT_TEAM: ${{ vars.APPLE_TEAM_ID }}
+  BUILD_NUMBER: ${{ github.run_number }}
+
+jobs:
+  linux-checks:
+    name: Linux checks (§21)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Backend tests
+        working-directory: backend
+        run: |
+          npm ci
+          npx prisma generate
+          npm test
+
+      - name: Content catalogue integrity and codegen (§21)
+        working-directory: content
+        run: |
+          if [ ! -f package.json ]; then
+            echo "content/ has no package.json yet — M1 has not landed."
+            exit 0
+          fi
+          npm ci
+          npm test
+          npm run build
+
+  ios-checks:
+    name: Xcode build and evidence
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate content (codegen feeds Shared/Sources/Generated)
+        run: |
+          if [ -f content/package.json ]; then
+            cd content && npm ci && npm run build
+          else
+            echo "content/ not present yet — M1 has not landed."
+          fi
+
+      - name: XcodeGen
+        working-directory: app
+        run: xcodegen generate --spec project.yml
+
+      # ── Evidence, not pass/fail (§19) ─────────────────────────────────────
+      # These three checks each correspond to a trap that has shipped a broken
+      # build before. They fail the job, loudly, rather than being discovered in
+      # TestFlight.
+
+      - name: 'Evidence: CODE_SIGN_ENTITLEMENTS is set on every target'
+        working-directory: app
+        run: |
+          fail=0
+          for target in StudentAthlete StudentAthleteWidget StudentAthleteWatch StudentAthleteWatchWidget; do
+            value=$(xcodebuild -project StudentAthlete.xcodeproj -target "$target" \
+              -showBuildSettings 2>/dev/null \
+              | awk -F' = ' '/ CODE_SIGN_ENTITLEMENTS = /{print $2; exit}')
+            printf '%-28s CODE_SIGN_ENTITLEMENTS = %s\n' "$target" "${value:-<UNSET>}"
+            if [ -z "$value" ]; then
+              echo "::error::$target has no CODE_SIGN_ENTITLEMENTS. An entitlements: block does not set it (§19); the file would be generated and never applied."
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: 'Evidence: entitlements files are not the empty 181-byte plist'
+        working-directory: app
+        run: |
+          fail=0
+          for f in */*.entitlements; do
+            size=$(wc -c < "$f" | tr -d ' ')
+            keys=$(/usr/libexec/PlistBuddy -c Print "$f" | grep -c '=' || true)
+            printf '%-64s %6s bytes, %s keys\n' "$f" "$size" "$keys"
+            if [ "$keys" -eq 0 ]; then
+              echo "::error::$f has no entitlement keys. XcodeGen overwrites a path-only entitlements block with an empty plist on every generate (§19)."
+              fail=1
+            fi
+          done
+          echo '--- contents ---'
+          for f in */*.entitlements; do echo "== $f"; cat "$f"; done
+          exit $fail
+
+      - name: 'Evidence: watchOS targets carry TARGETED_DEVICE_FAMILY 4'
+        working-directory: app
+        run: |
+          fail=0
+          for target in StudentAthleteWatch StudentAthleteWatchWidget; do
+            value=$(xcodebuild -project StudentAthlete.xcodeproj -target "$target" \
+              -showBuildSettings 2>/dev/null \
+              | awk -F' = ' '/ TARGETED_DEVICE_FAMILY = /{print $2; exit}')
+            printf '%-28s TARGETED_DEVICE_FAMILY = %s\n' "$target" "${value:-<UNSET>}"
+            if [ "$value" != "4" ]; then
+              echo "::error::$target has TARGETED_DEVICE_FAMILY=${value:-<UNSET>}, not 4. A watch binary claiming iPhone is rejected under 2.3 (§19)."
+              fail=1
+            fi
+          done
+          exit $fail
+
+      # ── Unsigned builds ───────────────────────────────────────────────────
+
+      - name: Build iPhone app (unsigned, simulator)
+        working-directory: app
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project StudentAthlete.xcodeproj \
+            -scheme StudentAthlete \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            | tail -40
+
+      - name: Build Watch app (unsigned, simulator)
+        working-directory: app
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project StudentAthlete.xcodeproj \
+            -scheme StudentAthleteWatch \
+            -configuration Debug \
+            -destination 'generic/platform=watchOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            | tail -40
+
+      - name: Simulator screenshots
+        working-directory: app
+        run: |
+          set -x
+          mkdir -p ../artifacts
+          device=$(xcrun simctl create sac-shot com.apple.CoreSimulator.SimDeviceType.iPhone-16 || true)
+          if [ -z "$device" ]; then
+            echo "no simulator device could be created; skipping screenshots"
+            exit 0
+          fi
+          xcrun simctl boot "$device"
+          xcrun simctl bootstatus "$device" -b
+          app_path=$(find ~/Library/Developer/Xcode/DerivedData -name 'Student Athlete.app' -path '*Debug-iphonesimulator*' | head -1)
+          echo "app bundle: $app_path"
+          xcrun simctl install "$device" "$app_path"
+          xcrun simctl launch "$device" com.lejacobdev.studentathlete
+          sleep 6
+          xcrun simctl io "$device" screenshot ../artifacts/today-placeholder.png
+          xcrun simctl shutdown "$device"
+          xcrun simctl delete "$device"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: check-artifacts
+          path: artifacts/
+          if-no-files-found: warn

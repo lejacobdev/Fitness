@@ -1,0 +1,57 @@
+name: asc-inspect
+
+# §19: read-only, and on ubuntu-latest because it is only HTTPS — seconds
+# instead of macOS minutes. Nothing here can change App Store Connect state.
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: 'Bundle identifier to inspect'
+        required: false
+        default: 'com.lejacobdev.studentathlete'
+      build_id:
+        description: 'Optional build id, to dump what App Store Connect recorded inside it'
+        required: false
+        default: ''
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Preflight
+        run: |
+          missing=0
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_PRIVATE_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::missing secret $name"; missing=1; fi
+          done
+          exit $missing
+
+      - name: Apps on the account
+        run: node tools/asc.mjs apps
+
+      - name: App ID capabilities
+        # Exits non-zero when any of the five §19 capabilities is absent, so this
+        # workflow is the gate before the first archive rather than a report.
+        run: node tools/asc.mjs capabilities '${{ inputs.bundle_id }}'
+
+      - name: App Store versions
+        continue-on-error: true
+        run: node tools/asc.mjs versions '${{ inputs.bundle_id }}'
+
+      - name: Recent builds
+        continue-on-error: true
+        run: node tools/asc.mjs builds '${{ inputs.bundle_id }}' 10
+
+      - name: What App Store Connect recorded inside the build
+        if: inputs.build_id != ''
+        run: node tools/asc.mjs build-bundles '${{ inputs.build_id }}'

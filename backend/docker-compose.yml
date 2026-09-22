@@ -1,0 +1,51 @@
+# §23: the backend runs on its own server and database, separate from any other
+# product, so one outage cannot touch the other. This compose file is that
+# isolated pair — it deliberately shares no volume or network with anything else.
+
+name: student-athlete
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-athlete}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-student_athlete}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # The API's migration step runs at container start, so it must not start
+      # before the database can actually answer.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-athlete} -d ${POSTGRES_DB:-student_athlete}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    # Not published to the host: only the API reaches the database.
+    expose:
+      - "5432"
+
+  api:
+    build:
+      context: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-athlete}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-student_athlete}?schema=public
+      PORT: 8080
+      APP_VERSION: ${APP_VERSION:-dev}
+      APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-com.lejacobdev.studentathlete}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+volumes:
+  db-data:
