@@ -128,12 +128,73 @@ enum RigKinematics {
         if name.hasSuffix("R") { return Joint(rawValue: String(name.dropLast()) + "L") ?? joint }
         return joint
     }
+
+    /// Resolves a §9 prop's `attachTo` string (a position name, not
+    /// necessarily a `Joint` angle key — e.g. "spine" has no angle of its own
+    /// but is a real point on the skeleton) to that skeleton's computed
+    /// point. Every `attachTo` value actually used in props.js is covered
+    /// here — checked against the generated Props.swift, not assumed.
+    static func position(for attachTo: String, in skeleton: Skeleton) -> CGPoint? {
+        switch attachTo {
+        case "ankleL": return skeleton.ankleL
+        case "ankleR": return skeleton.ankleR
+        case "wristL": return skeleton.wristL
+        case "wristR": return skeleton.wristR
+        case "spine": return skeleton.spineTop
+        default: return nil
+        }
+    }
+}
+
+/// §9: "a small named shape positioned relative to a joint... around a dozen
+/// props cover every sport in the catalogue" — a soccer strike and a hockey
+/// shot reuse the same body with a different prop rather than a new rig.
+/// Every prop id in the catalogue falls into one of these families by its
+/// slug; `implement-throw`, `bat`, `racket` and the two hockey/lacrosse
+/// sticks all read naturally as "stick", the two nets as "net".
+private func propShape(for prop: PropInfo, at point: CGPoint) -> Path {
+    let family: String
+    switch prop.id {
+    case "ball-round", "ball-oval", "puck": family = "ball"
+    case "bar-barbell": family = "bar"
+    case "net-goal", "net-court": family = "net"
+    case "hurdle": family = "hurdle"
+    case "blocks": family = "blocks"
+    default: family = "stick"
+    }
+
+    var path = Path()
+    switch family {
+    case "ball":
+        let r: Double = prop.id == "puck" ? 2.2 : 3.5
+        path.addEllipse(in: CGRect(x: point.x - r, y: point.y - r, width: r * 2, height: r * 2))
+    case "bar":
+        path.move(to: CGPoint(x: point.x - 22, y: point.y))
+        path.addLine(to: CGPoint(x: point.x + 22, y: point.y))
+    case "net":
+        let rect = CGRect(x: point.x - 12, y: point.y - 14, width: 24, height: 20)
+        path.addRect(rect)
+    case "hurdle":
+        path.move(to: CGPoint(x: point.x - 8, y: point.y))
+        path.addLine(to: CGPoint(x: point.x + 8, y: point.y))
+        path.move(to: CGPoint(x: point.x - 8, y: point.y))
+        path.addLine(to: CGPoint(x: point.x - 8, y: point.y + 10))
+        path.move(to: CGPoint(x: point.x + 8, y: point.y))
+        path.addLine(to: CGPoint(x: point.x + 8, y: point.y + 10))
+    case "blocks":
+        path.addRect(CGRect(x: point.x - 6, y: point.y - 3, width: 12, height: 6))
+    default: // stick / bat / racket / throwing implement
+        path.move(to: point)
+        path.addLine(to: CGPoint(x: point.x + 4, y: point.y - 18))
+    }
+    return path
 }
 
 /// Draws one static skeleton as uniform-stroke line art (§9) — the shared
 /// rendering both frames of the crossfade use.
 struct RigSkeletonShape: View {
     let skeleton: RigKinematics.Skeleton
+    var prop: PropInfo?
 
     var body: some View {
         Canvas { context, size in
@@ -174,6 +235,12 @@ struct RigSkeletonShape: View {
                 width: RigKinematics.headRadius * 2, height: RigKinematics.headRadius * 2
             )
             context.stroke(Path(ellipseIn: headRect).applying(transform), with: .color(.primary), style: StrokeStyle(lineWidth: 3))
+
+            if let prop, let anchor = RigKinematics.position(for: prop.attachTo, in: s) {
+                let point = CGPoint(x: anchor.x + prop.offsetX, y: anchor.y + prop.offsetY)
+                let shape = propShape(for: prop, at: point).applying(transform)
+                context.stroke(shape, with: .color(Color(hex: muscleMapPrimaryColorHex)), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+            }
         }
         .aspectRatio(muscleMapCanonicalWidth / muscleMapCanonicalHeight, contentMode: .fit)
     }
@@ -188,19 +255,21 @@ public struct RigPoseView: View {
     private let start: [Joint: Double]
     private let end: [Joint: Double]
     private let mirrored: Bool
+    private let prop: PropInfo?
     @State private var showingEnd = false
 
-    public init(start: [Joint: Double], end: [Joint: Double], mirrored: Bool = false) {
+    public init(start: [Joint: Double], end: [Joint: Double], mirrored: Bool = false, prop: PropInfo? = nil) {
         self.start = start
         self.end = end
         self.mirrored = mirrored
+        self.prop = prop
     }
 
     public var body: some View {
         ZStack {
-            RigSkeletonShape(skeleton: RigKinematics.skeleton(for: start, mirrored: mirrored))
+            RigSkeletonShape(skeleton: RigKinematics.skeleton(for: start, mirrored: mirrored), prop: prop)
                 .opacity(showingEnd ? 0 : 1)
-            RigSkeletonShape(skeleton: RigKinematics.skeleton(for: end, mirrored: mirrored))
+            RigSkeletonShape(skeleton: RigKinematics.skeleton(for: end, mirrored: mirrored), prop: prop)
                 .opacity(showingEnd ? 1 : 0)
         }
         .onAppear {
@@ -217,13 +286,13 @@ public struct RigPoseView: View {
 /// `Joint` and dropping anything unrecognized rather than crashing on a
 /// pack authored against a newer pose model.
 public extension RigPoseView {
-    init(startRaw: [String: Double], endRaw: [String: Double], mirrored: Bool = false) {
+    init(startRaw: [String: Double], endRaw: [String: Double], mirrored: Bool = false, prop: PropInfo? = nil) {
         func convert(_ raw: [String: Double]) -> [Joint: Double] {
             Dictionary(uniqueKeysWithValues: raw.compactMap { key, value in
                 Joint(rawValue: key).map { ($0, value) }
             })
         }
-        self.init(start: convert(startRaw), end: convert(endRaw), mirrored: mirrored)
+        self.init(start: convert(startRaw), end: convert(endRaw), mirrored: mirrored, prop: prop)
     }
 }
 
@@ -236,5 +305,29 @@ public extension RigPoseView {
 #Preview("Lunge, mirrored") {
     let pattern = posePatternsBySlug["lunge"]!
     return RigPoseView(start: pattern.start, end: pattern.end, mirrored: true)
+        .padding()
+}
+
+#Preview("Instep strike with ball") {
+    let pattern = posePatternsBySlug["instep-strike"]!
+    return RigPoseView(start: pattern.start, end: pattern.end, prop: propsBySlug["ball-round"])
+        .padding()
+}
+
+#Preview("Wrist shot with puck") {
+    let pattern = posePatternsBySlug["rotational-throw"]!
+    return RigPoseView(start: pattern.start, end: pattern.end, prop: propsBySlug["puck"])
+        .padding()
+}
+
+#Preview("Deadlift with barbell") {
+    let pattern = posePatternsBySlug["hinge"]!
+    return RigPoseView(start: pattern.start, end: pattern.end, prop: propsBySlug["bar-barbell"])
+        .padding()
+}
+
+#Preview("Approach with net") {
+    let pattern = posePatternsBySlug["vertical-jump"]!
+    return RigPoseView(start: pattern.start, end: pattern.end, prop: propsBySlug["net-goal"])
         .padding()
 }
