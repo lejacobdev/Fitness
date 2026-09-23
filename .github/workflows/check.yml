@@ -145,7 +145,7 @@ jobs:
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
-            | tail -40
+            | tail -200
 
       - name: 'Run iOS unit tests (§21: age gate, model cascade rules, API decoding, offline pack behaviour)'
         working-directory: app
@@ -168,7 +168,7 @@ jobs:
             -configuration Debug \
             -destination 'generic/platform=watchOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
-            | tail -40
+            | tail -200
 
       # A hand-written Info.plist that omits CFBundleIdentifier (or the other
       # three boilerplate keys Xcode's default template always carries) builds

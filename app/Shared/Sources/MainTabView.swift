@@ -36,7 +36,11 @@ public struct MainTabView: View {
                 .tabItem { Label("Me", systemImage: "person.crop.circle.fill") }
         }
         .tint(AppTheme.accent)
-        .toolbarColorScheme(.dark, for: .tabBar)
+        // No `.toolbarColorScheme(_:for: .tabBar)` here — `.tabBar` isn't a
+        // valid ToolbarPlacement on watchOS (this file is compiled into
+        // every target, including the watch widget extension, since it
+        // lives in Shared/Sources), and it's redundant anyway: dark mode is
+        // already forced app-wide via `.preferredColorScheme(.dark)`.
         .task {
             regenerate()
             // Best-effort, silent (matches the old placeholder screen's own
