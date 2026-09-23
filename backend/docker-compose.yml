@@ -45,7 +45,11 @@ services:
       APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-com.studentathlete.app}
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
     ports:
-      - "${API_PORT:-8080}:8080"
+      # Loopback only — never bound to the public interface directly.
+      # Production traffic reaches this through Apache + Cloudflare
+      # (deploy/apache/api.lejacob.dev.conf), the same pattern as every
+      # other service on this box.
+      - "127.0.0.1:${API_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s

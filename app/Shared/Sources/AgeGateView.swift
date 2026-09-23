@@ -43,6 +43,12 @@ public struct AgeGateView: View {
     public var body: some View {
         ScrollView {
             VStack(spacing: 24) {
+                Image("Logo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 96, height: 96)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .accessibilityHidden(true)
                 Text("Student Athlete")
                     .font(.largeTitle.bold())
                 Text("First, when's your birthday?")

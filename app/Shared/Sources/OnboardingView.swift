@@ -54,6 +54,12 @@ public struct OnboardingView: View {
     private var signInStep: some View {
         VStack(spacing: 20) {
             Spacer()
+            Image("Logo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 96, height: 96)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .accessibilityHidden(true)
             Text("Student Athlete")
                 .font(.largeTitle.bold())
             Text("Sign in with Apple so your training history survives a new phone.")
