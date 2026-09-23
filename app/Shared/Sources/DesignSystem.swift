@@ -582,8 +582,8 @@ public struct ItemThumbnail: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(AppTheme.fill)
             if let pair = item?.posePair {
-                RigSkeletonShape(skeleton: RigKinematics.skeleton(for: pair.start, mirrored: false), prop: item?.prop.flatMap { propsBySlug[$0] })
-                    .padding(6)
+                RigStillView(start: pair.start, end: pair.end, prop: item?.prop.flatMap { propsBySlug[$0] })
+                    .padding(4)
             } else {
                 Image(systemName: "figure.strengthtraining.traditional")
                     .font(.title2)

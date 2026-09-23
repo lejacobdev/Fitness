@@ -80,7 +80,7 @@ export const MUSCLES = [
 
   // ── Trunk ───────────────────────────────────────────────────────────────
   { slug: 'rectus-abdominis', name: 'Rectus abdominis', plainName: 'abs', region: 'trunk', views: ['front'] },
-  { slug: 'obliques-external', name: 'External obliques', plainName: 'sides of the waist', region: 'trunk', views: ['front'] },
+  { slug: 'obliques-external', name: 'External obliques', plainName: 'sides of the waist', region: 'trunk', views: ['front', 'back'] },
   { slug: 'obliques-internal', name: 'Internal obliques', plainName: 'deep at the waist', region: 'trunk', views: ['front'], drawable: false, renderVia: 'obliques-external' },
   { slug: 'transverse-abdominis', name: 'Transverse abdominis', plainName: 'deep stomach muscle', region: 'trunk', views: ['front'], drawable: false, renderVia: 'rectus-abdominis' },
 
@@ -90,7 +90,7 @@ export const MUSCLES = [
   { slug: 'gluteus-minimus', name: 'Gluteus minimus', plainName: 'deep side of the hip', region: 'hip', views: ['back'], drawable: false, renderVia: 'gluteus-medius' },
   { slug: 'tensor-fasciae-latae', name: 'Tensor fasciae latae', plainName: 'front of the hip', region: 'hip', views: ['front'] },
   { slug: 'iliopsoas', name: 'Iliopsoas', plainName: 'hip flexors', region: 'hip', views: ['front'] },
-  { slug: 'adductors', name: 'Hip adductors', plainName: 'groin', region: 'hip', views: ['front'] },
+  { slug: 'adductors', name: 'Hip adductors', plainName: 'groin', region: 'hip', views: ['front', 'back'] },
   { slug: 'deep-hip-rotators', name: 'Deep hip rotators', plainName: 'deep in the hip', region: 'hip', views: ['back'], drawable: false, renderVia: 'gluteus-maximus' },
 
   // ── Quadriceps ──────────────────────────────────────────────────────────
@@ -105,8 +105,8 @@ export const MUSCLES = [
   { slug: 'semimembranosus', name: 'Semimembranosus', plainName: 'inner hamstring', region: 'hamstrings', views: ['back'] },
 
   // ── Calf ────────────────────────────────────────────────────────────────
-  { slug: 'gastrocnemius', name: 'Gastrocnemius', plainName: 'calf', region: 'calf', views: ['back'] },
-  { slug: 'soleus', name: 'Soleus', plainName: 'lower calf', region: 'calf', views: ['back'] },
+  { slug: 'gastrocnemius', name: 'Gastrocnemius', plainName: 'calf', region: 'calf', views: ['front', 'back'] },
+  { slug: 'soleus', name: 'Soleus', plainName: 'lower calf', region: 'calf', views: ['front', 'back'] },
   { slug: 'tibialis-anterior', name: 'Tibialis anterior', plainName: 'shin', region: 'calf', views: ['front'] },
   { slug: 'peroneals', name: 'Peroneals', plainName: 'outside of the shin', region: 'calf', views: ['front', 'back'] },
 

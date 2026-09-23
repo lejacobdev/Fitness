@@ -22,14 +22,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { buildBodySilhouettePaths } from '../src/bodySilhouette.js';
+import { buildAnatomy } from '../src/anatomy.js';
 import { CATALOGUE, BASE_ITEMS } from '../src/catalogue.js';
 import { MUSCLE_MODEL_VERSION, MUSCLES } from '../src/muscles.js';
-import { buildMuscleMapPaths } from '../src/muscleMap.js';
 import { POSE_MODEL_VERSION, POSE_PATTERNS } from '../src/poses.js';
 import { PROPS } from '../src/props.js';
 import { QUALITIES, QUALITY_MODEL_VERSION } from '../src/qualities.js';
-import { REST_POINTS, SEGMENTS, segmentHalfWidthAt } from '../src/rig.js';
 import { EQUIPMENT, EQUIPMENT_LEVELS, PLYOMETRIC_DOSE_KIND } from '../src/schema.js';
 import { SPORT_CATALOGUE_VERSION, SPORTS } from '../src/sports.js';
 import {
@@ -226,55 +224,38 @@ public let muscleMapPrimaryColorHex = "#E5383B"
 `;
 }
 
-function genMuscleMapPathsSwift(paths) {
-  const entries = Object.entries(paths)
+function genAnatomySwift(anatomy) {
+  const entries = Object.entries(anatomy.muscles)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([k, v]) => [swiftStringLiteral(k), swiftStringLiteral(v)]);
+    .map(([k, v]) => `${swiftStringLiteral(k)}: ${swiftStringLiteral(v)}`);
+  const details = (view) => swiftArray(anatomy.details[view].map(swiftStringLiteral));
+  const h = anatomy.head;
+  return `${generatedHeader('content/src/anatomy.js')}import Foundation
 
-  return `${generatedHeader('content/src/muscleMap.js (rig.js + muscleRegions.js)')}import Foundation
+/// §9 job 1: the anatomical mannequin every muscle map draws — an athletic
+/// figure in a relaxed A-pose, authored as smooth spline data in
+/// content/src/anatomy.js (never traced or imported art). One path string per
+/// "muscle-slug.view.side" key, SVG commands M/C/Z only, in a
+/// fixed 100 x 200 canonical space; rendered with SVGPathParser + Canvas, so
+/// it works unchanged on watchOS.
+public let muscleMapPaths: [String: String] = ${swiftDict(entries)}
 
-/// One rounded-corner SVG path \`d\` string (M/L/Q/Z commands — a plain
-/// polygon with each corner eased into a quadratic Bézier curve) per
-/// "\\(muscleSlug).\\(view).\\(side)" key, rendered with SwiftUI
-/// Path/Canvas — no SVG library, works unchanged on watchOS (§9).
-/// Coordinates are in a fixed 100x200 canonical space; see BodySilhouette.swift
-/// for the base figure these patches are drawn on top of.
-public let muscleMapPaths: [String: String] = ${swiftDict(entries.map(([k, v]) => `${k}: ${v}`))}
+/// The whole-body silhouette (both views share it).
+public let anatomyOutlinePath = ${swiftStringLiteral(anatomy.outline)}
+
+/// The head, drawn as an ellipse over the neck.
+public let anatomyHead = (cx: ${swiftDoubleLiteral(h.cx)}, cy: ${swiftDoubleLiteral(h.cy)}, rx: ${swiftDoubleLiteral(h.rx)}, ry: ${swiftDoubleLiteral(h.ry)})
+
+/// Surface definition lines (clavicles, linea alba, kneecaps, spine...), open strokes.
+public let anatomyDetailPathsFront: [String] = ${details('front')}
+public let anatomyDetailPathsBack: [String] = ${details('back')}
 
 public let muscleMapCanonicalWidth: Double = 100
 public let muscleMapCanonicalHeight: Double = 200
 `;
 }
 
-function genBodySilhouetteSwift(silhouette) {
-  function shapesArray(shapes) {
-    const items = shapes.map((s) => `SilhouetteShape(segment: ${swiftStringLiteral(s.segment)}, side: ${swiftStringLiteral(s.side)}, d: ${swiftStringLiteral(s.d)})`);
-    return swiftArray(items);
-  }
 
-  return `${generatedHeader('content/src/bodySilhouette.js')}import Foundation
-
-/// The continuous skin-tone base figure the muscle map patches render on top
-/// of — one soft rounded shape per rig segment, drawn first so a muscle patch
-/// reads as part of a person rather than a colour box floating in empty
-/// space. Not a single unioned outline (that needs real polygon boolean
-/// ops); segments simply overlap generously at every joint and share styling.
-public struct SilhouetteShape: Codable, Sendable, Hashable {
-    public let segment: String
-    public let side: String
-    public let d: String
-}
-
-public let bodySilhouetteFront: [SilhouetteShape] = ${shapesArray(silhouette.front)}
-
-public let bodySilhouetteBack: [SilhouetteShape] = ${shapesArray(silhouette.back)}
-
-/// §9's fixed skin-tone base fill — never the primary-muscle accent colour,
-/// so a patch always reads as distinct from the figure it sits on.
-public let bodySilhouetteFillHex = "#E8C39E"
-public let bodySilhouetteStrokeHex = "#C9A679"
-`;
-}
 
 function genPosePatternsSwift() {
   const joints = [...new Set(POSE_PATTERNS.flatMap((p) => Object.keys(p.start)))];
@@ -367,50 +348,7 @@ public let propsBySlug: [String: PropInfo] =
 `;
 }
 
-function genRigGeometrySwift() {
-  const pointEntries = Object.entries(REST_POINTS).map(([name, p]) => [
-    swiftStringLiteral(name),
-    `RigPoint(x: ${swiftDoubleLiteral(p.x)}, y: ${swiftDoubleLiteral(p.y)})`,
-  ]);
 
-  // A segment's width is carried as (halfWidthA, halfWidthB) uniformly here —
-  // segmentHalfWidthAt(seg, 0/1) collapses a constant-width segment's single
-  // halfWidth to the same value at both ends, so Swift never needs to know
-  // whether the JS source declared one width or a taper.
-  const segmentEntries = Object.entries(SEGMENTS).map(([id, seg]) => {
-    const value = seg.kind === 'line'
-      ? `.line(a: ${swiftStringLiteral(seg.a)}, b: ${swiftStringLiteral(seg.b)}, halfWidthA: ${swiftDoubleLiteral(segmentHalfWidthAt(seg, 0))}, halfWidthB: ${swiftDoubleLiteral(segmentHalfWidthAt(seg, 1))})`
-      : `.point(center: ${swiftStringLiteral(seg.center)}, radius: ${swiftDoubleLiteral(seg.radius)})`;
-    return [swiftStringLiteral(id), value];
-  });
-
-  return `${generatedHeader('content/src/rig.js')}import Foundation
-
-/// The canonical (right-side; mirror x for left) reference-pose rig used only
-/// by the §9 job-1 static muscle map. The job-2 animated pose rig is driven
-/// entirely by PosePatternInfo's joint angles at runtime, not by this file.
-public struct RigPoint: Codable, Sendable, Hashable {
-    public let x: Double
-    public let y: Double
-}
-
-public enum RigSegment: Sendable, Hashable {
-    /// halfWidthA is the half-width at point \`a\`, halfWidthB at point \`b\` —
-    /// equal for a constant-width segment, different for a tapered one (a
-    /// real torso is wider at the chest than the waist).
-    case line(a: String, b: String, halfWidthA: Double, halfWidthB: Double)
-    case point(center: String, radius: Double)
-}
-
-public let rigCanonicalWidth: Double = 100
-public let rigCanonicalHeight: Double = 200
-public let rigMidlineX: Double = 50
-
-public let rigRestPoints: [String: RigPoint] = ${swiftDict(pointEntries.map(([k, v]) => `${k}: ${v}`))}
-
-public let rigSegments: [String: RigSegment] = ${swiftDict(segmentEntries.map(([k, v]) => `${k}: ${v}`))}
-`;
-}
 
 function camel(kebab) {
   return kebab.replace(/-([a-z0-9])/g, (_, c) => c.toUpperCase());
@@ -487,11 +425,9 @@ function main() {
   writeFile(path.join(SWIFT_OUT, 'Equipment.swift'), genEquipmentSwift());
   writeFile(path.join(SWIFT_OUT, 'AllSports.swift'), genAllSportsSwift());
   writeFile(path.join(SWIFT_OUT, 'Muscles.swift'), genMusclesSwift());
-  writeFile(path.join(SWIFT_OUT, 'MuscleMapPaths.swift'), genMuscleMapPathsSwift(buildMuscleMapPaths()));
-  writeFile(path.join(SWIFT_OUT, 'BodySilhouette.swift'), genBodySilhouetteSwift(buildBodySilhouettePaths()));
+  writeFile(path.join(SWIFT_OUT, 'MuscleMapPaths.swift'), genAnatomySwift(buildAnatomy()));
   writeFile(path.join(SWIFT_OUT, 'PosePatterns.swift'), genPosePatternsSwift());
   writeFile(path.join(SWIFT_OUT, 'Props.swift'), genPropsSwift());
-  writeFile(path.join(SWIFT_OUT, 'RigGeometry.swift'), genRigGeometrySwift());
 
   buildPacks();
 }

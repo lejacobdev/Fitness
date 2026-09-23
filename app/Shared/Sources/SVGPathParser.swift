@@ -4,8 +4,8 @@ import SwiftUI
 /// `roundedPolygonToSvgPath` / `polygonToSvgPath`) into a SwiftUI `Path`.
 /// Hand-rolled rather than an SVG library (§9: "no SVG library") — the format
 /// this project ever emits is a tiny, fixed subset: `M` (move), `L` (line),
-/// `Q` (quadratic curve), `Z` (close), always in that grammar:
-/// `M x,y (L x,y | Q cx,cy x,y)* Z`. Works unchanged on watchOS, since it's
+/// `Q` (quadratic curve), `C` (cubic curve — the anatomy's splines), `Z`
+/// (close); several `M…Z` subpaths may share one string. Works unchanged on watchOS, since it's
 /// pure Foundation + SwiftUI, nothing platform-specific.
 public enum SVGPathParser {
     public static func path(from data: String) -> Path {
@@ -33,6 +33,10 @@ public enum SVGPathParser {
             case "Q":
                 if let control = readPoint(), let end = readPoint() {
                     path.addQuadCurve(to: end, control: control)
+                }
+            case "C":
+                if let c1 = readPoint(), let c2 = readPoint(), let end = readPoint() {
+                    path.addCurve(to: end, control1: c1, control2: c2)
                 }
             case "Z":
                 path.closeSubpath()

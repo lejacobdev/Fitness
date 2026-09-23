@@ -415,7 +415,7 @@ struct ItemDetailView: View {
                         RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
                             .fill(AppTheme.fill)
                         if let pair = item.posePair {
-                            RigPoseView(start: pair.start, end: pair.end, prop: item.prop.flatMap { propsBySlug[$0] })
+                            RigPoseView(start: pair.start, end: pair.end, prop: item.prop.flatMap { propsBySlug[$0] }, muscles: item.muscles)
                                 .padding(24)
                         }
                     }
