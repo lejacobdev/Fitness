@@ -467,7 +467,7 @@ public struct LiveSessionView: View {
     }
 
     private func setIdleTimerDisabled(_ disabled: Bool) {
-        #if os(iOS)
+        #if os(iOS) && !APP_EXTENSION
         UIApplication.shared.isIdleTimerDisabled = disabled
         #endif
     }

@@ -51,10 +51,17 @@ enum ImproveRoute: Hashable {
 /// typing: a skill, a game date, a dated plan that explains itself.
 struct ImproveView: View {
     let athlete: Athlete
+    let apiClient: APIClient
+
+    enum Mode: String, CaseIterable {
+        case skill = "Get better at a skill"
+        case muscles = "Train a muscle group"
+    }
 
     @Query(sort: \SkillBlock.generatedAt, order: .reverse) private var allSkillBlocks: [SkillBlock]
     @State private var path: [ImproveRoute] = []
     @State private var searchText = ""
+    @State private var mode: Mode = .skill
 
     private var sportSlug: String? { athlete.sports.first?.sportSlug }
     private var sportInfo: SportInfo? { sportSlug.flatMap { allSportsBySlug[$0] } }
@@ -73,12 +80,19 @@ struct ImproveView: View {
         NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Improve", subtitle: "Pick a skill. Get a dated plan that peaks for your next game.")
-                    howItWorks
-                    searchField
-                    skillGrid
-                    if !savedBlocks.isEmpty {
-                        savedSection
+                    ScreenTitle("Improve", subtitle: mode == .skill
+                        ? "Pick a skill. Get a dated plan that peaks for your next game."
+                        : "Pick the muscles you want stronger. Get a complete workout.")
+                    modePicker
+                    if mode == .skill {
+                        howItWorks
+                        searchField
+                        skillGrid
+                        if !savedBlocks.isEmpty {
+                            savedSection
+                        }
+                    } else {
+                        MuscleBuilderView(athlete: athlete, apiClient: apiClient)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -105,6 +119,28 @@ struct ImproveView: View {
                 }
             }
         }
+    }
+
+    private var modePicker: some View {
+        HStack(spacing: 4) {
+            ForEach(Mode.allCases, id: \.self) { value in
+                Button {
+                    withAnimation(.snappy) { mode = value }
+                } label: {
+                    Text(value == .skill ? "Skills" : "Muscles")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(mode == value ? AppTheme.inkInverse : AppTheme.ink)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .background(mode == value ? AppTheme.ink : .clear, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(value.rawValue)
+                .accessibilityAddTraits(mode == value ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(AppTheme.card, in: Capsule())
+        .shadow(color: .black.opacity(0.05), radius: 6, x: 0, y: 2)
     }
 
     private var howItWorks: some View {

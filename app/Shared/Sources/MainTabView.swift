@@ -35,7 +35,7 @@ public struct MainTabView: View {
                 .tabItem { Label("Plan", systemImage: "calendar") }
                 .tag(AppTab.plan)
 
-            ImproveView(athlete: athlete)
+            ImproveView(athlete: athlete, apiClient: apiClient)
                 .tabItem { Label("Improve", systemImage: "chart.line.uptrend.xyaxis") }
                 .tag(AppTab.improve)
 

@@ -101,6 +101,9 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.studentathlete.app.widget
+        # Shared/Sources compiles into this extension too; APP_EXTENSION
+        # fences off the few app-only APIs (UIApplication.shared).
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) APP_EXTENSION"
         PRODUCT_NAME: Student Athlete Widget
         INFOPLIST_FILE: StudentAthleteWidget/Info.plist
         CODE_SIGN_ENTITLEMENTS: StudentAthleteWidget/StudentAthleteWidget.entitlements
@@ -167,6 +170,7 @@ targets:
       - path: Shared/Sources
     settings:
       base:
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) APP_EXTENSION"
         # "complication" is a reserved substring Apple's bundle-id registration
         # rejects outright (409 "is not available", confirmed by trying it) --
         # not a real collision, just a blocked keyword. Named for what it is
