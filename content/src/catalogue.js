@@ -8,9 +8,11 @@
 
 import { expandCatalogue } from './expand.js';
 import { DRILLS } from './items/drills.js';
+import { SPORT_DRILLS } from './items/drills/index.js';
 import { EXERCISES } from './items/exercises.js';
+import { EXTRA_EXERCISES } from './items/exercisesExtra.js';
 
-export const BASE_ITEMS = [...EXERCISES, ...DRILLS];
+export const BASE_ITEMS = [...EXERCISES, ...EXTRA_EXERCISES, ...DRILLS, ...SPORT_DRILLS];
 
 export const CATALOGUE = expandCatalogue(BASE_ITEMS);
 

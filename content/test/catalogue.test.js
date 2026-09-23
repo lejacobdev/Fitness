@@ -216,3 +216,16 @@ test('itemAvailableAt is consistent: a "full" item is never available at "none"'
     }
   }
 });
+
+test("every drill's `skills` are real skills of that drill's own sport (§8)", async () => {
+  const { SPORTS } = await import('../src/sports.js');
+  const skillsBySport = new Map(SPORTS.map((s) => [s.slug, new Set(s.skills.map((k) => k.slug))]));
+  const bad = [];
+  for (const item of BASE_ITEMS) {
+    if (item.kind !== 'drill') continue;
+    for (const skill of item.skills ?? []) {
+      if (!skillsBySport.get(item.sport)?.has(skill)) bad.push(`${item.slug} → ${item.sport}.${skill}`);
+    }
+  }
+  assert.deepEqual(bad, []);
+});

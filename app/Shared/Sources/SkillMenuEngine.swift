@@ -204,6 +204,34 @@ public enum SkillMenuEngine {
         input: SkillMenuInput, isYouthEnvelope: Bool, age: Int, rng: inout SeededGenerator, halveSets: Bool = false
     ) -> [GeneratedPlannedItem] {
         var items: [GeneratedPlannedItem] = []
+
+        // Drills written for exactly this skill come first on sport-drill
+        // slots — "the best exercises for shooting" — then quality matching
+        // fills whatever is left.
+        if sportOnly {
+            let tagged = input.catalogue.itemsBySlug.values
+                .filter { item in
+                    item.itemSportSlug == input.sportSlug
+                        && (item.skills ?? []).contains(input.skillSlug)
+                        && PlanGenerator.isEligibleForEquipment(item, available: input.equipmentAvailable)
+                        && (input.trainsUnderCoach || !item.isCoached)
+                        && item.minAge <= age
+                        && (!plyometricOnly || item.defaultDose.kind == plyometricDoseKind)
+                        && !(item.primaryQuality.map { excludingGroups.contains($0.group) } ?? false)
+                }
+                .sorted { $0.slug < $1.slug }
+            if !tagged.isEmpty {
+                let picked = tagged[Int(rng.next() % UInt64(tagged.count))]
+                var dose = PlanGenerator.clampedDose(picked.defaultDose, isYouthEnvelope: isYouthEnvelope)
+                if halveSets { dose.sets = max(1, dose.sets / 2) }
+                items.append(GeneratedPlannedItem(
+                    itemSlug: picked.slug, order: 0, dose: dose, restSec: picked.restSeconds,
+                    rationale: "A \(input.skillName.lowercased()) drill — it trains the skill itself, not just the qualities behind it.",
+                    quality: picked.primaryQuality?.id ?? ""
+                ))
+            }
+        }
+
         for quality in rankedQualities {
             if items.count >= count { break }
             if let groups, let group = qualitiesBySlug[quality]?.group, !groups.contains(group) { continue }
@@ -228,6 +256,7 @@ public enum SkillMenuEngine {
             // drill yet still trains something rather than nothing.
             var eligible = sportOnly ? eligibleItems(restrictToSport: true) : []
             if eligible.isEmpty { eligible = eligibleItems(restrictToSport: false) }
+            eligible.removeAll { candidate in items.contains { $0.itemSlug == candidate.slug } }
             guard !eligible.isEmpty else { continue }
 
             let picked = eligible[Int(rng.next() % UInt64(eligible.count))]

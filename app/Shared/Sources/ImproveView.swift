@@ -273,6 +273,8 @@ struct SkillSetupView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var gameDate: Date
+    @State private var catalogue = Catalogue()
+    @State private var detailItem: CatalogueItem?
 
     init(athlete: Athlete, skill: SportSkill, onBuild: @escaping (Date) -> Void) {
         self.athlete = athlete
@@ -284,6 +286,23 @@ struct SkillSetupView: View {
 
     private var upcomingGames: [Competition] {
         Array(AthleteStats.upcomingCompetitions(athlete).prefix(3))
+    }
+
+    /// Drills written for exactly this skill, then the library items that
+    /// best match its qualities — "what are the best exercises for this?"
+    private var bestDrills: [CatalogueItem] {
+        let sport = athlete.sports.first?.sportSlug
+        let tagged = catalogue.itemsBySlug.values
+            .filter { $0.baseSlug == nil && $0.itemSportSlug == sport && ($0.skills ?? []).contains(skill.slug) }
+            .sorted { $0.name < $1.name }
+        let weights = skill.qualityWeights
+        func score(_ item: CatalogueItem) -> Double {
+            item.qualities.reduce(0) { $0 + $1.value * (weights[$1.key] ?? 0) }
+        }
+        let matched = catalogue.itemsBySlug.values
+            .filter { $0.baseSlug == nil && !tagged.contains($0) && ($0.itemSportSlug == nil || $0.itemSportSlug == sport) }
+            .sorted { score($0) != score($1) ? score($0) > score($1) : $0.slug < $1.slug }
+        return Array((tagged + matched).prefix(8))
     }
 
     var body: some View {
@@ -340,8 +359,44 @@ struct SkillSetupView: View {
                 }
             }
             .cardStyle()
+
+            if !bestDrills.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Best exercises and drills for it")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.ink)
+                    ForEach(bestDrills) { item in
+                        Button {
+                            detailItem = item
+                        } label: {
+                            HStack(spacing: 12) {
+                                ItemThumbnail(item: item, size: 48)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(item.name)
+                                        .font(.subheadline.bold())
+                                        .foregroundStyle(AppTheme.ink)
+                                        .multilineTextAlignment(.leading)
+                                    Text(item.kind == "drill" ? "\(skill.name) drill · \(DoseFormatter.text(item.defaultDose))" : "Builds what \(skill.name.lowercased()) needs · \(DoseFormatter.text(item.defaultDose))")
+                                        .font(.caption)
+                                        .foregroundStyle(AppTheme.secondaryText)
+                                }
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(AppTheme.secondaryText)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .cardStyle()
+            }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
+        .sheet(item: $detailItem) { item in
+            NavigationStack { ItemDetailView(item: item) }
+        }
     }
 
     private func quickChip(_ title: String, date: Date) -> some View {

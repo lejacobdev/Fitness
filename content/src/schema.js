@@ -265,6 +265,17 @@ export function validateItem(item, errors = []) {
     fail(errors, slug, `prop ${JSON.stringify(item.prop)} is not a known §9 prop`);
   }
 
+  // `skills` (drills only, optional): the §8 named skills of the drill's own
+  // sport it directly builds. Resolution against the sport's skill list is
+  // checked in test/catalogue.test.js, which can see the sport catalogue.
+  if (item?.skills !== undefined) {
+    if (!Array.isArray(item.skills) || item.skills.some((s) => typeof s !== 'string' || s.length === 0)) {
+      fail(errors, slug, 'skills must be an array of skill slugs');
+    } else if (item.kind !== 'drill' && item.skills.length > 0) {
+      fail(errors, slug, 'only drills name the skills they build');
+    }
+  }
+
   return errors;
 }
 

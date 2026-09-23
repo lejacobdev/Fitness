@@ -361,7 +361,7 @@ export const SPORTS = [
       skill('takedown-power', 'Takedown power'), skill('sprawl-speed', 'Sprawl speed'),
       skill('grip-strength', 'Grip strength'), skill('hip-explosiveness', 'Hip explosiveness'),
       skill('bridging-strength', 'Bridging strength'), skill('scrambling-endurance', 'Scrambling endurance'),
-      skill('weight-cut-management', 'Weight management and fuelling'), skill('mat-awareness', 'Mat awareness'),
+      skill('hand-control', 'Hand control and ties'), skill('mat-awareness', 'Mat awareness'),
     ],
     commonLoadAreas: ['neck', 'shoulders', 'lower-back'],
     contactLevel: 'COLLISION',

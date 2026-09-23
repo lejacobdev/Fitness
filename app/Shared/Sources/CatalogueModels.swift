@@ -19,6 +19,17 @@ public struct EquipmentChainTier: Codable, Sendable, Hashable {
     public let equipment: [String]
 }
 
+/// How an expanded item was derived from its base (§7's expansion axes).
+/// Pack JSON carries this as an object — e.g. `{"axis":"tempo","tempo":
+/// "eccentric"}` — so it must decode as one; a plain String here made every
+/// pack containing an expanded item fail to decode on device.
+public struct ItemVariant: Codable, Sendable, Hashable {
+    public let axis: String
+    public let tier: String?
+    public let tempo: String?
+    public let values: [String: String]?
+}
+
 /// One exercise or drill.
 public struct CatalogueItem: Codable, Sendable, Hashable {
     public let slug: String
@@ -44,7 +55,7 @@ public struct CatalogueItem: Codable, Sendable, Hashable {
     public let unilateralEligible: Bool?
     public let tempoEligible: Bool?
     public let prop: String?
-    public let variant: String?
+    public let variant: ItemVariant?
     public let baseSlug: String?
     public let constraintAxes: [String]?
     public let equipmentChain: [EquipmentChainTier]?
@@ -54,6 +65,9 @@ public struct CatalogueItem: Codable, Sendable, Hashable {
     /// from `CataloguePack.sport`, the whole pack's sport metadata object.
     /// Renamed at the Swift level to avoid confusing the two.
     public let itemSportSlug: String?
+    /// §8: the named skills of the drill's own sport it directly builds —
+    /// what "I want to get better at shooting" surfaces first.
+    public var skills: [String]? = nil
 
     private enum CodingKeys: String, CodingKey {
         case slug, name, kind, qualities, muscles, equipment, surface, minAge, supervisionLevel
@@ -62,6 +76,7 @@ public struct CatalogueItem: Codable, Sendable, Hashable {
         case unilateralEligible, tempoEligible, prop, variant, baseSlug
         case constraintAxes, equipmentChain, unilateralPosePattern, unilateralStabilityQuality
         case itemSportSlug = "sport"
+        case skills
     }
 
     public var isUnilateralEligible: Bool { unilateralEligible ?? false }
