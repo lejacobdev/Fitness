@@ -41,7 +41,7 @@ struct CheckInCard: View {
                     Text("Morning check-in")
                         .font(.title3.bold())
                         .foregroundStyle(AppTheme.ink)
-                    Text("Four taps. Under fifteen seconds.")
+                    Text("Four taps — it saves itself and tunes today's session to how you feel.")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
