@@ -147,10 +147,10 @@ final class CatalogueModelsTests: XCTestCase {
             { "slug": "center", "name": "Center", "qualityProfile": { "vertical-power": 1 } }
           ],
           "skills": [
-            { "slug": "vertical-jump", "name": "Vertical jump" },
-            { "slug": "first-step", "name": "First step" },
-            { "slug": "shooting-mechanics", "name": "Shooting mechanics" },
-            { "slug": "ball-handling", "name": "Ball handling" }
+            { "slug": "vertical-jump", "name": "Vertical jump", "qualityWeights": { "vertical-power": 1.0 } },
+            { "slug": "first-step", "name": "First step", "qualityWeights": { "acceleration": 1.0 } },
+            { "slug": "shooting-mechanics", "name": "Shooting mechanics", "qualityWeights": { "shoulder-stability": 0.8 } },
+            { "slug": "ball-handling", "name": "Ball handling", "qualityWeights": { "change-of-direction": 0.8 } }
           ],
           "commonLoadAreas": ["knees", "ankles", "lower-back"],
           "contactLevel": "CONTACT",

@@ -33,7 +33,7 @@ final class CatalogueStoreTests: XCTestCase {
       "sport": {
         "slug": "basketball", "name": "Basketball", "governing": ["NFHS"], "season": "WINTER",
         "monthRange": [11, 3], "qualityProfile": { "vertical-power": 0.9 },
-        "positions": [], "skills": [{ "slug": "vertical-jump", "name": "Vertical jump" }],
+        "positions": [], "skills": [{ "slug": "vertical-jump", "name": "Vertical jump", "qualityWeights": { "vertical-power": 1.0 } }],
         "commonLoadAreas": ["knees"], "contactLevel": "CONTACT",
         "typicalSessionLength": 90, "typicalWeeklyGames": 2
       },

@@ -135,6 +135,14 @@ jobs:
 
       # ── Unsigned builds ───────────────────────────────────────────────────
 
+      # No `| tail -N` on any of these three: a tail here has twice now hidden
+      # the actual compiler/XCTest failure line behind a truncated "BUILD
+      # FAILED"/"TEST FAILED" summary, once for a real compile error (the
+      # watchOS .toolbarColorScheme bug) and once for a real test failure
+      # (M9's SkillMenuEngine work) — both times the fix was "widen the tail,"
+      # which only postpones the same failure mode as the suite keeps
+      # growing through M10-M14. GitHub Actions logs handle full xcodebuild
+      # output fine; there is no good reason to truncate it here.
       - name: Build iPhone app (unsigned, simulator)
         working-directory: app
         run: |
@@ -144,8 +152,7 @@ jobs:
             -scheme StudentAthlete \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO \
-            | tail -200
+            CODE_SIGNING_ALLOWED=NO
 
       - name: 'Run iOS unit tests (§21: age gate, model cascade rules, API decoding, offline pack behaviour)'
         working-directory: app
@@ -155,8 +162,7 @@ jobs:
             -project StudentAthlete.xcodeproj \
             -scheme StudentAthlete \
             -destination 'platform=iOS Simulator,name=iPhone 17' \
-            CODE_SIGNING_ALLOWED=NO \
-            | tail -150
+            CODE_SIGNING_ALLOWED=NO
 
       - name: Build Watch app (unsigned, simulator)
         working-directory: app
@@ -167,8 +173,7 @@ jobs:
             -scheme StudentAthleteWatch \
             -configuration Debug \
             -destination 'generic/platform=watchOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO \
-            | tail -200
+            CODE_SIGNING_ALLOWED=NO
 
       # A hand-written Info.plist that omits CFBundleIdentifier (or the other
       # three boilerplate keys Xcode's default template always carries) builds
