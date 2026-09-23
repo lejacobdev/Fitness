@@ -15,6 +15,7 @@ public struct SessionHistoryView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(session.startedAt.formatted(date: .abbreviated, time: .shortened))
                         .font(.headline)
+                        .foregroundStyle(.white)
                     HStack(spacing: 4) {
                         Text("\(session.minutes) min")
                         if let rpe = session.sessionRPE {
@@ -23,22 +24,29 @@ public struct SessionHistoryView: View {
                         Text("· \(session.sets.count) sets")
                         Spacer()
                         Image(systemName: session.syncedAt != nil ? "checkmark.icloud" : "icloud.slash")
-                            .foregroundStyle(session.syncedAt != nil ? .green : .secondary)
+                            .foregroundStyle(session.syncedAt != nil ? .green : .white.opacity(0.4))
                             .accessibilityLabel(session.syncedAt != nil ? "Synced" : "Not yet synced")
                     }
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.5))
                 }
+                .padding(.vertical, 6)
+                .listRowBackground(Color.clear)
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .overlay {
                 if sessions.isEmpty {
                     ContentUnavailableView(
                         "No sessions yet", systemImage: "figure.strengthtraining.traditional",
                         description: Text("Start a training session to see it here.")
                     )
+                    .foregroundStyle(.white)
                 }
             }
             .navigationTitle("History")
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .background(AppBackground())
         }
     }
 }

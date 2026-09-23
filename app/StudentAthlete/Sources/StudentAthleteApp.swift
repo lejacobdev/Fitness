@@ -19,6 +19,7 @@ struct StudentAthleteApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .preferredColorScheme(.dark)
         }
         .modelContainer(container)
     }
@@ -75,11 +76,15 @@ struct PipelinePlaceholderView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                Text("Student Athlete")
-                    .font(.largeTitle.bold())
-                Text("Pipeline check — M0/M3")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                VStack(spacing: 4) {
+                    Text("Student Athlete")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                    Text("Pipeline check — M0/M3")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+                .padding(.top, 12)
 
                 VStack(alignment: .leading, spacing: 12) {
                     row("Version", "\(evidence.version) (\(evidence.build))", ok: true)
@@ -90,8 +95,7 @@ struct PipelinePlaceholderView: View {
                         evidence.entitlementsPresent ? "embedded" : "none (unsigned build)",
                         ok: evidence.entitlementsPresent)
                 }
-                .padding()
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+                .cardStyle()
 
                 trainingSection
 
@@ -101,11 +105,13 @@ struct PipelinePlaceholderView: View {
                      + "diagnoses, or advises return to play. It supplements your "
                      + "coach and athletic trainer; it never replaces them.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.4))
                     .multilineTextAlignment(.center)
             }
             .padding(24)
         }
+        .scrollContentBackground(.hidden)
+        .background(AppBackground())
         .sheet(isPresented: $showingLiveSession) {
             LiveSessionView(athlete: athlete, apiClient: apiClient)
         }
@@ -125,24 +131,29 @@ struct PipelinePlaceholderView: View {
 
     private var trainingSection: some View {
         VStack(spacing: 12) {
-            Text("§5 — Log a session (M5)").font(.headline)
+            Text("Today's training")
+                .font(.headline)
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, alignment: .leading)
             Button("Start training session") { showingLiveSession = true }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.accentFilled)
             Button("History") { showingHistory = true }
-                .buttonStyle(.bordered)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.7))
+                .padding(.top, 2)
         }
-        .padding()
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+        .cardStyle()
     }
 
     private func row(_ label: String, _ value: String, ok: Bool) -> some View {
         HStack {
             Image(systemName: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(ok ? .green : .red)
+                .foregroundStyle(ok ? .green : AppTheme.accent)
             Text(label)
+                .foregroundStyle(.white)
             Spacer()
             Text(value)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.5))
                 .monospacedDigit()
         }
         .font(.callout)
@@ -157,6 +168,8 @@ struct M3RenderingDemo: View {
         VStack(spacing: 16) {
             Text("§9 rendering — compiled-in demo data")
                 .font(.headline)
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(spacing: 16) {
                 VStack {
@@ -164,25 +177,24 @@ struct M3RenderingDemo: View {
                         "gluteus-maximus": 1.0, "erector-spinae": 0.7, "biceps-femoris": 0.8,
                     ])
                     .frame(height: 220)
-                    Text("Hinge — back").font(.caption).foregroundStyle(.secondary)
+                    Text("Hinge — back").font(.caption).foregroundStyle(.white.opacity(0.5))
                 }
                 VStack {
                     MuscleMapView(side: .front, weights: [
                         "rectus-femoris": 0.8, "gluteus-maximus": 0.6, "tibialis-anterior": 0.4,
                     ])
                     .frame(height: 220)
-                    Text("Instep strike — front").font(.caption).foregroundStyle(.secondary)
+                    Text("Instep strike — front").font(.caption).foregroundStyle(.white.opacity(0.5))
                 }
             }
 
             if let pattern = posePatternsBySlug["instep-strike"] {
                 RigPoseView(start: pattern.start, end: pattern.end, prop: propsBySlug["ball-round"])
                     .frame(height: 220)
-                Text("Instep strike, animated, with ball").font(.caption).foregroundStyle(.secondary)
+                Text("Instep strike, animated, with ball").font(.caption).foregroundStyle(.white.opacity(0.5))
             }
         }
-        .padding()
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+        .cardStyle()
     }
 }
 

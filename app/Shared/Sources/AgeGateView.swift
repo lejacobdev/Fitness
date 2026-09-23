@@ -42,30 +42,37 @@ public struct AgeGateView: View {
 
     public var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: 28) {
                 Image("Logo")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 96, height: 96)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .accessibilityHidden(true)
-                Text("Student Athlete")
-                    .font(.largeTitle.bold())
-                Text("First, when's your birthday?")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .padding(.top, 24)
+
+                VStack(spacing: 8) {
+                    Text("Student Athlete")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                    Text("First, when's your birthday?")
+                        .font(.title3)
+                        .foregroundStyle(.white.opacity(0.6))
+                }
 
                 DatePicker(
                     "Date of birth", selection: $birthDate, in: ...Date.now, displayedComponents: .date
                 )
                 .datePickerStyle(.wheel)
                 .labelsHidden()
+                .colorScheme(.dark)
                 .accessibilityLabel("Date of birth")
+                .cardStyle()
 
                 if result == .underMinimum {
                     Text("Student Athlete is for athletes 13 and up. Come back once you turn 13.")
                         .font(.callout)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(.orange)
                         .multilineTextAlignment(.center)
                         .accessibilityLabel("You must be 13 or older to use Student Athlete")
                 }
@@ -73,8 +80,9 @@ public struct AgeGateView: View {
                 Button("Continue") {
                     onEligible(birthDate)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.accentFilled)
                 .disabled(result == .underMinimum)
+                .opacity(result == .underMinimum ? 0.4 : 1)
 
                 Text(
                     "General training information, not medical advice. Talk to your coach or "
@@ -82,11 +90,13 @@ public struct AgeGateView: View {
                     + "something hurts."
                 )
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.45))
                 .multilineTextAlignment(.center)
             }
             .padding(24)
         }
+        .background(AppBackground())
+        .scrollContentBackground(.hidden)
     }
 }
 

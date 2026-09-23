@@ -43,8 +43,9 @@ public struct LiveSessionView: View {
                     itemPickerView
                 }
             }
-            .padding()
+            .background(AppBackground())
             .navigationTitle("Training session")
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -71,19 +72,26 @@ public struct LiveSessionView: View {
                 selectedItem = item
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(item.name).font(.headline)
+                    Text(item.name)
+                        .font(.headline)
+                        .foregroundStyle(.white)
                     Text("\(item.kind.capitalized) · \(item.equipment.joined(separator: ", "))")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.5))
                 }
+                .padding(.vertical, 6)
             }
+            .listRowBackground(Color.clear)
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .overlay {
             if catalogue.itemsBySlug.isEmpty {
                 ContentUnavailableView(
                     "No items downloaded yet", systemImage: "shippingbox",
                     description: Text("Finish downloading a sport pack from onboarding first.")
                 )
+                .foregroundStyle(.white)
             }
         }
     }
@@ -91,28 +99,35 @@ public struct LiveSessionView: View {
     private func logSetView(for item: CatalogueItem) -> some View {
         ScrollView {
             VStack(spacing: 20) {
-                Text(item.name).font(.title2.bold())
+                Text(item.name)
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
                 if let firstCue = item.cues.first {
                     Text(firstCue)
                         .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.6))
                         .multilineTextAlignment(.center)
                 }
 
                 doseControls(for: item)
+                    .cardStyle()
+                    .colorScheme(.dark)
 
                 if let restSecondsRemaining {
                     Text("Rest: \(restSecondsRemaining)s")
-                        .font(.title.monospacedDigit())
-                        .foregroundStyle(.orange)
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundStyle(AppTheme.accent)
+                        .monospacedDigit()
                 }
 
                 Button("Log set") { logSet(item: item) }
-                    .buttonStyle(.borderedProminent)
-                    .font(.title3)
+                    .buttonStyle(.accentFilled)
+                    .font(.title3.bold())
 
                 Button("Choose a different item") { selectedItem = nil }
-                    .buttonStyle(.bordered)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.6))
             }
             .padding()
         }
@@ -120,19 +135,22 @@ public struct LiveSessionView: View {
 
     @ViewBuilder
     private func doseControls(for item: CatalogueItem) -> some View {
-        switch item.defaultDose.kind {
-        case "reps":
-            Stepper("Reps: \(reps)", value: $reps, in: 1...50)
-            Stepper("Weight: \(weightKg, specifier: "%.1f") kg", value: $weightKg, in: 0...300, step: 2.5)
-        case "time":
-            Stepper("Seconds: \(seconds)", value: $seconds, in: 1...600, step: 5)
-        case "distance":
-            Stepper("Distance: \(distanceM, specifier: "%.0f") m", value: $distanceM, in: 1...1000, step: 5)
-        case "contacts":
-            Stepper("Contacts: \(contacts)", value: $contacts, in: 1...100)
-        default:
-            EmptyView()
+        VStack(spacing: 8) {
+            switch item.defaultDose.kind {
+            case "reps":
+                Stepper("Reps: \(reps)", value: $reps, in: 1...50)
+                Stepper("Weight: \(weightKg, specifier: "%.1f") kg", value: $weightKg, in: 0...300, step: 2.5)
+            case "time":
+                Stepper("Seconds: \(seconds)", value: $seconds, in: 1...600, step: 5)
+            case "distance":
+                Stepper("Distance: \(distanceM, specifier: "%.0f") m", value: $distanceM, in: 1...1000, step: 5)
+            case "contacts":
+                Stepper("Contacts: \(contacts)", value: $contacts, in: 1...100)
+            default:
+                EmptyView()
+            }
         }
+        .foregroundStyle(.white)
     }
 
     private func logSet(item: CatalogueItem) {
@@ -183,23 +201,27 @@ private struct RPEPromptView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
-                Text("How hard was that?").font(.title2.bold())
+                Text("How hard was that?")
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
                 Text("1 = very easy, 10 = maximum effort")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.5))
                 Picker("RPE", selection: $rpe) {
                     ForEach(1...10, id: \.self) { value in
                         Text("\(value)").tag(value)
                     }
                 }
                 .pickerStyle(.wheel)
+                .colorScheme(.dark)
                 Button("Done") {
                     onDone()
                     dismiss()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.accentFilled)
             }
             .padding()
+            .background(AppBackground())
         }
     }
 }

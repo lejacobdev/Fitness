@@ -58,13 +58,14 @@ public struct OnboardingView: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 96, height: 96)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .accessibilityHidden(true)
             Text("Student Athlete")
-                .font(.largeTitle.bold())
+                .font(.system(size: 34, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
             Text("Sign in with Apple so your training history survives a new phone.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.6))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
@@ -76,37 +77,43 @@ public struct OnboardingView: View {
                     errorMessage = "Sign in failed: \(error.localizedDescription)"
                 }
             )
-            .frame(height: 50)
+            .frame(height: 54)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
             .padding(.horizontal, 40)
 
             if let errorMessage {
                 Text(errorMessage)
                     .font(.caption)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(.orange)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
             Spacer()
         }
         .padding(24)
+        .background(AppBackground())
     }
 
     private var downloadingStep: some View {
         VStack(spacing: 16) {
             ProgressView()
+                .tint(.white)
             Text("Downloading your training library…")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.6))
             if let errorMessage {
                 Text(errorMessage)
                     .font(.caption)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(.orange)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
                 Button("Continue offline") { onComplete() }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.accentFilled)
+                    .padding(.horizontal, 60)
             }
         }
         .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AppBackground())
     }
 
     private func handleSignIn(identityToken: String, rawNonce: String) {

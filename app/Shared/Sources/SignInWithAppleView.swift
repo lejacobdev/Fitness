@@ -68,5 +68,9 @@ public struct AppleSignInButton: View {
             // or not — a nonce is single-use by design.
             currentNonce = SignInNonce.generate()
         }
+        // .white (a white pill, black text/logo) rather than the .black
+        // default — the app's screens are dark-primary, and a black button
+        // on a near-black background has poor contrast.
+        .signInWithAppleButtonStyle(.white)
     }
 }
