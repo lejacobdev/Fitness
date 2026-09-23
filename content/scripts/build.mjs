@@ -25,7 +25,8 @@ import { fileURLToPath } from 'node:url';
 import { buildAnatomy } from '../src/anatomy.js';
 import { CATALOGUE, BASE_ITEMS } from '../src/catalogue.js';
 import { MUSCLE_MODEL_VERSION, MUSCLES } from '../src/muscles.js';
-import { LOOPING_PATTERNS, POSE_MODEL_VERSION, POSE_PATTERNS } from '../src/poses.js';
+import { JOINTS, POSE_MODEL_VERSION, POSE_PATTERNS } from '../src/poses.js';
+import { frameAt, placeKeyframes } from '../src/rig3d.js';
 import { PROPS } from '../src/props.js';
 import { QUALITIES, QUALITY_MODEL_VERSION } from '../src/qualities.js';
 import { EQUIPMENT, EQUIPMENT_LEVELS, PLYOMETRIC_DOSE_KIND } from '../src/schema.js';
@@ -258,62 +259,130 @@ public let muscleMapCanonicalHeight: Double = 200
 
 
 function genPosePatternsSwift() {
-  const joints = [...new Set(POSE_PATTERNS.flatMap((p) => Object.keys(p.start)))];
-  const jointCases = joints.map((j) => `    case ${j} = ${swiftStringLiteral(j)}`).join('\n');
+  const jointCases = JOINTS.map((j) => `    case ${j} = ${swiftStringLiteral(j)}`).join('\n');
+  const num = (v) => swiftDoubleLiteral(Math.round((v ?? 0) * 1000) / 1000);
+  const angles = (pose) => `[${JOINTS.map((j) => num(pose[j])).join(', ')}]`;
+  const optNum = (v) => (v == null ? 'nil' : num(v));
 
-  function poseDict(angles) {
-    const entries = Object.entries(angles).map(([j, v]) => [`.${j}`, swiftDoubleLiteral(v)]);
-    return swiftDict(entries.map(([k, v]) => `${k}: ${v}`), '        ');
-  }
+  const keyframe = (k) => `PoseKeyframe(angles: ${angles(k.pose)}, contact: ${swiftStringLiteral(k.contact)}, hold: ${num(k.hold ?? 0)}, move: ${num(k.move ?? 0.6)}, surface: ${num(k.surface ?? 0)}, travel: [${num(k.travel?.[0] ?? 0)}, ${num(k.travel?.[1] ?? 0)}], chain: [${(k.chain ?? [0, 1]).join(', ')}])`;
+  const fixture = (f) => {
+    if (!f) return 'nil';
+    const params = Object.entries(f).filter(([k, v]) => k !== 'kind' && typeof v === 'number').map(([k, v]) => `${swiftStringLiteral(k)}: ${num(v)}`);
+    return `RigFixtureSpec(kind: ${swiftStringLiteral(f.kind)}, params: [${params.length ? params.join(', ') : ':'}], under: ${f.under ? swiftStringLiteral(f.under) : 'nil'})`;
+  };
+  const implement = (i) => {
+    if (!i) return 'nil';
+    const flags = Object.entries(i).filter(([, v]) => v === true).map(([k]) => swiftStringLiteral(k));
+    const numbers = Object.entries(i).filter(([, v]) => typeof v === 'number').map(([k, v]) => `${swiftStringLiteral(k)}: ${num(v)}`);
+    return `RigImplementSpec(kind: ${swiftStringLiteral(i.kind)}, at: ${swiftStringLiteral(i.at ?? 'hands')}, to: ${i.to ? `[${i.to.map(num).join(', ')}]` : 'nil'}, flags: [${flags.join(', ')}], numbers: [${numbers.length ? numbers.join(', ') : ':'}])`;
+  };
 
   const structs = POSE_PATTERNS.map((p) => `PosePatternInfo(
-        id: ${swiftStringLiteral(p.slug)},
-        name: ${swiftStringLiteral(p.name)},
-        start: ${poseDict(p.start)},
-        end: ${poseDict(p.end)},
-        loops: ${LOOPING_PATTERNS.has(p.slug)}
+        id: ${swiftStringLiteral(p.slug)}, name: ${swiftStringLiteral(p.name)}, view: ${swiftStringLiteral(p.view ?? 'side')},
+        loops: ${p.loop ? 'true' : 'false'}, thumb: ${p.thumb ?? 0},
+        fixture: ${fixture(p.fixture)}, implement: ${implement(p.implement)},
+        keyframes: [
+            ${p.keyframes.map(keyframe).join(',\n            ')}
+        ]
     )`);
+
+  // Golden samples: where rig3d.js puts key points, for the Swift parity test.
+  const samples = [];
+  for (const p of POSE_PATTERNS.slice(0, 12)) {
+    const placed = placeKeyframes(p);
+    for (const t of [0, 0.37, 0.71]) {
+      const s = frameAt(p, t, placed);
+      const pts = [s.pelvis, s.head, s.L.ankle, s.R.toe, s.L.wrist, s.R.elbow, s.L.knee].flat();
+      samples.push(`RigGoldenSample(pattern: ${swiftStringLiteral(p.slug)}, t: ${num(t)}, points: [${pts.map(num).join(', ')}])`);
+    }
+  }
 
   return `${generatedHeader('content/src/poses.js')}import Foundation
 
 public let poseModelVersion = ${POSE_MODEL_VERSION}
 
-/// The rig's joints (§9 job 2) — left/right paired where the body is.
+/// The rig's joints (§9 job 2) — see content/src/rig3d.js for every convention.
 public enum Joint: String, CaseIterable, Codable, Sendable, Hashable {
 ${jointCases}
 }
 
 public typealias Pose = [Joint: Double]
 
+/// One keyframe of a movement: joint angles in \`Joint.allCases\` order.
+public struct PoseKeyframe: Sendable, Hashable {
+    public let angles: [Double]
+    public let contact: String
+    public let hold: Double
+    public let move: Double
+    public let surface: Double
+    public let travel: [Double]
+    public let chain: [Int]
+
+    public var pose: Pose {
+        var out: Pose = [:]
+        for (index, joint) in Joint.allCases.enumerated() { out[joint] = angles[index] }
+        return out
+    }
+}
+
+/// A fixed object in the scene (bench, bar, box, bike…); numbers as in poses.js.
+public struct RigFixtureSpec: Sendable, Hashable {
+    public let kind: String
+    public let params: [String: Double]
+    public let under: String?
+}
+
+/// Equipment held or worn (barbell, racket, ball…).
+public struct RigImplementSpec: Sendable, Hashable {
+    public let kind: String
+    public let at: String
+    public let to: [Double]?
+    /// Switches such as "puck" (draw a puck at the blade) or "ball".
+    public let flags: [String]
+    public let numbers: [String: Double]
+}
+
 public struct PosePatternInfo: Sendable, Identifiable, Hashable {
     public let id: String
     public let name: String
-    public let start: Pose
-    public let end: Pose
-    /// A continuous rhythm (running, hopping, shuffling) that plays back and
-    /// forth seamlessly; everything else plays start → end and cuts back.
+    public let view: String
+    /// A continuous rhythm that wraps last → first; otherwise one rep that cuts back to the start.
     public let loops: Bool
+    /// Keyframe shown as the still thumbnail.
+    public let thumb: Int
+    public let fixture: RigFixtureSpec?
+    public let implement: RigImplementSpec?
+    public let keyframes: [PoseKeyframe]
+
+    public var start: Pose { keyframes[0].pose }
+    public var end: Pose { keyframes[min(thumb, keyframes.count - 1)].pose }
 }
 
-/// §9: "roughly 25-35 pairs" — one canonical movement pattern per entry, every
-/// item inherits its pattern's pair rather than being posed individually.
+/// Every movement the catalogue animates; each item names exactly one.
 public let posePatterns: [PosePatternInfo] = ${swiftArray(structs)}
 
 public let posePatternsBySlug: [String: PosePatternInfo] =
     Dictionary(uniqueKeysWithValues: posePatterns.map { ($0.id, $0) })
 
-/// §7's unilateral expansion rule: mirrors every left/right joint pair. Used
-/// at render time, never baked into a second copy of pose data.
+/// Reference joint positions computed by content/src/rig3d.js.
+public struct RigGoldenSample: Sendable {
+    public let pattern: String
+    public let t: Double
+    /// pelvis, head, L ankle, R toe, L wrist, R elbow, L knee — x, y, z each.
+    public let points: [Double]
+}
+
+public let rigGoldenSamples: [RigGoldenSample] = ${swiftArray(samples)}
+
+/// Swaps every left/right joint pair.
 public func mirrorPose(_ pose: Pose) -> Pose {
     var mirrored: Pose = [:]
     for joint in Joint.allCases {
         let name = joint.rawValue
-        if name.hasSuffix("L") {
-            let rJoint = Joint(rawValue: String(name.dropLast()) + "R")!
-            mirrored[joint] = pose[rJoint]
-        } else if name.hasSuffix("R") {
-            let lJoint = Joint(rawValue: String(name.dropLast()) + "L")!
-            mirrored[joint] = pose[lJoint]
+        if name.hasSuffix("L"), let other = Joint(rawValue: String(name.dropLast()) + "R") {
+            mirrored[joint] = pose[other]
+        } else if name.hasSuffix("R"), let other = Joint(rawValue: String(name.dropLast()) + "L") {
+            mirrored[joint] = pose[other]
         } else {
             mirrored[joint] = pose[joint]
         }

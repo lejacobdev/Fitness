@@ -429,8 +429,8 @@ struct ItemDetailView: View {
                     ZStack {
                         RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
                             .fill(AppTheme.fill)
-                        if let pair = item.posePair {
-                            RigPoseView(start: pair.start, end: pair.end, loops: pair.loops, prop: item.prop.flatMap { propsBySlug[$0] }, muscles: item.muscles)
+                        if let pattern = item.posePattern {
+                            RigPoseView(pattern: pattern, muscles: item.muscles)
                                 .padding(24)
                         }
                     }

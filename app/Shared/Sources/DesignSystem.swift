@@ -585,8 +585,8 @@ public struct ItemThumbnail: View {
         ZStack {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(AppTheme.fill)
-            if let pair = item?.posePair {
-                RigStillView(start: pair.start, end: pair.end, prop: item?.prop.flatMap { propsBySlug[$0] })
+            if let pattern = item?.posePattern {
+                RigStillView(pattern: pattern)
                     .padding(4)
             } else {
                 Image(systemName: "figure.strengthtraining.traditional")

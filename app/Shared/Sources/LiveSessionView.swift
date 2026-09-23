@@ -170,8 +170,8 @@ public struct LiveSessionView: View {
                 .fill(AppTheme.card)
                 .shadow(color: .black.opacity(0.05), radius: 12, x: 0, y: 4)
             HStack(spacing: 8) {
-                if let pair = currentItem?.posePair {
-                    RigPoseView(start: pair.start, end: pair.end, loops: pair.loops, prop: currentItem?.prop.flatMap { propsBySlug[$0] }, muscles: currentItem?.muscles ?? [:])
+                if let pattern = currentItem?.posePattern {
+                    RigPoseView(pattern: pattern, muscles: currentItem?.muscles ?? [:])
                         .frame(maxWidth: .infinity)
                 }
                 if let currentItem {

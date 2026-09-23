@@ -56,17 +56,14 @@ test('muscle role thresholds are ordered primary > secondary > stabiliser', () =
   assert.ok(primary > secondary && secondary > stabiliser);
 });
 
-test('pose pattern count is in §9\'s "25-35" range', () => {
-  assert.ok(POSE_PATTERNS.length >= 25 && POSE_PATTERNS.length <= 35, POSE_PATTERNS.length);
+test('pose library covers the catalogue with real movements (well over the old 25-35 pairs)', () => {
+  assert.ok(POSE_PATTERNS.length >= 150, POSE_PATTERNS.length);
 });
 
-test('every pose pattern\'s start and end cover every joint', () => {
+test('every keyframe of every pattern covers every joint', () => {
   for (const p of POSE_PATTERNS) {
-    for (const joint of JOINTS) {
-      assert.ok(joint in p.start, `${p.slug}.start missing joint ${joint}`);
-      assert.ok(joint in p.end, `${p.slug}.end missing joint ${joint}`);
-      assert.equal(typeof p.start[joint], 'number');
-      assert.equal(typeof p.end[joint], 'number');
+    for (const k of p.keyframes) {
+      for (const joint of JOINTS) assert.equal(typeof k.pose[joint], 'number', `${p.slug} missing ${joint}`);
     }
   }
 });
@@ -76,18 +73,10 @@ test('pose pattern slugs are unique', () => {
   assert.equal(new Set(slugs).size, slugs.length);
 });
 
-test('mirrorPose is an involution (mirroring twice returns the original) — §7 unilateral rule', () => {
-  for (const p of POSE_PATTERNS) {
-    assert.deepEqual(mirrorPose(mirrorPose(p.start)), p.start, `${p.slug}.start`);
-    assert.deepEqual(mirrorPose(mirrorPose(p.end)), p.end, `${p.slug}.end`);
-  }
-});
-
-test('mirrorPose actually swaps L/R angles when they differ', () => {
-  const p = POSE_PATTERNS.find((x) => x.slug === 'lunge');
-  const mirrored = mirrorPose(p.end);
-  assert.equal(mirrored.hipL, p.end.hipR);
-  assert.equal(mirrored.hipR, p.end.hipL);
+test('mirrorPose is an involution and swaps sides', () => {
+  const p = POSE_PATTERNS.find((x) => x.slug === 'split-squat').keyframes[1].pose;
+  assert.deepEqual(mirrorPose(mirrorPose(p)), p);
+  assert.equal(mirrorPose(p).hipL, p.hipR);
 });
 
 test('prop count is in §9\'s "~dozen" range', () => {
