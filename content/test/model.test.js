@@ -148,3 +148,29 @@ test('every position\'s skill slugs and quality-profile slugs are unique within 
     assert.equal(new Set(skillSlugs).size, skillSlugs.length, `${s.slug} has duplicate skill slugs`);
   }
 });
+
+// ── §8 skill menu (M9) ───────────────────────────────────────────────────
+
+test('§21: every skill maps to >= 3 real qualities, weights in 0-1', () => {
+  const errors = [];
+  for (const s of SPORTS) validateSport(s, errors);
+  assert.deepEqual(errors, []);
+});
+
+test('every skill has a non-empty qualityWeights map (bespoke or the sport-profile fallback)', () => {
+  for (const s of SPORTS) {
+    for (const sk of s.skills) {
+      assert.ok(sk.qualityWeights && Object.keys(sk.qualityWeights).length > 0, `${s.slug}.${sk.slug} has no qualityWeights`);
+    }
+  }
+});
+
+test('soccer.shooting-power matches §8\'s worked example exactly', () => {
+  const soccer = SPORTS.find((s) => s.slug === 'soccer');
+  const shootingPower = soccer.skills.find((sk) => sk.slug === 'shooting-power');
+  assert.deepEqual(shootingPower.qualityWeights, {
+    'deceleration': 1.0, 'rotational-power': 0.9, 'horizontal-power': 0.8, 'vertical-power': 0.8,
+    'lower-body-strength': 0.7, 'ankle-stiffness': 0.7, 'reactive-strength': 0.7,
+    'hip-mobility': 0.5, 'single-leg-stability': 0.5,
+  });
+});

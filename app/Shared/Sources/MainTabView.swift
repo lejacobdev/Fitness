@@ -26,7 +26,7 @@ public struct MainTabView: View {
             PlanTabView(athlete: athlete, week: week, onGameAdded: regenerate)
                 .tabItem { Label("Plan", systemImage: "calendar") }
 
-            ImproveTabView()
+            ImproveTabView(athlete: athlete)
                 .tabItem { Label("Improve", systemImage: "arrow.up.forward.circle.fill") }
 
             LibraryView()
@@ -592,18 +592,245 @@ private struct PlanTabView: View {
     }
 }
 
+/// §8's skill menu, real end to end: sport (pre-filled) → a grid of that
+/// sport's named skills → "when is your next game?" → the dated block, each
+/// item explaining why it's there. Saved blocks live here too (§15).
 private struct ImproveTabView: View {
+    let athlete: Athlete
+
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \SkillBlock.generatedAt, order: .reverse) private var allSkillBlocks: [SkillBlock]
+    @State private var selectedSkill: SportSkill?
+    @State private var gameDate = Date.now.addingTimeInterval(7 * 86400)
+    @State private var generatedBlock: GeneratedSkillBlock?
+    @State private var isSaved = false
+
+    private var sportSlug: String? { athlete.sports.first?.sportSlug }
+    private var sportInfo: SportInfo? { sportSlug.flatMap { allSportsBySlug[$0] } }
+    private var savedBlocksForThisSport: [SkillBlock] {
+        guard let sportSlug else { return [] }
+        return allSkillBlocks.filter { $0.athlete?.id == athlete.id && $0.sportSlug == sportSlug }
+    }
+
     var body: some View {
         NavigationStack {
-            ContentUnavailableView(
-                "Improve is on the way", systemImage: "arrow.up.forward.circle",
-                description: Text("The skill menu — pick a sport, a skill, and a deadline — is coming in a future update.")
-            )
-            .foregroundStyle(.white)
+            Group {
+                if let block = generatedBlock, let selectedSkill {
+                    blockView(block, skill: selectedSkill)
+                } else if let selectedSkill {
+                    gameDateStep(for: selectedSkill)
+                } else if let sportInfo {
+                    skillGridStep(sportInfo)
+                } else {
+                    ContentUnavailableView(
+                        "Pick a sport first", systemImage: "sportscourt",
+                        description: Text("The skill menu needs a sport to work from.")
+                    )
+                    .foregroundStyle(.white)
+                }
+            }
             .background(AppBackground())
             .navigationTitle("Improve")
             .toolbarColorScheme(.dark, for: .navigationBar)
         }
+    }
+
+    private func skillGridStep(_ sport: SportInfo) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("I want to get better at…")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(sport.skills, id: \.slug) { skill in
+                        Button {
+                            selectedSkill = skill
+                            gameDate = nearestUpcomingCompetitionDate() ?? Date.now.addingTimeInterval(7 * 86400)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Image(systemName: "figure.run")
+                                    .font(.title2)
+                                    .foregroundStyle(AppTheme.accent)
+                                Text(skill.name)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .multilineTextAlignment(.leading)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(16)
+                        }
+                    }
+                }
+                .cardStyle()
+
+                if !savedBlocksForThisSport.isEmpty {
+                    savedBlocksSection
+                }
+            }
+            .padding(20)
+        }
+    }
+
+    private var savedBlocksSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Saved blocks")
+                .font(.headline)
+                .foregroundStyle(.white)
+            ForEach(savedBlocksForThisSport) { saved in
+                Button {
+                    reopen(saved)
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(sportInfo?.skills.first { $0.slug == saved.skillSlug }?.name ?? saved.skillSlug)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white)
+                            Text("For \(saved.targetDate.formatted(date: .abbreviated, time: .omitted))")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.5))
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(.white.opacity(0.3))
+                    }
+                }
+            }
+        }
+        .cardStyle()
+    }
+
+    private func gameDateStep(for skill: SportSkill) -> some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                Text(skill.name)
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                Text("My next game is")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.6))
+
+                DatePicker("Game date", selection: $gameDate, in: Date.now..., displayedComponents: .date)
+                    .colorScheme(.dark)
+                    .cardStyle()
+
+                Button("Build my plan") { generate(for: skill) }
+                    .buttonStyle(.accentFilled)
+
+                Button("Choose a different skill") { selectedSkill = nil }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            .padding(24)
+        }
+    }
+
+    private func blockView(_ block: GeneratedSkillBlock, skill: SportSkill) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(block.skillName)
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                Text(block.realisticExpectation)
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.6))
+                    .cardStyle()
+
+                ForEach(Array(block.days.enumerated()), id: \.offset) { _, day in
+                    dayCard(day)
+                }
+
+                Button(isSaved ? "Saved" : "Save this block") { save(skill: skill) }
+                    .buttonStyle(.accentFilled)
+                    .disabled(isSaved)
+
+                Button("Start over") {
+                    generatedBlock = nil
+                    selectedSkill = nil
+                    isSaved = false
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.6))
+                .frame(maxWidth: .infinity)
+            }
+            .padding(20)
+        }
+    }
+
+    private func dayCard(_ day: GeneratedSession) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(day.date.formatted(.dateTime.weekday(.wide).month().day()))
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.5))
+            Text(day.title)
+                .font(.title3.bold())
+                .foregroundStyle(.white)
+            if day.items.isEmpty {
+                Text("No prescribed training — see above.")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+            ForEach(day.items, id: \.order) { item in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.itemSlug.replacingOccurrences(of: "-", with: " ").capitalized)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text(item.rationale)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+                .padding(.top, 4)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle()
+    }
+
+    private func nearestUpcomingCompetitionDate() -> Date? {
+        guard let sportSlug else { return nil }
+        let today = Calendar.current.startOfDay(for: .now)
+        return athlete.competitions
+            .filter { $0.sportSlug == sportSlug }
+            .map(\.date)
+            .filter { Calendar.current.startOfDay(for: $0) >= today }
+            .min()
+    }
+
+    private func generate(for skill: SportSkill) {
+        guard let sportSlug else { return }
+        let seed = "\(athlete.id)-\(skill.slug)-\(Int(gameDate.timeIntervalSince1970))"
+        let input = SkillMenuInput(
+            sportSlug: sportSlug, skillSlug: skill.slug, skillName: skill.name,
+            qualityWeights: skill.qualityWeights, today: .now, gameDate: gameDate, birthDate: athlete.birthDate,
+            trainsUnderCoach: athlete.trainsUnderCoach, equipmentAvailable: Set(athlete.equipmentAvailable),
+            catalogue: CatalogueLoader.load(from: AppConfig.packsDirectory()), seed: seed
+        )
+        generatedBlock = SkillMenuEngine.generate(input)
+        isSaved = false
+    }
+
+    private func save(skill: SportSkill) {
+        guard let sportSlug else { return }
+        let seed = "\(athlete.id)-\(skill.slug)-\(Int(gameDate.timeIntervalSince1970))"
+        try? SkillBlockStore(modelContext: modelContext).save(
+            athlete: athlete, sportSlug: sportSlug, skillSlug: skill.slug, targetDate: gameDate, seed: seed
+        )
+        isSaved = true
+    }
+
+    private func reopen(_ saved: SkillBlock) {
+        guard let skill = sportInfo?.skills.first(where: { $0.slug == saved.skillSlug }) else { return }
+        selectedSkill = skill
+        gameDate = saved.targetDate
+        let input = SkillMenuInput(
+            sportSlug: saved.sportSlug, skillSlug: skill.slug, skillName: skill.name,
+            qualityWeights: skill.qualityWeights, today: .now, gameDate: saved.targetDate, birthDate: athlete.birthDate,
+            trainsUnderCoach: athlete.trainsUnderCoach, equipmentAvailable: Set(athlete.equipmentAvailable),
+            catalogue: CatalogueLoader.load(from: AppConfig.packsDirectory()), seed: saved.seed
+        )
+        generatedBlock = SkillMenuEngine.generate(input)
+        isSaved = true
     }
 }
 

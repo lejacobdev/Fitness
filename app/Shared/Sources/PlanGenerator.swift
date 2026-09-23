@@ -247,7 +247,10 @@ public enum PlanGenerator {
     /// unambiguously to the enum case — and defaults an unrecognised tag to
     /// `.full` (never silently free) rather than `.none` (never silently
     /// required), the conservative direction to fail in.
-    private static func isEligibleForEquipment(_ item: CatalogueItem, available: Set<String>) -> Bool {
+    /// Not `private`: `SkillMenuEngine` (§8/M9) reuses this exact equipment
+    /// eligibility check so the skill menu's item filtering can never mean
+    /// something different from the weekly plan's.
+    static func isEligibleForEquipment(_ item: CatalogueItem, available: Set<String>) -> Bool {
         item.equipment.allSatisfy { tag in
             equipmentLevelByTag[tag, default: .full] == .none || available.contains(tag)
         }
@@ -260,7 +263,8 @@ public enum PlanGenerator {
     /// the set/rep range needs an active clamp here, and only for
     /// `reps`-kind doses (time/distance/contacts aren't "sets x reps" at
     /// all, so the envelope's wording doesn't apply to them).
-    private static func clampedDose(_ dose: Dose, isYouthEnvelope: Bool) -> Dose {
+    /// Not `private`: `SkillMenuEngine` reuses this same youth-envelope clamp.
+    static func clampedDose(_ dose: Dose, isYouthEnvelope: Bool) -> Dose {
         guard isYouthEnvelope, dose.kind == "reps" else { return dose }
         var clamped = dose
         clamped.sets = min(max(dose.sets, 1), 3)
@@ -274,7 +278,10 @@ public enum PlanGenerator {
     /// Training history isn't a modeled field yet, so this scales by age
     /// only — conservative, named constants, the one place to change per
     /// §23's "each is changeable later by editing the noted constant."
-    private static func weeklyContactCap(age: Int) -> Int {
+    /// Not `private`: `SkillMenuEngine` reuses this same age-scaled ceiling
+    /// as a per-block plyometric budget (§10's cap, applied over a shorter
+    /// window than a full week — see that file's own comment).
+    static func weeklyContactCap(age: Int) -> Int {
         switch age {
         case ..<14: return 80
         case 14...15: return 100
@@ -306,7 +313,8 @@ public enum PlanGenerator {
         return "This is here because your sport rewards \(name)."
     }
 
-    private static func ageInYears(birthDate: Date, now: Date, calendar: Calendar = .current) -> Int {
+    /// Not `private`: `SkillMenuEngine` reuses this same age calculation.
+    static func ageInYears(birthDate: Date, now: Date, calendar: Calendar = .current) -> Int {
         calendar.dateComponents([.year], from: birthDate, to: now).year ?? 0
     }
 }

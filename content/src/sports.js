@@ -31,8 +31,17 @@ export const DEEP_SKILL_SPORTS = new Set([
   'ultimate',
 ]);
 
-function skill(slug, name) {
-  return { slug, name };
+/**
+ * §8: "each named skill in a sport's skills[] carries a weighted list of the
+ * physical qualities that actually underpin it. This mapping is the
+ * authored intelligence of the app." `qualityWeights` is hand-authored here
+ * for skills worth the research (soccer's menu below matches the spec's own
+ * worked example exactly); every other skill gets one assigned automatically
+ * in `sport()` below, from the sport's own qualityProfile — see that
+ * function's comment for why that fallback is honest, not a guess.
+ */
+function skill(slug, name, qualityWeights) {
+  return qualityWeights ? { slug, name, qualityWeights } : { slug, name };
 }
 
 /**
@@ -53,9 +62,20 @@ function sport(spec) {
     throw new Error(`${slug}: a deep-menu sport needs 8–14 skills, got ${skills.length}`);
   }
 
+  // §8's skill→quality mapping is only hand-authored for a handful of
+  // skills so far (soccer's full menu; the rest of the catalogue is a large
+  // parallel content-authoring effort, same shape as the §7 item-volume gap
+  // already flagged elsewhere). A skill with no bespoke mapping inherits the
+  // sport's own qualityProfile as its weights: real, already-authored,
+  // already-tested data — never a guessed or random fallback — so §21's
+  // "every skill resolves to a full block" holds for the whole catalogue
+  // today, while the skills that DO have real per-skill research read
+  // noticeably sharper (see soccer.shooting-power vs. e.g. badminton.smash-power).
+  const resolvedSkills = skills.map((s) => (s.qualityWeights ? s : { ...s, qualityWeights: qualityProfile }));
+
   return {
     slug, name, governing, season, monthRange,
-    qualityProfile, positions, skills, commonLoadAreas, contactLevel,
+    qualityProfile, positions, skills: resolvedSkills, commonLoadAreas, contactLevel,
     typicalSessionLength, typicalWeeklyGames,
   };
 }
@@ -84,12 +104,52 @@ export const SPORTS = [
       { slug: 'midfielder', name: 'Midfielder', qualityProfile: { 'aerobic-base': 1.0, 'repeat-sprint': 0.9, 'anaerobic-capacity': 0.6 } },
       { slug: 'forward', name: 'Forward', qualityProfile: { 'acceleration': 0.9, 'max-velocity': 0.8, 'rotational-power': 0.8 } },
     ],
+    // §8's worked example, verbatim: "shot velocity is produced by planting
+    // hard and braking the support leg fast, then swinging the kicking leg
+    // through... shooting power maps to: eccentric braking / deceleration
+    // 1.0, rotational power 0.9, horizontal and vertical power 0.8,
+    // lower-body max strength relative to bodyweight 0.7, ankle stiffness
+    // and reactive strength 0.7, hip mobility 0.5, single-leg stability
+    // 0.5." The other nine follow the same "not guesswork... follows the
+    // biomechanics" standard, reasoned from what each action demands.
     skills: [
-      skill('shooting-power', 'Shooting power'), skill('shooting-accuracy', 'Shooting accuracy'),
-      skill('first-touch', 'First touch'), skill('dribbling', 'Dribbling under pressure'),
-      skill('passing-range', 'Passing range'), skill('heading', 'Heading'),
-      skill('one-v-one-defending', '1v1 defending'), skill('sprint-speed', 'Sprint speed'),
-      skill('crossing', 'Crossing'), skill('agility', 'Agility and cutting'),
+      skill('shooting-power', 'Shooting power', {
+        'deceleration': 1.0, 'rotational-power': 0.9, 'horizontal-power': 0.8, 'vertical-power': 0.8,
+        'lower-body-strength': 0.7, 'ankle-stiffness': 0.7, 'reactive-strength': 0.7,
+        'hip-mobility': 0.5, 'single-leg-stability': 0.5,
+      }),
+      skill('shooting-accuracy', 'Shooting accuracy', {
+        'single-leg-stability': 0.8, 'hip-mobility': 0.7, 'rotational-power': 0.6,
+        'ankle-stiffness': 0.6, 'deceleration': 0.5,
+      }),
+      skill('first-touch', 'First touch', {
+        'single-leg-stability': 0.8, 'ankle-stiffness': 0.7, 'hip-mobility': 0.6,
+        'reactive-strength': 0.6, 'change-of-direction': 0.5,
+      }),
+      skill('dribbling', 'Dribbling under pressure', {
+        'change-of-direction': 1.0, 'lateral-power': 0.8, 'acceleration': 0.7,
+        'single-leg-stability': 0.7, 'hip-mobility': 0.5,
+      }),
+      skill('passing-range', 'Passing range', {
+        'rotational-power': 0.8, 'hip-mobility': 0.6, 'single-leg-stability': 0.6, 'trunk-anti-rotation': 0.5,
+      }),
+      skill('heading', 'Heading', {
+        'vertical-power': 0.9, 'trunk-anti-rotation': 0.7, 'landing-mechanics': 0.6, 'shoulder-stability': 0.5,
+      }),
+      skill('one-v-one-defending', '1v1 defending', {
+        'deceleration': 1.0, 'change-of-direction': 0.9, 'lateral-power': 0.7,
+        'reactive-strength': 0.6, 'single-leg-stability': 0.6,
+      }),
+      skill('sprint-speed', 'Sprint speed', {
+        'acceleration': 1.0, 'max-velocity': 0.9, 'repeat-sprint': 0.7, 'horizontal-power': 0.6,
+      }),
+      skill('crossing', 'Crossing', {
+        'rotational-power': 0.8, 'hip-mobility': 0.7, 'single-leg-stability': 0.7, 'ankle-stiffness': 0.5,
+      }),
+      skill('agility', 'Agility and cutting', {
+        'change-of-direction': 1.0, 'lateral-power': 0.8, 'deceleration': 0.8,
+        'reactive-strength': 0.6, 'ankle-stiffness': 0.6,
+      }),
     ],
     commonLoadAreas: ['hip-flexors', 'groin', 'hamstrings'],
     contactLevel: 'LIMITED',
@@ -986,6 +1046,13 @@ export function validateSport(s, errors = []) {
   };
   bad('qualityProfile', s.qualityProfile);
   for (const p of s.positions) bad(`position.${p.slug}`, p.qualityProfile);
+  // §21: "every skill maps to ≥ 3 qualities" — checked here rather than as
+  // a separate pass, so it fails alongside every other sport-shape problem.
+  for (const sk of s.skills) {
+    bad(`skill.${sk.slug}`, sk.qualityWeights ?? {});
+    const count = Object.keys(sk.qualityWeights ?? {}).length;
+    if (count < 3) errors.push(`${s.slug} skill.${sk.slug}: maps to only ${count} qualities, need >= 3`);
+  }
   if (!SEASONS.includes(s.season)) errors.push(`${s.slug}: unknown season ${JSON.stringify(s.season)}`);
   if (!CONTACT_LEVELS.includes(s.contactLevel)) errors.push(`${s.slug}: unknown contactLevel ${JSON.stringify(s.contactLevel)}`);
   for (const g of s.governing) if (!GOVERNING_BODIES.includes(g)) errors.push(`${s.slug}: unknown governing body ${JSON.stringify(g)}`);

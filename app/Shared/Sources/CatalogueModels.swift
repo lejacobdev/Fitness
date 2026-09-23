@@ -72,6 +72,13 @@ public struct CatalogueItem: Codable, Sendable, Hashable {
 public struct SportSkill: Codable, Sendable, Hashable {
     public let slug: String
     public let name: String
+    /// §8: "each named skill... carries a weighted list of the physical
+    /// qualities that actually underpin it." Hand-authored for a growing
+    /// subset of skills (soccer's full menu to start); every other skill
+    /// falls back to its sport's own `qualityProfile` — see
+    /// content/src/sports.js's `sport()` for why that fallback is real data,
+    /// not a guess.
+    public let qualityWeights: [String: Double]
 }
 
 public struct SportPosition: Codable, Sendable, Hashable {
