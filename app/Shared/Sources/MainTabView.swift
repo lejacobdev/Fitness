@@ -105,13 +105,48 @@ private struct TodayTabView: View {
     let apiClient: APIClient
     let week: GeneratedWeek?
 
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \Session.startedAt, order: .reverse) private var allSessions: [Session]
     @State private var showingLiveSession = false
     @State private var showingHistory = false
 
+    // §15: "The check-in card if it is not done yet (four taps, inline, no
+    // navigation)." One tap per row sets it; the fourth tap auto-submits —
+    // there's deliberately no separate "Save" button, since a fifth tap
+    // would break the fifteen-second promise in §11.
+    @State private var checkInSleep: Int?
+    @State private var checkInSoreness: Int?
+    @State private var checkInEnergy: Int?
+    @State private var checkInStress: Int?
+    @State private var isSubmittingCheckIn = false
+    @State private var readinessOverridden = false
+
     private var todaysSession: GeneratedSession? {
         let calendar = Calendar.current
         return week?.sessions.first { calendar.isDateInToday($0.date) }
+    }
+
+    private var todaysCheckIn: CheckIn? {
+        athlete.checkIns.first { Calendar.current.isDateInToday($0.date) }
+    }
+
+    /// §11: only applied while a band exists and the athlete hasn't
+    /// one-tap-overridden it back to the original session for today.
+    private var readinessAdjustment: ReadinessApplier.Result? {
+        guard let todaysSession, let band = todaysCheckIn?.readinessBand, !readinessOverridden else { return nil }
+        return ReadinessApplier.apply(to: todaysSession, band: band)
+    }
+
+    private var displayedSession: GeneratedSession? {
+        readinessAdjustment?.session ?? todaysSession
+    }
+
+    private var bandColor: Color {
+        switch todaysCheckIn?.readinessBand {
+        case .red: .red
+        case .amber: .orange
+        case .green, nil: AppTheme.accent
+        }
     }
 
     private var sessionsThisWeek: Int {
@@ -153,6 +188,14 @@ private struct TodayTabView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     header
+                    if todaysCheckIn == nil {
+                        checkInCard
+                    } else if todaysCheckIn?.readinessBand == nil {
+                        Text("Still learning your training baseline — readiness adjustments start once you've checked in for a week.")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.5))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     heroCard
                     statsRow
                     if !recentSessions.isEmpty {
@@ -192,7 +235,7 @@ private struct TodayTabView: View {
 
     @ViewBuilder
     private var heroCard: some View {
-        if let session = todaysSession {
+        if let session = displayedSession {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -210,6 +253,9 @@ private struct TodayTabView: View {
                             .font(.title2)
                             .foregroundStyle(AppTheme.accent)
                     }
+                }
+                if let reason = readinessAdjustment?.reason {
+                    readinessBanner(reason: reason)
                 }
                 HStack(spacing: 24) {
                     statPair(value: "\(session.estimatedMinutes)", label: "minutes")
@@ -237,6 +283,92 @@ private struct TodayTabView: View {
             }
             .frame(maxWidth: .infinity)
             .cardStyle()
+        }
+    }
+
+    /// §15: "A readiness line if the plan was adjusted, saying what changed
+    /// and why, with a one-tap override."
+    private func readinessBanner(reason: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Readiness adjusted", systemImage: "waveform.path.ecg")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(bandColor)
+            Text(reason)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.7))
+            Button(readinessOverridden ? "Use the readiness-adjusted session" : "Use the original session instead") {
+                readinessOverridden.toggle()
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(AppTheme.accent)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
+    }
+
+    // §11: sleep, soreness, energy, stress — in that order, one tap each.
+    private var checkInCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("MORNING CHECK-IN")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppTheme.accent)
+            Text(isSubmittingCheckIn ? "Saving…" : "Four taps, then you're done.")
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.6))
+
+            checkInRow(label: "Sleep", systemImage: "moon.stars.fill", selection: $checkInSleep)
+            checkInRow(label: "Soreness", systemImage: "bandage.fill", selection: $checkInSoreness)
+            checkInRow(label: "Energy", systemImage: "bolt.fill", selection: $checkInEnergy)
+            checkInRow(label: "Stress", systemImage: "brain.head.profile", selection: $checkInStress)
+        }
+        .cardStyle()
+        .disabled(isSubmittingCheckIn)
+        .onChange(of: checkInSleep) { submitCheckInIfComplete() }
+        .onChange(of: checkInSoreness) { submitCheckInIfComplete() }
+        .onChange(of: checkInEnergy) { submitCheckInIfComplete() }
+        .onChange(of: checkInStress) { submitCheckInIfComplete() }
+    }
+
+    private func checkInRow(label: String, systemImage: String, selection: Binding<Int?>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(label, systemImage: systemImage)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+            HStack(spacing: 8) {
+                ForEach(1...5, id: \.self) { value in
+                    Button {
+                        selection.wrappedValue = value
+                    } label: {
+                        Text("\(value)")
+                            .font(.subheadline.weight(.bold))
+                            .frame(maxWidth: .infinity, minHeight: 36)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(selection.wrappedValue == value ? AppTheme.accent : Color.white.opacity(0.08))
+                            )
+                            .foregroundStyle(.white)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func submitCheckInIfComplete() {
+        guard let sleep = checkInSleep, let soreness = checkInSoreness,
+              let energy = checkInEnergy, let stress = checkInStress, !isSubmittingCheckIn
+        else { return }
+        isSubmittingCheckIn = true
+        Task {
+            _ = try? CheckInStore(modelContext: modelContext).submit(
+                athlete: athlete, sleepQuality: sleep, soreness: soreness, energy: energy, stress: stress
+            )
+            checkInSleep = nil
+            checkInSoreness = nil
+            checkInEnergy = nil
+            checkInStress = nil
+            isSubmittingCheckIn = false
         }
     }
 
