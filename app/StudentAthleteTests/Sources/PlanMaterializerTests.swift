@@ -26,7 +26,8 @@ final class PlanMaterializerTests: XCTestCase {
                         GeneratedPlannedItem(
                             itemSlug: "accel-drill", order: 0,
                             dose: Dose(kind: "reps", sets: 3, reps: 8), restSec: 60,
-                            rationale: "This is here because your sport rewards acceleration."
+                            rationale: "This is here because your sport rewards acceleration.",
+                            quality: "acceleration"
                         ),
                     ]
                 ),
@@ -57,7 +58,7 @@ final class PlanMaterializerTests: XCTestCase {
             sessions: [
                 GeneratedSession(
                     date: .now, title: "Session", focusQualities: [], estimatedMinutes: 10,
-                    items: [GeneratedPlannedItem(itemSlug: "x", order: 0, dose: Dose(kind: "reps", sets: 1, reps: 5), restSec: 30, rationale: "r")]
+                    items: [GeneratedPlannedItem(itemSlug: "x", order: 0, dose: Dose(kind: "reps", sets: 1, reps: 5), restSec: 30, rationale: "r", quality: "acceleration")]
                 ),
             ]
         )

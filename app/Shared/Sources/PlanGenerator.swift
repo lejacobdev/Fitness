@@ -62,6 +62,11 @@ public struct GeneratedPlannedItem: Sendable, Equatable {
     public let dose: Dose
     public let restSec: Int
     public let rationale: String
+    /// The quality slug this item was selected for — carried through so a
+    /// later pass (§10's game-day taper, TaperApplier.swift) can filter by
+    /// quality group (e.g. "drop Strength-group items two days out") without
+    /// re-deriving which quality an already-picked item was chosen for.
+    public let quality: String
 }
 
 public enum PlanGenerator {
@@ -219,7 +224,7 @@ public enum PlanGenerator {
             totalMinutes += minutes
             items.append(GeneratedPlannedItem(
                 itemSlug: item.slug, order: order, dose: dose, restSec: item.restSeconds,
-                rationale: rationale(for: item, quality: quality)
+                rationale: rationale(for: item, quality: quality), quality: quality
             ))
             order += 1
         }
@@ -280,8 +285,11 @@ public enum PlanGenerator {
 
     /// A flat, documented estimate — the catalogue doesn't carry per-item
     /// timing data, so this picks one conservative "time under tension per
-    /// set" figure rather than guessing at per-exercise numbers.
-    private static func estimatedMinutes(dose: Dose, restSec: Int) -> Int {
+    /// set" figure rather than guessing at per-exercise numbers. Not
+    /// `private`: TaperApplier.swift reuses this exact formula when it
+    /// recomputes a session's estimatedMinutes after trimming/reducing items,
+    /// so the two never disagree about what a dose "costs."
+    static func estimatedMinutes(dose: Dose, restSec: Int) -> Int {
         let secondsPerSet = 40 + restSec
         return Int((Double(dose.sets * secondsPerSet) / 60.0).rounded(.up))
     }
