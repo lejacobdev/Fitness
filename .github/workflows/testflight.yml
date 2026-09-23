@@ -123,8 +123,31 @@ jobs:
           printf '%s' "$ASC_PRIVATE_KEY" > "$RUNNER_TEMP/private_keys/AuthKey_${ASC_KEY_ID}.p8"
           chmod 600 "$RUNNER_TEMP/private_keys/AuthKey_${ASC_KEY_ID}.p8"
 
-      # §19: -allowProvisioningUpdates manages the profiles. CODE_SIGN_IDENTITY is
-      # never forced — Xcode refuses it as "conflicting provisioning settings".
+      # Manual signing: automatic signing (-allowProvisioningUpdates) minted a
+      # brand-new development certificate on every fresh CI runner until the
+      # team hit Apple's certificate limit and archives failed. Release now
+      # signs with the imported distribution certificate and these profiles
+      # (project.yml sets CODE_SIGN_STYLE Manual for Release only).
+      - name: App Store provisioning profiles (manual signing)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          # The serial of the distribution certificate imported above — the
+          # profiles must name exactly the certificate CI signs with.
+          serial=$(security find-certificate -c "Apple Distribution" -p "$RUNNER_TEMP/signing.keychain-db" \
+            | openssl x509 -noout -serial | cut -d= -f2)
+          echo "distribution certificate serial: $serial"
+          out="$RUNNER_TEMP/profiles"
+          node tools/asc.mjs app-store-profiles "$serial" "$out" \
+            "$BUNDLE_ID" "$BUNDLE_ID.widget" "$BUNDLE_ID.watchkitapp" "$BUNDLE_ID.watchkitapp.watchface"
+          for dir in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$dir"
+            cp "$out"/*.mobileprovision "$dir/"
+          done
+
       - name: Archive
         working-directory: app
         env:
@@ -138,10 +161,6 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/StudentAthlete.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             | tail -60
@@ -155,6 +174,15 @@ jobs:
           <dict>
             <key>method</key><string>app-store-connect</string>
             <key>teamID</key><string>${DEVELOPMENT_TEAM}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${BUNDLE_ID}</key><string>SA AppStore ${BUNDLE_ID}</string>
+              <key>${BUNDLE_ID}.widget</key><string>SA AppStore ${BUNDLE_ID}.widget</string>
+              <key>${BUNDLE_ID}.watchkitapp</key><string>SA AppStore ${BUNDLE_ID}.watchkitapp</string>
+              <key>${BUNDLE_ID}.watchkitapp.watchface</key><string>SA AppStore ${BUNDLE_ID}.watchkitapp.watchface</string>
+            </dict>
             <key>uploadSymbols</key><true/>
             <key>manageAppVersionAndBuildNumber</key><false/>
             <key>destination</key><string>export</string>
@@ -173,10 +201,6 @@ jobs:
             -archivePath "$RUNNER_TEMP/StudentAthlete.xcarchive" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
             -exportPath "$RUNNER_TEMP/export" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             | tail -40
           ls -la "$RUNNER_TEMP/export"
 

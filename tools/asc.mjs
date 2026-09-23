@@ -34,6 +34,8 @@
  *   node tools/asc.mjs subscriptions <bundle-id>          (read-only: groups, products, prices)
  *   node tools/asc.mjs setup-subscriptions <bundle-id>    (§18: idempotent group + monthly/yearly Pro)
  *   node tools/asc.mjs set-notification-url <bundle-id> <url>   (App Store Server Notifications V2, prod + sandbox)
+ *   node tools/asc.mjs app-store-profiles <cert-serial> <out-dir> <bundle-id>...
+ *       (fresh "SA AppStore <bundle>" IOS_APP_STORE profiles for manual signing)
  */
 
 import crypto from 'node:crypto';
@@ -119,6 +121,52 @@ async function exactBundle(identifier) {
 }
 
 const commands = {
+  /**
+   * Manual-signing profiles for CI. Deletes and recreates one App Store
+   * profile per bundle id every run — cheap, and it guarantees the profile
+   * carries the bundle's CURRENT capabilities (HealthKit, App Groups...) and
+   * the distribution certificate CI actually signs with. This is what stops
+   * automatic signing from minting a new development certificate per run.
+   */
+  async 'app-store-profiles'(serial, outDir, ...identifiers) {
+    if (!serial || !outDir || identifiers.length === 0) {
+      throw new Error('usage: app-store-profiles <cert-serial> <out-dir> <bundle-id>...');
+    }
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const normalise = (v) => String(v).toUpperCase().replace(/^0+/, '');
+    const certs = await api('/v1/certificates?limit=200&fields[certificates]=serialNumber,certificateType,displayName');
+    const cert = certs.data.find((c) => normalise(c.attributes.serialNumber) === normalise(serial));
+    if (!cert) throw new Error(`no certificate with serial ${serial} in this team`);
+    console.log(`certificate ${cert.id} (${cert.attributes.certificateType} ${cert.attributes.displayName})`);
+    fs.mkdirSync(outDir, { recursive: true });
+
+    for (const identifier of identifiers) {
+      const bundle = await exactBundle(identifier);
+      const name = `SA AppStore ${identifier}`;
+      const existing = await api(`/v1/profiles?filter[name]=${encodeURIComponent(name)}&limit=200`);
+      for (const old of existing.data) {
+        await api(`/v1/profiles/${old.id}`, { method: 'DELETE' });
+      }
+      const created = await api('/v1/profiles', {
+        method: 'POST',
+        body: {
+          data: {
+            type: 'profiles',
+            attributes: { name, profileType: 'IOS_APP_STORE' },
+            relationships: {
+              bundleId: { data: { type: 'bundleIds', id: bundle.id } },
+              certificates: { data: [{ type: 'certificates', id: cert.id }] },
+            },
+          },
+        },
+      });
+      const { uuid, profileContent } = created.data.attributes;
+      fs.writeFileSync(path.join(outDir, `${uuid}.mobileprovision`), Buffer.from(profileContent, 'base64'));
+      console.log(`${name}  uuid ${uuid}`);
+    }
+  },
+
   async apps() {
     const body = await api('/v1/apps?limit=200');
     for (const app of body.data) {
