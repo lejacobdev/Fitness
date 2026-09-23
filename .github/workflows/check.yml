@@ -185,8 +185,8 @@ jobs:
         run: |
           fail=0
           for pair in \
-            'Student Athlete.app:Debug-iphonesimulator:com.studentathlete.app' \
-            'Student Athlete.app:Debug-watchsimulator:com.studentathlete.app.watchkitapp'
+            'Sportvisor.app:Debug-iphonesimulator:com.studentathlete.app' \
+            'Sportvisor.app:Debug-watchsimulator:com.studentathlete.app.watchkitapp'
           do
             name="${pair%%:*}"; rest="${pair#*:}"; config="${rest%%:*}"; expected="${rest##*:}"
             path=$(find ~/Library/Developer/Xcode/DerivedData -type d -name "$name" -path "*${config}*" | head -1)

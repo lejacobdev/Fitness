@@ -1,0 +1,27 @@
+name: asc-metadata
+
+# App Store listing: the app's name only, or the whole listing (description,
+# keywords, age rating, review notes). Changes App Store Connect, so it is
+# dispatch-only.
+on:
+  workflow_dispatch:
+    inputs:
+      name_only:
+        description: 'Only set the App Store name'
+        type: boolean
+        default: true
+
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Update listing
+        run: node tools/asc-metadata.mjs com.studentathlete.app ${{ inputs.name_only && '--name-only' || '' }}

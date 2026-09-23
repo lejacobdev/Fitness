@@ -209,7 +209,7 @@ jobs:
         run: |
           set -uo pipefail
           archive="$RUNNER_TEMP/StudentAthlete.xcarchive"
-          app="$archive/Products/Applications/Student Athlete.app"
+          app="$archive/Products/Applications/Sportvisor.app"
           echo "### Signed entitlements" >> "$GITHUB_STEP_SUMMARY"
           # -d find: every bundle inside the archive, not just the top-level app.
           while IFS= read -r bundle; do

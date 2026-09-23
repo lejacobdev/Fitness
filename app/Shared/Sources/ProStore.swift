@@ -114,14 +114,19 @@ public final class ProStore {
 
     /// §4: "A working Restore Purchases button is mandatory."
     public func restore() async {
+        purchaseState = .idle
         do {
             try await AppStore.sync()
+        } catch StoreKitError.userCancelled {
+            return
         } catch {
             purchaseState = .failed("Couldn't reach the App Store to restore. Check your connection and try again.")
             return
         }
         await refreshEntitlements()
-        if hasActiveSubscription { purchaseState = .purchased }
+        purchaseState = hasActiveSubscription
+            ? .purchased
+            : .failed("Nothing to restore — this Apple ID has no active Pro subscription.")
     }
 
     public func refreshEntitlements() async {

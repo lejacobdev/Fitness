@@ -1,28 +1,30 @@
 #!/usr/bin/env node
 /**
  * §20/M14: App Store listing metadata, age rating, content rights and App
- * Review notes for Student Athlete, set through the App Store Connect API.
+ * Review notes for Sportvisor, set through the App Store Connect API.
  * Idempotent — safe to re-run after editing the copy below. Never submits
  * for review and never touches builds or in-app purchases.
  *
  * Environment: ASC_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY (as tools/asc.mjs).
  *
- *   node tools/asc-metadata.mjs [bundle-id]
+ *   node tools/asc-metadata.mjs [bundle-id] [--name-only]
  */
 
 import { mintToken } from './asc.mjs';
 
 const BASE = 'https://api.appstoreconnect.apple.com';
-const BUNDLE_ID = process.argv[2] ?? 'com.studentathlete.app';
+const args = process.argv.slice(2);
+const NAME_ONLY = args.includes('--name-only');
+const BUNDLE_ID = args.find((a) => !a.startsWith('--')) ?? 'com.studentathlete.app';
 
 export const LISTING = {
-  name: 'Student Athlete Companion',
+  name: 'Sportvisor',
   subtitle: 'Train for your sport & season',
   privacyPolicyUrl: 'https://api.lejacob.dev/fitness/privacy',
   supportUrl: 'https://api.lejacob.dev/fitness/support',
   keywords: 'athlete,high school,college,sports,training,workout,drills,soccer,basketball,football,hockey,coach',
   promotionalText: 'Pick your sport, add your games, and get a weekly plan that peaks on game day. Four-tap morning check-in, 700+ drills with animated how-tos. Works offline.',
-  description: `Student Athlete is the training companion for high school and college athletes. Pick your sport, tell it when your season starts and when your games are, and get a plan that's built around competing — not around a gym.
+  description: `Sportvisor is the training companion for high school and college athletes. Pick your sport, tell it when your season starts and when your games are, and get a plan that's built around competing — not around a gym.
 
 BUILT FOR YOUR SPORT
 • 70+ high school and college sports, from soccer, football, basketball and ice hockey to wrestling, swimming, track, volleyball, lacrosse and more
@@ -73,12 +75,12 @@ PRIVATE BY DESIGN
 STUDENT ATHLETE PRO
 The check-in, your weekly plan, logging and the Apple Watch app are free forever. Pro unlocks unlimited skill plans, the full season calendar and data export. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the period; manage them in your App Store account settings.
 
-Student Athlete gives general training information for athletes 13 and up. It is not medical advice, never predicts injury, and never replaces your coach or athletic trainer.
+Sportvisor gives general training information for athletes 13 and up. It is not medical advice, never predicts injury, and never replaces your coach or athletic trainer.
 
 Terms: https://api.lejacob.dev/fitness/terms
 Privacy: https://api.lejacob.dev/fitness/privacy`,
   reviewNotes: `WHAT THE APP IS
-Student Athlete is a training companion for high school and college athletes (13+). It builds a weekly training plan from the athlete's sport, position and season, rearranges it around their games, adjusts each day from a four-tap readiness check-in, and offers a "get better at a skill" menu. All plan logic runs on-device with deterministic algorithms; there is no AI/LLM, no ads and no third-party SDKs.
+Sportvisor is a training companion for high school and college athletes (13+). It builds a weekly training plan from the athlete's sport, position and season, rearranges it around their games, adjusts each day from a four-tap readiness check-in, and offers a "get better at a skill" menu. All plan logic runs on-device with deterministic algorithms; there is no AI/LLM, no ads and no third-party SDKs.
 
 SIGN IN
 Sign in with Apple is the only login, so any Apple ID works — no demo account is needed. Pro: the core features reviewed below are free; see Subscriptions.
@@ -101,7 +103,7 @@ NO MEDICAL CLAIMS (1.4.1)
 The app never predicts injury, diagnoses anything, or advises on return to play. Training-load feedback is phrased only as training load (e.g. "your load is up 40% on your four-week average"), never as injury risk. Fuelling guidance is general, never a calorie deficit for minors, and tells users to consult a doctor or dietitian for specific needs.
 
 SUBSCRIPTIONS
-Student Athlete Pro (monthly / yearly auto-renewable) unlocks unlimited skill plans, the season calendar and data export. The check-in, weekly plan, logging, Apple Watch app and account deletion are always free.
+Sportvisor Pro (monthly / yearly auto-renewable) unlocks unlimited skill plans, the season calendar and data export. The check-in, weekly plan, logging, Apple Watch app and account deletion are always free.
 
 SERVICES USED
 None. The only server is the developer's own backend (sign-in verification, backup sync, content downloads). No analytics, advertising or tracking SDKs.
@@ -150,6 +152,16 @@ async function main() {
 
   const infos = await api(`/v1/apps/${app.id}/appInfos`);
   const info = infos.data.find((i) => i.attributes.state !== 'READY_FOR_DISTRIBUTION') ?? infos.data[0];
+
+  if (NAME_ONLY) {
+    const locs = await api(`/v1/appInfos/${info.id}/appInfoLocalizations`);
+    const loc = locs.data.find((l) => l.attributes.locale === 'en-US');
+    await step(`display name "${LISTING.name}"`, () => api(`/v1/appInfoLocalizations/${loc.id}`, {
+      method: 'PATCH',
+      body: { data: { type: 'appInfoLocalizations', id: loc.id, attributes: { name: LISTING.name } } },
+    }));
+    return;
+  }
 
   await step('categories (Sports / Health & Fitness)', () => api(`/v1/appInfos/${info.id}`, {
     method: 'PATCH',

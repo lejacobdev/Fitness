@@ -106,7 +106,7 @@ struct WatchRootView: View {
         VStack(spacing: 10) {
             Image(systemName: "iphone.and.arrow.forward")
                 .font(.title2)
-            Text("Open Student Athlete on your iPhone")
+            Text("Open Sportvisor on your iPhone")
                 .font(.headline)
                 .multilineTextAlignment(.center)
             Text("Your plan arrives here once, then everything works without your phone.")

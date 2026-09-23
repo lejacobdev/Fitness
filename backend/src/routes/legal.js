@@ -15,7 +15,7 @@ function page(title, body) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title} — Student Athlete</title>
+<title>${title} — Sportvisor</title>
 <style>
   :root { color-scheme: light dark; --bg: #f4f4f6; --card: #fff; --ink: #111; --muted: #6e6e73; }
   @media (prefers-color-scheme: dark) { :root { --bg: #000; --card: #1c1c1e; --ink: #fff; --muted: #9a9aa0; } }
@@ -42,7 +42,7 @@ ${body}
 
 const PRIVACY = page('Privacy Policy', `
 <section><h2>The short version</h2>
-<p>Student Athlete is a training app for athletes aged 13 and up. We collect the minimum needed to keep your training plan and history safe across devices. We never sell your data, never show ads, never use third-party analytics or trackers, and never share anything with anyone.</p></section>
+<p>Sportvisor is a training app for athletes aged 13 and up. We collect the minimum needed to keep your training plan and history safe across devices. We never sell your data, never show ads, never use third-party analytics or trackers, and never share anything with anyone.</p></section>
 <section><h2>What we store</h2>
 <ul>
 <li><strong>Your Apple sign-in identifier</strong> — the anonymous ID Apple gives us. We never request your name or email.</li>
@@ -61,7 +61,7 @@ const PRIVACY = page('Privacy Policy', `
 <section><h2>Deleting your data</h2>
 <p>You can delete your account at any time in the app: <strong>Me → Delete account</strong>. This permanently deletes your account and every check-in, session, set, plan and game stored on our server, and removes the copy on your device. It is free and never behind a subscription.</p></section>
 <section><h2>Not medical advice</h2>
-<p>Student Athlete provides general training information. It never predicts injury, diagnoses anything, or advises on returning to play. Always follow your coach, athletic trainer or doctor.</p></section>
+<p>Sportvisor provides general training information. It never predicts injury, diagnoses anything, or advises on returning to play. Always follow your coach, athletic trainer or doctor.</p></section>
 <section><h2>Changes</h2><p>If this policy changes, the new version will be posted here with a new date.</p></section>
 `);
 
@@ -70,7 +70,7 @@ const TERMS = page('Terms of Use', `
 <section><h2>Training information, not medical advice</h2>
 <p>Plans, readiness suggestions, coaching messages and fuelling guidance are general information. They are not medical advice and do not replace your coach, athletic trainer, doctor or a registered dietitian. Stop exercising and tell an adult if something hurts. You train at your own discretion.</p></section>
 <section><h2>Subscriptions</h2>
-<p>Some features require Student Athlete Pro. Subscriptions are billed through your Apple ID, renew automatically unless cancelled at least 24 hours before the end of the current period, and can be managed or cancelled in your App Store account settings. The daily check-in, your training plan, logging and the Apple Watch app are free.</p></section>
+<p>Some features require Sportvisor Pro. Subscriptions are billed through your Apple ID, renew automatically unless cancelled at least 24 hours before the end of the current period, and can be managed or cancelled in your App Store account settings. The daily check-in, your training plan, logging and the Apple Watch app are free.</p></section>
 <section><h2>Your content</h2><p>Your training data belongs to you. You can export it from Me → Export my data, and delete it at any time.</p></section>
 <section><h2>Acceptable use</h2><p>Don't attempt to access other people's data, interfere with the service, or reverse-engineer it for that purpose.</p></section>
 <section><h2>Availability</h2><p>The app is designed to work offline. The backup service is provided as-is and may occasionally be unavailable.</p></section>
@@ -89,7 +89,7 @@ const SUPPORT = page('Support', `
 <li><strong>How do I cancel Pro?</strong> iPhone Settings → your name → Subscriptions.</li>
 </ul></section>
 <section><h2>Contact</h2>
-<p>Use the "App Support" link on the Student Athlete App Store page to reach the developer.</p></section>
+<p>Use the "App Support" link on the Sportvisor App Store page to reach the developer.</p></section>
 `);
 
 export function legalRouter() {

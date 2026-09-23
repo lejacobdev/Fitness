@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Authored catalogue for the Student Athlete Companion. Nothing here is imported, scraped or licensed (§7).",
+  "description": "Authored catalogue for the Sportvisor. Nothing here is imported, scraped or licensed (§7).",
   "engines": {
     "node": ">=20"
   },

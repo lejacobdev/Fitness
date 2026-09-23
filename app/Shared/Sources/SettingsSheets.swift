@@ -41,7 +41,7 @@ struct RemindersSheet: View {
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: "bell.slash.fill")
                                 .foregroundStyle(AppTheme.secondaryText)
-                            Text("Notifications are turned off for Student Athlete. Turn them on in the Settings app → Notifications.")
+                            Text("Notifications are turned off for Sportvisor. Turn them on in the Settings app → Notifications.")
                                 .font(.footnote)
                                 .foregroundStyle(AppTheme.secondaryText)
                         }

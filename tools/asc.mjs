@@ -440,9 +440,9 @@ const commands = {
     const app = await appFor(identifier);
     const PLANS = [
       { productId: 'com.studentathlete.app.pro.yearly', name: 'Pro Yearly', period: 'ONE_YEAR', level: 1, usd: '39.99',
-        description: 'A full year of Student Athlete Pro.' },
+        description: 'A full year of Sportvisor Pro.' },
       { productId: 'com.studentathlete.app.pro.monthly', name: 'Pro Monthly', period: 'ONE_MONTH', level: 2, usd: '5.99',
-        description: 'One month of Student Athlete Pro.' },
+        description: 'One month of Sportvisor Pro.' },
     ];
 
     const groups = await api(`/v1/apps/${app.id}/subscriptionGroups?limit=50`);
@@ -457,11 +457,19 @@ const commands = {
       })).data;
       console.log(`created group (${group.id})`);
     }
-    await tryStep('group localization', () => api('/v1/subscriptionGroupLocalizations', {
-      method: 'POST',
-      body: { data: { type: 'subscriptionGroupLocalizations', attributes: { name: 'Student Athlete Pro', locale: 'en-US' },
-        relationships: { subscriptionGroup: { data: { type: 'subscriptionGroups', id: group.id } } } } },
-    }));
+    await tryStep('group localization', async () => {
+      const locs = (await api(`/v1/subscriptionGroups/${group.id}/subscriptionGroupLocalizations?limit=50`)).data;
+      const en = locs.find((l) => l.attributes.locale === 'en-US');
+      if (en) {
+        return api(`/v1/subscriptionGroupLocalizations/${en.id}`, { method: 'PATCH',
+          body: { data: { type: 'subscriptionGroupLocalizations', id: en.id, attributes: { name: 'Sportvisor Pro' } } } });
+      }
+      return api('/v1/subscriptionGroupLocalizations', {
+        method: 'POST',
+        body: { data: { type: 'subscriptionGroupLocalizations', attributes: { name: 'Sportvisor Pro', locale: 'en-US' },
+          relationships: { subscriptionGroup: { data: { type: 'subscriptionGroups', id: group.id } } } } },
+      });
+    });
 
     const existing = (await api(`/v1/subscriptionGroups/${group.id}/subscriptions?limit=50`)).data;
     for (const plan of PLANS) {
@@ -479,11 +487,19 @@ const commands = {
         console.log(`created ${plan.productId} (${sub.id})`);
       }
 
-      await tryStep(`${plan.productId} localization`, () => api('/v1/subscriptionLocalizations', {
-        method: 'POST',
-        body: { data: { type: 'subscriptionLocalizations', attributes: { name: plan.name, locale: 'en-US', description: plan.description },
-          relationships: { subscription: { data: { type: 'subscriptions', id: sub.id } } } } },
-      }));
+      await tryStep(`${plan.productId} localization`, async () => {
+        const locs = (await api(`/v1/subscriptions/${sub.id}/subscriptionLocalizations?limit=50`)).data;
+        const en = locs.find((l) => l.attributes.locale === 'en-US');
+        if (en) {
+          return api(`/v1/subscriptionLocalizations/${en.id}`, { method: 'PATCH',
+            body: { data: { type: 'subscriptionLocalizations', id: en.id, attributes: { name: plan.name, description: plan.description } } } });
+        }
+        return api('/v1/subscriptionLocalizations', {
+          method: 'POST',
+          body: { data: { type: 'subscriptionLocalizations', attributes: { name: plan.name, locale: 'en-US', description: plan.description },
+            relationships: { subscription: { data: { type: 'subscriptions', id: sub.id } } } } },
+        });
+      });
 
       await tryStep(`${plan.productId} availability`, async () => {
         const territories = await api('/v1/territories?limit=200');

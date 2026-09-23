@@ -123,7 +123,7 @@ public struct PaywallView: View {
                 .frame(maxWidth: .infinity, minHeight: 120)
         } else if store.products.isEmpty {
             VStack(spacing: 10) {
-                Text("Couldn't load prices from the App Store.")
+                Text("Prices aren't available right now. Check your connection, then try again.")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
                 Button("Try again") { Task { await store.loadProducts() } }
@@ -217,7 +217,7 @@ public struct PaywallView: View {
                 .foregroundStyle(AppTheme.red)
                 .frame(maxWidth: .infinity, alignment: .leading)
         case .purchased:
-            Label("You're Pro. Thanks for supporting Student Athlete.", systemImage: "checkmark.seal.fill")
+            Label("You're Pro. Thanks for supporting Sportvisor.", systemImage: "checkmark.seal.fill")
                 .font(.headline)
                 .foregroundStyle(AppTheme.green)
         case .idle, .purchasing:
@@ -330,7 +330,7 @@ public struct SubscriptionRow: View {
                         .background(store.isPro ? AppTheme.amber.opacity(0.13) : AppTheme.ink,
                                     in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(store.isPro ? "Student Athlete Pro" : "Upgrade to Pro")
+                        Text(store.isPro ? "Sportvisor Pro" : "Upgrade to Pro")
                             .font(.body)
                             .foregroundStyle(AppTheme.ink)
                         Text(statusLine)

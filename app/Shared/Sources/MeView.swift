@@ -159,7 +159,7 @@ struct MeView: View {
                     .buttonStyle(.plain)
                     .disabled(isDeleting)
 
-                    Text("Student Athlete \(BuildEvidence().version) (\(BuildEvidence().build))")
+                    Text("Sportvisor \(BuildEvidence().version) (\(BuildEvidence().build))")
                         .font(.caption)
                         .foregroundStyle(AppTheme.secondaryText)
                         .frame(maxWidth: .infinity)
@@ -355,7 +355,7 @@ struct MeView: View {
                 Text("Not a medical device")
                     .font(.subheadline.bold())
                     .foregroundStyle(AppTheme.ink)
-                Text("Student Athlete never predicts injury, diagnoses, or advises return to play. It supplements your coach and athletic trainer — it never replaces them. If something hurts, stop and tell an adult.")
+                Text("Sportvisor never predicts injury, diagnoses, or advises return to play. It supplements your coach and athletic trainer — it never replaces them. If something hurts, stop and tell an adult.")
                     .font(.caption)
                     .foregroundStyle(AppTheme.secondaryText)
             }
@@ -974,7 +974,7 @@ struct DataExportView: View {
                         exportStat("\(sessions.reduce(0) { $0 + $1.sets.count })", "sets")
                         exportStat("\(athlete.checkIns.count)", "check-ins")
                     }
-                    ShareLink(item: exportText, preview: SharePreview("Student Athlete export")) {
+                    ShareLink(item: exportText, preview: SharePreview("Sportvisor export")) {
                         Label("Share export", systemImage: "square.and.arrow.up")
                             .font(.headline)
                             .foregroundStyle(AppTheme.inkInverse)

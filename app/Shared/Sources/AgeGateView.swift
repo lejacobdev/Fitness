@@ -43,7 +43,7 @@ public struct AgeGateView: View {
     public var body: some View {
         StepScaffold(
             progress: 0.12, title: "When's your birthday?",
-            subtitle: "Student Athlete is built for athletes 13 and up. We only use this to keep training age-appropriate.",
+            subtitle: "Sportvisor is built for athletes 13 and up. We only use this to keep training age-appropriate.",
             buttonEnabled: result == .eligible, onContinue: { onEligible(birthDate) }
         ) {
             HStack(spacing: 14) {
@@ -54,7 +54,7 @@ public struct AgeGateView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Student Athlete")
+                    Text("Sportvisor")
                         .font(.headline)
                         .foregroundStyle(AppTheme.ink)
                     Text("Your sport. Your season. Your plan.")
@@ -74,12 +74,12 @@ public struct AgeGateView: View {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "hand.raised.fill")
                         .foregroundStyle(AppTheme.brand)
-                    Text("Student Athlete is for athletes 13 and up. Come back once you turn 13.")
+                    Text("Sportvisor is for athletes 13 and up. Come back once you turn 13.")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.ink)
                 }
                 .cardStyle(padding: 16)
-                .accessibilityLabel("You must be 13 or older to use Student Athlete")
+                .accessibilityLabel("You must be 13 or older to use Sportvisor")
             }
 
             Text("General training information, not medical advice. Talk to your coach or athletic trainer before changing how you train. Stop and tell an adult if something hurts.")
