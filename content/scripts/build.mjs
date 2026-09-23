@@ -137,6 +137,31 @@ public let plyometricDoseKind = ${swiftStringLiteral(PLYOMETRIC_DOSE_KIND)}
 `;
 }
 
+/**
+ * Every sport's profile (name, positions, skills, quality weights),
+ * compiled directly into the binary rather than pack-delivered. §15's sport
+ * picker needs real names for all ~73 sports before the athlete has
+ * downloaded anything — the deeper per-sport DATA (drills/items) still
+ * arrives via packs (§3); this is only the index needed to choose a sport.
+ * Embedded as raw JSON text (decoded at runtime through CatalogueModels.
+ * swift's already-proven SportInfo decoder) rather than hand-built Swift
+ * struct literals, so there is exactly one place that knows this shape.
+ */
+function genAllSportsSwift() {
+  const json = JSON.stringify(SPORTS);
+  return `${generatedHeader('content/src/sports.js')}import Foundation
+
+public let allSportsJSON = #"""
+${json}
+"""#
+
+public let allSports: [SportInfo] = (try? JSONDecoder().decode([SportInfo].self, from: Data(allSportsJSON.utf8))) ?? []
+
+public let allSportsBySlug: [String: SportInfo] =
+    Dictionary(uniqueKeysWithValues: allSports.map { ($0.slug, $0) })
+`;
+}
+
 function genMusclesSwift() {
   const regions = [...new Set(MUSCLES.map((m) => m.region))];
   const regionCases = regions.map((r) => `    case ${camel(r)} = ${swiftStringLiteral(r)}`).join('\n');
@@ -460,6 +485,7 @@ function main() {
 
   writeFile(path.join(SWIFT_OUT, 'Qualities.swift'), genQualitiesSwift());
   writeFile(path.join(SWIFT_OUT, 'Equipment.swift'), genEquipmentSwift());
+  writeFile(path.join(SWIFT_OUT, 'AllSports.swift'), genAllSportsSwift());
   writeFile(path.join(SWIFT_OUT, 'Muscles.swift'), genMusclesSwift());
   writeFile(path.join(SWIFT_OUT, 'MuscleMapPaths.swift'), genMuscleMapPathsSwift(buildMuscleMapPaths()));
   writeFile(path.join(SWIFT_OUT, 'BodySilhouette.swift'), genBodySilhouetteSwift(buildBodySilhouettePaths()));

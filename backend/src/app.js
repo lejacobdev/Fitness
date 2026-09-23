@@ -4,6 +4,7 @@ import express from 'express';
 
 import { createAppleKeyStore } from './lib/appleIdentity.js';
 import { installAsyncRejectionForwarding } from './lib/asyncRejection.js';
+import { athleteRouter } from './routes/athlete.js';
 import { authRouter } from './routes/auth.js';
 import { syncRouter } from './routes/sync.js';
 
@@ -46,6 +47,7 @@ export function createApp({
 
   if (prisma && sessionSecret) {
     app.use('/sync', syncRouter({ prisma, sessionSecret }));
+    app.use('/athlete', athleteRouter({ prisma, sessionSecret }));
   }
 
   // §3: "content packs, per-sport bundles, versioned and served over HTTPS
