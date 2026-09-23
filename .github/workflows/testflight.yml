@@ -11,6 +11,12 @@ on:
         description: 'What is in this build (goes in the run summary)'
         required: false
         default: 'M0 pipeline proof — placeholder screen'
+  # A safety net independent of any particular Claude Code session: whatever
+  # is on master gets a real signed build uploaded once a day regardless of
+  # whether anyone dispatches this manually. 06:00 UTC, after the previous
+  # day's work has had a chance to land.
+  schedule:
+    - cron: '0 6 * * *'
 
 concurrency:
   group: testflight
@@ -229,7 +235,7 @@ jobs:
           {
             echo "### TestFlight upload"
             echo ""
-            echo "- Notes: ${{ inputs.notes }}"
+            echo "- Notes: ${{ inputs.notes || 'Scheduled daily safety-net build — whatever was on master at 06:00 UTC.' }}"
             echo "- Build number: \`$BUILD_NUMBER\`"
             echo "- Bundle: \`$BUNDLE_ID\`"
           } >> "$GITHUB_STEP_SUMMARY"
