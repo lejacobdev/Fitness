@@ -49,22 +49,41 @@ public enum DemoData {
         let sleep = [4, 3, 4, 5, 3, 4, 4, 3, 5, 4, 4, 3, 4, 4, 5, 3, 4, 4, 3, 4]
         for (offset, value) in sleep.enumerated() {
             guard let date = calendar.date(byAdding: .day, value: -(offset + 1), to: calendar.startOfDay(for: now)) else { continue }
-            context.insert(CheckIn(
-                date: date, sleepQuality: value, soreness: 2 + offset % 3, energy: 3 + (offset + 1) % 3,
-                stress: 2 + offset % 2, readinessBand: .green, syncedAt: nil, athlete: athlete
-            ))
+            let soreness: Int = 2 + offset % 3
+            let energy: Int = 3 + (offset + 1) % 3
+            let stress: Int = 2 + offset % 2
+            let checkIn = CheckIn(
+                date: date, sleepQuality: value, soreness: soreness, energy: energy,
+                stress: stress, readinessBand: .green, athlete: athlete
+            )
+            context.insert(checkIn)
         }
 
         // Logged sessions with sets and a rising squat, for the charts.
-        let plan: [(daysAgo: Int, minutes: Int, rpe: Int, sets: [(String, Int?, Double?)])] = [
-            (2, 48, 7, [("goblet-squat", 8, 16), ("goblet-squat", 8, 16), ("soccer-plant-and-strike", 6, nil), ("soccer-plant-and-strike", 6, nil)]),
-            (5, 42, 6, [("soccer-cone-dribble-slalom", 4, nil), ("soccer-arrowhead-agility", 4, nil), ("goblet-squat", 8, 14)]),
-            (7, 55, 8, [("goblet-squat", 8, 14), ("soccer-finishing-under-fatigue", 6, nil), ("soccer-repeated-40-yard-sprints", 6, nil)]),
-            (9, 38, 5, [("soccer-first-touch-wall-rebounds", nil, nil), ("soccer-driven-pass-gates", 10, nil)]),
-            (12, 50, 7, [("goblet-squat", 8, 12), ("soccer-instep-drive-progression", 8, nil)]),
-            (14, 45, 6, [("soccer-target-corner-shooting", 10, nil), ("goblet-squat", 8, 12)]),
-            (16, 40, 6, [("soccer-one-v-one-channel", 6, nil)]),
-            (19, 52, 7, [("goblet-squat", 8, 10), ("soccer-crossing-from-wide", 8, nil)]),
+        let plan: [DemoSession] = [
+            DemoSession(daysAgo: 2, minutes: 48, rpe: 7, sets: [
+                DemoSet("goblet-squat", 8, 16), DemoSet("goblet-squat", 8, 16),
+                DemoSet("soccer-plant-and-strike", 6), DemoSet("soccer-plant-and-strike", 6),
+            ]),
+            DemoSession(daysAgo: 5, minutes: 42, rpe: 6, sets: [
+                DemoSet("soccer-cone-dribble-slalom", 4), DemoSet("soccer-arrowhead-agility", 4), DemoSet("goblet-squat", 8, 14),
+            ]),
+            DemoSession(daysAgo: 7, minutes: 55, rpe: 8, sets: [
+                DemoSet("goblet-squat", 8, 14), DemoSet("soccer-finishing-under-fatigue", 6), DemoSet("soccer-repeated-40-yard-sprints", 6),
+            ]),
+            DemoSession(daysAgo: 9, minutes: 38, rpe: 5, sets: [
+                DemoSet("soccer-first-touch-wall-rebounds", nil), DemoSet("soccer-driven-pass-gates", 10),
+            ]),
+            DemoSession(daysAgo: 12, minutes: 50, rpe: 7, sets: [
+                DemoSet("goblet-squat", 8, 12), DemoSet("soccer-instep-drive-progression", 8),
+            ]),
+            DemoSession(daysAgo: 14, minutes: 45, rpe: 6, sets: [
+                DemoSet("soccer-target-corner-shooting", 10), DemoSet("goblet-squat", 8, 12),
+            ]),
+            DemoSession(daysAgo: 16, minutes: 40, rpe: 6, sets: [DemoSet("soccer-one-v-one-channel", 6)]),
+            DemoSession(daysAgo: 19, minutes: 52, rpe: 7, sets: [
+                DemoSet("goblet-squat", 8, 10), DemoSet("soccer-crossing-from-wide", 8),
+            ]),
         ]
         for entry in plan {
             guard let start = calendar.date(byAdding: .day, value: -entry.daysAgo, to: now).flatMap({
@@ -76,9 +95,28 @@ public enum DemoData {
             )
             context.insert(session)
             for (index, set) in entry.sets.enumerated() {
-                context.insert(SetLog(itemSlug: set.0, setIndex: index, reps: set.1, weightKg: set.2, session: session))
+                context.insert(SetLog(itemSlug: set.slug, setIndex: index, reps: set.reps, weightKg: set.weightKg, session: session))
             }
         }
         try? context.save()
     }
+}
+
+private struct DemoSet {
+    let slug: String
+    let reps: Int?
+    let weightKg: Double?
+
+    init(_ slug: String, _ reps: Int?, _ weightKg: Double? = nil) {
+        self.slug = slug
+        self.reps = reps
+        self.weightKg = weightKg
+    }
+}
+
+private struct DemoSession {
+    let daysAgo: Int
+    let minutes: Int
+    let rpe: Int
+    let sets: [DemoSet]
 }
