@@ -34,6 +34,7 @@ public struct AppleSignInButton: View {
     private let onSuccess: (_ identityToken: String, _ rawNonce: String) -> Void
     private let onFailure: (Error) -> Void
     @State private var currentNonce = SignInNonce.generate()
+    @Environment(\.colorScheme) private var colorScheme
 
     public init(
         onSuccess: @escaping (_ identityToken: String, _ rawNonce: String) -> Void,
@@ -68,9 +69,8 @@ public struct AppleSignInButton: View {
             // or not — a nonce is single-use by design.
             currentNonce = SignInNonce.generate()
         }
-        // .white (a white pill, black text/logo) rather than the .black
-        // default — the app's screens are dark-primary, and a black button
-        // on a near-black background has poor contrast.
-        .signInWithAppleButtonStyle(.white)
+        // Matches the app's own primary button: black on the light canvas,
+        // white on the dark one.
+        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
     }
 }

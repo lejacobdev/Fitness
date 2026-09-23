@@ -52,68 +52,112 @@ public struct OnboardingView: View {
     }
 
     private var signInStep: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            Image("Logo")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 96, height: 96)
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                .accessibilityHidden(true)
-            Text("Student Athlete")
-                .font(.system(size: 34, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-            Text("Sign in with Apple so your training history survives a new phone.")
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.6))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-
-            AppleSignInButton(
-                onSuccess: { identityToken, rawNonce in
-                    handleSignIn(identityToken: identityToken, rawNonce: rawNonce)
-                },
-                onFailure: { error in
-                    errorMessage = "Sign in failed: \(error.localizedDescription)"
-                }
-            )
-            .frame(height: 54)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
-            .padding(.horizontal, 40)
-
-            if let errorMessage {
-                Text(errorMessage)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+        VStack(spacing: 0) {
+            HStack {
+                CircleIconButton(systemImage: "chevron.left", accessibilityLabel: "Back") { step = .ageGate }
+                StepProgressBar(progress: 0.3)
+                    .padding(.leading, 16)
             }
-            Spacer()
+            .padding(.horizontal, 24)
+            .padding(.top, 8)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    Image("Logo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 72, height: 72)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .accessibilityHidden(true)
+                    ScreenTitle("Train smarter for your sport.", subtitle: "A plan built around your season, your position and your next game.")
+                    VStack(alignment: .leading, spacing: 18) {
+                        feature("calendar", AppTheme.blue, "A weekly plan that knows your season", "Build in the off-season, stay sharp in-season, peak for game day.")
+                        feature("figure.run", AppTheme.orange, "1 tap to start, every set logged", "Animated how-tos with the muscles each exercise trains.")
+                        feature("sparkles", AppTheme.purple, "A coach that notices", "Readiness, muscle balance and what to train next — every week.")
+                        feature("lock.fill", AppTheme.green, "Private by design", "Sign in with Apple only. No email, no ads, no tracking.")
+                    }
+                }
+                .padding(24)
+            }
+
+            VStack(spacing: 12) {
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.brand)
+                        .multilineTextAlignment(.center)
+                }
+                AppleSignInButton(
+                    onSuccess: { identityToken, rawNonce in
+                        handleSignIn(identityToken: identityToken, rawNonce: rawNonce)
+                    },
+                    onFailure: { _ in
+                        errorMessage = "Sign in didn't finish — try again."
+                    }
+                )
+                .frame(height: 56)
+                .clipShape(Capsule())
+                Text("By continuing you agree to the Terms and Privacy Policy.")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 16)
         }
-        .padding(24)
-        .background(AppBackground())
+        .appScreen()
+    }
+
+    private func feature(_ icon: String, _ tint: Color, _ title: String, _ detail: String) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 44, height: 44)
+                .background(tint.opacity(0.13), in: Circle())
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.ink)
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+        }
     }
 
     private var downloadingStep: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .tint(.white)
-            Text("Downloading your training library…")
-                .foregroundStyle(.white.opacity(0.6))
+        VStack(spacing: 20) {
+            Spacer()
+            RingView(progress: 0.7, color: AppTheme.ink, lineWidth: 10) {
+                Image(systemName: "arrow.down")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundStyle(AppTheme.ink)
+            }
+            .frame(width: 120, height: 120)
+            Text("Getting your library ready")
+                .font(.title2.bold())
+                .foregroundStyle(AppTheme.ink)
+            Text("Exercises, drills and animations — downloaded once, then everything works offline.")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
             if let errorMessage {
                 Text(errorMessage)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.secondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
                 Button("Continue offline") { onComplete() }
-                    .buttonStyle(.accentFilled)
-                    .padding(.horizontal, 60)
+                    .buttonStyle(.primary)
+                    .padding(.horizontal, 40)
+            } else {
+                ProgressView()
             }
+            Spacer()
         }
-        .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(AppBackground())
+        .appScreen()
     }
 
     private func handleSignIn(identityToken: String, rawNonce: String) {

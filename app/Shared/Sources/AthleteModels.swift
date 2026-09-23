@@ -154,6 +154,9 @@ public final class CheckIn {
     public var readinessZ: Double?
     /// The idempotency key for the offline sync queue (§14).
     public var clientId: String
+    /// Device-local bookkeeping, like `Session.syncedAt`: nil means "changed
+    /// since the last successful push". Editing a check-in clears it again.
+    public var syncedAt: Date?
     public var athlete: Athlete?
 
     public init(

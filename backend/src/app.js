@@ -6,6 +6,7 @@ import { createAppleKeyStore } from './lib/appleIdentity.js';
 import { installAsyncRejectionForwarding } from './lib/asyncRejection.js';
 import { athleteRouter } from './routes/athlete.js';
 import { authRouter } from './routes/auth.js';
+import { legalRouter } from './routes/legal.js';
 import { syncRouter } from './routes/sync.js';
 
 // §19: this must run before any route is registered. Installing it here, at
@@ -40,6 +41,8 @@ export function createApp({
     await prisma.$queryRaw`SELECT 1`;
     res.json({ ok: true });
   });
+
+  app.use(legalRouter());
 
   if (prisma && appleBundleId && sessionSecret) {
     app.use('/auth', authRouter({ prisma, keyStore: appleKeyStore, appleBundleId, sessionSecret }));

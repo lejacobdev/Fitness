@@ -19,7 +19,7 @@ struct StudentAthleteApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .preferredColorScheme(.dark)
+                .tint(AppTheme.ink)
         }
         .modelContainer(container)
     }
@@ -46,7 +46,7 @@ struct RootView: View {
     var body: some View {
         if let athlete = athletes.first {
             if athlete.sports.isEmpty {
-                SportPickerView(athlete: athlete)
+                SetupFlowView(athlete: athlete)
             } else {
                 MainTabView(athlete: athlete, apiClient: apiClient)
             }
@@ -56,6 +56,8 @@ struct RootView: View {
             // state, so this falls back to a brief loading state rather than
             // flashing back to the age gate.
             ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .appScreen()
         } else {
             OnboardingView(apiClient: apiClient, packDownloader: packDownloader) {
                 onboardingComplete = true

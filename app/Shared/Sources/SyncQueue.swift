@@ -64,4 +64,34 @@ public struct SyncQueue {
         try? modelContext.save()
         return (succeeded, failed)
     }
+
+    /// Pushes every check-in created or edited since its last push. The
+    /// server upserts per athlete per day (§14), so a retry or an edit never
+    /// creates a second row for the same morning.
+    @discardableResult
+    public func drainPendingCheckIns() async -> (succeeded: Int, failed: Int) {
+        guard let token = try? tokenStore.read() else { return (0, 0) }
+        let descriptor = FetchDescriptor<CheckIn>(predicate: #Predicate { $0.syncedAt == nil })
+        guard let pending = try? modelContext.fetch(descriptor) else { return (0, 0) }
+
+        var succeeded = 0
+        var failed = 0
+        for checkIn in pending {
+            let payload = APIClient.CheckInPayload(
+                clientId: checkIn.clientId, date: checkIn.date, sleepQuality: checkIn.sleepQuality,
+                sleepHours: checkIn.sleepHours, soreness: checkIn.soreness, sorenessAreas: checkIn.sorenessAreas,
+                energy: checkIn.energy, stress: checkIn.stress,
+                readinessBand: checkIn.readinessBand?.rawValue, readinessZ: checkIn.readinessZ
+            )
+            do {
+                try await apiClient.syncCheckIn(payload, sessionToken: token)
+                checkIn.syncedAt = .now
+                succeeded += 1
+            } catch {
+                failed += 1
+            }
+        }
+        try? modelContext.save()
+        return (succeeded, failed)
+    }
 }

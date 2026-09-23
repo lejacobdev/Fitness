@@ -41,6 +41,7 @@ public struct CheckInStore {
             existing.stress = stress
             existing.readinessBand = scored?.band
             existing.readinessZ = scored?.z
+            existing.syncedAt = nil
             try modelContext.save()
             return existing
         }

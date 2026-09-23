@@ -5,7 +5,8 @@ import { requireAuth } from '../lib/requireAuth.js';
 const SOURCES = new Set(['PHONE', 'WATCH']);
 
 /**
- * §3's sync responsibility, M5's slice of it: a logged session and its sets.
+ * §3's sync responsibility: logged sessions with their sets, and daily
+ * check-ins.
  * §14: "clientId on every writable row is the idempotency key that makes the
  * offline queue safe to retry — without it a flaky reconnect duplicates a
  * whole session." Every write here is an upsert keyed on clientId, so
@@ -102,7 +103,66 @@ export function syncRouter({ prisma, sessionSecret }) {
     });
   });
 
+  router.post('/checkins', async (req, res) => {
+    const checkIn = req.body?.checkIn;
+    const error = validateCheckIn(checkIn);
+    if (error) {
+      res.status(400).json({ error });
+      return;
+    }
+
+    const existingByClientId = await prisma.checkIn.findUnique({ where: { clientId: checkIn.clientId } });
+    if (existingByClientId && existingByClientId.athleteId !== req.athleteId) {
+      res.status(409).json({ error: 'client_id_conflict' });
+      return;
+    }
+
+    // §14: unique per athlete per DAY — a second check-in the same day
+    // (edited, or made on a second device) updates that day's row rather
+    // than creating a duplicate that would corrupt every rolling baseline.
+    const date = new Date(`${checkIn.date}T00:00:00.000Z`);
+    const fields = {
+      sleepQuality: checkIn.sleepQuality,
+      sleepHours: checkIn.sleepHours ?? null,
+      soreness: checkIn.soreness,
+      sorenessAreas: Array.isArray(checkIn.sorenessAreas) ? checkIn.sorenessAreas.filter((a) => typeof a === 'string') : [],
+      energy: checkIn.energy,
+      stress: checkIn.stress,
+      readinessBand: checkIn.readinessBand ?? null,
+      readinessZ: typeof checkIn.readinessZ === 'number' ? checkIn.readinessZ : null,
+    };
+    const saved = await prisma.checkIn.upsert({
+      where: { athleteId_date: { athleteId: req.athleteId, date } },
+      create: { ...fields, date, clientId: checkIn.clientId, athleteId: req.athleteId },
+      update: fields,
+    });
+    res.json({ checkIn: { id: saved.id, clientId: saved.clientId } });
+  });
+
   return router;
+}
+
+const READINESS_BANDS = new Set(['GREEN', 'AMBER', 'RED']);
+
+function isScale(value) {
+  return Number.isInteger(value) && value >= 1 && value <= 5;
+}
+
+function validateCheckIn(checkIn) {
+  if (!checkIn || typeof checkIn !== 'object') return 'missing_check_in';
+  if (typeof checkIn.clientId !== 'string' || checkIn.clientId.length === 0) return 'missing_client_id';
+  if (typeof checkIn.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(checkIn.date)
+    || Number.isNaN(Date.parse(`${checkIn.date}T00:00:00.000Z`))) return 'invalid_date';
+  for (const field of ['sleepQuality', 'soreness', 'energy', 'stress']) {
+    if (!isScale(checkIn[field])) return `invalid_${field}`;
+  }
+  if (checkIn.sleepHours !== undefined && checkIn.sleepHours !== null) {
+    if (typeof checkIn.sleepHours !== 'number' || checkIn.sleepHours < 0 || checkIn.sleepHours > 24) return 'invalid_sleep_hours';
+  }
+  if (checkIn.readinessBand !== undefined && checkIn.readinessBand !== null && !READINESS_BANDS.has(checkIn.readinessBand)) {
+    return 'invalid_readiness_band';
+  }
+  return null;
 }
 
 function validateSession(session) {

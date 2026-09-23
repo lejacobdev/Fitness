@@ -41,62 +41,51 @@ public struct AgeGateView: View {
     }
 
     public var body: some View {
-        ScrollView {
-            VStack(spacing: 28) {
+        StepScaffold(
+            progress: 0.12, title: "When's your birthday?",
+            subtitle: "Student Athlete is built for athletes 13 and up. We only use this to keep training age-appropriate.",
+            buttonEnabled: result == .eligible, onContinue: { onEligible(birthDate) }
+        ) {
+            HStack(spacing: 14) {
                 Image("Logo")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: 96, height: 96)
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .frame(width: 52, height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .accessibilityHidden(true)
-                    .padding(.top, 24)
-
-                VStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("Student Athlete")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                    Text("First, when's your birthday?")
-                        .font(.title3)
-                        .foregroundStyle(.white.opacity(0.6))
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.ink)
+                    Text("Your sport. Your season. Your plan.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
                 }
+            }
 
-                DatePicker(
-                    "Date of birth", selection: $birthDate, in: ...Date.now, displayedComponents: .date
-                )
+            DatePicker("Date of birth", selection: $birthDate, in: ...Date.now, displayedComponents: .date)
                 .datePickerStyle(.wheel)
                 .labelsHidden()
-                .colorScheme(.dark)
+                .frame(maxWidth: .infinity)
                 .accessibilityLabel("Date of birth")
-                .cardStyle()
+                .cardStyle(padding: 8)
 
-                if result == .underMinimum {
+            if result == .underMinimum {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "hand.raised.fill")
+                        .foregroundStyle(AppTheme.brand)
                     Text("Student Athlete is for athletes 13 and up. Come back once you turn 13.")
-                        .font(.callout)
-                        .foregroundStyle(.orange)
-                        .multilineTextAlignment(.center)
-                        .accessibilityLabel("You must be 13 or older to use Student Athlete")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.ink)
                 }
-
-                Button("Continue") {
-                    onEligible(birthDate)
-                }
-                .buttonStyle(.accentFilled)
-                .disabled(result == .underMinimum)
-                .opacity(result == .underMinimum ? 0.4 : 1)
-
-                Text(
-                    "General training information, not medical advice. Talk to your coach or "
-                    + "athletic trainer before changing how you train. Stop and tell an adult if "
-                    + "something hurts."
-                )
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.45))
-                .multilineTextAlignment(.center)
+                .cardStyle(padding: 16)
+                .accessibilityLabel("You must be 13 or older to use Student Athlete")
             }
-            .padding(24)
+
+            Text("General training information, not medical advice. Talk to your coach or athletic trainer before changing how you train. Stop and tell an adult if something hurts.")
+                .font(.caption)
+                .foregroundStyle(AppTheme.secondaryText)
         }
-        .background(AppBackground())
-        .scrollContentBackground(.hidden)
     }
 }
 

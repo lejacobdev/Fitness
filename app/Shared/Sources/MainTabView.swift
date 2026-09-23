@@ -1,10 +1,16 @@
 import SwiftData
 import SwiftUI
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
-/// §15's five-tab navigation, for real. Improve (§8/M9) and a Coach headline
-/// (§12/M10) aren't built yet — Improve shows an honest, on-brand "not yet"
-/// state rather than either faking content or being missing entirely, since
-/// a tab bar with a tab that goes nowhere looks broken in a different way.
+enum AppTab: Hashable {
+    case today, plan, improve, library, me
+}
+
+/// §15's five tabs. Owns the one generated week so Today and Plan can never
+/// disagree about it, and regenerates it whenever something that feeds the
+/// generator changes (a game added, the sport/season/equipment edited).
 @MainActor
 public struct MainTabView: View {
     let athlete: Athlete
@@ -12,6 +18,7 @@ public struct MainTabView: View {
 
     @Environment(\.modelContext) private var modelContext
     @State private var week: GeneratedWeek?
+    @State private var selectedTab: AppTab = .today
 
     public init(athlete: Athlete, apiClient: APIClient) {
         self.athlete = athlete
@@ -19,41 +26,39 @@ public struct MainTabView: View {
     }
 
     public var body: some View {
-        TabView {
-            TodayTabView(athlete: athlete, apiClient: apiClient, week: week)
-                .tabItem { Label("Today", systemImage: "sun.max.fill") }
+        TabView(selection: $selectedTab) {
+            TodayView(athlete: athlete, apiClient: apiClient, week: week, selectedTab: $selectedTab, onPlanInputsChanged: regenerate)
+                .tabItem { Label("Today", systemImage: "house.fill") }
+                .tag(AppTab.today)
 
-            PlanTabView(athlete: athlete, week: week, onGameAdded: regenerate)
+            PlanView(athlete: athlete, week: week, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Plan", systemImage: "calendar") }
+                .tag(AppTab.plan)
 
-            ImproveTabView(athlete: athlete)
-                .tabItem { Label("Improve", systemImage: "arrow.up.forward.circle.fill") }
+            ImproveView(athlete: athlete)
+                .tabItem { Label("Improve", systemImage: "chart.line.uptrend.xyaxis") }
+                .tag(AppTab.improve)
 
             LibraryView()
                 .tabItem { Label("Library", systemImage: "books.vertical.fill") }
+                .tag(AppTab.library)
 
-            MeTabView(athlete: athlete)
-                .tabItem { Label("Me", systemImage: "person.crop.circle.fill") }
+            MeView(athlete: athlete, onPlanInputsChanged: regenerate)
+                .tabItem { Label("Me", systemImage: "person.fill") }
+                .tag(AppTab.me)
         }
-        .tint(AppTheme.accent)
-        // No `.toolbarColorScheme(_:for: .tabBar)` here — `.tabBar` isn't a
-        // valid ToolbarPlacement on watchOS (this file is compiled into
-        // every target, including the watch widget extension, since it
-        // lives in Shared/Sources), and it's redundant anyway: dark mode is
-        // already forced app-wide via `.preferredColorScheme(.dark)`.
+        .tint(AppTheme.ink)
         .task {
             regenerate()
-            // Best-effort, silent (matches the old placeholder screen's own
-            // behaviour): a fresh launch with connectivity drains anything
-            // logged offline since the last one.
-            await SyncQueue(
-                apiClient: apiClient, tokenStore: KeychainTokenStore(), modelContext: modelContext
-            ).drainPendingSessions()
+            let sync = SyncQueue(apiClient: apiClient, tokenStore: KeychainTokenStore(), modelContext: modelContext)
+            await sync.drainPendingSessions()
+            await sync.drainPendingCheckIns()
         }
     }
 
     private func regenerate() {
         week = WeeklyPlan.generate(for: athlete)
+        WidgetSnapshotWriter.write(for: athlete, week: week)
     }
 }
 
@@ -93,862 +98,57 @@ enum WeeklyPlan {
     }
 }
 
-/// The app's "homescreen" — modelled on Apple Health's own home screen shape
-/// (a personal greeting, one hero card, a row of compact stat cards, a
-/// recent-activity feed) rendered in the app's dark/one-accent/big-rounded-
-/// card language rather than Health's light one. Every number here is real:
-/// today's generated-and-tapered session, this week's actual logged
-/// sessions (`@Query`), the athlete's own competition calendar — nothing
-/// placeholder.
-private struct TodayTabView: View {
-    let athlete: Athlete
-    let apiClient: APIClient
-    let week: GeneratedWeek?
-
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Session.startedAt, order: .reverse) private var allSessions: [Session]
-    @State private var showingLiveSession = false
-    @State private var showingHistory = false
-
-    // §15: "The check-in card if it is not done yet (four taps, inline, no
-    // navigation)." One tap per row sets it; the fourth tap auto-submits —
-    // there's deliberately no separate "Save" button, since a fifth tap
-    // would break the fifteen-second promise in §11.
-    @State private var checkInSleep: Int?
-    @State private var checkInSoreness: Int?
-    @State private var checkInEnergy: Int?
-    @State private var checkInStress: Int?
-    @State private var isSubmittingCheckIn = false
-    @State private var readinessOverridden = false
-
-    private var todaysSession: GeneratedSession? {
-        let calendar = Calendar.current
-        return week?.sessions.first { calendar.isDateInToday($0.date) }
-    }
-
-    private var todaysCheckIn: CheckIn? {
+/// Small, pure helpers over the athlete's own data that more than one tab
+/// shows.
+@MainActor
+enum AthleteStats {
+    static func todaysCheckIn(_ athlete: Athlete) -> CheckIn? {
         athlete.checkIns.first { Calendar.current.isDateInToday($0.date) }
     }
 
-    /// §11: only applied while a band exists and the athlete hasn't
-    /// one-tap-overridden it back to the original session for today.
-    private var readinessAdjustment: ReadinessApplier.Result? {
-        guard let todaysSession, let band = todaysCheckIn?.readinessBand, !readinessOverridden else { return nil }
-        return ReadinessApplier.apply(to: todaysSession, band: band)
-    }
-
-    private var displayedSession: GeneratedSession? {
-        readinessAdjustment?.session ?? todaysSession
-    }
-
-    private var bandColor: Color {
-        switch todaysCheckIn?.readinessBand {
-        case .red: .red
-        case .amber: .orange
-        case .green, nil: AppTheme.accent
-        }
-    }
-
-    private var sessionsThisWeek: Int {
-        let calendar = Calendar.current
-        guard let weekStart = calendar.date(
-            from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: .now)
-        ) else { return 0 }
-        return allSessions.filter { $0.startedAt >= weekStart }.count
-    }
-
-    private var plannedSessionsThisWeek: Int {
-        max(week?.sessions.count ?? 0, sessionsThisWeek)
-    }
-
-    private var daysUntilNextCompetition: Int? {
-        let today = Calendar.current.startOfDay(for: .now)
-        guard let next = athlete.competitions
-            .map({ Calendar.current.startOfDay(for: $0.date) })
-            .filter({ $0 >= today })
-            .min()
-        else { return nil }
-        return Calendar.current.dateComponents([.day], from: today, to: next).day
-    }
-
-    private var recentSessions: [Session] {
-        Array(allSessions.prefix(3))
-    }
-
-    private var greeting: String {
-        switch Calendar.current.component(.hour, from: .now) {
-        case 0..<12: "Good morning"
-        case 12..<17: "Good afternoon"
-        default: "Good evening"
-        }
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header
-                    if todaysCheckIn == nil {
-                        checkInCard
-                    } else if todaysCheckIn?.readinessBand == nil {
-                        Text("Still learning your training baseline — readiness adjustments start once you've checked in for a week.")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.5))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    heroCard
-                    statsRow
-                    if !recentSessions.isEmpty {
-                        recentActivitySection
-                    }
-                    Button("View history") { showingHistory = true }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.7))
-                        .frame(maxWidth: .infinity)
-                }
-                .padding(20)
-            }
-            .background(AppBackground())
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .sheet(isPresented: $showingLiveSession) {
-                LiveSessionView(athlete: athlete, apiClient: apiClient)
-            }
-            .sheet(isPresented: $showingHistory) {
-                SessionHistoryView()
-            }
-        }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(greeting)
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.55))
-            if let sportSlug = athlete.sports.first?.sportSlug {
-                Text(allSportsBySlug[sportSlug]?.name ?? sportSlug)
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private var heroCard: some View {
-        if let session = displayedSession {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("TODAY'S SESSION")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(AppTheme.accent)
-                        Text(session.title)
-                            .font(.system(size: 24, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
-                    }
-                    Spacer()
-                    ZStack {
-                        Circle().fill(AppTheme.accent.opacity(0.15)).frame(width: 52, height: 52)
-                        Image(systemName: "figure.strengthtraining.traditional")
-                            .font(.title2)
-                            .foregroundStyle(AppTheme.accent)
-                    }
-                }
-                if let reason = readinessAdjustment?.reason {
-                    readinessBanner(reason: reason)
-                }
-                HStack(spacing: 24) {
-                    statPair(value: "\(session.estimatedMinutes)", label: "minutes")
-                    statPair(value: "\(session.items.count)", label: "exercises")
-                }
-                Button("Start training session") { showingLiveSession = true }
-                    .buttonStyle(.accentFilled)
-            }
-            .cardStyle()
-        } else {
-            VStack(spacing: 10) {
-                Image(systemName: "moon.zzz.fill")
-                    .font(.largeTitle)
-                    .foregroundStyle(AppTheme.accent)
-                Text("Rest day")
-                    .font(.title3.bold())
-                    .foregroundStyle(.white)
-                Text("No training session today — check the Plan tab for the rest of the week.")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.6))
-                    .multilineTextAlignment(.center)
-                Button("Log a session anyway") { showingLiveSession = true }
-                    .buttonStyle(.accentFilled)
-                    .padding(.top, 6)
-            }
-            .frame(maxWidth: .infinity)
-            .cardStyle()
-        }
-    }
-
-    /// §15: "A readiness line if the plan was adjusted, saying what changed
-    /// and why, with a one-tap override."
-    private func readinessBanner(reason: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label("Readiness adjusted", systemImage: "waveform.path.ecg")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(bandColor)
-            Text(reason)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
-            Button(readinessOverridden ? "Use the readiness-adjusted session" : "Use the original session instead") {
-                readinessOverridden.toggle()
-            }
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(AppTheme.accent)
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
-    }
-
-    // §11: sleep, soreness, energy, stress — in that order, one tap each.
-    private var checkInCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("MORNING CHECK-IN")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(AppTheme.accent)
-            Text(isSubmittingCheckIn ? "Saving…" : "Four taps, then you're done.")
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.6))
-
-            checkInRow(label: "Sleep", systemImage: "moon.stars.fill", selection: $checkInSleep)
-            checkInRow(label: "Soreness", systemImage: "bandage.fill", selection: $checkInSoreness)
-            checkInRow(label: "Energy", systemImage: "bolt.fill", selection: $checkInEnergy)
-            checkInRow(label: "Stress", systemImage: "brain.head.profile", selection: $checkInStress)
-        }
-        .cardStyle()
-        .disabled(isSubmittingCheckIn)
-        .onChange(of: checkInSleep) { submitCheckInIfComplete() }
-        .onChange(of: checkInSoreness) { submitCheckInIfComplete() }
-        .onChange(of: checkInEnergy) { submitCheckInIfComplete() }
-        .onChange(of: checkInStress) { submitCheckInIfComplete() }
-    }
-
-    private func checkInRow(label: String, systemImage: String, selection: Binding<Int?>) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(label, systemImage: systemImage)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
-            HStack(spacing: 8) {
-                ForEach(1...5, id: \.self) { value in
-                    Button {
-                        selection.wrappedValue = value
-                    } label: {
-                        Text("\(value)")
-                            .font(.subheadline.weight(.bold))
-                            .frame(maxWidth: .infinity, minHeight: 36)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(selection.wrappedValue == value ? AppTheme.accent : Color.white.opacity(0.08))
-                            )
-                            .foregroundStyle(.white)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-
-    private func submitCheckInIfComplete() {
-        guard let sleep = checkInSleep, let soreness = checkInSoreness,
-              let energy = checkInEnergy, let stress = checkInStress, !isSubmittingCheckIn
-        else { return }
-        isSubmittingCheckIn = true
-        Task {
-            _ = try? CheckInStore(modelContext: modelContext).submit(
-                athlete: athlete, sleepQuality: sleep, soreness: soreness, energy: energy, stress: stress
-            )
-            checkInSleep = nil
-            checkInSoreness = nil
-            checkInEnergy = nil
-            checkInStress = nil
-            isSubmittingCheckIn = false
-        }
-    }
-
-    private func statPair(value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(value)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.5))
-        }
-    }
-
-    private var statsRow: some View {
-        HStack(spacing: 12) {
-            statCard(
-                icon: "checkmark.circle.fill",
-                value: "\(sessionsThisWeek)/\(plannedSessionsThisWeek)",
-                label: "This week"
-            )
-            statCard(
-                icon: "sportscourt.fill",
-                value: daysUntilNextCompetition.map { $0 == 0 ? "Today" : "\($0)d" } ?? "—",
-                label: "Next game"
-            )
-        }
-    }
-
-    private func statCard(icon: String, value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: icon).foregroundStyle(AppTheme.accent)
-            Text(value)
-                .font(.system(size: 20, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.5))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle()
-    }
-
-    private var recentActivitySection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Recent activity")
-                .font(.headline)
-                .foregroundStyle(.white)
-            ForEach(recentSessions) { session in
-                HStack(spacing: 12) {
-                    Image(systemName: "figure.run.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(AppTheme.accent)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(session.startedAt.formatted(date: .abbreviated, time: .omitted))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                        Text("\(session.minutes) min\(session.sessionRPE.map { " · RPE \($0)" } ?? "")")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.5))
-                    }
-                    Spacer()
-                }
-            }
-        }
-        .cardStyle()
-    }
-}
-
-private struct PlanTabView: View {
-    let athlete: Athlete
-    let week: GeneratedWeek?
-    let onGameAdded: () -> Void
-
-    @Environment(\.modelContext) private var modelContext
-    @State private var showingAddGame = false
-    @State private var newGameDate = Date.now
-
-    private var phaseLabel: String {
-        switch week?.phase {
-        case .offSeason: "Off-season"
-        case .preSeason: "Pre-season"
-        case .inSeason: "In-season"
-        case .postSeason: "Post-season"
-        case nil: "This week"
-        }
-    }
-
-    private var upcomingCompetitions: [Competition] {
+    static func upcomingCompetitions(_ athlete: Athlete) -> [Competition] {
         let today = Calendar.current.startOfDay(for: .now)
         return athlete.competitions
             .filter { Calendar.current.startOfDay(for: $0.date) >= today }
             .sorted { $0.date < $1.date }
     }
 
-    private var upcomingGamesCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Upcoming games")
-                .font(.headline)
-                .foregroundStyle(.white)
-            ForEach(upcomingCompetitions) { competition in
-                HStack {
-                    Image(systemName: "sportscourt.fill")
-                        .foregroundStyle(AppTheme.accent)
-                    Text(competition.date.formatted(date: .abbreviated, time: .omitted))
-                        .foregroundStyle(.white)
-                    Spacer()
-                    let days = Calendar.current.dateComponents(
-                        [.day], from: Calendar.current.startOfDay(for: .now), to: Calendar.current.startOfDay(for: competition.date)
-                    ).day ?? 0
-                    Text(days == 0 ? "Today" : "in \(days)d")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.5))
-                }
-                .font(.subheadline)
-            }
+    static func daysUntil(_ date: Date) -> Int {
+        let calendar = Calendar.current
+        return calendar.dateComponents([.day], from: calendar.startOfDay(for: .now), to: calendar.startOfDay(for: date)).day ?? 0
+    }
+
+    /// Consecutive days, ending today (or yesterday, so the streak doesn't
+    /// read zero before the morning check-in), with a check-in or a logged
+    /// session — the daily-habit number Cal AI shows as its flame.
+    static func streak(checkInDates: [Date], sessionDates: [Date], now: Date = .now) -> Int {
+        let calendar = Calendar.current
+        let active = Set((checkInDates + sessionDates).map { calendar.startOfDay(for: $0) })
+        var day = calendar.startOfDay(for: now)
+        if !active.contains(day) {
+            day = calendar.date(byAdding: .day, value: -1, to: day) ?? day
         }
-        .cardStyle()
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(phaseLabel)
-                            .font(.system(size: 26, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
-                        if let sportSlug = athlete.sports.first?.sportSlug {
-                            Text(allSportsBySlug[sportSlug]?.name ?? sportSlug)
-                                .foregroundStyle(.white.opacity(0.6))
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if !upcomingCompetitions.isEmpty {
-                        upcomingGamesCard
-                    }
-
-                    if let week {
-                        if week.sessions.isEmpty {
-                            Text("No training days generated for this week.")
-                                .foregroundStyle(.white.opacity(0.6))
-                                .cardStyle()
-                        }
-                        ForEach(week.sessions.indices, id: \.self) { index in
-                            sessionCard(week.sessions[index])
-                        }
-                    } else {
-                        ProgressView().tint(.white)
-                    }
-
-                    // §10: "a prominent 'Add a game' button... this is the
-                    // action that makes the app smart, so it should never be
-                    // more than one tap away."
-                    Button("Add a game") { showingAddGame = true }
-                        .buttonStyle(.accentFilled)
-                }
-                .padding(20)
-            }
-            .background(AppBackground())
-            .navigationTitle("Plan")
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .sheet(isPresented: $showingAddGame) {
-                addGameSheet
-            }
+        var count = 0
+        while active.contains(day) {
+            count += 1
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: day) else { break }
+            day = previous
         }
+        return count
     }
 
-    private func sessionCard(_ session: GeneratedSession) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(session.date.formatted(.dateTime.weekday(.wide).month().day()))
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.5))
-            Text(session.title)
-                .font(.title3.bold())
-                .foregroundStyle(.white)
-            Text("\(session.estimatedMinutes) min")
-                .font(.caption)
-                .foregroundStyle(AppTheme.accent)
-
-            ForEach(session.items, id: \.order) { item in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.itemSlug.replacingOccurrences(of: "-", with: " ").capitalized)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                    Text(item.rationale)
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.5))
-                }
-                .padding(.top, 4)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle()
+    static func sportName(_ athlete: Athlete) -> String {
+        guard let slug = athlete.sports.first?.sportSlug else { return "" }
+        return allSportsBySlug[slug]?.name ?? displayName(forSlug: slug)
     }
 
-    private var addGameSheet: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                DatePicker("Game date", selection: $newGameDate, displayedComponents: .date)
-                    .colorScheme(.dark)
-                    .cardStyle()
-                Button("Add") { addGame() }
-                    .buttonStyle(.accentFilled)
-            }
-            .padding(24)
-            .background(AppBackground())
-            .navigationTitle("Add a game")
-            .toolbarColorScheme(.dark, for: .navigationBar)
-        }
-    }
-
-    private func addGame() {
-        guard let sportSlug = athlete.sports.first?.sportSlug else { return }
-        let competition = Competition(sportSlug: sportSlug, date: newGameDate, kind: .game, athlete: athlete)
-        modelContext.insert(competition)
-        try? modelContext.save()
-        showingAddGame = false
-        onGameAdded()
-    }
-}
-
-/// §8's skill menu, real end to end: sport (pre-filled) → a grid of that
-/// sport's named skills → "when is your next game?" → the dated block, each
-/// item explaining why it's there. Saved blocks live here too (§15).
-private struct ImproveTabView: View {
-    let athlete: Athlete
-
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \SkillBlock.generatedAt, order: .reverse) private var allSkillBlocks: [SkillBlock]
-    @State private var selectedSkill: SportSkill?
-    @State private var gameDate = Date.now.addingTimeInterval(7 * 86400)
-    @State private var generatedBlock: GeneratedSkillBlock?
-    @State private var isSaved = false
-
-    private var sportSlug: String? { athlete.sports.first?.sportSlug }
-    private var sportInfo: SportInfo? { sportSlug.flatMap { allSportsBySlug[$0] } }
-    private var savedBlocksForThisSport: [SkillBlock] {
-        guard let sportSlug else { return [] }
-        return allSkillBlocks.filter { $0.athlete?.id == athlete.id && $0.sportSlug == sportSlug }
-    }
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if let block = generatedBlock, let selectedSkill {
-                    blockView(block, skill: selectedSkill)
-                } else if let selectedSkill {
-                    gameDateStep(for: selectedSkill)
-                } else if let sportInfo {
-                    skillGridStep(sportInfo)
-                } else {
-                    ContentUnavailableView(
-                        "Pick a sport first", systemImage: "sportscourt",
-                        description: Text("The skill menu needs a sport to work from.")
-                    )
-                    .foregroundStyle(.white)
-                }
-            }
-            .background(AppBackground())
-            .navigationTitle("Improve")
-            .toolbarColorScheme(.dark, for: .navigationBar)
-        }
-    }
-
-    private func skillGridStep(_ sport: SportInfo) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("I want to get better at…")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    ForEach(sport.skills, id: \.slug) { skill in
-                        Button {
-                            selectedSkill = skill
-                            gameDate = nearestUpcomingCompetitionDate() ?? Date.now.addingTimeInterval(7 * 86400)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Image(systemName: "figure.run")
-                                    .font(.title2)
-                                    .foregroundStyle(AppTheme.accent)
-                                Text(skill.name)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.white)
-                                    .multilineTextAlignment(.leading)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(16)
-                        }
-                    }
-                }
-                .cardStyle()
-
-                if !savedBlocksForThisSport.isEmpty {
-                    savedBlocksSection
-                }
-            }
-            .padding(20)
-        }
-    }
-
-    private var savedBlocksSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Saved blocks")
-                .font(.headline)
-                .foregroundStyle(.white)
-            ForEach(savedBlocksForThisSport) { saved in
-                Button {
-                    reopen(saved)
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(sportInfo?.skills.first { $0.slug == saved.skillSlug }?.name ?? saved.skillSlug)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.white)
-                            Text("For \(saved.targetDate.formatted(date: .abbreviated, time: .omitted))")
-                                .font(.caption)
-                                .foregroundStyle(.white.opacity(0.5))
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(.white.opacity(0.3))
-                    }
-                }
-            }
-        }
-        .cardStyle()
-    }
-
-    private func gameDateStep(for skill: SportSkill) -> some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                Text(skill.name)
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                Text("My next game is")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.6))
-
-                DatePicker("Game date", selection: $gameDate, in: Date.now..., displayedComponents: .date)
-                    .colorScheme(.dark)
-                    .cardStyle()
-
-                Button("Build my plan") { generate(for: skill) }
-                    .buttonStyle(.accentFilled)
-
-                Button("Choose a different skill") { selectedSkill = nil }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.6))
-            }
-            .padding(24)
-        }
-    }
-
-    private func blockView(_ block: GeneratedSkillBlock, skill: SportSkill) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(block.skillName)
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                Text(block.realisticExpectation)
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.6))
-                    .cardStyle()
-
-                ForEach(Array(block.days.enumerated()), id: \.offset) { _, day in
-                    dayCard(day)
-                }
-
-                Button(isSaved ? "Saved" : "Save this block") { save(skill: skill) }
-                    .buttonStyle(.accentFilled)
-                    .disabled(isSaved)
-
-                Button("Start over") {
-                    generatedBlock = nil
-                    selectedSkill = nil
-                    isSaved = false
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.6))
-                .frame(maxWidth: .infinity)
-            }
-            .padding(20)
-        }
-    }
-
-    private func dayCard(_ day: GeneratedSession) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(day.date.formatted(.dateTime.weekday(.wide).month().day()))
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.5))
-            Text(day.title)
-                .font(.title3.bold())
-                .foregroundStyle(.white)
-            if day.items.isEmpty {
-                Text("No prescribed training — see above.")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.5))
-            }
-            ForEach(day.items, id: \.order) { item in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.itemSlug.replacingOccurrences(of: "-", with: " ").capitalized)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                    Text(item.rationale)
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.5))
-                }
-                .padding(.top, 4)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle()
-    }
-
-    private func nearestUpcomingCompetitionDate() -> Date? {
-        guard let sportSlug else { return nil }
-        let today = Calendar.current.startOfDay(for: .now)
-        return athlete.competitions
-            .filter { $0.sportSlug == sportSlug }
-            .map(\.date)
-            .filter { Calendar.current.startOfDay(for: $0) >= today }
-            .min()
-    }
-
-    private func generate(for skill: SportSkill) {
-        guard let sportSlug else { return }
-        let seed = "\(athlete.id)-\(skill.slug)-\(Int(gameDate.timeIntervalSince1970))"
-        let input = SkillMenuInput(
-            sportSlug: sportSlug, skillSlug: skill.slug, skillName: skill.name,
-            qualityWeights: skill.qualityWeights, today: .now, gameDate: gameDate, birthDate: athlete.birthDate,
-            trainsUnderCoach: athlete.trainsUnderCoach, equipmentAvailable: Set(athlete.equipmentAvailable),
-            catalogue: CatalogueLoader.load(from: AppConfig.packsDirectory()), seed: seed
-        )
-        generatedBlock = SkillMenuEngine.generate(input)
-        isSaved = false
-    }
-
-    private func save(skill: SportSkill) {
-        guard let sportSlug else { return }
-        let seed = "\(athlete.id)-\(skill.slug)-\(Int(gameDate.timeIntervalSince1970))"
-        try? SkillBlockStore(modelContext: modelContext).save(
-            athlete: athlete, sportSlug: sportSlug, skillSlug: skill.slug, targetDate: gameDate, seed: seed
-        )
-        isSaved = true
-    }
-
-    private func reopen(_ saved: SkillBlock) {
-        guard let skill = sportInfo?.skills.first(where: { $0.slug == saved.skillSlug }) else { return }
-        selectedSkill = skill
-        gameDate = saved.targetDate
-        let input = SkillMenuInput(
-            sportSlug: saved.sportSlug, skillSlug: skill.slug, skillName: skill.name,
-            qualityWeights: skill.qualityWeights, today: .now, gameDate: saved.targetDate, birthDate: athlete.birthDate,
-            trainsUnderCoach: athlete.trainsUnderCoach, equipmentAvailable: Set(athlete.equipmentAvailable),
-            catalogue: CatalogueLoader.load(from: AppConfig.packsDirectory()), seed: saved.seed
-        )
-        generatedBlock = SkillMenuEngine.generate(input)
-        isSaved = true
-    }
-}
-
-private struct MeTabView: View {
-    let athlete: Athlete
-    @Environment(\.modelContext) private var modelContext
-    @State private var showingDeleteConfirmation = false
-    @State private var isDeleting = false
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    if let athleteSport = athlete.sports.first {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(allSportsBySlug[athleteSport.sportSlug]?.name ?? athleteSport.sportSlug)
-                                .font(.title2.bold())
-                                .foregroundStyle(.white)
-                            Text("\(athleteSport.seasonStart.formatted(date: .abbreviated, time: .omitted)) – \(athleteSport.seasonEnd.formatted(date: .abbreviated, time: .omitted))")
-                                .font(.subheadline)
-                                .foregroundStyle(.white.opacity(0.6))
-                            if let positionSlug = athleteSport.positionSlug,
-                               let positionName = allSportsBySlug[athleteSport.sportSlug]?.positions.first(where: { $0.slug == positionSlug })?.name {
-                                Text(positionName)
-                                    .font(.caption)
-                                    .foregroundStyle(AppTheme.accent)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .cardStyle()
-                    }
-
-                    profileDetailsCard
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Not a medical device.")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                        Text("Student Athlete never predicts injury, diagnoses, or advises return to play. It supplements your coach and athletic trainer; it never replaces them.")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.6))
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .cardStyle()
-
-                    // §20/§4: account deletion must never sit behind a
-                    // paywall or be hard to find — it's a plain button here,
-                    // not buried in a sub-menu.
-                    Button(isDeleting ? "Deleting…" : "Delete account") {
-                        showingDeleteConfirmation = true
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.red)
-                    .disabled(isDeleting)
-                }
-                .padding(20)
-            }
-            .background(AppBackground())
-            .navigationTitle("Me")
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .confirmationDialog(
-                "Delete your account?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible
-            ) {
-                Button("Delete everything", role: .destructive) { deleteAccount() }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This permanently deletes your account and everything stored on our server. This device's local copy is deleted too. This cannot be undone.")
-            }
-        }
-    }
-
-    private var age: Int {
-        Calendar.current.dateComponents([.year], from: athlete.birthDate, to: .now).year ?? 0
-    }
-
-    private var profileDetailsCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            profileRow(icon: "birthday.cake.fill", label: "Age", value: "\(age)")
-            profileRow(
-                icon: "person.2.fill", label: "Coach supervision",
-                value: athlete.trainsUnderCoach ? "Yes" : "Not yet"
-            )
-            profileRow(
-                icon: "bag.fill", label: "Equipment",
-                value: athlete.equipmentAvailable.isEmpty ? "Bodyweight only" : "\(athlete.equipmentAvailable.count) items"
-            )
-        }
-        .cardStyle()
-    }
-
-    private func profileRow(icon: String, label: String, value: String) -> some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundStyle(AppTheme.accent)
-                .frame(width: 24)
-            Text(label)
-                .foregroundStyle(.white)
-            Spacer()
-            Text(value)
-                .foregroundStyle(.white.opacity(0.6))
-        }
-        .font(.subheadline)
-    }
-
-    private func deleteAccount() {
-        isDeleting = true
-        Task {
-            let token = try? KeychainTokenStore().read()
-            if let token {
-                var request = URLRequest(url: AppConfig.backendBaseURL.appending(path: "athlete/me"))
-                request.httpMethod = "DELETE"
-                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                _ = try? await URLSession.shared.data(for: request)
-            }
-            try? KeychainTokenStore().delete()
-            modelContext.delete(athlete)
-            try? modelContext.save()
-            isDeleting = false
+    static func phaseLabel(_ phase: SeasonPhase?) -> String {
+        switch phase {
+        case .offSeason: "Off-season"
+        case .preSeason: "Pre-season"
+        case .inSeason: "In-season"
+        case .postSeason: "Post-season"
+        case nil: "This week"
         }
     }
 }

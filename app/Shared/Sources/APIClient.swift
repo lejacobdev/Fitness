@@ -216,6 +216,71 @@ public struct APIClient: Sendable {
         }
     }
 
+    public struct CheckInPayload: Sendable {
+        public let clientId: String
+        public let date: Date
+        public let sleepQuality: Int
+        public let sleepHours: Double?
+        public let soreness: Int
+        public let sorenessAreas: [String]
+        public let energy: Int
+        public let stress: Int
+        public let readinessBand: String?
+        public let readinessZ: Double?
+
+        public init(
+            clientId: String, date: Date, sleepQuality: Int, sleepHours: Double?, soreness: Int,
+            sorenessAreas: [String], energy: Int, stress: Int, readinessBand: String?, readinessZ: Double?
+        ) {
+            self.clientId = clientId
+            self.date = date
+            self.sleepQuality = sleepQuality
+            self.sleepHours = sleepHours
+            self.soreness = soreness
+            self.sorenessAreas = sorenessAreas
+            self.energy = energy
+            self.stress = stress
+            self.readinessBand = readinessBand
+            self.readinessZ = readinessZ
+        }
+    }
+
+    /// POST /sync/checkins — §14: one row per athlete per day, upserted, so
+    /// re-pushing an edited check-in updates the same day on the server.
+    public func syncCheckIn(_ checkIn: CheckInPayload, sessionToken: String) async throws {
+        var json: [String: Any] = [
+            "clientId": checkIn.clientId,
+            "date": Self.dayString(checkIn.date),
+            "sleepQuality": checkIn.sleepQuality,
+            "soreness": checkIn.soreness,
+            "sorenessAreas": checkIn.sorenessAreas,
+            "energy": checkIn.energy,
+            "stress": checkIn.stress,
+        ]
+        if let sleepHours = checkIn.sleepHours { json["sleepHours"] = sleepHours }
+        if let band = checkIn.readinessBand { json["readinessBand"] = band }
+        if let z = checkIn.readinessZ { json["readinessZ"] = z }
+
+        var urlRequest = URLRequest(url: baseURL.appending(path: "sync/checkins"))
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization")
+        urlRequest.httpBody = try JSONSerialization.data(withJSONObject: ["checkIn": json])
+
+        let (data, response) = try await perform(urlRequest)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw apiError(from: response, data: data)
+        }
+    }
+
+    /// A check-in's calendar day in the athlete's own time zone, as
+    /// YYYY-MM-DD — the server stores it as a DATE, never a timestamp that
+    /// could shift a day across a time-zone boundary.
+    static func dayString(_ date: Date, calendar: Calendar = .current) -> String {
+        let parts = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
+    }
+
     private static func iso8601String(_ date: Date) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
