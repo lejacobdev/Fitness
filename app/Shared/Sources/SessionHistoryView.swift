@@ -10,9 +10,15 @@ public struct SessionHistoryView: View {
 
     public init() {}
 
+    /// §4: free shows the last 30 days; Pro shows everything.
+    private var visibleSessions: [Session] {
+        guard let cutoff = ProGate.historyCutoff(isPro: ProAccess.isPro) else { return sessions }
+        return sessions.filter { $0.startedAt >= cutoff }
+    }
+
     private var weeks: [(start: Date, sessions: [Session])] {
         let calendar = Calendar.current
-        let grouped = Dictionary(grouping: sessions) { calendar.dateInterval(of: .weekOfYear, for: $0.startedAt)?.start ?? $0.startedAt }
+        let grouped = Dictionary(grouping: visibleSessions) { calendar.dateInterval(of: .weekOfYear, for: $0.startedAt)?.start ?? $0.startedAt }
         return grouped.keys.sorted(by: >).map { ($0, grouped[$0] ?? []) }
     }
 
@@ -51,6 +57,14 @@ public struct SessionHistoryView: View {
                             .buttonStyle(.plain)
                         }
                     }
+                    if visibleSessions.count < sessions.count {
+                        ProLockCard(
+                            feature: .fullHistory,
+                            title: "\(sessions.count - visibleSessions.count) older sessions",
+                            message: "Free shows your last \(ProLimits.freeHistoryDays) days. Nothing is deleted — Pro shows your whole history."
+                        )
+                        .padding(.top, 8)
+                    }
                 }
                 .padding(20)
             }
@@ -83,7 +97,7 @@ struct SessionDetailView: View {
     private func setText(_ set: SetLog) -> String {
         var parts: [String] = []
         if let reps = set.reps { parts.append("\(reps) reps") }
-        if let weight = set.weightKg { parts.append("\(weight.formatted(.number.precision(.fractionLength(0...1)))) kg") }
+        if let weight = set.weightKg { parts.append(WeightUnit.current.format(kg: weight)) }
         if let seconds = set.seconds { parts.append("\(seconds)s") }
         if let distance = set.distanceM { parts.append("\(Int(distance)) m") }
         if let contacts = set.contacts { parts.append("\(contacts) contacts") }

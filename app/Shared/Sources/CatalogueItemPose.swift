@@ -10,12 +10,14 @@ public extension CatalogueItem {
     /// SECOND pattern's own end pose, composing a single motion out of two
     /// named patterns rather than requiring a distinct pattern to be
     /// authored for every such combination.
-    var posePair: (start: Pose, end: Pose)? {
+    /// `loops` is true only for a continuous rhythm (a stride, a hop) whose
+    /// end flows back into its start; one-rep moves play through and cut.
+    var posePair: (start: Pose, end: Pose, loops: Bool)? {
         guard
             let startPattern = posePatternsBySlug[startPose],
             let endPattern = posePatternsBySlug[endPose]
         else { return nil }
-        return (startPattern.start, endPattern.end)
+        return (startPattern.start, endPattern.end, startPattern.id == endPattern.id && startPattern.loops)
     }
 
     /// The item's highest-weighted quality — what a list row labels it with.

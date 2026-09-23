@@ -174,3 +174,9 @@ test('soccer.shooting-power matches §8\'s worked example exactly', () => {
     'hip-mobility': 0.5, 'single-leg-stability': 0.5,
   });
 });
+
+test('every looping pose pattern names a real pattern', async () => {
+  const { LOOPING_PATTERNS } = await import('../src/poses.js');
+  const slugs = new Set(POSE_PATTERNS.map((p) => p.slug));
+  for (const slug of LOOPING_PATTERNS) assert.ok(slugs.has(slug), `${slug} is not a pose pattern`);
+});

@@ -450,27 +450,37 @@ public struct RigPoseView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// One full there-and-back cycle.
-    static let period: Double = 2.6
+    /// One-rep moves: the whole take, start hold → move → end hold → cut.
+    static let repPeriod: Double = 2.4
+    /// Continuous rhythms: one there-and-back stride.
+    static let loopPeriod: Double = 1.1
+
+    private let loops: Bool
 
     public init(
-        start: [Joint: Double], end: [Joint: Double], mirrored: Bool = false, prop: PropInfo? = nil,
+        start: [Joint: Double], end: [Joint: Double], loops: Bool = false, mirrored: Bool = false, prop: PropInfo? = nil,
         muscles: [String: Double] = [:], animated: Bool = true
     ) {
         self.start = start
         self.end = end
+        self.loops = loops
         self.mirrored = mirrored
         self.prop = prop
         self.muscles = muscles
         self.animated = animated
     }
 
-    /// Eased 0→1→0 with a short hold at each end, so each position reads.
-    static func phase(at time: TimeInterval) -> Double {
-        let cycle = (time.truncatingRemainder(dividingBy: period)) / period
-        let triangle = cycle < 0.5 ? cycle * 2 : 2 - cycle * 2
-        let held = min(max((triangle - 0.08) / 0.84, 0), 1)
-        return held * held * (3 - 2 * held)
+    /// A one-rep move plays start → end once, holds the finish so it reads,
+    /// then cuts straight back to the start (no reverse morph). A rhythm
+    /// (running, hopping) swings back and forth seamlessly instead.
+    static func phase(at time: TimeInterval, loops: Bool) -> Double {
+        if loops {
+            let cycle = time.truncatingRemainder(dividingBy: loopPeriod) / loopPeriod
+            return 0.5 - 0.5 * cos(cycle * 2 * .pi)
+        }
+        let cycle = time.truncatingRemainder(dividingBy: repPeriod) / repPeriod
+        let moving = min(max((cycle - 0.14) / 0.56, 0), 1)
+        return moving * moving * (3 - 2 * moving)
     }
 
     private var glow: [RigMuscleRegion: Double] {
@@ -503,7 +513,7 @@ public struct RigPoseView: View {
         let hangsFromBar = (start[.lift] ?? 0) > 0 && (start[.shoulderL] ?? 0) > 150
         let barY = hangsFromBar ? RigKinematics.skeleton(for: start, mirrored: mirrored).near.wrist.y : nil
         TimelineView(.animation(paused: !animated || reduceMotion)) { timeline in
-            let t = (animated && !reduceMotion) ? Self.phase(at: timeline.date.timeIntervalSinceReferenceDate) : 0.65
+            let t = (animated && !reduceMotion) ? Self.phase(at: timeline.date.timeIntervalSinceReferenceDate, loops: loops) : 0.65
             Canvas { context, size in
                 let scale = min(size.width / bounds.width, size.height / bounds.height)
                 let offsetX = (size.width - bounds.width * scale) / 2 - bounds.minX * scale

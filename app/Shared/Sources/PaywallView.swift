@@ -24,7 +24,7 @@ public struct PaywallView: View {
     }
 
     private var features: [ProFeature] {
-        let all: [ProFeature] = [.skillBlocks, .fullSeasonCalendar, .positionProfiles, .fullHistory, .coachReportOnDemand, .additionalSportDownloads, .dataExport]
+        let all: [ProFeature] = [.skillBlocks, .muscleWorkouts, .multipleSports, .exerciseProgress, .fullHistory, .fullSeasonCalendar, .positionProfiles, .coachReportOnDemand, .dataExport]
         guard let highlight, all.contains(highlight) else { return all }
         return [highlight] + all.filter { $0 != highlight }
     }
@@ -369,7 +369,7 @@ public struct SubscriptionRow: View {
             }
             return "Active"
         }
-        return "Unlimited skill plans, full season calendar, all history"
+        return "Unlimited skill plans and muscle workouts, several sports, every progress chart"
     }
 }
 

@@ -42,6 +42,14 @@ public struct LiveSessionView: View {
     @State private var loggedCount = 0
     @State private var restEndedCount = 0
     @State private var startedAt = Date.now
+    @AppStorage(WeightUnit.storageKey) private var unitRaw = WeightUnit.current.rawValue
+
+    private var unit: WeightUnit { WeightUnit(rawValue: unitRaw) ?? .kg }
+
+    /// Every planned set is logged — time to finish.
+    private var allDone: Bool {
+        !queue.isEmpty && queue.allSatisfy { setsLogged[$0.itemSlug, default: 0] >= $0.dose.sets }
+    }
 
     public init(athlete: Athlete, apiClient: APIClient, planned: GeneratedSession? = nil) {
         self.athlete = athlete
@@ -71,6 +79,13 @@ public struct LiveSessionView: View {
             if let current {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
+                        if loggedCount == 0 {
+                            TipCard(id: "live", icon: "hand.tap.fill", title: "How a workout works",
+                                    message: "Watch the move, do one set, set the numbers to what you did and tap Log set. Rest starts on its own, then do the next set. Tap Finish when you're done.")
+                        }
+                        if allDone {
+                            doneCard
+                        }
                         poseHero
                         itemHeader(current)
                         if restRemaining > 0 {
@@ -134,7 +149,7 @@ public struct LiveSessionView: View {
                         .foregroundStyle(AppTheme.secondaryText)
                 }
             }
-            Button("Finish") {
+            Button(totalLogged == 0 ? "Close" : "Finish") {
                 if totalLogged == 0 { discard() } else { showingRPE = true }
             }
             .font(.headline)
@@ -156,7 +171,7 @@ public struct LiveSessionView: View {
                 .shadow(color: .black.opacity(0.05), radius: 12, x: 0, y: 4)
             HStack(spacing: 8) {
                 if let pair = currentItem?.posePair {
-                    RigPoseView(start: pair.start, end: pair.end, prop: currentItem?.prop.flatMap { propsBySlug[$0] }, muscles: currentItem?.muscles ?? [:])
+                    RigPoseView(start: pair.start, end: pair.end, loops: pair.loops, prop: currentItem?.prop.flatMap { propsBySlug[$0] }, muscles: currentItem?.muscles ?? [:])
                         .frame(maxWidth: .infinity)
                 }
                 if let currentItem {
@@ -198,9 +213,18 @@ public struct LiveSessionView: View {
             case "reps":
                 BigStepper(label: "Reps", value: "\(reps)", onMinus: { reps = max(1, reps - 1) }, onPlus: { reps = min(100, reps + 1) })
                 BigStepper(
-                    label: "Weight", value: weightKg == 0 ? "Bodyweight" : "\(weightKg.formatted(.number.precision(.fractionLength(0...1)))) kg",
-                    onMinus: { weightKg = max(0, weightKg - 2.5) }, onPlus: { weightKg = min(400, weightKg + 2.5) }
+                    label: "Weight added", value: weightKg < 0.1 ? "Bodyweight" : unit.format(kg: weightKg),
+                    onMinus: { weightKg = max(0, weightKg - unit.stepKg) }, onPlus: { weightKg = min(400, weightKg + unit.stepKg) }
                 )
+                HStack(spacing: 6) {
+                    Text("Weights in")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.secondaryText)
+                    ForEach(WeightUnit.allCases, id: \.self) { option in
+                        Button { unitRaw = option.rawValue } label: { Chip(option == .lb ? "lb" : "kg", isSelected: unit == option) }
+                            .buttonStyle(.plain)
+                    }
+                }
             case "time":
                 BigStepper(label: "Seconds", value: "\(seconds)", onMinus: { seconds = max(5, seconds - 5) }, onPlus: { seconds = min(900, seconds + 5) })
             case "distance":
@@ -211,6 +235,24 @@ public struct LiveSessionView: View {
                 EmptyView()
             }
         }
+    }
+
+    private var doneCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.title2)
+                .foregroundStyle(AppTheme.green)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Every set done")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.ink)
+                Text("Great work. Tap Finish workout to save it — or add an exercise if you want more.")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle(padding: 16)
     }
 
     private var restCard: some View {
@@ -319,9 +361,18 @@ public struct LiveSessionView: View {
             CircleIconButton(systemImage: "chevron.left", accessibilityLabel: "Previous exercise") { jump(to: index - 1) }
                 .disabled(index == 0)
                 .opacity(index == 0 ? 0.4 : 1)
-            Button(restRemaining > 0 ? "Resting…" : "Log set") { logSet(current) }
-                .buttonStyle(.primary)
-                .disabled(restRemaining > 0)
+            if allDone {
+                Button("Finish workout") { showingRPE = true }
+                    .buttonStyle(.primary)
+            } else {
+                if restRemaining > 0 {
+                    Button("Skip rest") { endRest(silently: true) }
+                        .buttonStyle(.secondary)
+                } else {
+                    Button("Log set") { logSet(current) }
+                        .buttonStyle(.primary)
+                }
+            }
             CircleIconButton(systemImage: "chevron.right", accessibilityLabel: "Next exercise") { jump(to: index + 1) }
                 .disabled(index >= queue.count - 1)
                 .opacity(index >= queue.count - 1 ? 0.4 : 1)
@@ -453,7 +504,7 @@ public struct LiveSessionView: View {
         try? SessionLogger(modelContext: modelContext).finishSession(session, sessionRPE: rpe)
         WidgetSnapshotWriter.write(for: athlete, week: WeeklyPlan.generate(for: athlete))
         let sessionRef = session
-        let sportSlug = athlete.sports.first?.sportSlug
+        let sportSlug = athlete.activeSport?.sportSlug
         Task {
             // §17: one Apple Health workout per session, never a duplicate —
             // saveWorkout returns the existing id if one is already stored.

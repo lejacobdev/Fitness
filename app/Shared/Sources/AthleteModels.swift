@@ -463,3 +463,26 @@ public let athleteModelTypes: [any PersistentModel.Type] = [
     Session.self, SetLog.self, SkillBlock.self, CoachReport.self, DownloadedPack.self,
     MealLog.self,
 ]
+
+public extension Athlete {
+    /// The sport the app is currently set to — plan, skills, drills and games
+    /// all follow it. An athlete can play several; `isPrimary` marks the one
+    /// switched to (the sport switcher sets it), with a stable fallback.
+    var activeSport: AthleteSport? {
+        sports.first(where: \.isPrimary) ?? sports.min { $0.sportSlug < $1.sportSlug }
+    }
+
+    /// Every sport this athlete plays, active one first, then by name.
+    var sortedSports: [AthleteSport] {
+        let active = activeSport?.id
+        return sports.sorted {
+            if ($0.id == active) != ($1.id == active) { return $0.id == active }
+            return (allSportsBySlug[$0.sportSlug]?.name ?? $0.sportSlug) < (allSportsBySlug[$1.sportSlug]?.name ?? $1.sportSlug)
+        }
+    }
+
+    /// Makes one sport the active one.
+    func switchSport(to sport: AthleteSport) {
+        for each in sports { each.isPrimary = each.id == sport.id }
+    }
+}

@@ -95,9 +95,21 @@ struct TodayView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         header
-                        WeekStrip(selection: $selectedDate, marked: markedDays)
+                        WeekStrip(selection: $selectedDate, marked: markedDays, gameDays: Set(athlete.competitions.map { calendar.startOfDay(for: $0.date) }))
                         heroCard
                         statCards
+                        if isSelectedToday {
+                            GettingStartedCard(
+                                athlete: athlete, hasLoggedSession: !allSessions.isEmpty,
+                                onCheckIn: { activeSheet = .checkIn },
+                                onAddGame: { activeSheet = .addGame },
+                                onStartSession: {
+                                    liveLaunch = LiveSessionLaunch(planned: gameOnSelectedDay == nil ? displayedSession : nil)
+                                },
+                                onImprove: { selectedTab = .improve },
+                                onLibrary: { selectedTab = .library }
+                            )
+                        }
                         if isSelectedToday, let coachReport {
                             CoachHeadlineCard(report: coachReport, catalogue: catalogue)
                         }
@@ -105,6 +117,9 @@ struct TodayView: View {
                             checkInSection
                         }
                         daySection
+                        ForEach(SavedSkillPlans.days(on: selectedDate, athlete: athlete, catalogue: catalogue)) { day in
+                            SkillPlanTodayCard(day: day, catalogue: catalogue) { detailItem = $0 }
+                        }
                         if !allSessions.isEmpty {
                             recentActivity
                         }
@@ -177,9 +192,7 @@ struct TodayView: View {
                 .frame(width: 34, height: 34)
                 .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                 .accessibilityHidden(true)
-            Text("Student Athlete")
-                .font(.title2.bold())
-                .foregroundStyle(AppTheme.ink)
+            SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
             Spacer()
             HStack(spacing: 4) {
                 Image(systemName: "flame.fill")
@@ -238,6 +251,9 @@ struct TodayView: View {
                     Text("\(loggedThisWeek)/\(week?.sessions.count ?? 0)")
                         .font(.caption.bold())
                         .foregroundStyle(AppTheme.secondaryText)
+                    Text("this week")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(AppTheme.secondaryText)
                 }
             }
             .frame(width: 112, height: 112)
@@ -255,27 +271,34 @@ struct TodayView: View {
         let nextGame = AthleteStats.upcomingCompetitions(athlete).first
         let daysToGame = nextGame.map { AthleteStats.daysUntil($0.date) }
         return HStack(spacing: 12) {
-            RingStatCard(
-                value: band.map { $0.rawValue.capitalized } ?? "—",
+            Button { activeSheet = .checkIn } label: { RingStatCard(
+                value: band.map { $0.rawValue.capitalized } ?? (todaysCheckIn == nil ? "Check in" : "Learning"),
                 label: "Readiness",
                 progress: band.map { $0 == .green ? 1 : ($0 == .amber ? 0.6 : 0.3) } ?? 0,
                 color: AppTheme.color(for: band),
                 systemImage: "waveform.path.ecg"
-            )
-            RingStatCard(
+            ) }
+            .buttonStyle(.plain)
+            .disabled(todaysCheckIn != nil)
+            Button { activeSheet = .checkIn } label: { RingStatCard(
                 value: sleep.map { "\($0)/5" } ?? "—",
                 label: "Sleep",
                 progress: Double(sleep ?? 0) / 5,
                 color: AppTheme.purple,
                 systemImage: "moon.fill"
-            )
-            RingStatCard(
-                value: daysToGame.map { $0 == 0 ? "Today" : "\($0)d" } ?? "—",
+            ) }
+            .buttonStyle(.plain)
+            .disabled(todaysCheckIn != nil)
+            Button {
+                if nextGame == nil { activeSheet = .addGame } else { selectedTab = .plan }
+            } label: { RingStatCard(
+                value: daysToGame.map { $0 == 0 ? "Today" : "\($0)d" } ?? "Add",
                 label: "Next game",
                 progress: daysToGame.map { max(0.05, 1 - Double($0) / 14) } ?? 0,
                 color: AppTheme.brand,
                 systemImage: "sportscourt.fill"
-            )
+            ) }
+            .buttonStyle(.plain)
         }
     }
 
@@ -326,12 +349,17 @@ struct TodayView: View {
                 }
                 if isSelectedToday {
                     if loggedOnSelectedDay.isEmpty {
-                        Button("Start session") { liveLaunch = LiveSessionLaunch(planned: session) }
+                        Button { liveLaunch = LiveSessionLaunch(planned: session) } label: {
+                            Label("Start session", systemImage: "play.fill")
+                        }
                             .buttonStyle(.primary)
                             .padding(.top, 4)
                     } else {
                         completedRow
                     }
+                } else if selectedDate > .now {
+                    StartWorkoutButton("Do this session now", session: session, prominent: false)
+                        .padding(.top, 4)
                 }
             }
         } else {

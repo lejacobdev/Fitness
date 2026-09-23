@@ -195,7 +195,7 @@ struct DownloadsSheet: View {
     }
 
     private func refresh() {
-        guard let sport = athlete.sports.first?.sportSlug else { return }
+        guard let sport = athlete.activeSport?.sportSlug else { return }
         isRefreshing = true
         message = nil
         Task {

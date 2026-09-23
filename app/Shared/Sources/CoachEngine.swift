@@ -50,12 +50,15 @@ public struct CoachInput: Sendable {
     /// findingCode → the template index used in last week's report, so two
     /// consecutive weeks never read identically (§12).
     public let previousTemplateIndexes: [String: Int]
+    /// How weights are written in the report.
+    public let weightUnit: WeightUnit
 
     public init(
         athleteId: String, now: Date = .now, positionName: String? = nil, sportQualityProfile: [String: Double],
         sessions: [CoachSession], checkIns: [CheckInAnswers], plannedSessionsLastWeek: Int,
-        catalogue: Catalogue, previousTemplateIndexes: [String: Int] = [:]
+        catalogue: Catalogue, previousTemplateIndexes: [String: Int] = [:], weightUnit: WeightUnit = .kg
     ) {
+        self.weightUnit = weightUnit
         self.athleteId = athleteId
         self.now = now
         self.positionName = positionName
@@ -354,7 +357,7 @@ public enum CoachEngine {
         }
         guard let top = improvements.max(by: { $0.2 < $1.2 }) else { return nil }
         let name = input.catalogue.item(top.0)?.name ?? displayName(forSlug: top.0)
-        return (name, top.1.formatted(.number.precision(.fractionLength(0...1))) + " kg")
+        return (name, input.weightUnit.format(kg: top.1))
     }
 
     static func consecutiveActiveDays(input: CoachInput, calendar: Calendar) -> Int {
@@ -588,7 +591,7 @@ enum CoachStore {
         let previous = athlete.coachReports.first { calendar.isDate($0.weekStart, inSameDayAs: previousWeekStart) }
         let previousIndexes = previous.flatMap { try? JSONDecoder().decode([String: Int].self, from: Data($0.templateIndexesJSON.utf8)) } ?? [:]
 
-        let athleteSport = athlete.sports.first
+        let athleteSport = athlete.activeSport
         let sportInfo = athleteSport.flatMap { allSportsBySlug[$0.sportSlug] }
         let positionName = athleteSport?.positionSlug.flatMap { slug in sportInfo?.positions.first { $0.slug == slug }?.name }
         var plannedLastWeek = 0
@@ -611,7 +614,8 @@ enum CoachStore {
             },
             plannedSessionsLastWeek: plannedLastWeek,
             catalogue: catalogue,
-            previousTemplateIndexes: previousIndexes
+            previousTemplateIndexes: previousIndexes,
+            weightUnit: .current
         )
         let content = CoachEngine.report(input)
 

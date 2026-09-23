@@ -288,10 +288,13 @@ public struct RingStatCard: View {
 public struct WeekStrip: View {
     @Binding var selection: Date
     let marked: Set<Date>
+    /// Game days get a red dot instead of the orange training one.
+    let gameDays: Set<Date>
 
-    public init(selection: Binding<Date>, marked: Set<Date>) {
+    public init(selection: Binding<Date>, marked: Set<Date>, gameDays: Set<Date> = []) {
         _selection = selection
         self.marked = marked
+        self.gameDays = gameDays
     }
 
     private var days: [Date] {
@@ -315,6 +318,7 @@ public struct WeekStrip: View {
         let isSelected = calendar.isDate(day, inSameDayAs: selection)
         let isToday = calendar.isDateInToday(day)
         let isMarked = marked.contains(calendar.startOfDay(for: day))
+        let isGame = gameDays.contains(calendar.startOfDay(for: day))
         return Button {
             selection = day
         } label: {
@@ -336,12 +340,12 @@ public struct WeekStrip: View {
                         }
                     }
                 Circle()
-                    .fill(isMarked ? AppTheme.orange : .clear)
+                    .fill(isGame ? AppTheme.brand : (isMarked ? AppTheme.orange : .clear))
                     .frame(width: 5, height: 5)
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(day.formatted(date: .complete, time: .omitted) + (isMarked ? ", has training" : ""))
+        .accessibilityLabel(day.formatted(date: .complete, time: .omitted) + (isGame ? ", game day" : (isMarked ? ", has training" : "")))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
@@ -613,4 +617,39 @@ public enum DoseFormatter {
 /// downloaded (e.g. a substitute from another sport's pack).
 public func displayName(forSlug slug: String) -> String {
     slug.replacingOccurrences(of: "-", with: " ").capitalized
+}
+
+// MARK: - Units
+
+/// Pounds or kilograms. Everything is stored in kg; this is only how it's
+/// shown and stepped. Defaults to the phone's region (lb in the US).
+public enum WeightUnit: String, Sendable, CaseIterable {
+    case kg, lb
+
+    public static let storageKey = "weightUnit"
+    private static let kgPerLb = 0.45359237
+
+    public static var current: WeightUnit {
+        if let raw = UserDefaults.standard.string(forKey: storageKey), let unit = WeightUnit(rawValue: raw) { return unit }
+        return Locale.current.measurementSystem == .us ? .lb : .kg
+    }
+
+    public func value(kg: Double) -> Double {
+        self == .kg ? kg : kg / Self.kgPerLb
+    }
+
+    public func kg(from value: Double) -> Double {
+        self == .kg ? value : value * Self.kgPerLb
+    }
+
+    /// One tap of the weight stepper, in kg.
+    public var stepKg: Double {
+        self == .kg ? 2.5 : 5 * Self.kgPerLb
+    }
+
+    public func format(kg: Double) -> String {
+        let shown = value(kg: kg)
+        let rounded = self == .lb ? shown.rounded() : (shown * 2).rounded() / 2
+        return "\(rounded.formatted(.number.precision(.fractionLength(0...1)))) \(rawValue)"
+    }
 }

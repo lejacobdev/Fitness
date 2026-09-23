@@ -16,6 +16,9 @@ public enum ProFeature: String, CaseIterable, Sendable {
     case positionProfiles
     case coachReportOnDemand
     case dataExport
+    case multipleSports
+    case muscleWorkouts
+    case exerciseProgress
 
     /// Available to every athlete regardless of subscription.
     public var isFreeForever: Bool {
@@ -35,6 +38,9 @@ public enum ProFeature: String, CaseIterable, Sendable {
         case .positionProfiles: "Every position profile, switchable"
         case .coachReportOnDemand: "A coach report after every session"
         case .dataExport: "Export all your data"
+        case .multipleSports: "Play several sports — switch between them any time"
+        case .muscleWorkouts: "Unlimited muscle-group workouts"
+        case .exerciseProgress: "Progress charts for every exercise"
         default: ""
         }
     }
@@ -47,6 +53,10 @@ public enum ProLimits {
     public static let freeHistoryDays = 30
     /// §4 / §23: "A free user always has one sport downloaded."
     public static let freeDownloadedSports = 1
+    /// Sports on a free account; more than one is Pro.
+    public static let freeSports = 1
+    /// Muscle-group workouts a free athlete can start per calendar week.
+    public static let freeMuscleWorkoutsPerWeek = 1
 }
 
 public enum ProGate {
@@ -99,5 +109,19 @@ public enum ProGate {
         // The most recent past game still drives post-game recovery.
         let lastPast = past.max()
         return [lastPast, next].compactMap { $0 }
+    }
+
+    public static func canAddSport(isPro: Bool, currentSportCount: Int) -> Bool {
+        isPro || currentSportCount < ProLimits.freeSports
+    }
+
+    /// Muscle workouts started this calendar week count toward the free
+    /// allowance. `nil` means unlimited.
+    public static func remainingMuscleWorkouts(
+        isPro: Bool, startDates: [Date], now: Date = .now, calendar: Calendar = .current
+    ) -> Int? {
+        guard !isPro else { return nil }
+        let thisWeek = startDates.filter { calendar.isDate($0, equalTo: now, toGranularity: .weekOfYear) }.count
+        return max(0, ProLimits.freeMuscleWorkoutsPerWeek - thisWeek)
     }
 }

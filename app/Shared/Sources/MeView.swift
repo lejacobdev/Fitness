@@ -20,11 +20,12 @@ struct MeView: View {
     @State private var isDeleting = false
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health
+        case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help
         var id: String { rawValue }
     }
 
-    private var athleteSport: AthleteSport? { athlete.sports.first }
+    private var athleteSport: AthleteSport? { athlete.activeSport }
+    @State private var showingPaywall = false
     private var sportInfo: SportInfo? { athleteSport.flatMap { allSportsBySlug[$0.sportSlug] } }
     private var positionName: String? {
         athleteSport?.positionSlug.flatMap { slug in sportInfo?.positions.first { $0.slug == slug }?.name }
@@ -67,7 +68,10 @@ struct MeView: View {
                     MuscleBalanceCard(balance: CoachEngine.muscleBalance(sessions: coachSessions, catalogue: catalogue))
 
                     menuCard {
-                        menuRow("Exercise progress", icon: "chart.xyaxis.line", tint: AppTheme.orange, detail: "\(Set(sessions.flatMap { $0.sets.map(\.itemSlug) }).count) exercises") { activeSheet = .exercises }
+                        menuRow("Exercise progress", icon: "chart.xyaxis.line", tint: AppTheme.orange,
+                                detail: ProAccess.isPro ? "\(Set(sessions.flatMap { $0.sets.map(\.itemSlug) }).count) exercises" : "Pro") {
+                            if ProAccess.isPro { activeSheet = .exercises } else { showingPaywall = true }
+                        }
                         menuDivider
                         menuRow("Session history", icon: "clock.arrow.circlepath", tint: AppTheme.blue, detail: "\(sessions.count)") { activeSheet = .history }
                         menuDivider
@@ -84,10 +88,13 @@ struct MeView: View {
 
                     SectionTitle("Training setup")
                     menuCard {
-                        menuRow("Sport & position", icon: sportInfo.map { SportIcon.name(for: $0.slug) } ?? "sportscourt.fill", tint: AppTheme.brand,
-                                detail: [sportInfo?.name, positionName].compactMap { $0 }.joined(separator: " · ")) { activeSheet = .sport }
+                        menuRow(athlete.sports.count > 1 ? "Sports" : "Sport & position", icon: sportInfo.map { SportIcon.name(for: $0.slug) } ?? "sportscourt.fill", tint: AppTheme.brand,
+                                detail: athlete.sports.count > 1
+                                    ? "\(athlete.sports.count) sports"
+                                    : [sportInfo?.name, positionName].compactMap { $0 }.joined(separator: " · ")) { activeSheet = .sports }
                         menuDivider
-                        menuRow("Season dates", icon: "calendar", tint: AppTheme.blue, detail: seasonDetail) { activeSheet = .season }
+                        menuRow("Season dates", icon: "calendar", tint: AppTheme.blue,
+                                detail: athlete.sports.count > 1 ? "\(sportInfo?.name ?? "") · \(seasonDetail)" : seasonDetail) { activeSheet = .season }
                         menuDivider
                         menuRow("Equipment", icon: "dumbbell.fill", tint: AppTheme.purple,
                                 detail: athlete.equipmentAvailable.isEmpty ? "Bodyweight only" : "\(athlete.equipmentAvailable.count) items") { activeSheet = .equipment }
@@ -97,6 +104,8 @@ struct MeView: View {
 
                     SectionTitle("App")
                     menuCard {
+                        menuRow("Help & app tour", icon: "questionmark.circle.fill", tint: AppTheme.ink, detail: "") { activeSheet = .help }
+                        menuDivider
                         menuRow("Reminders", icon: "bell.fill", tint: AppTheme.amber,
                                 detail: ReminderScheduler.settings.checkInEnabled ? "On" : "Off") { activeSheet = .reminders }
                         menuDivider
@@ -175,8 +184,11 @@ struct MeView: View {
                 case .downloads: DownloadsSheet(athlete: athlete)
                 case .fuel: FuelView(athlete: athlete, todaysSession: WeeklyPlan.generate(for: athlete)?.sessions.first { Calendar.current.isDateInToday($0.date) })
                 case .health: HealthPermissionView()
+                case .sports: SportsManagerSheet(athlete: athlete, onChanged: onPlanInputsChanged)
+                case .help: HelpCenterView()
                 }
             }
+            .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .exerciseProgress)
             .confirmationDialog("Delete your account?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
                 Button("Delete everything", role: .destructive) { deleteAccount() }
                 Button("Cancel", role: .cancel) {}
@@ -523,7 +535,7 @@ struct SportEditorSheet: View {
                 StepScaffold(title: "Your sport", buttonTitle: sport?.positions.isEmpty == false ? "Next" : "Save", buttonEnabled: sportSlug != nil,
                              onBack: { dismiss() }, onContinue: {
                     if sport?.positions.isEmpty == false {
-                        if sportSlug != athlete.sports.first?.sportSlug { positionSlug = nil }
+                        if sportSlug != athlete.activeSport?.sportSlug { positionSlug = nil }
                         choosingPosition = true
                     } else {
                         positionSlug = nil
@@ -535,14 +547,14 @@ struct SportEditorSheet: View {
             }
         }
         .onAppear {
-            sportSlug = athlete.sports.first?.sportSlug
-            positionSlug = athlete.sports.first?.positionSlug
+            sportSlug = athlete.activeSport?.sportSlug
+            positionSlug = athlete.activeSport?.positionSlug
         }
     }
 
     private func save() {
         guard let sport else { return }
-        if let existing = athlete.sports.first {
+        if let existing = athlete.activeSport {
             if existing.sportSlug != sport.slug {
                 let defaults = SeasonDefaults.dates(for: sport)
                 existing.seasonStart = defaults.start
@@ -576,14 +588,14 @@ struct SeasonEditorSheet: View {
             SeasonEditor(start: $start, end: $end)
         }
         .onAppear {
-            start = athlete.sports.first?.seasonStart ?? .now
-            end = athlete.sports.first?.seasonEnd ?? .now
+            start = athlete.activeSport?.seasonStart ?? .now
+            end = athlete.activeSport?.seasonEnd ?? .now
         }
     }
 
     private func save() {
-        athlete.sports.first?.seasonStart = start
-        athlete.sports.first?.seasonEnd = max(start, end)
+        athlete.activeSport?.seasonStart = start
+        athlete.activeSport?.seasonEnd = max(start, end)
         try? modelContext.save()
         onSaved()
         dismiss()
@@ -771,7 +783,7 @@ struct ExerciseProgressListView: View {
 enum ExerciseProgress {
     /// The single number that best describes a set for this kind of dose.
     static func value(_ set: SetLog) -> Double {
-        if let weight = set.weightKg, weight > 0 { return weight }
+        if let weight = set.weightKg, weight > 0 { return WeightUnit.current.value(kg: weight) }
         if let reps = set.reps { return Double(reps) }
         if let seconds = set.seconds { return Double(seconds) }
         if let distance = set.distanceM { return distance }
@@ -779,7 +791,7 @@ enum ExerciseProgress {
     }
 
     static func unit(_ sets: [SetLog]) -> String {
-        if sets.contains(where: { ($0.weightKg ?? 0) > 0 }) { return "kg" }
+        if sets.contains(where: { ($0.weightKg ?? 0) > 0 }) { return WeightUnit.current.rawValue }
         if sets.contains(where: { $0.reps != nil }) { return "reps" }
         if sets.contains(where: { $0.seconds != nil }) { return "s" }
         if sets.contains(where: { $0.distanceM != nil }) { return "m" }
@@ -943,7 +955,7 @@ struct DataExportView: View {
         }
         let payload: [String: Any] = [
             "exportedAt": iso.string(from: .now),
-            "sport": athlete.sports.first?.sportSlug ?? "",
+            "sport": athlete.activeSport?.sportSlug ?? "",
             "checkIns": checkIns,
             "sessions": sessionRows,
             "games": games,

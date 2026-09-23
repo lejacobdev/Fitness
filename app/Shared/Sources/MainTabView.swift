@@ -21,6 +21,9 @@ public struct MainTabView: View {
     @State private var selectedTab: AppTab = DemoData.initialTab
     @AppStorage("healthPermissionAsked") private var healthPermissionAsked = false
     @State private var showingHealthPermission = false
+    @AppStorage("appTourSeen") private var appTourSeen = false
+    @State private var showingTour = false
+    @State private var workoutContext: WorkoutContext?
 
     public init(athlete: Athlete, apiClient: APIClient) {
         self.athlete = athlete
@@ -37,11 +40,11 @@ public struct MainTabView: View {
                 .tabItem { Label("Plan", systemImage: "calendar") }
                 .tag(AppTab.plan)
 
-            ImproveView(athlete: athlete, apiClient: apiClient)
+            ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Improve", systemImage: "chart.line.uptrend.xyaxis") }
                 .tag(AppTab.improve)
 
-            LibraryView()
+            LibraryView(athlete: athlete)
                 .tabItem { Label("Library", systemImage: "books.vertical.fill") }
                 .tag(AppTab.library)
 
@@ -50,21 +53,42 @@ public struct MainTabView: View {
                 .tag(AppTab.me)
         }
         .tint(AppTheme.ink)
+        .environment(\.workoutContext, workoutContext)
         .sheet(isPresented: $showingHealthPermission) {
             HealthPermissionView()
         }
+        .fullScreenCover(isPresented: $showingTour, onDismiss: askForHealthIfNeeded) {
+            AppTourView {
+                appTourSeen = true
+                showingTour = false
+            }
+        }
+        // Switching or adding a sport rebuilds the week for it.
+        .onChange(of: athlete.activeSport?.id) { regenerate() }
+        .onChange(of: athlete.sports.count) { regenerate() }
+        .onChange(of: ProAccess.isPro) { regenerate() }
         .task {
+            workoutContext = WorkoutContext(athlete: athlete, apiClient: apiClient)
             #if os(iOS) && !APP_EXTENSION
             ProStore.shared.start(athlete: athlete)
             #endif
-            // §15 onboarding's HealthKit step: asked once, reason first.
-            if !healthPermissionAsked, HealthKitManager.shared.isAvailable, !DemoData.isEnabled {
-                showingHealthPermission = true
+            // First run: a short tour of the five tabs, then (once) the
+            // HealthKit ask, reason first — never two prompts stacked.
+            if !appTourSeen, !DemoData.isEnabled {
+                showingTour = true
+            } else {
+                askForHealthIfNeeded()
             }
             regenerate()
             let sync = SyncQueue(apiClient: apiClient, tokenStore: KeychainTokenStore(), modelContext: modelContext)
             await sync.drainPendingSessions()
             await sync.drainPendingCheckIns()
+        }
+    }
+
+    private func askForHealthIfNeeded() {
+        if !healthPermissionAsked, HealthKitManager.shared.isAvailable, !DemoData.isEnabled {
+            showingHealthPermission = true
         }
     }
 
@@ -85,7 +109,7 @@ enum WeeklyPlan {
     @MainActor
     static func generate(for athlete: Athlete) -> GeneratedWeek? {
         guard
-            let athleteSport = athlete.sports.first,
+            let athleteSport = athlete.activeSport,
             let sportInfo = allSportsBySlug[athleteSport.sportSlug]
         else { return nil }
 
@@ -108,9 +132,10 @@ enum WeeklyPlan {
             seed: "\(athlete.id)-\(Int(weekStart.timeIntervalSince1970))"
         )
         let generated = PlanGenerator.generate(input)
-        let competitions = athlete.competitions
-            .filter { $0.sportSlug == athleteSport.sportSlug }
-            .map(\.date)
+        // Every game counts, whatever sport it's for: the body that plays a
+        // basketball game on Friday shouldn't squat heavy on Thursday.
+        // Free tapers for the next game; Pro for every game in the week.
+        let competitions = ProGate.competitionsForTaper(athlete.competitions.map(\.date), isPro: ProAccess.isPro)
         return TaperApplier.apply(to: generated, competitions: competitions, contactLevel: sportInfo.contactLevel)
     }
 }
@@ -155,7 +180,7 @@ enum AthleteStats {
     }
 
     static func sportName(_ athlete: Athlete) -> String {
-        guard let slug = athlete.sports.first?.sportSlug else { return "" }
+        guard let slug = athlete.activeSport?.sportSlug else { return "" }
         return allSportsBySlug[slug]?.name ?? displayName(forSlug: slug)
     }
 

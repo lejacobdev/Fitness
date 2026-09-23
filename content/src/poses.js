@@ -165,6 +165,15 @@ export const POSE_PATTERNS = [
     end: pose({ spine: -8, hipL: 100, kneeL: 98, ankleL: 26, hipR: -36, kneeR: 16, ankleR: -30, shoulderL: 176, shoulderR: 40 }) },
 ];
 
+/**
+ * Continuous rhythms — the end pose flows straight back into the start (a
+ * stride, a hop, a shuffle), so the animation loops back and forth. Every
+ * other pattern is one rep: it plays start → end, holds, and cuts to the start.
+ */
+export const LOOPING_PATTERNS = new Set([
+  'carry', 'pogo', 'bound', 'sprint-cycle', 'lateral-shuffle', 'crossover-stride', 'skating-stride', 'isometric-hold',
+]);
+
 export const POSE_PATTERN_SLUGS = POSE_PATTERNS.map((p) => p.slug);
 
 const BY_SLUG = new Map(POSE_PATTERNS.map((p) => [p.slug, p]));

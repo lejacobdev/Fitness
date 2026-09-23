@@ -131,7 +131,7 @@ public struct WatchTodayPayload: Codable, Sendable, Equatable {
         }
         return WatchTodayPayload(
             athleteId: athlete.id, appleUserId: athlete.appleUserId, birthDate: athlete.birthDate,
-            sportSlug: athlete.sports.first?.sportSlug ?? "", sportName: AthleteStats.sportName(athlete),
+            sportSlug: athlete.activeSport?.sportSlug ?? "", sportName: AthleteStats.sportName(athlete),
             sessionToken: try? KeychainTokenStore().read(), day: .now,
             sessionTitle: session?.title, sessionMinutes: session?.estimatedMinutes, items: items,
             nextGameDate: AthleteStats.upcomingCompetitions(athlete).first?.date,

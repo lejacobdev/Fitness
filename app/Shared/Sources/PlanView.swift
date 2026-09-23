@@ -17,7 +17,7 @@ struct PlanView: View {
     @State private var gamePendingDelete: Competition?
 
     private var calendar: Calendar { .current }
-    private var athleteSport: AthleteSport? { athlete.sports.first }
+    private var athleteSport: AthleteSport? { athlete.activeSport }
 
     private var weekDays: [Date] {
         guard let start = calendar.dateInterval(of: .weekOfYear, for: .now)?.start else { return [] }
@@ -59,9 +59,14 @@ struct PlanView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Plan", subtitle: AthleteStats.sportName(athlete))
+                    HStack(alignment: .firstTextBaseline) {
+                        ScreenTitle("Plan")
+                        SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
+                    }
+                    TipCard(id: "plan", icon: "hand.tap.fill", title: "Tap a day to preview it",
+                            message: "Each day shows its exercises — tap one to see how it's done, then press Start to do that session now.")
                     phaseCard
-                    WeekStrip(selection: $selectedDate, marked: markedDays)
+                    WeekStrip(selection: $selectedDate, marked: markedDays, gameDays: Set(athlete.competitions.map { calendar.startOfDay(for: $0.date) }))
                     selectedDayDetail
                     weekOverview
                     gamesSection
@@ -141,6 +146,8 @@ struct PlanView: View {
                 ForEach(session.items, id: \.order) { item in
                     itemRow(item)
                 }
+                StartWorkoutButton(calendar.isDateInToday(selectedDate) ? "Start today's session" : "Do this session now", session: session)
+                    .padding(.top, 4)
             }
         } else {
             dayHeader("Rest day", subtitle: "Nothing prescribed. Sleep, eat well, and come back fresh.", icon: "moon.zzz.fill", color: AppTheme.purple)
@@ -391,7 +398,7 @@ struct AddGameSheet: View {
     }
 
     private func save() {
-        guard let sportSlug = athlete.sports.first?.sportSlug else { return }
+        guard let sportSlug = athlete.activeSport?.sportSlug else { return }
         let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         let competition = Competition(
             sportSlug: sportSlug, date: date, kind: kind, isHome: isHome,

@@ -12,8 +12,15 @@ struct MuscleBuilderView: View {
     @State private var catalogue = Catalogue()
     @State private var workout: GeneratedSession?
     @State private var variation = 0
-    @State private var liveLaunch: LiveSessionLaunch?
     @State private var detailItem: CatalogueItem?
+    @State private var showingPaywall = false
+    @State private var ledgerVersion = 0
+
+    /// `nil` = unlimited (Pro).
+    private var freeLeft: Int? {
+        _ = ledgerVersion
+        return ProGate.remainingMuscleWorkouts(isPro: ProAccess.isPro, startDates: MuscleWorkoutLedger.dates)
+    }
 
     /// Friendly presets — the combinations athletes actually ask for.
     private let presets: [(title: String, regions: Set<MuscleRegion>)] = [
@@ -124,9 +131,7 @@ struct MuscleBuilderView: View {
             }
         }
         .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
-        .fullScreenCover(item: $liveLaunch) { launch in
-            LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned)
-        }
+        .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .muscleWorkouts)
         .sheet(item: $detailItem) { item in
             NavigationStack { ItemDetailView(item: item) }
         }
@@ -189,8 +194,27 @@ struct MuscleBuilderView: View {
                 .disabled(catalogueItem == nil)
             }
             if !workout.items.isEmpty {
-                Button("Start workout") { liveLaunch = LiveSessionLaunch(planned: workout) }
-                    .buttonStyle(.primary)
+                VStack(spacing: 8) {
+                    StartWorkoutButton(freeLeft == 0 ? "Start workout · Pro" : "Start workout", session: workout) {
+                        if freeLeft == 0 {
+                            showingPaywall = true
+                            return false
+                        }
+                        if freeLeft != nil {
+                            MuscleWorkoutLedger.record()
+                            ledgerVersion += 1
+                        }
+                        return true
+                    }
+                    if let freeLeft {
+                        Text(freeLeft == 0
+                             ? "You've used this week's free muscle workout. Pro makes them unlimited — your weekly plan stays free."
+                             : "\(freeLeft) free muscle workout left this week.")
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.secondaryText)
+                            .multilineTextAlignment(.center)
+                    }
+                }
             }
         }
         .cardStyle()

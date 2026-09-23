@@ -45,8 +45,15 @@ public struct LibraryView: View {
     @State private var region: MuscleRegion?
     @State private var showingMusclePicker = false
     @State private var showingFilters = false
+    @State private var mySportOnly = false
+    let athlete: Athlete?
 
-    public init() {}
+    public init(athlete: Athlete? = nil) {
+        self.athlete = athlete
+    }
+
+    private var sportSlug: String? { athlete?.activeSport?.sportSlug }
+    private var sportName: String? { sportSlug.flatMap { allSportsBySlug[$0]?.name } }
 
     private var allItems: [CatalogueItem] {
         catalogue.itemsBySlug.values.sorted { $0.name < $1.name }
@@ -63,6 +70,7 @@ public struct LibraryView: View {
                 && equipment.allows(item)
                 && (kind == nil || item.kind == kind)
                 && (surface == nil || item.surface == surface)
+                && (!mySportOnly || (sportSlug != nil && item.itemSportSlug == sportSlug))
                 && (region == nil || item.muscles.contains { entry in entry.value >= 0.5 && musclesBySlug[entry.key]?.region == region })
         }
     }
@@ -76,6 +84,8 @@ public struct LibraryView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14, pinnedViews: []) {
                     ScreenTitle("Library", subtitle: "\(allItems.count) exercises and drills, all offline.")
+                    TipCard(id: "library", icon: "play.rectangle.fill", title: "Every move, animated",
+                            message: "Tap any exercise to watch how it's done and see the muscles it works in red. Press Try it now to do it on its own.")
                     searchRow
                     groupChips
                     if let region {
@@ -165,8 +175,12 @@ public struct LibraryView: View {
     private var groupChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                Button { group = nil } label: { Chip("All", isSelected: group == nil) }
+                Button { group = nil; mySportOnly = false } label: { Chip("All", isSelected: group == nil && !mySportOnly) }
                     .buttonStyle(.plain)
+                if let sportName {
+                    Button { mySportOnly.toggle() } label: { Chip("\(sportName) drills", isSelected: mySportOnly) }
+                        .buttonStyle(.plain)
+                }
                 ForEach(QualityGroup.allCases, id: \.self) { value in
                     Button { group = group == value ? nil : value } label: {
                         Chip(value.displayName, isSelected: group == value)
@@ -402,6 +416,7 @@ struct FlowLayout: Layout {
 struct ItemDetailView: View {
     let item: CatalogueItem
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("libraryOpened") private var libraryOpened = false
 
     private var muscleNames: [String] {
         item.muscles.sorted { $0.value > $1.value }.compactMap { musclesBySlug[$0.key]?.plainName }
@@ -415,7 +430,7 @@ struct ItemDetailView: View {
                         RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
                             .fill(AppTheme.fill)
                         if let pair = item.posePair {
-                            RigPoseView(start: pair.start, end: pair.end, prop: item.prop.flatMap { propsBySlug[$0] }, muscles: item.muscles)
+                            RigPoseView(start: pair.start, end: pair.end, loops: pair.loops, prop: item.prop.flatMap { propsBySlug[$0] }, muscles: item.muscles)
                                 .padding(24)
                         }
                     }
@@ -440,6 +455,8 @@ struct ItemDetailView: View {
                         }
                     }
                 }
+
+                StartWorkoutButton("Try it now", session: .single(item))
 
                 HStack(spacing: 12) {
                     factCard(DoseFormatter.text(item.defaultDose), "Dose", "repeat")
@@ -488,6 +505,7 @@ struct ItemDetailView: View {
         .scrollIndicators(.hidden)
         .appScreen()
         .toolbar(.hidden, for: .navigationBar)
+        .onAppear { libraryOpened = true }
     }
 
     private func factCard(_ value: String, _ label: String, _ icon: String) -> some View {

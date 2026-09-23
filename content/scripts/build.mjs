@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { buildAnatomy } from '../src/anatomy.js';
 import { CATALOGUE, BASE_ITEMS } from '../src/catalogue.js';
 import { MUSCLE_MODEL_VERSION, MUSCLES } from '../src/muscles.js';
-import { POSE_MODEL_VERSION, POSE_PATTERNS } from '../src/poses.js';
+import { LOOPING_PATTERNS, POSE_MODEL_VERSION, POSE_PATTERNS } from '../src/poses.js';
 import { PROPS } from '../src/props.js';
 import { QUALITIES, QUALITY_MODEL_VERSION } from '../src/qualities.js';
 import { EQUIPMENT, EQUIPMENT_LEVELS, PLYOMETRIC_DOSE_KIND } from '../src/schema.js';
@@ -270,7 +270,8 @@ function genPosePatternsSwift() {
         id: ${swiftStringLiteral(p.slug)},
         name: ${swiftStringLiteral(p.name)},
         start: ${poseDict(p.start)},
-        end: ${poseDict(p.end)}
+        end: ${poseDict(p.end)},
+        loops: ${LOOPING_PATTERNS.has(p.slug)}
     )`);
 
   return `${generatedHeader('content/src/poses.js')}import Foundation
@@ -289,6 +290,9 @@ public struct PosePatternInfo: Sendable, Identifiable, Hashable {
     public let name: String
     public let start: Pose
     public let end: Pose
+    /// A continuous rhythm (running, hopping, shuffling) that plays back and
+    /// forth seamlessly; everything else plays start → end and cuts back.
+    public let loops: Bool
 }
 
 /// §9: "roughly 25-35 pairs" — one canonical movement pattern per entry, every

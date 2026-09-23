@@ -52,6 +52,7 @@ enum ImproveRoute: Hashable {
 struct ImproveView: View {
     let athlete: Athlete
     let apiClient: APIClient
+    let onPlanInputsChanged: () -> Void
 
     enum Mode: String, CaseIterable {
         case skill = "Get better at a skill"
@@ -63,7 +64,7 @@ struct ImproveView: View {
     @State private var searchText = ""
     @State private var mode: Mode = .skill
 
-    private var sportSlug: String? { athlete.sports.first?.sportSlug }
+    private var sportSlug: String? { athlete.activeSport?.sportSlug }
     private var sportInfo: SportInfo? { sportSlug.flatMap { allSportsBySlug[$0] } }
 
     private var skills: [SportSkill] {
@@ -80,11 +81,19 @@ struct ImproveView: View {
         NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Improve", subtitle: mode == .skill
-                        ? "Pick a skill. Get a dated plan that peaks for your next game."
-                        : "Pick the muscles you want stronger. Get a complete workout.")
+                    HStack(alignment: .firstTextBaseline) {
+                        ScreenTitle("Improve")
+                        SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
+                    }
+                    Text(mode == .skill
+                        ? "Pick a skill. Get a day-by-day plan of the best drills for it, timed for your next game."
+                        : "Pick the muscles you want stronger. Get a complete workout you can start right away.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
                     modePicker
                     if mode == .skill {
+                        TipCard(id: "improve", icon: "target", title: "Weak at something? Start here",
+                                message: "Tap a skill (say, shooting power), pick your game date and you get a plan with the best drills for it. Press Start on any day to do it.")
                         howItWorks
                         searchField
                         skillGrid
@@ -92,6 +101,8 @@ struct ImproveView: View {
                             savedSection
                         }
                     } else {
+                        TipCard(id: "muscles", icon: "figure.stand", title: "Build a workout by muscle",
+                                message: "Tap a quick pick or the body areas you want to train, choose how long you have, then press Start workout.")
                         MuscleBuilderView(athlete: athlete, apiClient: apiClient)
                     }
                 }
@@ -291,7 +302,7 @@ struct SkillSetupView: View {
     /// Drills written for exactly this skill, then the library items that
     /// best match its qualities — "what are the best exercises for this?"
     private var bestDrills: [CatalogueItem] {
-        let sport = athlete.sports.first?.sportSlug
+        let sport = athlete.activeSport?.sportSlug
         let tagged = catalogue.itemsBySlug.values
             .filter { $0.baseSlug == nil && $0.itemSportSlug == sport && ($0.skills ?? []).contains(skill.slug) }
             .sorted { $0.name < $1.name }
@@ -426,6 +437,13 @@ struct SkillBlockView: View {
     @State private var detailItem: CatalogueItem?
     @State private var showingPaywall = false
 
+    private var saveHint: String {
+        let remaining = ProGate.remainingSkillBlocks(isPro: ProAccess.isPro, savedBlockDates: athlete.skillBlocks.map(\.generatedAt))
+        let base = "Saving puts each day's drills on your Today screen."
+        guard let remaining else { return base }
+        return base + " \(remaining) of \(ProLimits.freeSkillBlocksPerMonth) free plans left this month."
+    }
+
     private var trainingDays: Int {
         block?.days.filter { !$0.items.isEmpty }.count ?? 0
     }
@@ -444,7 +462,8 @@ struct SkillBlockView: View {
                         dayCard(day, dayNumber: index + 1, isLast: index == block.days.count - 1)
                     }
                     if isSaved {
-                        Label("Saved to your plans", systemImage: "checkmark.circle.fill")
+                        Label("Saved — today's drills show on your Today screen", systemImage: "checkmark.circle.fill")
+                            .multilineTextAlignment(.center)
                             .font(.headline)
                             .foregroundStyle(AppTheme.green)
                             .frame(maxWidth: .infinity)
@@ -452,8 +471,14 @@ struct SkillBlockView: View {
                         Button("Done", action: onFinished)
                             .buttonStyle(.secondary)
                     } else {
-                        Button("Save this plan", action: save)
-                            .buttonStyle(.primary)
+                        VStack(spacing: 8) {
+                            Button("Save this plan", action: save)
+                                .buttonStyle(.primary)
+                            Text(saveHint)
+                                .font(.caption)
+                                .foregroundStyle(AppTheme.secondaryText)
+                                .multilineTextAlignment(.center)
+                        }
                     }
                 } else {
                     ProgressView()
@@ -473,10 +498,13 @@ struct SkillBlockView: View {
         .task {
             isSaved = alreadySaved
             catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
-            guard let sportSlug = athlete.sports.first?.sportSlug else { return }
+            guard let sportSlug = athlete.activeSport?.sportSlug else { return }
             block = SkillMenuEngine.generate(SkillMenuInput(
                 sportSlug: sportSlug, skillSlug: skill.slug, skillName: skill.name,
-                qualityWeights: skill.qualityWeights, today: .now, gameDate: gameDate,
+                qualityWeights: skill.qualityWeights,
+                // A saved plan keeps the dates it was made with, so its days
+                // don't shift each time it's opened.
+                today: athlete.skillBlocks.first { $0.seed == seed }?.generatedAt ?? .now, gameDate: gameDate,
                 birthDate: athlete.birthDate, trainsUnderCoach: athlete.trainsUnderCoach,
                 equipmentAvailable: Set(athlete.equipmentAvailable), catalogue: catalogue, seed: seed
             ))
@@ -592,12 +620,17 @@ struct SkillBlockView: View {
                 .buttonStyle(.plain)
                 .disabled(catalogueItem == nil)
             }
+            if !day.items.isEmpty {
+                let isToday = Calendar.current.isDateInToday(day.date)
+                StartWorkoutButton(isToday ? "Start today's drills" : "Do day \(dayNumber) now", session: day, prominent: isToday)
+                    .padding(.top, 2)
+            }
         }
         .cardStyle(padding: 16)
     }
 
     private func save() {
-        guard let sportSlug = athlete.sports.first?.sportSlug else { return }
+        guard let sportSlug = athlete.activeSport?.sportSlug else { return }
         #if os(iOS) && !APP_EXTENSION
         // §4: three saved skill plans a month on free, unlimited on Pro.
         guard ProGate.canSaveSkillBlock(isPro: ProStore.shared.isPro, savedBlockDates: athlete.skillBlocks.map(\.generatedAt)) else {
@@ -617,10 +650,6 @@ extension View {
     /// widget and watch builds that also compile this file.
     @ViewBuilder
     func skillPlanPaywall(isPresented: Binding<Bool>, athlete: Athlete) -> some View {
-        #if os(iOS) && !APP_EXTENSION
-        paywallSheet(isPresented: isPresented, athlete: athlete, highlight: .skillBlocks)
-        #else
-        self
-        #endif
+        proPaywall(isPresented: isPresented, athlete: athlete, feature: .skillBlocks)
     }
 }
