@@ -3,9 +3,11 @@ import fs from 'node:fs';
 import express from 'express';
 
 import { createAppleKeyStore } from './lib/appleIdentity.js';
+import { createAppStoreVerifier } from './lib/appStoreJws.js';
 import { installAsyncRejectionForwarding } from './lib/asyncRejection.js';
 import { athleteRouter } from './routes/athlete.js';
 import { authRouter } from './routes/auth.js';
+import { billingRouter } from './routes/billing.js';
 import { legalRouter } from './routes/legal.js';
 import { syncRouter } from './routes/sync.js';
 
@@ -19,6 +21,7 @@ export function createApp({
   sessionSecret = process.env.SESSION_SECRET,
   appleKeyStore = createAppleKeyStore(),
   packsDir = process.env.PACKS_DIR,
+  appStoreVerifier = createAppStoreVerifier(),
 } = {}) {
   const app = express();
 
@@ -46,6 +49,14 @@ export function createApp({
 
   if (prisma && appleBundleId && sessionSecret) {
     app.use('/auth', authRouter({ prisma, keyStore: appleKeyStore, appleBundleId, sessionSecret }));
+  }
+
+  // §18: the only writer of proUntil. Mounted at the spec's path and at the
+  // shorter one configured in App Store Connect.
+  if (prisma) {
+    const billing = billingRouter({ prisma, verifier: appStoreVerifier, bundleId: appleBundleId });
+    app.use('/billing/appstore/notify', billing);
+    app.use('/appstore/notifications', billing);
   }
 
   if (prisma && sessionSecret) {

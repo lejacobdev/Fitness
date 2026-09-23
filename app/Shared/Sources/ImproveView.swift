@@ -424,6 +424,7 @@ struct SkillBlockView: View {
     @State private var catalogue = Catalogue()
     @State private var isSaved = false
     @State private var detailItem: CatalogueItem?
+    @State private var showingPaywall = false
 
     private var trainingDays: Int {
         block?.days.filter { !$0.items.isEmpty }.count ?? 0
@@ -468,6 +469,7 @@ struct SkillBlockView: View {
         .sheet(item: $detailItem) { item in
             NavigationStack { ItemDetailView(item: item) }
         }
+        .skillPlanPaywall(isPresented: $showingPaywall, athlete: athlete)
         .task {
             isSaved = alreadySaved
             catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
@@ -596,9 +598,29 @@ struct SkillBlockView: View {
 
     private func save() {
         guard let sportSlug = athlete.sports.first?.sportSlug else { return }
+        #if os(iOS) && !APP_EXTENSION
+        // §4: three saved skill plans a month on free, unlimited on Pro.
+        guard ProGate.canSaveSkillBlock(isPro: ProStore.shared.isPro, savedBlockDates: athlete.skillBlocks.map(\.generatedAt)) else {
+            showingPaywall = true
+            return
+        }
+        #endif
         try? SkillBlockStore(modelContext: modelContext).save(
             athlete: athlete, sportSlug: sportSlug, skillSlug: skill.slug, targetDate: gameDate, seed: seed
         )
         isSaved = true
+    }
+}
+
+extension View {
+    /// The Pro paywall where StoreKit exists (the iOS app); a no-op in the
+    /// widget and watch builds that also compile this file.
+    @ViewBuilder
+    func skillPlanPaywall(isPresented: Binding<Bool>, athlete: Athlete) -> some View {
+        #if os(iOS) && !APP_EXTENSION
+        paywallSheet(isPresented: isPresented, athlete: athlete, highlight: .skillBlocks)
+        #else
+        self
+        #endif
     }
 }

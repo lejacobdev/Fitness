@@ -14,6 +14,23 @@ export function athleteRouter({ prisma, sessionSecret }) {
   const router = express.Router();
   router.use(requireAuth({ sessionSecret }));
 
+  // §18: the app pulls its entitlement from here — the server is the
+  // authority; the client never reports or writes its own proUntil.
+  router.get('/me', async (req, res) => {
+    const athlete = await prisma.athlete.findUnique({ where: { id: req.athleteId } });
+    if (!athlete) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    res.json({
+      athlete: {
+        id: athlete.id,
+        proUntil: athlete.proUntil ? athlete.proUntil.toISOString() : null,
+        isPro: Boolean(athlete.proUntil && athlete.proUntil > new Date()),
+      },
+    });
+  });
+
   router.delete('/me', async (req, res) => {
     await prisma.athlete.delete({ where: { id: req.athleteId } }).catch((err) => {
       // Already gone (e.g. a retried request after the first succeeded) is

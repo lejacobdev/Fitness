@@ -18,7 +18,9 @@ public struct MainTabView: View {
 
     @Environment(\.modelContext) private var modelContext
     @State private var week: GeneratedWeek?
-    @State private var selectedTab: AppTab = .today
+    @State private var selectedTab: AppTab = DemoData.initialTab
+    @AppStorage("healthPermissionAsked") private var healthPermissionAsked = false
+    @State private var showingHealthPermission = false
 
     public init(athlete: Athlete, apiClient: APIClient) {
         self.athlete = athlete
@@ -48,7 +50,17 @@ public struct MainTabView: View {
                 .tag(AppTab.me)
         }
         .tint(AppTheme.ink)
+        .sheet(isPresented: $showingHealthPermission) {
+            HealthPermissionView()
+        }
         .task {
+            #if os(iOS) && !APP_EXTENSION
+            ProStore.shared.start(athlete: athlete)
+            #endif
+            // §15 onboarding's HealthKit step: asked once, reason first.
+            if !healthPermissionAsked, HealthKitManager.shared.isAvailable, !DemoData.isEnabled {
+                showingHealthPermission = true
+            }
             regenerate()
             let sync = SyncQueue(apiClient: apiClient, tokenStore: KeychainTokenStore(), modelContext: modelContext)
             await sync.drainPendingSessions()
@@ -59,6 +71,11 @@ public struct MainTabView: View {
     private func regenerate() {
         week = WeeklyPlan.generate(for: athlete)
         WidgetSnapshotWriter.write(for: athlete, week: week)
+        let settings = ReminderScheduler.settings
+        if settings.checkInEnabled || settings.gameRemindersEnabled {
+            let games = AthleteStats.upcomingCompetitions(athlete).map { (date: $0.date, kind: $0.kind.rawValue.capitalized) }
+            Task { await ReminderScheduler.reschedule(games: games) }
+        }
     }
 }
 

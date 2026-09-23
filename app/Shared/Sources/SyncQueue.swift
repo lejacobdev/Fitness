@@ -41,7 +41,8 @@ public struct SyncQueue {
                 session: .init(
                     clientId: session.clientId, startedAt: session.startedAt, endedAt: session.endedAt,
                     sessionRPE: session.sessionRPE, minutes: session.minutes,
-                    source: session.source.rawValue, plannedSessionId: session.plannedSession?.id
+                    source: session.source.rawValue, plannedSessionId: session.plannedSession?.id,
+                    healthKitWorkoutId: session.healthKitWorkoutId
                 ),
                 sets: session.sets.map { set in
                     .init(

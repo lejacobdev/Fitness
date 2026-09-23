@@ -16,6 +16,10 @@ struct CheckInCard: View {
     @State private var energy: Int?
     @State private var stress: Int?
     @State private var saveCount = 0
+    /// §17: "hours slept pulled from HealthKit when available so they only
+    /// confirm" — shown as a hint under the sleep question and saved with
+    /// the check-in, never an extra tap.
+    @State private var healthSleepHours: Double?
 
     init(athlete: Athlete, existing: CheckIn? = nil, onSubmitted: @escaping () -> Void = {}) {
         self.athlete = athlete
@@ -51,12 +55,19 @@ struct CheckInCard: View {
             }
 
             scaleRow("How did you sleep?", systemImage: "moon.fill", color: AppTheme.purple, low: "Poorly", high: "Great", selection: $sleep)
+            if let healthSleepHours {
+                Label("Apple Health says \(SleepMath.label(healthSleepHours))", systemImage: "heart.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.purple)
+                    .padding(.top, -10)
+            }
             scaleRow("How sore are you?", systemImage: "figure.walk", color: AppTheme.orange, low: "Not at all", high: "Very sore", selection: $soreness)
             scaleRow("How is your energy?", systemImage: "bolt.fill", color: AppTheme.amber, low: "Drained", high: "Buzzing", selection: $energy)
             scaleRow("How is stress / school?", systemImage: "book.fill", color: AppTheme.blue, low: "Calm", high: "Stressed", selection: $stress)
         }
         .cardStyle()
         .sensoryFeedback(.success, trigger: saveCount)
+        .task { healthSleepHours = await HealthKitManager.shared.sleepHours() }
         .onChange(of: sleep) { saveIfComplete() }
         .onChange(of: soreness) { saveIfComplete() }
         .onChange(of: energy) { saveIfComplete() }
@@ -107,7 +118,8 @@ struct CheckInCard: View {
     private func saveIfComplete() {
         guard let sleep, let soreness, let energy, let stress else { return }
         _ = try? CheckInStore(modelContext: modelContext).submit(
-            athlete: athlete, sleepQuality: sleep, soreness: soreness, energy: energy, stress: stress
+            athlete: athlete, sleepQuality: sleep, sleepHours: healthSleepHours,
+            soreness: soreness, energy: energy, stress: stress
         )
         saveCount += 1
         WidgetSnapshotWriter.write(for: athlete, week: WeeklyPlan.generate(for: athlete))

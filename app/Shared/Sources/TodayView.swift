@@ -7,7 +7,7 @@ struct LiveSessionLaunch: Identifiable {
 }
 
 enum QuickAction: String, Identifiable, CaseIterable {
-    case logWorkout, checkIn, addGame, improve, history
+    case logWorkout, checkIn, addGame, improve, history, fuel
     var id: String { rawValue }
 }
 
@@ -34,7 +34,7 @@ struct TodayView: View {
     @State private var coachReport: CoachReportContent?
 
     enum TodaySheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history
+        case quickActions, checkIn, addGame, history, fuel
         var id: String { rawValue }
     }
 
@@ -134,13 +134,15 @@ struct TodayView: View {
                         pendingAction = action
                         activeSheet = nil
                     }
-                    .presentationDetents([.height(380)])
+                    .presentationDetents([.height(500)])
                 case .checkIn:
                     CheckInSheet(athlete: athlete)
                 case .addGame:
                     AddGameSheet(athlete: athlete, onSaved: onPlanInputsChanged)
                 case .history:
                     SessionHistoryView()
+                case .fuel:
+                    FuelView(athlete: athlete, todaysSession: plannedForSelectedDay)
                 }
             }
             .sheet(item: $detailItem) { item in
@@ -161,6 +163,7 @@ struct TodayView: View {
         case .addGame: activeSheet = .addGame
         case .improve: selectedTab = .improve
         case .history: activeSheet = .history
+        case .fuel: activeSheet = .fuel
         }
     }
 
@@ -536,6 +539,8 @@ struct QuickActionsSheet: View {
         Tile(action: .checkIn, title: "Check-in", icon: "sun.max.fill"),
         Tile(action: .addGame, title: "Add a game", icon: "sportscourt.fill"),
         Tile(action: .improve, title: "Improve a skill", icon: "chart.line.uptrend.xyaxis"),
+        Tile(action: .fuel, title: "Fuel & water", icon: "fork.knife"),
+        Tile(action: .history, title: "History", icon: "clock.arrow.circlepath"),
     ]
 
     var body: some View {
@@ -564,12 +569,6 @@ struct QuickActionsSheet: View {
                     .buttonStyle(.plain)
                 }
             }
-            Button {
-                onSelect(.history)
-            } label: {
-                Label("Training history", systemImage: "clock.arrow.circlepath")
-            }
-            .buttonStyle(.secondary)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 20)

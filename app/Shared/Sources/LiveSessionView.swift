@@ -452,7 +452,20 @@ public struct LiveSessionView: View {
         guard let session else { return }
         try? SessionLogger(modelContext: modelContext).finishSession(session, sessionRPE: rpe)
         WidgetSnapshotWriter.write(for: athlete, week: WeeklyPlan.generate(for: athlete))
+        let sessionRef = session
+        let sportSlug = athlete.sports.first?.sportSlug
         Task {
+            // §17: one Apple Health workout per session, never a duplicate —
+            // saveWorkout returns the existing id if one is already stored.
+            let id = await HealthKitManager.shared.saveWorkout(
+                start: sessionRef.startedAt, end: sessionRef.endedAt ?? .now,
+                sportSlug: sportSlug, existingId: sessionRef.healthKitWorkoutId
+            )
+            if let id, sessionRef.healthKitWorkoutId == nil {
+                sessionRef.healthKitWorkoutId = id
+                sessionRef.syncedAt = nil
+                try? modelContext.save()
+            }
             await SyncQueue(apiClient: apiClient, tokenStore: KeychainTokenStore(), modelContext: modelContext).drainPendingSessions()
         }
         dismiss()

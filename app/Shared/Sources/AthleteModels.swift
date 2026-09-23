@@ -67,6 +67,8 @@ public final class Athlete {
     public var skillBlocks: [SkillBlock] = []
     @Relationship(deleteRule: .cascade, inverse: \CoachReport.athlete)
     public var coachReports: [CoachReport] = []
+    @Relationship(deleteRule: .cascade, inverse: \MealLog.athlete)
+    public var mealLogs: [MealLog] = []
 
     public init(
         id: String = UUID().uuidString, appleUserId: String, displayName: String? = nil,
@@ -459,4 +461,5 @@ public let athleteModelTypes: [any PersistentModel.Type] = [
     Athlete.self, AthleteSport.self, Competition.self, CheckIn.self,
     Plan.self, PlannedSession.self, PlannedItem.self,
     Session.self, SetLog.self, SkillBlock.self, CoachReport.self, DownloadedPack.self,
+    MealLog.self,
 ]

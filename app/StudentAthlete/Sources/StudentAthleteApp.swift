@@ -14,6 +14,7 @@ struct StudentAthleteApp: App {
             // app can silently paper over with an in-memory fallback.
             fatalError("Could not open the on-device store: \(error)")
         }
+        PhoneWatchBridge.shared.activate()
     }
 
     var body: some Scene {
@@ -32,6 +33,7 @@ struct StudentAthleteApp: App {
 /// picked decides onboarding vs. the real five-tab app.
 @MainActor
 struct RootView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query private var athletes: [Athlete]
     @State private var onboardingComplete = false
 
@@ -44,6 +46,12 @@ struct RootView: View {
     }
 
     var body: some View {
+        content
+            .task { DemoData.seedIfNeeded(context: modelContext) }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         if let athlete = athletes.first {
             if athlete.sports.isEmpty {
                 SetupFlowView(athlete: athlete)

@@ -19,6 +19,7 @@ export const DRILLS = [
 
   {
     slug: 'soccer-instep-drive-progression',
+    skills: ['shooting-power'],
     name: 'Instep-Drive Progression',
     kind: 'drill',
     sport: 'soccer',
@@ -47,6 +48,7 @@ export const DRILLS = [
   },
   {
     slug: 'soccer-plant-and-strike',
+    skills: ['shooting-power'],
     name: 'Plant-and-Strike Progression',
     kind: 'drill',
     sport: 'soccer',
@@ -75,6 +77,7 @@ export const DRILLS = [
   },
   {
     slug: 'soccer-one-touch-finishing',
+    skills: ['shooting-accuracy', 'first-touch'],
     name: 'One-Touch Finishing Off a Rolling Ball',
     kind: 'drill',
     sport: 'soccer',
@@ -100,6 +103,7 @@ export const DRILLS = [
   },
   {
     slug: 'soccer-weak-foot-volume',
+    skills: ['shooting-accuracy', 'passing-range'],
     name: 'Weak-Foot Striking Volume',
     kind: 'drill',
     sport: 'soccer',
@@ -130,6 +134,7 @@ export const DRILLS = [
 
   {
     slug: 'hockey-edge-work-figure-eights',
+    skills: ['edge-work'],
     name: 'Edge-Work Figure Eights',
     kind: 'drill',
     sport: 'ice-hockey',
@@ -158,6 +163,7 @@ export const DRILLS = [
   },
   {
     slug: 'hockey-crossover-acceleration',
+    skills: ['crossover-acceleration', 'skating-speed'],
     name: 'Crossover Acceleration',
     kind: 'drill',
     sport: 'ice-hockey',
@@ -183,6 +189,7 @@ export const DRILLS = [
   },
   {
     slug: 'hockey-wrist-shot-power',
+    skills: ['shooting-power', 'shot-release-quickness'],
     name: 'Wrist Shot Power',
     kind: 'drill',
     sport: 'ice-hockey',
@@ -209,6 +216,7 @@ export const DRILLS = [
 
   {
     slug: 'volleyball-approach-and-swing-footwork',
+    skills: ['approach-jump-height', 'spike-velocity'],
     name: 'Approach-and-Swing Footwork',
     kind: 'drill',
     sport: 'volleyball',
@@ -238,6 +246,7 @@ export const DRILLS = [
 
   {
     slug: 'sprint-block-starts',
+    skills: ['block-start'],
     name: 'Block Starts',
     kind: 'drill',
     sport: 'track-and-field',
@@ -267,6 +276,7 @@ export const DRILLS = [
 
   {
     slug: 'basketball-first-step-attack',
+    skills: ['first-step'],
     name: 'First-Step Attack',
     kind: 'drill',
     sport: 'basketball',
@@ -295,6 +305,7 @@ export const DRILLS = [
   },
   {
     slug: 'basketball-approach-and-finish',
+    skills: ['finishing-at-rim', 'vertical-jump'],
     name: 'Approach and Finish at the Rim',
     kind: 'drill',
     sport: 'basketball',
@@ -320,6 +331,7 @@ export const DRILLS = [
   },
   {
     slug: 'basketball-box-out-drill',
+    skills: ['box-out-strength', 'rebounding-timing'],
     name: 'Box-Out and Rebound',
     kind: 'drill',
     sport: 'basketball',
@@ -350,6 +362,7 @@ export const DRILLS = [
 
   {
     slug: 'football-block-drive',
+    skills: ['block-drive'],
     name: 'Block Drive',
     kind: 'drill',
     sport: 'football',
@@ -374,6 +387,7 @@ export const DRILLS = [
   },
   {
     slug: 'football-route-break',
+    skills: ['route-running'],
     name: 'Route Break',
     kind: 'drill',
     sport: 'football',
@@ -398,6 +412,7 @@ export const DRILLS = [
   },
   {
     slug: 'football-open-field-tackle',
+    skills: ['open-field-tackling'],
     name: 'Open-Field Tackling Form',
     kind: 'drill',
     sport: 'football',
@@ -427,6 +442,7 @@ export const DRILLS = [
 
   {
     slug: 'baseball-tee-work-rotational-power',
+    skills: ['exit-velocity', 'bat-speed'],
     name: 'Tee Work for Rotational Power',
     kind: 'drill',
     sport: 'baseball',
@@ -452,6 +468,7 @@ export const DRILLS = [
   },
   {
     slug: 'baseball-pitching-mound-mechanics',
+    skills: ['pitching-mechanics', 'throwing-velocity'],
     name: 'Pitching Mound Mechanics',
     kind: 'drill',
     sport: 'baseball',
@@ -476,6 +493,7 @@ export const DRILLS = [
   },
   {
     slug: 'baseball-infield-first-step-reaction',
+    skills: ['first-step-quickness'],
     name: 'Infield First-Step Reaction',
     kind: 'drill',
     sport: 'baseball',

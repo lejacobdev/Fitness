@@ -69,10 +69,11 @@ public struct APIClient: Sendable {
             public let minutes: Int
             public let source: String
             public let plannedSessionId: String?
+            public let healthKitWorkoutId: String?
 
             public init(
                 clientId: String, startedAt: Date, endedAt: Date? = nil, sessionRPE: Int? = nil,
-                minutes: Int, source: String, plannedSessionId: String? = nil
+                minutes: Int, source: String, plannedSessionId: String? = nil, healthKitWorkoutId: String? = nil
             ) {
                 self.clientId = clientId
                 self.startedAt = startedAt
@@ -81,6 +82,7 @@ public struct APIClient: Sendable {
                 self.minutes = minutes
                 self.source = source
                 self.plannedSessionId = plannedSessionId
+                self.healthKitWorkoutId = healthKitWorkoutId
             }
         }
 
@@ -189,6 +191,9 @@ public struct APIClient: Sendable {
         if let rpe = request.session.sessionRPE { sessionJSON["sessionRPE"] = rpe }
         if let plannedSessionId = request.session.plannedSessionId {
             sessionJSON["plannedSessionId"] = plannedSessionId
+        }
+        if let workoutId = request.session.healthKitWorkoutId {
+            sessionJSON["healthKitWorkoutId"] = workoutId
         }
 
         let setsJSON: [[String: Any]] = request.sets.map { set in

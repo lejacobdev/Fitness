@@ -31,6 +31,9 @@
  *   node tools/asc.mjs create-bundle-id <bundle-id> <name>
  *   node tools/asc.mjs enable-capability <bundle-id> <CAPABILITY_TYPE>
  *   node tools/asc.mjs provision <bundle-id> <name>   (create-bundle-id + every capability §19 needs)
+ *   node tools/asc.mjs subscriptions <bundle-id>          (read-only: groups, products, prices)
+ *   node tools/asc.mjs setup-subscriptions <bundle-id>    (§18: idempotent group + monthly/yearly Pro)
+ *   node tools/asc.mjs set-notification-url <bundle-id> <url>   (App Store Server Notifications V2, prod + sandbox)
  */
 
 import crypto from 'node:crypto';
@@ -357,7 +360,159 @@ const commands = {
     console.log('');
     await commands.capabilities(identifier);
   },
+
+  // ── §18 subscriptions ────────────────────────────────────────────────────
+
+  async subscriptions(identifier) {
+    if (!identifier) throw new Error('usage: subscriptions <bundle-id>');
+    const app = await appFor(identifier);
+    const groups = await api(`/v1/apps/${app.id}/subscriptionGroups?include=subscriptions&limit=50`);
+    if (groups.data.length === 0) console.log('no subscription groups');
+    for (const group of groups.data) {
+      console.log(`group ${group.attributes.referenceName} (${group.id})`);
+      const subs = await api(`/v1/subscriptionGroups/${group.id}/subscriptions?limit=50`);
+      for (const sub of subs.data) {
+        const a = sub.attributes;
+        console.log(`  ${a.productId}  ${a.subscriptionPeriod}  state=${a.state}  familySharable=${a.familySharable}  (${sub.id})`);
+      }
+    }
+    const attrs = app.attributes;
+    console.log(`notification url (prod):    ${attrs.subscriptionStatusUrl ?? '(none)'} ${attrs.subscriptionStatusUrlVersion ?? ''}`);
+    console.log(`notification url (sandbox): ${attrs.subscriptionStatusUrlForSandbox ?? '(none)'} ${attrs.subscriptionStatusUrlVersionForSandbox ?? ''}`);
+  },
+
+  /**
+   * §18: "one subscription group, two products — monthly and annual, annual
+   * at roughly 60% of twelve months"; §23: "roughly €5–7/month". Idempotent:
+   * anything that already exists is left alone. Prices are set for the USA
+   * base territory and then equalized to every other territory Apple offers.
+   */
+  async 'setup-subscriptions'(identifier) {
+    if (!identifier) throw new Error('usage: setup-subscriptions <bundle-id>');
+    const app = await appFor(identifier);
+    const PLANS = [
+      { productId: 'com.studentathlete.app.pro.yearly', name: 'Pro Yearly', period: 'ONE_YEAR', level: 1, usd: '39.99',
+        description: 'A full year of Student Athlete Pro.' },
+      { productId: 'com.studentathlete.app.pro.monthly', name: 'Pro Monthly', period: 'ONE_MONTH', level: 2, usd: '5.99',
+        description: 'One month of Student Athlete Pro.' },
+    ];
+
+    const groups = await api(`/v1/apps/${app.id}/subscriptionGroups?limit=50`);
+    let group = groups.data.find((g) => g.attributes.referenceName === 'Student Athlete Pro');
+    if (group) {
+      console.log(`group exists (${group.id})`);
+    } else {
+      group = (await api('/v1/subscriptionGroups', {
+        method: 'POST',
+        body: { data: { type: 'subscriptionGroups', attributes: { referenceName: 'Student Athlete Pro' },
+          relationships: { app: { data: { type: 'apps', id: app.id } } } } },
+      })).data;
+      console.log(`created group (${group.id})`);
+    }
+    await tryStep('group localization', () => api('/v1/subscriptionGroupLocalizations', {
+      method: 'POST',
+      body: { data: { type: 'subscriptionGroupLocalizations', attributes: { name: 'Student Athlete Pro', locale: 'en-US' },
+        relationships: { subscriptionGroup: { data: { type: 'subscriptionGroups', id: group.id } } } } },
+    }));
+
+    const existing = (await api(`/v1/subscriptionGroups/${group.id}/subscriptions?limit=50`)).data;
+    for (const plan of PLANS) {
+      let sub = existing.find((s) => s.attributes.productId === plan.productId);
+      if (sub) {
+        console.log(`${plan.productId} exists (${sub.id}, ${sub.attributes.state})`);
+      } else {
+        sub = (await api('/v1/subscriptions', {
+          method: 'POST',
+          body: { data: { type: 'subscriptions',
+            attributes: { name: plan.name, productId: plan.productId, subscriptionPeriod: plan.period, familySharable: true,
+              groupLevel: plan.level, reviewNote: 'No purchase is needed to review Pro: the demo account in the review notes already has Pro granted server-side.' },
+            relationships: { group: { data: { type: 'subscriptionGroups', id: group.id } } } } },
+        })).data;
+        console.log(`created ${plan.productId} (${sub.id})`);
+      }
+
+      await tryStep(`${plan.productId} localization`, () => api('/v1/subscriptionLocalizations', {
+        method: 'POST',
+        body: { data: { type: 'subscriptionLocalizations', attributes: { name: plan.name, locale: 'en-US', description: plan.description },
+          relationships: { subscription: { data: { type: 'subscriptions', id: sub.id } } } } },
+      }));
+
+      await tryStep(`${plan.productId} availability`, async () => {
+        const territories = await api('/v1/territories?limit=200');
+        return api('/v1/subscriptionAvailabilities', {
+          method: 'POST',
+          body: { data: { type: 'subscriptionAvailabilities', attributes: { availableInNewTerritories: true },
+            relationships: {
+              subscription: { data: { type: 'subscriptions', id: sub.id } },
+              availableTerritories: { data: territories.data.map((t) => ({ type: 'territories', id: t.id })) },
+            } } },
+        });
+      });
+
+      await tryStep(`${plan.productId} price ${plan.usd} USD + equalized territories`, async () => {
+        const points = await api(`/v1/subscriptions/${sub.id}/pricePoints?filter[territory]=USA&limit=800`);
+        const point = points.data.find((p) => p.attributes.customerPrice === plan.usd);
+        if (!point) throw new Error(`no USA price point at ${plan.usd}`);
+        const setPrice = (pricePointId, territory) => api('/v1/subscriptionPrices', {
+          method: 'POST',
+          body: { data: { type: 'subscriptionPrices', attributes: { preserveCurrentPrice: false },
+            relationships: {
+              subscription: { data: { type: 'subscriptions', id: sub.id } },
+              subscriptionPricePoint: { data: { type: 'subscriptionPricePoints', id: pricePointId } },
+              ...(territory ? { territory: { data: { type: 'territories', id: territory } } } : {}),
+            } } },
+        });
+        await setPrice(point.id, 'USA');
+        const equal = await api(`/v1/subscriptionPricePoints/${point.id}/equalizations?limit=200&include=territory`);
+        let ok = 0;
+        let failed = 0;
+        for (const eq of equal.data) {
+          try {
+            await setPrice(eq.id, eq.relationships?.territory?.data?.id);
+            ok += 1;
+          } catch {
+            failed += 1;
+          }
+        }
+        return `USA + ${ok} equalized territories${failed ? `, ${failed} failed` : ''}`;
+      });
+    }
+    console.log('');
+    await commands.subscriptions(identifier);
+  },
+
+  /** §18: App Store Server Notifications V2 for production and sandbox. */
+  async 'set-notification-url'(identifier, url) {
+    if (!identifier || !url) throw new Error('usage: set-notification-url <bundle-id> <url>');
+    const app = await appFor(identifier);
+    await api(`/v1/apps/${app.id}`, {
+      method: 'PATCH',
+      body: { data: { type: 'apps', id: app.id, attributes: {
+        subscriptionStatusUrl: url, subscriptionStatusUrlVersion: 'V2',
+        subscriptionStatusUrlForSandbox: url, subscriptionStatusUrlVersionForSandbox: 'V2',
+      } } },
+    });
+    console.log(`notification url set to ${url} (V2, production + sandbox)`);
+  },
 };
+
+async function appFor(identifier) {
+  const apps = await api(`/v1/apps?filter[bundleId]=${encodeURIComponent(identifier)}`);
+  const app = apps.data.find((a) => a.attributes.bundleId === identifier);
+  if (!app) throw new Error(`no App Store Connect app for ${identifier} — create it in the web UI first`);
+  return app;
+}
+
+/** One idempotent step: an "already exists"-style 409 is fine, anything else is reported, never fatal. */
+async function tryStep(label, fn) {
+  try {
+    const result = await fn();
+    console.log(`  ok: ${label}${typeof result === 'string' ? ` — ${result}` : ''}`);
+  } catch (err) {
+    const benign = /409|already|duplicate/i.test(err.message);
+    console.log(`  ${benign ? 'exists' : 'FAILED'}: ${label} — ${err.message}`);
+  }
+}
 
 // Only dispatch when run as a script, so the module stays importable by tests.
 if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {

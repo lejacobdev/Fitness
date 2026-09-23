@@ -1,0 +1,82 @@
+name: screenshots
+
+# M14: App Store screenshots of every tab, on the two sizes App Store Connect
+# requires (6.9" iPhone, 13" iPad), light and dark. Dispatch-only — it is slow
+# and never gates anything. The app runs with `-demoData` (DemoData.swift), a
+# seeded soccer midfielder with a lived-in history; the real content packs are
+# copied straight into the simulator app's container so the Library, plans and
+# thumbnails are the real catalogue.
+on:
+  workflow_dispatch:
+
+jobs:
+  capture:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build content packs
+        run: cd content && npm ci && npm run build
+
+      - name: XcodeGen
+        working-directory: app
+        run: xcodegen generate --spec project.yml
+
+      - name: Build app for the simulator
+        working-directory: app
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project StudentAthlete.xcodeproj \
+            -scheme StudentAthlete \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Capture screenshots
+        run: |
+          set -euo pipefail
+          APP=$(find app/build/Build/Products/Debug-iphonesimulator -maxdepth 1 -name '*.app' | head -1)
+          BUNDLE=com.studentathlete.app
+          mkdir -p screenshots
+          pick() { xcrun simctl list devices available | grep -E "$1" | head -1 | sed -E 's/^ *([^(]+) \(([0-9A-F-]+)\).*/\2/'; }
+          for pattern in "iPhone 1[0-9] Pro Max" "iPad Pro 13"; do
+            UDID=$(pick "$pattern")
+            if [ -z "$UDID" ]; then echo "::warning::no simulator matching $pattern"; continue; fi
+            NAME=$(echo "$pattern" | tr -cd '[:alnum:]')
+            xcrun simctl boot "$UDID" || true
+            xcrun simctl bootstatus "$UDID" -b
+            xcrun simctl install "$UDID" "$APP"
+            xcrun simctl launch "$UDID" "$BUNDLE" -demoData >/dev/null
+            sleep 4
+            xcrun simctl terminate "$UDID" "$BUNDLE" || true
+            DATA=$(xcrun simctl get_app_container "$UDID" "$BUNDLE" data)
+            mkdir -p "$DATA/Library/Application Support/packs"
+            cp content/dist/*.json "$DATA/Library/Application Support/packs/"
+            xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+            for appearance in light dark; do
+              xcrun simctl ui "$UDID" appearance "$appearance"
+              for tab in today plan improve library me; do
+                xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab "$tab" >/dev/null
+                sleep 7
+                xcrun simctl io "$UDID" screenshot "screenshots/${NAME}-${appearance}-${tab}.png"
+                xcrun simctl terminate "$UDID" "$BUNDLE" || true
+              done
+            done
+            xcrun simctl shutdown "$UDID" || true
+          done
+          ls -la screenshots
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-store-screenshots
+          path: screenshots/

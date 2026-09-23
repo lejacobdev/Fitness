@@ -20,7 +20,7 @@ struct MeView: View {
     @State private var isDeleting = false
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, history, checkIns, exercises, dataExport
+        case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health
         var id: String { rawValue }
     }
 
@@ -74,6 +74,14 @@ struct MeView: View {
                         menuRow("Check-in history", icon: "sun.max.fill", tint: AppTheme.amber, detail: "\(athlete.checkIns.count)") { activeSheet = .checkIns }
                     }
 
+                    SectionTitle("Fuel & health")
+                    menuCard {
+                        menuRow("Fuel & hydration", icon: "fork.knife", tint: AppTheme.green, detail: "Today") { activeSheet = .fuel }
+                        menuDivider
+                        menuRow("Apple Health", icon: "heart.fill", tint: AppTheme.red,
+                                detail: HealthKitManager.shared.isAvailable ? "Connect" : "Unavailable") { activeSheet = .health }
+                    }
+
                     SectionTitle("Training setup")
                     menuCard {
                         menuRow("Sport & position", icon: sportInfo.map { SportIcon.name(for: $0.slug) } ?? "sportscourt.fill", tint: AppTheme.brand,
@@ -86,6 +94,20 @@ struct MeView: View {
                         menuDivider
                         coachToggleRow
                     }
+
+                    SectionTitle("App")
+                    menuCard {
+                        menuRow("Reminders", icon: "bell.fill", tint: AppTheme.amber,
+                                detail: ReminderScheduler.settings.checkInEnabled ? "On" : "Off") { activeSheet = .reminders }
+                        menuDivider
+                        menuRow("Downloads", icon: "arrow.down.circle.fill", tint: AppTheme.blue, detail: "Offline") { activeSheet = .downloads }
+                    }
+
+                    #if os(iOS) && !APP_EXTENSION
+                    SectionTitle("Subscription")
+                    SubscriptionRow(athlete: athlete)
+                        .cardStyle(padding: 16)
+                    #endif
 
                     SectionTitle("Your data")
                     menuCard {
@@ -149,6 +171,10 @@ struct MeView: View {
                 case .checkIns: CheckInHistoryView(checkIns: athlete.checkIns)
                 case .exercises: ExerciseProgressListView(sessions: sessions, catalogue: catalogue)
                 case .dataExport: DataExportView(athlete: athlete, sessions: sessions)
+                case .reminders: RemindersSheet(athlete: athlete)
+                case .downloads: DownloadsSheet(athlete: athlete)
+                case .fuel: FuelView(athlete: athlete, todaysSession: WeeklyPlan.generate(for: athlete)?.sessions.first { Calendar.current.isDateInToday($0.date) })
+                case .health: HealthPermissionView()
                 }
             }
             .confirmationDialog("Delete your account?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {

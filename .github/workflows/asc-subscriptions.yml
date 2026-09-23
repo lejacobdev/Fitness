@@ -1,0 +1,52 @@
+name: asc-subscriptions
+
+# §18: creates (idempotently) the Pro subscription group and its monthly and
+# yearly products, and points App Store Server Notifications V2 at the
+# backend. Unlike asc-inspect this CHANGES App Store Connect state, so it is
+# dispatch-only and never runs on push.
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: 'App bundle identifier'
+        required: false
+        default: 'com.studentathlete.app'
+      notification_url:
+        description: 'App Store Server Notifications V2 URL (production + sandbox)'
+        required: false
+        default: 'https://api.lejacob.dev/fitness/appstore/notifications'
+
+jobs:
+  subscriptions:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Preflight
+        run: |
+          missing=0
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_PRIVATE_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::missing secret $name"; missing=1; fi
+          done
+          exit $missing
+
+      - name: Before
+        continue-on-error: true
+        run: node tools/asc.mjs subscriptions '${{ inputs.bundle_id }}'
+
+      - name: Create subscription group and products
+        run: node tools/asc.mjs setup-subscriptions '${{ inputs.bundle_id }}'
+
+      - name: Point App Store Server Notifications V2 at the backend
+        run: node tools/asc.mjs set-notification-url '${{ inputs.bundle_id }}' '${{ inputs.notification_url }}'
+
+      - name: After
+        run: node tools/asc.mjs subscriptions '${{ inputs.bundle_id }}'

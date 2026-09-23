@@ -1,0 +1,385 @@
+#if os(iOS) && !APP_EXTENSION
+import StoreKit
+import SwiftUI
+
+/// §4/§18's paywall. Everything App Review checks is on this one screen,
+/// readable without buying anything: subscription length, price per period,
+/// what's included, Restore Purchases, and links to the Terms and Privacy
+/// Policy. And everything §4 says about selling to minors: no countdowns, no
+/// urgency, no "free trial" wording (no introductory offer is configured),
+/// the price stated plainly, and a line that a parent may need to approve —
+/// with Ask to Buy's waiting state shown as a real state, not a failure.
+public struct PaywallView: View {
+    let athlete: Athlete
+    /// Which feature brought the athlete here, shown first in the list.
+    let highlight: ProFeature?
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var store = ProStore.shared
+    @State private var selectedID = ProStore.yearlyID
+
+    public init(athlete: Athlete, highlight: ProFeature? = nil) {
+        self.athlete = athlete
+        self.highlight = highlight
+    }
+
+    private var features: [ProFeature] {
+        let all: [ProFeature] = [.skillBlocks, .fullSeasonCalendar, .positionProfiles, .fullHistory, .coachReportOnDemand, .additionalSportDownloads, .dataExport]
+        guard let highlight, all.contains(highlight) else { return all }
+        return [highlight] + all.filter { $0 != highlight }
+    }
+
+    private var selectedProduct: Product? {
+        store.products.first { $0.id == selectedID }
+    }
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                CircleIconButton(systemImage: "xmark", accessibilityLabel: "Close") { dismiss() }
+                Spacer()
+                Button("Restore") { Task { await store.restore() } }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    header
+                    featureList
+                    freeForeverNote
+                    planCards
+                    statusBanner
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+            }
+            .scrollIndicators(.hidden)
+
+            footer
+        }
+        .appScreen()
+        .task {
+            if store.products.isEmpty { await store.loadProducts() }
+        }
+        .onChange(of: store.isPro) {
+            if store.isPro { dismiss() }
+        }
+    }
+
+    // MARK: - Sections
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: "crown.fill")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(AppTheme.inkInverse)
+                .frame(width: 52, height: 52)
+                .background(AppTheme.ink, in: Circle())
+            Text("Train smarter with Pro")
+                .font(.system(size: 32, weight: .bold))
+                .foregroundStyle(AppTheme.ink)
+            Text("Everything in the free app, plus the tools for chasing a specific goal and a whole season of games.")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+        }
+    }
+
+    private var featureList: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(features, id: \.self) { feature in
+                HStack(spacing: 12) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .heavy))
+                        .foregroundStyle(AppTheme.inkInverse)
+                        .frame(width: 24, height: 24)
+                        .background(AppTheme.ink, in: Circle())
+                    Text(feature.proDescription)
+                        .font(.subheadline.weight(feature == highlight ? .bold : .medium))
+                        .foregroundStyle(AppTheme.ink)
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+        .cardStyle()
+    }
+
+    private var freeForeverNote: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "heart.fill")
+                .foregroundStyle(AppTheme.brand)
+            Text("Always free: the daily check-in, your weekly plan, logging, the Apple Watch app and fuelling guidance.")
+                .font(.footnote)
+                .foregroundStyle(AppTheme.secondaryText)
+        }
+    }
+
+    @ViewBuilder
+    private var planCards: some View {
+        if store.isLoadingProducts && store.products.isEmpty {
+            ProgressView()
+                .frame(maxWidth: .infinity, minHeight: 120)
+        } else if store.products.isEmpty {
+            VStack(spacing: 10) {
+                Text("Couldn't load prices from the App Store.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+                Button("Try again") { Task { await store.loadProducts() } }
+                    .buttonStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .cardStyle()
+        } else {
+            VStack(spacing: 12) {
+                ForEach(store.products, id: \.id) { product in
+                    planCard(product)
+                }
+            }
+        }
+    }
+
+    private func planCard(_ product: Product) -> some View {
+        let isSelected = product.id == selectedID
+        let isYearly = product.id == ProStore.yearlyID
+        return Button {
+            selectedID = product.id
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title2)
+                    .foregroundStyle(isSelected ? AppTheme.ink : AppTheme.hairline)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        Text(isYearly ? "Yearly" : "Monthly")
+                            .font(.headline)
+                            .foregroundStyle(AppTheme.ink)
+                        if isYearly, let saving = savingText {
+                            Text(saving)
+                                .font(.caption2.bold())
+                                .foregroundStyle(AppTheme.inkInverse)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(AppTheme.ink, in: Capsule())
+                        }
+                    }
+                    Text(isYearly
+                         ? "\(product.displayPrice) per year\(product.monthlyEquivalent.map { " · \($0)/month" } ?? "")"
+                         : "\(product.displayPrice) per month")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(18)
+            .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(isSelected ? AppTheme.ink : AppTheme.hairline, lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isYearly ? "Yearly, \(product.displayPrice) per year" : "Monthly, \(product.displayPrice) per month")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    /// "Save 44%" versus twelve months of the monthly plan.
+    private var savingText: String? {
+        guard let yearly = store.yearly, let monthly = store.monthly, monthly.price > 0 else { return nil }
+        let twelveMonths = monthly.price * 12
+        let saving = (twelveMonths - yearly.price) / twelveMonths * 100
+        let percent = NSDecimalNumber(decimal: saving).intValue
+        return percent > 0 ? "Save \(percent)%" : nil
+    }
+
+    @ViewBuilder
+    private var statusBanner: some View {
+        switch store.purchaseState {
+        case .pending:
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "hourglass")
+                    .font(.title3)
+                    .foregroundStyle(AppTheme.amber)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Waiting for approval")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.ink)
+                    Text("We've asked a parent or guardian to approve this. Pro unlocks automatically the moment they do — you can close this screen and keep training.")
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+            }
+            .cardStyle(padding: 16)
+        case .failed(let message):
+            Text(message)
+                .font(.footnote)
+                .foregroundStyle(AppTheme.red)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        case .purchased:
+            Label("You're Pro. Thanks for supporting Student Athlete.", systemImage: "checkmark.seal.fill")
+                .font(.headline)
+                .foregroundStyle(AppTheme.green)
+        case .idle, .purchasing:
+            EmptyView()
+        }
+    }
+
+    private var footer: some View {
+        VStack(spacing: 10) {
+            Button {
+                guard let product = selectedProduct else { return }
+                Task { await store.purchase(product, athleteId: athlete.id) }
+            } label: {
+                if store.purchaseState == .purchasing {
+                    ProgressView().tint(AppTheme.inkInverse)
+                } else {
+                    Text(store.purchaseState == .pending ? "Waiting for approval" : "Continue")
+                }
+            }
+            .buttonStyle(.primary)
+            .disabled(selectedProduct == nil || store.purchaseState == .purchasing || store.purchaseState == .pending)
+
+            Text("Renews automatically until cancelled. Cancel anytime in Settings → Apple ID → Subscriptions. A parent may need to approve the purchase.")
+                .font(.caption2)
+                .foregroundStyle(AppTheme.secondaryText)
+                .multilineTextAlignment(.center)
+
+            HStack(spacing: 18) {
+                Link("Terms of Use", destination: AppConfig.backendBaseURL.appending(path: "terms"))
+                Link("Privacy Policy", destination: AppConfig.backendBaseURL.appending(path: "privacy"))
+                Button("Restore Purchases") { Task { await store.restore() } }
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(AppTheme.ink)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(AppTheme.background)
+    }
+}
+
+/// An inline upsell for a gated spot (Cal AI-style card, never an
+/// interstitial — §4: "no interstitial paywall thrown up mid-session").
+public struct ProUpsellCard: View {
+    let athlete: Athlete
+    let feature: ProFeature
+    let message: String
+    @State private var showingPaywall = false
+
+    public init(athlete: Athlete, feature: ProFeature, message: String) {
+        self.athlete = athlete
+        self.feature = feature
+        self.message = message
+    }
+
+    public var body: some View {
+        Button {
+            showingPaywall = true
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "crown.fill")
+                    .foregroundStyle(AppTheme.inkInverse)
+                    .frame(width: 40, height: 40)
+                    .background(AppTheme.ink, in: Circle())
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(feature.proDescription)
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.ink)
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            .cardStyle(padding: 16)
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showingPaywall) {
+            PaywallView(athlete: athlete, highlight: feature)
+        }
+    }
+}
+
+/// Me tab row: shows Pro status, opens the paywall or Apple's manage screen,
+/// and §18's non-blocking billing-retry banner.
+public struct SubscriptionRow: View {
+    let athlete: Athlete
+    @State private var store = ProStore.shared
+    @State private var showingPaywall = false
+    @State private var showingManage = false
+
+    public init(athlete: Athlete) {
+        self.athlete = athlete
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                if store.isPro { showingManage = true } else { showingPaywall = true }
+            } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(store.isPro ? AppTheme.amber : AppTheme.inkInverse)
+                        .frame(width: 34, height: 34)
+                        .background(store.isPro ? AppTheme.amber.opacity(0.13) : AppTheme.ink,
+                                    in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(store.isPro ? "Student Athlete Pro" : "Upgrade to Pro")
+                            .font(.body)
+                            .foregroundStyle(AppTheme.ink)
+                        Text(statusLine)
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.secondaryText)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if store.isInBillingRetry {
+                Label("There's a problem with your payment method. Pro stays on while Apple retries — update it in Settings.", systemImage: "exclamationmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.amber)
+            }
+            if store.purchaseState == .pending {
+                Label("Waiting for a parent to approve your purchase.", systemImage: "hourglass")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+        }
+        .paywallSheet(isPresented: $showingPaywall, athlete: athlete)
+        .manageSubscriptionsSheet(isPresented: $showingManage)
+    }
+
+    private var statusLine: String {
+        if store.isPro {
+            if let until = store.serverProUntil {
+                return "Active until \(until.formatted(date: .abbreviated, time: .omitted))"
+            }
+            return "Active"
+        }
+        return "Unlimited skill plans, full season calendar, all history"
+    }
+}
+
+public extension View {
+    /// Presents the paywall as a sheet — only ever in response to the
+    /// athlete tapping something gated, never on its own.
+    func paywallSheet(isPresented: Binding<Bool>, athlete: Athlete, highlight: ProFeature? = nil) -> some View {
+        sheet(isPresented: isPresented) {
+            PaywallView(athlete: athlete, highlight: highlight)
+        }
+    }
+}
+#endif

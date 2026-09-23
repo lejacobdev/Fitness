@@ -1,0 +1,74 @@
+{
+  "identifier" : "6D6F4B3A-5E2B-4C11-9C0E-3A1B2C4D5E6F",
+  "nonRenewingSubscriptions" : [ ],
+  "products" : [ ],
+  "settings" : {
+    "_applicationInternalID" : "",
+    "_developerTeamID" : "",
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [ ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21A3C4E5",
+      "localizations" : [
+        {
+          "description" : "Unlimited skill plans, the full season calendar and every trend.",
+          "displayName" : "Student Athlete Pro",
+          "locale" : "en_US"
+        }
+      ],
+      "name" : "Student Athlete Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [ ],
+          "codeOffers" : [ ],
+          "displayPrice" : "39.99",
+          "familyShareable" : true,
+          "groupNumber" : 1,
+          "internalID" : "6739000001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "A full year of Student Athlete Pro.",
+              "displayName" : "Pro Yearly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.studentathlete.app.pro.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Pro Yearly",
+          "subscriptionGroupID" : "21A3C4E5",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [ ],
+          "codeOffers" : [ ],
+          "displayPrice" : "5.99",
+          "familyShareable" : true,
+          "groupNumber" : 2,
+          "internalID" : "6739000002",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "One month of Student Athlete Pro.",
+              "displayName" : "Pro Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.studentathlete.app.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Pro Monthly",
+          "subscriptionGroupID" : "21A3C4E5",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

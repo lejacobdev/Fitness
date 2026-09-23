@@ -93,5 +93,10 @@ enum WidgetSnapshotWriter {
         #if canImport(WidgetKit)
         WidgetCenter.shared.reloadAllTimelines()
         #endif
+        // Same moments the watch needs a fresh "today": a regenerated week,
+        // a check-in, a finished session.
+        #if os(iOS) && !APP_EXTENSION
+        PhoneWatchBridge.shared.sendToday(athlete: athlete, week: week)
+        #endif
     }
 }
