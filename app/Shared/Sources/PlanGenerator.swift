@@ -230,9 +230,21 @@ public enum PlanGenerator {
         )
     }
 
+    /// `equipmentLevelByTag[tag]` is `EquipmentLevel?` — comparing that
+    /// directly against `.none` resolves to `Optional<EquipmentLevel>.none`
+    /// (nil, "tag not in the table"), NOT `EquipmentLevel.none` (the enum
+    /// case meaning "needs nothing"), because `Optional` has its own `case
+    /// none` that shadows the intended one. Every real tag IS in the table,
+    /// so that comparison was always false — confirmed by a real CI test
+    /// failure (`testAnItemWithOnlyAlwaysFreeEquipmentIsSelectedEvenWithNothingOwned`),
+    /// not caught by review. The `[tag, default: .full]` subscript form
+    /// returns a non-optional `EquipmentLevel`, which resolves `.none`
+    /// unambiguously to the enum case — and defaults an unrecognised tag to
+    /// `.full` (never silently free) rather than `.none` (never silently
+    /// required), the conservative direction to fail in.
     private static func isEligibleForEquipment(_ item: CatalogueItem, available: Set<String>) -> Bool {
         item.equipment.allSatisfy { tag in
-            equipmentLevelByTag[tag] == .none || available.contains(tag)
+            equipmentLevelByTag[tag, default: .full] == .none || available.contains(tag)
         }
     }
 
