@@ -39,6 +39,9 @@ jobs:
       - name: Apps on the account
         run: node tools/asc.mjs apps
 
+      - name: Certificates on the account
+        run: node tools/asc.mjs certificates
+
       - name: App ID capabilities
         # Exits non-zero when any of the five §19 capabilities is absent, so this
         # workflow is the gate before the first archive rather than a report.

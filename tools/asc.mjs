@@ -24,6 +24,7 @@
  * Usage:
  *   node tools/asc.mjs capabilities <bundle-id>
  *   node tools/asc.mjs apps
+ *   node tools/asc.mjs certificates
  *   node tools/asc.mjs versions <bundle-id>
  *   node tools/asc.mjs builds <bundle-id> [limit]
  *   node tools/asc.mjs build-bundles <build-id>
@@ -161,6 +162,28 @@ const commands = {
     } else {
       console.log('  all five required capabilities present');
     }
+  },
+
+  /**
+   * §19/testflight.yml: every archive with -allowProvisioningUpdates can
+   * mint a NEW certificate rather than reuse the one already imported from
+   * APPLE_DIST_CERT_P12_BASE64, if Xcode's automatic-signing heuristics
+   * don't recognise it as reusable — which is exactly how an account hits
+   * "maximum number of certificates" over many CI runs. Read-only: lists
+   * what exists so a human can pick which to revoke in the portal, never
+   * revokes anything itself (§19: this file does provisioning, not
+   * destructive account changes).
+   */
+  async certificates() {
+    const body = await api(
+      '/v1/certificates?limit=200'
+      + '&fields[certificates]=name,certificateType,displayName,serialNumber,platform,expirationDate',
+    );
+    for (const c of body.data) {
+      const a = c.attributes;
+      console.log(`${c.id}  ${a.certificateType}  ${a.displayName ?? a.name}  expires ${a.expirationDate}  serial ${a.serialNumber}`);
+    }
+    console.log(`\n${body.data.length} certificate(s) total`);
   },
 
   async versions(identifier) {
