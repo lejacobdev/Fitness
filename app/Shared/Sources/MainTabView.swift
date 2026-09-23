@@ -93,11 +93,19 @@ enum WeeklyPlan {
     }
 }
 
+/// The app's "homescreen" — modelled on Apple Health's own home screen shape
+/// (a personal greeting, one hero card, a row of compact stat cards, a
+/// recent-activity feed) rendered in the app's dark/one-accent/big-rounded-
+/// card language rather than Health's light one. Every number here is real:
+/// today's generated-and-tapered session, this week's actual logged
+/// sessions (`@Query`), the athlete's own competition calendar — nothing
+/// placeholder.
 private struct TodayTabView: View {
     let athlete: Athlete
     let apiClient: APIClient
     let week: GeneratedWeek?
 
+    @Query(sort: \Session.startedAt, order: .reverse) private var allSessions: [Session]
     @State private var showingLiveSession = false
     @State private var showingHistory = false
 
@@ -106,51 +114,58 @@ private struct TodayTabView: View {
         return week?.sessions.first { calendar.isDateInToday($0.date) }
     }
 
+    private var sessionsThisWeek: Int {
+        let calendar = Calendar.current
+        guard let weekStart = calendar.date(
+            from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: .now)
+        ) else { return 0 }
+        return allSessions.filter { $0.startedAt >= weekStart }.count
+    }
+
+    private var plannedSessionsThisWeek: Int {
+        max(week?.sessions.count ?? 0, sessionsThisWeek)
+    }
+
+    private var daysUntilNextCompetition: Int? {
+        let today = Calendar.current.startOfDay(for: .now)
+        guard let next = athlete.competitions
+            .map({ Calendar.current.startOfDay(for: $0.date) })
+            .filter({ $0 >= today })
+            .min()
+        else { return nil }
+        return Calendar.current.dateComponents([.day], from: today, to: next).day
+    }
+
+    private var recentSessions: [Session] {
+        Array(allSessions.prefix(3))
+    }
+
+    private var greeting: String {
+        switch Calendar.current.component(.hour, from: .now) {
+        case 0..<12: "Good morning"
+        case 12..<17: "Good afternoon"
+        default: "Good evening"
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
-                    if let session = todaysSession {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Today's session")
-                                .font(.caption)
-                                .foregroundStyle(.white.opacity(0.5))
-                            Text(session.title)
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
-                                .foregroundStyle(.white)
-                            Text("\(session.estimatedMinutes) min · \(session.items.count) items")
-                                .font(.subheadline)
-                                .foregroundStyle(AppTheme.accent)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .cardStyle()
-                    } else {
-                        VStack(spacing: 8) {
-                            Text("No training session today")
-                                .font(.title3.bold())
-                                .foregroundStyle(.white)
-                            Text("Rest, recovery, or check the Plan tab for the rest of the week.")
-                                .font(.subheadline)
-                                .foregroundStyle(.white.opacity(0.6))
-                                .multilineTextAlignment(.center)
-                        }
+                VStack(alignment: .leading, spacing: 20) {
+                    header
+                    heroCard
+                    statsRow
+                    if !recentSessions.isEmpty {
+                        recentActivitySection
+                    }
+                    Button("View history") { showingHistory = true }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.7))
                         .frame(maxWidth: .infinity)
-                        .cardStyle()
-                    }
-
-                    VStack(spacing: 12) {
-                        Button("Start training session") { showingLiveSession = true }
-                            .buttonStyle(.accentFilled)
-                        Button("History") { showingHistory = true }
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                    .cardStyle()
                 }
                 .padding(20)
             }
             .background(AppBackground())
-            .navigationTitle("Today")
             .toolbarColorScheme(.dark, for: .navigationBar)
             .sheet(isPresented: $showingLiveSession) {
                 LiveSessionView(athlete: athlete, apiClient: apiClient)
@@ -159,6 +174,135 @@ private struct TodayTabView: View {
                 SessionHistoryView()
             }
         }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(greeting)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.55))
+            if let sportSlug = athlete.sports.first?.sportSlug {
+                Text(allSportsBySlug[sportSlug]?.name ?? sportSlug)
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var heroCard: some View {
+        if let session = todaysSession {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("TODAY'S SESSION")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(AppTheme.accent)
+                        Text(session.title)
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                    }
+                    Spacer()
+                    ZStack {
+                        Circle().fill(AppTheme.accent.opacity(0.15)).frame(width: 52, height: 52)
+                        Image(systemName: "figure.strengthtraining.traditional")
+                            .font(.title2)
+                            .foregroundStyle(AppTheme.accent)
+                    }
+                }
+                HStack(spacing: 24) {
+                    statPair(value: "\(session.estimatedMinutes)", label: "minutes")
+                    statPair(value: "\(session.items.count)", label: "exercises")
+                }
+                Button("Start training session") { showingLiveSession = true }
+                    .buttonStyle(.accentFilled)
+            }
+            .cardStyle()
+        } else {
+            VStack(spacing: 10) {
+                Image(systemName: "moon.zzz.fill")
+                    .font(.largeTitle)
+                    .foregroundStyle(AppTheme.accent)
+                Text("Rest day")
+                    .font(.title3.bold())
+                    .foregroundStyle(.white)
+                Text("No training session today — check the Plan tab for the rest of the week.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.6))
+                    .multilineTextAlignment(.center)
+                Button("Log a session anyway") { showingLiveSession = true }
+                    .buttonStyle(.accentFilled)
+                    .padding(.top, 6)
+            }
+            .frame(maxWidth: .infinity)
+            .cardStyle()
+        }
+    }
+
+    private func statPair(value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(value)
+                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.5))
+        }
+    }
+
+    private var statsRow: some View {
+        HStack(spacing: 12) {
+            statCard(
+                icon: "checkmark.circle.fill",
+                value: "\(sessionsThisWeek)/\(plannedSessionsThisWeek)",
+                label: "This week"
+            )
+            statCard(
+                icon: "sportscourt.fill",
+                value: daysUntilNextCompetition.map { $0 == 0 ? "Today" : "\($0)d" } ?? "—",
+                label: "Next game"
+            )
+        }
+    }
+
+    private func statCard(icon: String, value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon).foregroundStyle(AppTheme.accent)
+            Text(value)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.5))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle()
+    }
+
+    private var recentActivitySection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Recent activity")
+                .font(.headline)
+                .foregroundStyle(.white)
+            ForEach(recentSessions) { session in
+                HStack(spacing: 12) {
+                    Image(systemName: "figure.run.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(AppTheme.accent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(session.startedAt.formatted(date: .abbreviated, time: .omitted))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                        Text("\(session.minutes) min\(session.sessionRPE.map { " · RPE \($0)" } ?? "")")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                    Spacer()
+                }
+            }
+        }
+        .cardStyle()
     }
 }
 
@@ -181,6 +325,38 @@ private struct PlanTabView: View {
         }
     }
 
+    private var upcomingCompetitions: [Competition] {
+        let today = Calendar.current.startOfDay(for: .now)
+        return athlete.competitions
+            .filter { Calendar.current.startOfDay(for: $0.date) >= today }
+            .sorted { $0.date < $1.date }
+    }
+
+    private var upcomingGamesCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Upcoming games")
+                .font(.headline)
+                .foregroundStyle(.white)
+            ForEach(upcomingCompetitions) { competition in
+                HStack {
+                    Image(systemName: "sportscourt.fill")
+                        .foregroundStyle(AppTheme.accent)
+                    Text(competition.date.formatted(date: .abbreviated, time: .omitted))
+                        .foregroundStyle(.white)
+                    Spacer()
+                    let days = Calendar.current.dateComponents(
+                        [.day], from: Calendar.current.startOfDay(for: .now), to: Calendar.current.startOfDay(for: competition.date)
+                    ).day ?? 0
+                    Text(days == 0 ? "Today" : "in \(days)d")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+                .font(.subheadline)
+            }
+        }
+        .cardStyle()
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -195,6 +371,10 @@ private struct PlanTabView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if !upcomingCompetitions.isEmpty {
+                        upcomingGamesCard
+                    }
 
                     if let week {
                         if week.sessions.isEmpty {
@@ -313,10 +493,18 @@ private struct MeTabView: View {
                             Text("\(athleteSport.seasonStart.formatted(date: .abbreviated, time: .omitted)) – \(athleteSport.seasonEnd.formatted(date: .abbreviated, time: .omitted))")
                                 .font(.subheadline)
                                 .foregroundStyle(.white.opacity(0.6))
+                            if let positionSlug = athleteSport.positionSlug,
+                               let positionName = allSportsBySlug[athleteSport.sportSlug]?.positions.first(where: { $0.slug == positionSlug })?.name {
+                                Text(positionName)
+                                    .font(.caption)
+                                    .foregroundStyle(AppTheme.accent)
+                            }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .cardStyle()
                     }
+
+                    profileDetailsCard
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Not a medical device.")
@@ -353,6 +541,39 @@ private struct MeTabView: View {
                 Text("This permanently deletes your account and everything stored on our server. This device's local copy is deleted too. This cannot be undone.")
             }
         }
+    }
+
+    private var age: Int {
+        Calendar.current.dateComponents([.year], from: athlete.birthDate, to: .now).year ?? 0
+    }
+
+    private var profileDetailsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            profileRow(icon: "birthday.cake.fill", label: "Age", value: "\(age)")
+            profileRow(
+                icon: "person.2.fill", label: "Coach supervision",
+                value: athlete.trainsUnderCoach ? "Yes" : "Not yet"
+            )
+            profileRow(
+                icon: "bag.fill", label: "Equipment",
+                value: athlete.equipmentAvailable.isEmpty ? "Bodyweight only" : "\(athlete.equipmentAvailable.count) items"
+            )
+        }
+        .cardStyle()
+    }
+
+    private func profileRow(icon: String, label: String, value: String) -> some View {
+        HStack {
+            Image(systemName: icon)
+                .foregroundStyle(AppTheme.accent)
+                .frame(width: 24)
+            Text(label)
+                .foregroundStyle(.white)
+            Spacer()
+            Text(value)
+                .foregroundStyle(.white.opacity(0.6))
+        }
+        .font(.subheadline)
     }
 
     private func deleteAccount() {

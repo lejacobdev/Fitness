@@ -17,6 +17,7 @@ public struct SportPickerView: View {
     @State private var seasonEnd = Date.now
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @State private var searchText = ""
 
     public init(athlete: Athlete) {
         self.athlete = athlete
@@ -37,8 +38,14 @@ public struct SportPickerView: View {
         }
     }
 
+    private var filteredSports: [SportInfo] {
+        let sorted = allSports.sorted { $0.name < $1.name }
+        guard !searchText.isEmpty else { return sorted }
+        return sorted.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
     private var sportListStep: some View {
-        List(allSports.sorted { $0.name < $1.name }, id: \.slug) { sport in
+        List(filteredSports, id: \.slug) { sport in
             Button {
                 selectedSport = sport
                 let defaults = Self.defaultSeasonDates(for: sport)
@@ -59,6 +66,13 @@ public struct SportPickerView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .searchable(text: $searchText, prompt: "Search sports")
+        .overlay {
+            if filteredSports.isEmpty {
+                ContentUnavailableView.search(text: searchText)
+                    .foregroundStyle(.white)
+            }
+        }
     }
 
     private func seasonStep(for sport: SportInfo) -> some View {
