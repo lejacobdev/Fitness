@@ -199,31 +199,10 @@ jobs:
           done
           exit $fail
 
-      - name: Simulator screenshots
-        working-directory: app
-        run: |
-          set -x
-          mkdir -p ../artifacts
-          device=$(xcrun simctl create sac-shot com.apple.CoreSimulator.SimDeviceType.iPhone-16 || true)
-          if [ -z "$device" ]; then
-            echo "no simulator device could be created; skipping screenshots"
-            exit 0
-          fi
-          cleanup() { xcrun simctl shutdown "$device" 2>/dev/null || true; xcrun simctl delete "$device" 2>/dev/null || true; }
-          trap cleanup EXIT
-
-          xcrun simctl boot "$device"
-          xcrun simctl bootstatus "$device" -b
-          app_path=$(find ~/Library/Developer/Xcode/DerivedData -name 'Student Athlete.app' -path '*Debug-iphonesimulator*' | head -1)
-          echo "app bundle: $app_path"
-          xcrun simctl install "$device" "$app_path"
-          xcrun simctl launch "$device" com.studentathlete.app
-          sleep 6
-          xcrun simctl io "$device" screenshot ../artifacts/today-placeholder.png
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: check-artifacts
-          path: artifacts/
-          if-no-files-found: warn
+      # Removed the simulator-screenshot step: it was pure evidence-gathering
+      # (never gated pass/fail) and had become the slowest, most flake-prone
+      # step in this workflow — it hung for 11+ minutes once and 3-4 minutes
+      # routinely, on a simulator boot/install/launch sequence unrelated to
+      # code correctness. Real visual verification now happens on-device via
+      # actual TestFlight builds, which is strictly better evidence than an
+      # unsigned simulator screenshot anyway.
