@@ -70,7 +70,7 @@ const hang = (p, extra = 0) => ({ ...p, shoulderL: p.spine + extra, shoulderR: p
 /** A point in front of the chest (trunk frame): d forward of the sternum, h below the neck. */
 const chestPoint = (d, h, w) => (sk) => add(add(add(sk.neckBase, up(sk), -h), fwd(sk), d), lat(sk), w);
 const ROTS = [-60, -45, -30, -15, 0, 15, 30, 45, 60];
-const goblet = (p) => reachBoth(p, chestPoint(15, 14, 4.5), chestPoint(15, 14, -4.5), { rot: ROTS, prefer: elbowsDown });
+export const goblet = (p) => reachBoth(p, chestPoint(15, 14, 4.5), chestPoint(15, 14, -4.5), { rot: ROTS, prefer: elbowsDown });
 const rack = (p) => reachBoth(p, ...on.rackBar(19), { rot: ROTS, prefer: (sk, side) => -sk[side].elbow[0] });
 const backBar = (p) => reachBoth(p, ...on.backBar(26));
 /** Hands on a floor bar over mid-foot (bar centre 12 up — plates resting on the floor). */
@@ -986,7 +986,7 @@ def('sled-push', 'Sled push', {
   ], { lean: 55, neck: -20, move: 0.3 }),
 });
 def('sled-drag', 'Backward sled drag', {
-  loop: true, thumb: 0, implement: { kind: 'band', at: 'hands', to: [90, 20, 0] },
+  loop: true, thumb: 0, implement: { kind: 'band', at: 'hands', to: [90, 20, 0] }, fixture: { kind: 'sled', at: 88 },
   keyframes: gait([
     { hipL: 50, kneeL: 70, ankleL: 30, hipR: 70, kneeR: 90, ankleR: -10, ...both({ shoulder: 60, elbow: 10 }) },
     { hipL: 60, kneeL: 60, ankleL: 20, hipR: 30, kneeR: 70, ankleR: -10, ...both({ shoulder: 60, elbow: 10 }) },
@@ -1015,58 +1015,63 @@ def('battle-ropes', 'Battle rope waves', {
 });
 
 // Medicine-ball throws -----------------------------------------------------
+// The ball leaves the hands: it flies away (a throw for distance), or hits
+// the wall and comes back to the hands (wall throws, `wall` = its distance).
 const mb = { kind: 'medball', at: 'chest' };
-def('chest-pass', 'Medicine-ball chest pass', {
-  view: 'three-quarter', implement: mb, thumb: 1,
-  keyframes: [
-    kf(P(both({ hip: 30, knee: 34, ankle: 16, hipAbd: 10, shoulder: 30, elbow: 130, shoulderAbd: 20 }), { spine: 16 }), 'feet', { hold: 0.3, move: 0.2 }),
-    kf(P({ hipL: 30, kneeL: 20, ankleL: 10, hipR: -10, kneeR: 20, ankleR: -30, ...both({ shoulder: 88, elbow: 2, shoulderAbd: 8 }), spine: 20 }), 'L+Rtoe', { hold: 0.4, move: 0.5 }),
-    kf(P(both({ hip: 30, knee: 34, ankle: 16, hipAbd: 10, shoulder: 30, elbow: 130, shoulderAbd: 20 }), { spine: 16 }), 'feet', { hold: 0.1 }),
-  ],
-});
-def('overhead-throw-medball', 'Overhead medicine-ball throw', {
-  implement: mb, thumb: 1,
-  keyframes: [
-    kf(P({ hipL: 20, kneeL: 10, hipR: -14, kneeR: 16, ankleR: -20, ...both({ shoulder: 196, elbow: 70 }), spine: -14 }), 'L+Rtoe', { hold: 0.3, move: 0.25 }),
-    kf(P({ hipL: 34, kneeL: 22, ankleL: 12, hipR: -8, kneeR: 12, ankleR: -32, ...both({ shoulder: 110, elbow: 4 }), spine: 24 }), 'L+Rtoe', { hold: 0.4, move: 0.6 }),
-    kf(P({ hipL: 20, kneeL: 10, hipR: -14, kneeR: 16, ankleR: -20, ...both({ shoulder: 196, elbow: 70 }), spine: -14 }), 'L+Rtoe', { hold: 0.1 }),
-  ],
-});
+const MEDBALL = { r: 7.5 };
+/**
+ * load → release → follow-through, the ball in `hand` until the release.
+ * `to` is where it goes, [forward, up, left] from the pelvis; `wall` also
+ * draws a wall there and brings the ball back while the athlete resets.
+ */
+function throwPattern(slug, name, { view = 'side', hand = 'hands', load, loadC = 'feet', release, releaseC, windup = 0.3, to, arc = 30, wall, sideWall, fixture }) {
+  def(slug, name, {
+    view, thumb: 1, ball: MEDBALL,
+    ...(wall ? { fixture: { kind: 'wall', at: wall } } : sideWall ? { fixture: { kind: 'wall', side: 1, at: sideWall } } : fixture ? { fixture } : {}),
+    keyframes: [
+      kf(load, loadC, { hold: 0.3, move: windup, ball: hand }),
+      kf(release, releaseC, { move: 0.2, ball: hand, ballArc: wall || sideWall ? 6 : arc }),
+      kf(release, releaseC, { hold: 0.3, move: 0.6, ball: { at: to } }),
+      kf(load, loadC, { hold: 0.1, ball: wall || sideWall ? hand : 'none' }),
+    ],
+  });
+}
+const chestLoad = P(both({ hip: 30, knee: 34, ankle: 16, hipAbd: 10, shoulder: 30, elbow: 130, shoulderAbd: 20 }), { spine: 16 });
+const chestRelease = P({ hipL: 30, kneeL: 20, ankleL: 10, hipR: -10, kneeR: 20, ankleR: -30, ...both({ shoulder: 88, elbow: 2, shoulderAbd: 8 }), spine: 20 });
+throwPattern('chest-pass', 'Medicine-ball chest pass', { load: chestLoad, release: chestRelease, releaseC: 'L+Rtoe', windup: 0.2, to: [260, 40, 0], arc: 10 });
+throwPattern('chest-pass-wall', 'Medicine-ball chest pass to a wall', { load: chestLoad, release: chestRelease, releaseC: 'L+Rtoe', windup: 0.2, to: [104, 40, 0], wall: 110 });
+const ohLoad = P({ hipL: 20, kneeL: 10, hipR: -14, kneeR: 16, ankleR: -20, ...both({ shoulder: 196, elbow: 70 }), spine: -14 });
+const ohRelease = P({ hipL: 34, kneeL: 22, ankleL: 12, hipR: -8, kneeR: 12, ankleR: -32, ...both({ shoulder: 110, elbow: 4 }), spine: 24 });
+throwPattern('overhead-throw-medball', 'Overhead medicine-ball throw', { load: ohLoad, loadC: 'L+Rtoe', release: ohRelease, releaseC: 'L+Rtoe', windup: 0.25, to: [280, 40, 0], arc: 40 });
+throwPattern('overhead-throw-wall', 'Overhead medicine-ball throw to a wall', { load: ohLoad, loadC: 'L+Rtoe', release: ohRelease, releaseC: 'L+Rtoe', windup: 0.25, to: [104, 60, 0], wall: 110 });
+// Slam: driven into the floor in front of the feet, one bounce back up to the hands.
 def('medball-slam', 'Medicine-ball slam', {
-  view: 'three-quarter', implement: mb, thumb: 1,
+  view: 'three-quarter', thumb: 1, ball: MEDBALL,
   keyframes: [
-    kf(P(both({ ankle: -26, shoulder: 186, elbow: 20, hipAbd: 10 }), { spine: -8 }), 'Ltoe+Rtoe', { hold: 0.2, move: 0.22 }),
-    kf(P(both({ hip: 96, knee: 70, ankle: 26, shoulder: 70, elbow: 10, hipAbd: 12 }), { spine: 70, neck: -20 }), 'feet', { hold: 0.35, move: 0.6 }),
-    kf(P(both({ ankle: -26, shoulder: 186, elbow: 20, hipAbd: 10 }), { spine: -8 }), 'Ltoe+Rtoe', { hold: 0.1 }),
+    kf(P(both({ ankle: -26, shoulder: 186, elbow: 20, hipAbd: 10 }), { spine: -8 }), 'Ltoe+Rtoe', { hold: 0.2, move: 0.22, ball: 'hands' }),
+    kf(P(both({ hip: 96, knee: 70, ankle: 26, shoulder: 70, elbow: 10, hipAbd: 12 }), { spine: 70, neck: -20 }), 'feet', { hold: 0.2, move: 0.3, ball: { floor: 'hands', dx: 6 } }),
+    kf(P(both({ hip: 96, knee: 70, ankle: 26, shoulder: 70, elbow: 10, hipAbd: 12 }), { spine: 70, neck: -20 }), 'feet', { hold: 0.15, move: 0.6, ball: 'hands' }),
+    kf(P(both({ ankle: -26, shoulder: 186, elbow: 20, hipAbd: 10 }), { spine: -8 }), 'Ltoe+Rtoe', { hold: 0.1, ball: 'hands' }),
   ],
 });
 const rotLoad = P(both({ hip: 30, knee: 36, ankle: 16, hipAbd: 16 }), { spine: 14, twist: 50, turn: 0, shoulderL: 50, shoulderAbdL: 30, elbowL: 20, shoulderR: 50, shoulderAbdR: -30, elbowR: 30 });
 const rotRelease = P({ hipL: 20, kneeL: 20, ankleL: 10, hipAbdL: 14, hipR: 10, kneeR: 30, ankleR: -30, hipAbdR: 14, hipRotR: 30 },
   { spine: 10, twist: -40, turn: -30, shoulderL: 70, shoulderAbdL: -40, elbowL: 20, shoulderR: 80, shoulderAbdR: 40, elbowR: 10 });
-def('rotational-throw', 'Rotational medicine-ball throw', {
-  view: 'front', implement: mb, thumb: 1,
-  keyframes: [
-    kf(rotLoad, 'feet', { hold: 0.3, move: 0.3 }),
-    kf(rotRelease, 'L+Rtoe', { hold: 0.35, move: 0.6 }),
-    kf(rotLoad, 'feet', { hold: 0.1 }),
-  ],
-});
-def('scoop-toss', 'Medicine-ball scoop toss', {
-  implement: mb, thumb: 1,
-  keyframes: [
-    kf(P(both({ hip: 92, knee: 80, ankle: 30, hipAbd: 14, shoulder: 60, elbow: 4 }), { spine: 66, neck: -20 }), 'feet', { hold: 0.3, move: 0.3 }),
-    kf(P(both({ ankle: -30, hipAbd: 10, shoulder: 170, elbow: 4 }), { spine: -10 }), 'Ltoe+Rtoe', { hold: 0.35, move: 0.6 }),
-    kf(P(both({ hip: 92, knee: 80, ankle: 30, hipAbd: 14, shoulder: 60, elbow: 4 }), { spine: 66, neck: -20 }), 'feet', { hold: 0.1 }),
-  ],
-});
-def('shot-put-throw', 'Medicine-ball shot-put throw', {
-  view: 'front', implement: { kind: 'medball', at: 'R' }, thumb: 1,
-  keyframes: [
-    kf(P({ ...both({ hip: 36, knee: 44, ankle: 18, hipAbd: 18 }), spine: 10, twist: 60, bend: -10, shoulderR: 40, shoulderAbdR: 60, elbowR: 140, shoulderL: 90, shoulderAbdL: 40, elbowL: 10 }), 'feet', { hold: 0.35, move: 0.35 }),
-    kf(P({ hipL: 10, kneeL: 10, ankleL: 0, hipAbdL: 16, hipR: 0, kneeR: 20, ankleR: -34, hipAbdR: 16, spine: 6, twist: -40, turn: -20, bend: 10, shoulderR: 120, shoulderAbdR: 20, elbowR: 4, shoulderL: -10, shoulderAbdL: 40, elbowL: 40 }), 'L+Rtoe', { hold: 0.4, move: 0.6 }),
-    kf(P({ ...both({ hip: 36, knee: 44, ankle: 18, hipAbd: 18 }), spine: 10, twist: 60, bend: -10, shoulderR: 40, shoulderAbdR: 60, elbowR: 140, shoulderL: 90, shoulderAbdL: 40, elbowL: 10 }), 'feet', { hold: 0.1 }),
-  ],
-});
+throwPattern('rotational-throw', 'Rotational medicine-ball throw', { view: 'front', load: rotLoad, release: rotRelease, releaseC: 'L+Rtoe', to: [20, 40, -280], arc: 20 });
+throwPattern('rotational-throw-wall', 'Rotational medicine-ball throw to a wall', { view: 'front', load: rotLoad, release: rotRelease, releaseC: 'L+Rtoe', to: [20, 40, -118], sideWall: -110 });
+// Side-on scoop: from the back hip, low, into a wall beside you.
+const rotScoopLoad = P(both({ hip: 40, knee: 46, ankle: 18, hipAbd: 16 }), { spine: 24, twist: 50, shoulderL: 22, shoulderAbdL: 30, elbowL: 14, shoulderR: 24, shoulderAbdR: -30, elbowR: 24 });
+const rotScoopRelease = P({ hipL: 24, kneeL: 22, ankleL: 10, hipAbdL: 14, hipR: 12, kneeR: 30, ankleR: -30, hipAbdR: 14, hipRotR: 30 },
+  { spine: 14, twist: -40, turn: -30, shoulderL: 48, shoulderAbdL: -40, elbowL: 16, shoulderR: 54, shoulderAbdR: 40, elbowR: 8 });
+throwPattern('rotational-scoop-wall', 'Side-on medicine-ball scoop toss to a wall', { view: 'front', load: rotScoopLoad, release: rotScoopRelease, releaseC: 'L+Rtoe', to: [20, 10, -118], sideWall: -110 });
+const scoopLoad = P(both({ hip: 92, knee: 80, ankle: 30, hipAbd: 14, shoulder: 60, elbow: 4 }), { spine: 66, neck: -20 });
+const scoopRelease = P(both({ ankle: -30, hipAbd: 10, shoulder: 170, elbow: 4 }), { spine: -10 });
+throwPattern('scoop-toss', 'Medicine-ball scoop toss', { load: scoopLoad, release: scoopRelease, releaseC: 'Ltoe+Rtoe', to: [300, 120, 0], arc: 60 });
+throwPattern('scoop-toss-wall', 'Medicine-ball scoop toss to a wall', { load: scoopLoad, release: scoopRelease, releaseC: 'Ltoe+Rtoe', to: [104, 110, 0], wall: 110 });
+const shotLoad = P({ ...both({ hip: 36, knee: 44, ankle: 18, hipAbd: 18 }), spine: 10, twist: 60, bend: -10, shoulderR: 40, shoulderAbdR: 60, elbowR: 140, shoulderL: 90, shoulderAbdL: 40, elbowL: 10 });
+const shotRelease = P({ hipL: 10, kneeL: 10, ankleL: 0, hipAbdL: 16, hipR: 0, kneeR: 20, ankleR: -34, hipAbdR: 16, spine: 6, twist: -40, turn: -20, bend: 10, shoulderR: 120, shoulderAbdR: 20, elbowR: 4, shoulderL: -10, shoulderAbdL: 40, elbowL: 40 });
+throwPattern('shot-put-throw', 'Medicine-ball shot-put throw', { view: 'front', hand: 'R', load: shotLoad, release: shotRelease, releaseC: 'L+Rtoe', windup: 0.35, to: [20, 60, -300], arc: 30 });
+throwPattern('shot-put-throw-wall', 'Medicine-ball shot-put throw to a wall', { view: 'front', hand: 'R', load: shotLoad, release: shotRelease, releaseC: 'L+Rtoe', windup: 0.35, to: [20, 50, -118], sideWall: -110 });
 
 // Core ----------------------------------------------------------------------
 const breathe = (p, contact, d = {}) => [
@@ -1494,7 +1499,7 @@ def('backward-overhead-toss', 'Backward overhead toss', {
     kf(P(both({ hip: 92, knee: 86, ankle: 30, hipAbd: 12, shoulder: 60, elbow: 4 }), { spine: 60, neck: -20 }), 'feet', { hold: 0.1 }),
   ],
 });
-def('plate-pinch-hold', 'Plate pinch hold', { view: 'three-quarter', loop: true, thumb: 0, implement: { kind: 'dumbbells', at: 'hands' }, keyframes: breathe(P(both({ shoulderAbd: 12, elbow: 2 })), 'feet', { spine: -1 }) });
+def('plate-pinch-hold', 'Plate pinch hold', { view: 'three-quarter', loop: true, thumb: 0, implement: { kind: 'plate', at: 'R' }, keyframes: breathe(P(both({ shoulderAbd: 12, elbow: 2 })), 'feet', { spine: -1 }) });
 
 // Weightlifting technique, powerlifting and conditioning circuits ------------
 const PVC = { kind: 'barbell', at: 'hands', pvc: true };

@@ -11,6 +11,7 @@ import { DRILLS } from './items/drills.js';
 import { SPORT_DRILLS } from './items/drills/index.js';
 import { EXERCISES } from './items/exercises.js';
 import { EXTRA_EXERCISES } from './items/exercisesExtra.js';
+import { VARIANT_TEXT } from './items/variantText.js';
 import { POSE_ASSIGNMENTS } from './poseAssignments/index.js';
 import { isPosePattern } from './poses.js';
 
@@ -54,7 +55,13 @@ const withPose = (item) => {
 export const RAW_BASE_ITEMS = [...EXERCISES, ...EXTRA_EXERCISES, ...DRILLS, ...SPORT_DRILLS];
 export const BASE_ITEMS = RAW_BASE_ITEMS.map(withPose);
 
-export const CATALOGUE = expandCatalogue(BASE_ITEMS);
+// A variant can have its own pattern too (a dumbbell or band version shows
+// that equipment, a single-side version one side, an opposed drill the defender).
+export const CATALOGUE = expandCatalogue(BASE_ITEMS).map((i) => {
+  if (!i.baseSlug) return i;
+  const pose = POSE_ASSIGNMENTS[i.slug];
+  return { ...i, ...VARIANT_TEXT[i.slug], ...(pose ? { startPose: pose, endPose: pose } : {}) };
+});
 
 const BY_SLUG = new Map(CATALOGUE.map((i) => [i.slug, i]));
 

@@ -13,7 +13,7 @@ export const NET_SPORT_POSES = {
   'volleyball-defensive-shuffle-dig': 'vb-shuffle-dig',
   'volleyball-drop-landing-control': 'drop-landing',
   'volleyball-transition-approach': 'vb-spike',
-  'boys-volleyball-approach-jump-test': 'approach-jump',
+  'boys-volleyball-approach-jump-test': 'approach-jump-wall',
   'boys-volleyball-high-ball-swing': 'vb-spike',
   'boys-volleyball-swing-block-footwork': 'vb-block-footwork',
   'boys-volleyball-serve-under-pressure': 'vb-jump-serve',

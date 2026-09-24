@@ -6,7 +6,7 @@ export const ENDURANCE_POSES = {
   'goalball-lateral-coverage-slides': 'goalball-slide',
   'goalball-core-extension-holds': 'side-plank',
   'goalball-orientation-return': 'goalball-orientation',
-  'goalball-med-ball-rotational-throws': 'rotational-throw',
+  'goalball-med-ball-rotational-throws': 'rotational-throw-wall',
   'para-track-seated-med-ball-chest-pass': 'seated-chest-pass',
   'para-track-band-pull-rows-for-pushers': 'band-row',
   'orienteering-trail-hill-intervals': 'hill-run-up',

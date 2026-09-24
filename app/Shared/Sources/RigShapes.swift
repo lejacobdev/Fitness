@@ -153,6 +153,14 @@ enum RigShapes {
                 // An arrow in flight, pointing along its path (forward).
                 let fw = normed(V3(s.root.apply(V3(1, 0, 0)).x, 0, s.root.apply(V3(1, 0, 0)).z))
                 balls.append(RigShape(points: capsule(P(ball - fw * 30), P(ball + fw * 30), 0.6, 0.6), color: Color(hex: pal.red), depth: depth, isBall: true))
+            } else if spec.shape == "shuttle" {
+                // A shuttlecock: the cork, and the feather skirt flaring up from it.
+                balls.append(RigShape(points: hull([P(ball), P(ball + V3(-spec.r * 2.2, spec.r * 3.8, 0)), P(ball + V3(spec.r * 2.2, spec.r * 3.8, 0))]),
+                                      color: Color(hex: "#E9E9EE"), depth: depth - 0.01, isBall: true))
+                balls.append(RigShape(points: sphere(ball, spec.r), color: Color(hex: ballColors["white"] ?? "#F4F4F2"), depth: depth, isBall: true))
+            } else if spec.shape == "puck" {
+                // A hockey puck: a flat black disc lying on the ice.
+                balls.append(RigShape(points: hull(disc(ball + V3(0, 1 - spec.r, 0), V3(0, 1, 0), spec.r, 14)), color: Color(hex: pal.shoe), depth: depth, isBall: true))
             } else if spec.shape == "disc" {
                 // A flying disc: flat, tilted slightly.
                 balls.append(RigShape(points: hull(disc(ball, normed(V3(0, 1, 0) + s.root.apply(V3(0, 0, 1)) * 0.2), 10.5, 18)),
@@ -424,6 +432,21 @@ enum RigShapes {
         let oneGrip = implementPoint(s, spec.at == "R" ? "R" : "L")
 
         switch spec.kind {
+        case "barbell" where spec.flags.contains("trap"):
+            // Trap (hex) bar: a hexagonal frame around the lifter, side handles, sleeves out left and right.
+            let fwdT = normed(V3(s.root.apply(V3(1, 0, 0)).x, 0, s.root.apply(V3(1, 0, 0)).z))
+            let gL = implementPoint(s, "L"), gR = implementPoint(s, "R")
+            let mid = (gL + gR) * 0.5
+            let side = normed(gL - gR)
+            let w = max(18, (gL - gR).length / 2)
+            let hex: [V3] = [(-22.0, w + 6), (0, w + 12), (22, w + 6), (22, -(w + 6)), (0, -(w + 12)), (-22, -(w + 6))]
+                .map { mid + fwdT * $0.0 + side * $0.1 }
+            for i in 0..<6 { out += segmented(hex[i], hex[(i + 1) % 6], 1.1, 1.1, Color(hex: pal.steel), n: 3) }
+            for σ in [1.0, -1.0] {
+                out += segmented(mid + side * (σ * (w + 12)), mid + side * (σ * (w + 30)), 1.1, 1.1, Color(hex: pal.steel), n: 3)
+                let c = mid + side * (σ * (w + 22))
+                push(hull(disc(c, side, 12)), pal.plate, D(c) + (σ > 0 ? 0 : -0.1))
+            }
         case "barbell":
             out += segmented(at + lateral * 52, at - lateral * 52, 1.1, 1.1, Color(hex: pal.steel), n: 14)
             // pvc: a light pipe for technique work — no plates.
@@ -496,7 +519,25 @@ enum RigShapes {
             push(capsule(P(mid + along * 38 + V3(0, -2, 0)), P(mid - along * 38 + V3(0, -2, 0)), 2.2, 2.2), pal.red, min(D(s.L.ankle), D(s.R.ankle)) - 0.5)
         case "band", "cable":
             let hex = spec.kind == "band" ? pal.red : pal.steel
-            if let to = spec.to {
+            if spec.flags.contains("toFootL") || spec.flags.contains("toFootR") {
+                // A band from the hands round one foot (hamstring floss, stretches).
+                let l = s.limb(spec.flags.contains("toFootL") ? "L" : "R")
+                out += segmented(implementPoint(s, "hands"), (l.ankle + l.toe) * 0.5, 0.9, 0.9, Color(hex: hex), n: 10)
+            } else if spec.flags.contains("loopFeet") {
+                // An assistance band looped from the hands (on the bar) to the feet.
+                out += segmented(implementPoint(s, "hands"), (s.L.ankle + s.R.ankle) * 0.5, 0.9, 0.9, Color(hex: hex), n: 10)
+            } else if spec.flags.contains("underFeet") || spec.flags.contains("underHands") {
+                // Standing on the band (ends in the hands), or held down on the floor by the hands.
+                let feet = (s.L.ankle + s.R.ankle) * 0.5
+                for side in ["L", "R"] {
+                    let g = implementPoint(s, side)
+                    let ankle = s.limb(side).ankle
+                    let floor = spec.flags.contains("underFeet")
+                        ? V3(feet.x + (ankle.x - feet.x) * 0.5, 0.8, feet.z + (ankle.z - feet.z) * 0.5)
+                        : V3(g.x, 0.8, g.z)
+                    out += segmented(g, floor, 0.8, 0.8, Color(hex: hex), n: 8)
+                }
+            } else if let to = spec.to {
                 let base = (s.L.ankle + s.R.ankle) / 2
                 let target = V3(base.x, 0, base.z) + fwFlat * to[0] + V3(0, to[1], 0) + azFlat * (to.count > 2 ? to[2] : 0)
                 out += segmented(at, target, 0.8, 0.8, Color(hex: hex), n: 10)
@@ -640,6 +681,11 @@ enum RigShapes {
             let c = implementPoint(s, "hands") + fwFlat * 12
             let lat3 = normed(s.root.apply(V3(0, 0, 1)))
             push(hull([(-12.0, -14.0), (14, -14), (14, 14), (-12, 14)].map { P(c + fwFlat * $0.0 + lat3 * $0.1) }), pal.red, D(c) + 0.5)
+        case "pad":
+            // A tackle / ruck pad held upright in front of the chest.
+            let c = implementPoint(s, "hands") + fwFlat * 7
+            let lat3 = normed(s.root.apply(V3(0, 0, 1)))
+            push(hull([(-16.0, -24.0), (16, -24), (16, 22), (-16, 22)].map { P(c + lat3 * $0.0 + V3(0, $0.1, 0)) }), pal.red, D(c) + 0.5)
         case "jumprope":
             let a = implementPoint(s, "L"), b = implementPoint(s, "R")
             let low = min(s.L.toe.y, s.R.toe.y) - 1
@@ -708,10 +754,16 @@ enum RigShapes {
             for x in [x0 + 6, x1 - 6] { box(x - 2, x + 2, 0, top - 5, z - 9, z + 9, pal.steel, -31) }
         case "box":
             let z = n["z"] ?? 0
-            box(n["x0"] ?? 0, n["x1"] ?? 0, 0, n["top"] ?? 34, z - 20, z + 20, pal.wood, -40)
+            // `foam`: a soft balance pad instead of a wooden box.
+            box(n["x0"] ?? 0, n["x1"] ?? 0, 0, n["top"] ?? 34, z - 20, z + 20, (n["foam"] ?? 0) != 0 ? pal.pad : pal.wood, -40)
         case "wall":
             let x = n["x"] ?? 0
-            box(x, x + 6, 0, 150, -40, 40, pal.ground, -60)
+            if n["side"] != nil {
+                let z = n["z"] ?? 0
+                box(x - 160, x + 160, 0, 150, z - 3, z + 3, pal.ground, -60)
+            } else {
+                box(x, x + 6, 0, 150, -40, 40, pal.ground, -60)
+            }
         case "bar":
             let at = W(p["at"] ?? .zero)
             out += segmented(at + az * 45, at - az * 45, 1.6, 1.6, Color(hex: pal.steel), n: 14)
@@ -868,14 +920,23 @@ enum RigShapes {
             box(x - 1, x + 1, 0, 70, -1, 1, pal.steel, -2)
             push(hull([P(W(x - 7, 84)), P(W(x + 7, 84)), P(W(x + 7, 70))]), "#E8762B", D(W(x, 77)))
             push(hull([P(W(x - 7, 84)), P(W(x - 7, 70)), P(W(x + 7, 70))]), "#F4F4F2", D(W(x, 77)) + 0.01)
+        case "stairs":
+            let x = n["x"] ?? 0, run = n["run"] ?? 30, rise = n["rise"] ?? 17, count = Int(n["count"] ?? 6)
+            for i in 0..<count {
+                box(x + Double(i) * run, x + Double(count) * run + 30, 0, Double(i + 1) * rise, -30, 30, pal.pad, -40 - Double(i) * 0.01)
+            }
         case "hurdle", "cone", "ladder":
             let x = n["x"] ?? 30
             if fx.kind == "cone" {
                 push([P(V3(x - 5, 0, 0)), P(V3(x + 5, 0, 0)), P(V3(x, 14, 0))], pal.red, -20)
             } else if fx.kind == "hurdle" {
-                box(x - 1, x + 1, 0, 26, -20, -18, pal.steel, -30)
-                box(x - 1, x + 1, 0, 26, 18, 20, pal.steel, 30)
-                box(x - 1.5, x + 1.5, 23, 27, -20, 20, pal.red, 0)
+                let h = n["height"] ?? 26
+                for i in 0..<Int(n["count"] ?? 1) {
+                    let hx = x + Double(i) * (n["gap"] ?? 0)
+                    box(hx - 1, hx + 1, 0, h, -20, -18, pal.steel, -30)
+                    box(hx - 1, hx + 1, 0, h, 18, 20, pal.steel, 30)
+                    box(hx - 1.5, hx + 1.5, h - 3, h + 1, -20, 20, pal.red, 0)
+                }
             } else {
                 for i in 0..<4 { box(x + Double(i) * 18, x + Double(i) * 18 + 1.5, 0, 0.8, -18, 18, pal.red, -1e5 + 2) }
             }

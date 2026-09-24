@@ -37,7 +37,7 @@ export const STICK_SPORT_POSES = {
   'lacrosse-midfield-clear-sprints': 'lax-stick-sprint',
   'lacrosse-heads-up-passing-triangle': 'lax-passing-triangle',
   'lacrosse-sidearm-shot-reps': 'lax-sidearm-shot',
-  'lacrosse-rotational-med-ball-shot': 'rotational-throw',
+  'lacrosse-rotational-med-ball-shot': 'rotational-throw-wall',
   'lacrosse-box-tight-space-shooting': 'lax-overhand-shot',
   'lacrosse-box-pick-and-roll-dodges': 'lax-pick-and-roll',
   'lacrosse-box-cross-check-absorb': 'lax-cross-check-absorb',

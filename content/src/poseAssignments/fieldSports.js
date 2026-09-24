@@ -35,7 +35,7 @@ export const FIELD_SPORT_POSES = {
   'softball-slap-footwork': 'softball-swing',
   'softball-infield-reaction-grounders': 'field-grounder',
   'softball-hip-lead-dry-swings': 'dry-swing',
-  'softball-med-ball-scoop-toss': 'scoop-toss',
+  'softball-med-ball-scoop-toss': 'rotational-scoop-wall',
   'softball-outfield-crow-hop-throws': 'crow-hop-throw',
   'flag-football-flag-pull-mirror': 'lateral-shuffle',
   'flag-football-route-tree-sprints': 'cut-45',
@@ -57,6 +57,6 @@ export const FIELD_SPORT_POSES = {
   'beep-baseball-sound-location-pointing': 'point-and-track',
   'beep-baseball-coached-dive-on-mats': 'side-dive',
   'beep-baseball-side-fall-progression': 'side-fall',
-  'beep-baseball-med-ball-rotational-throw': 'rotational-throw',
+  'beep-baseball-med-ball-rotational-throw': 'rotational-throw-wall',
   'beep-baseball-guided-acceleration-starts': 'acceleration-start',
 };

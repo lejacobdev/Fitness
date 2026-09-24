@@ -6,7 +6,7 @@
  * Every shape is a closed polygon in screen space (x right, y down) with a
  * depth; drawing them far-to-near is the whole renderer.
  */
-import { BONES, LACROSSE_HEAD, add, apply, dot, norm, project, scale, sub, rotY } from './rig3d.js';
+import { BONES, LACROSSE_HEAD, add, apply, dot, len, norm, project, scale, sub, rotY } from './rig3d.js';
 
 export const PALETTE = {
   light: {
@@ -323,6 +323,13 @@ export function sceneShapes(s, { scheme = 'light', glow = {}, implement = null, 
       // An arrow in flight, pointing along its path (forward).
       const fw = norm([apply(s.root, [1, 0, 0])[0], 0, apply(s.root, [1, 0, 0])[2]]);
       balls.push({ points: capsule2(P(add(s.ball, fw, -30)), P(add(s.ball, fw, 30)), 0.6, 0.6), fill: pal.implementRed, depth, isBall: true });
+    } else if (ball.shape === 'shuttle') {
+      // A shuttlecock: the cork, and the feather skirt flaring up from it.
+      balls.push({ points: hull([P(s.ball), P(add(s.ball, [-r * 2.2, r * 3.8, 0])), P(add(s.ball, [r * 2.2, r * 3.8, 0]))]), fill: '#E9E9EE', depth: depth - 0.01, isBall: true });
+      balls.push({ points: sphere(s.ball, r), fill: BALL_COLORS.white, depth, isBall: true });
+    } else if (ball.shape === 'puck') {
+      // A hockey puck: a flat black disc lying on the ice.
+      balls.push({ points: hull(discPoly(add(s.ball, [0, 1 - r, 0]), [0, 1, 0], r, 14)), fill: pal.shoe, depth, isBall: true });
     } else if (ball.shape === 'disc') {
       // A flying disc: flat, tilted slightly.
       balls.push({ points: hull(discPoly(s.ball, norm(add([0, 1, 0], apply(s.root, [0, 0, 1]), 0.2)), 10.5, 18)), fill: BALL_COLORS[ball.color ?? 'red'] ?? pal.implementRed, depth, isBall: true });
@@ -422,6 +429,26 @@ export function implementShapes(s, spec, pal) {
     case 'barbell': {
       const half = 52;
       const a = add(at, lateral, half), b = add(at, lateral, -half);
+      if (spec.trap) {
+        // Trap (hex) bar: the lifter stands inside a hexagonal frame and
+        // holds the side handles; sleeves stick out left and right.
+        const fwd = norm([apply(s.root, [1, 0, 0])[0], 0, apply(s.root, [1, 0, 0])[2]]);
+        const gL = implementPoint(s, 'L'), gR = implementPoint(s, 'R');
+        const mid = scale(add(gL, gR), 0.5);
+        const side = norm(sub(gL, gR));
+        const w = Math.max(18, len(sub(gL, gR)) / 2);
+        const hex = [[-22, w + 6], [0, w + 12], [22, w + 6], [22, -(w + 6)], [0, -(w + 12)], [-22, -(w + 6)]]
+          .map(([f, l]) => add(add(mid, fwd, f), side, l));
+        for (let i = 0; i < 6; i++) out.push(...segmented(hex[i], hex[(i + 1) % 6], 1.1, 1.1, pal.steel, 0, 3));
+        for (const σ of [1, -1]) {
+          const sleeve = add(mid, side, σ * (w + 12));
+          const end = add(mid, side, σ * (w + 30));
+          out.push(...segmented(sleeve, end, 1.1, 1.1, pal.steel, 0, 3));
+          const c = add(mid, side, σ * (w + 22));
+          push(hull(discPoly(c, side, 12)), pal.plate, D(c) + (σ > 0 ? 0 : -0.1));
+        }
+        break;
+      }
       out.push(...segmented(a, b, 1.1, 1.1, pal.steel, 0, 14));
       // pvc: a light pipe for technique work — no plates.
       if (!spec.pvc) for (const σ of [1, -1]) {
@@ -571,6 +598,29 @@ export function implementShapes(s, spec, pal) {
     }
     case 'band': case 'cable': {
       const color = spec.kind === 'band' ? pal.implementRed : pal.steel;
+      if (spec.toFootL || spec.toFootR) {
+        // A band from the hands round one foot (hamstring floss, stretches).
+        const l = s[spec.toFootL ? 'L' : 'R'];
+        out.push(...segmented(implementPoint(s, 'hands'), scale(add(l.ankle, l.toe), 0.5), 0.9, 0.9, color, 0, 10));
+        break;
+      }
+      if (spec.loopFeet) {
+        // An assistance band looped from the hands (on the bar) to the feet.
+        const feet = scale(add(s.L.ankle, s.R.ankle), 0.5);
+        out.push(...segmented(implementPoint(s, 'hands'), feet, 0.9, 0.9, color, 0, 10));
+        break;
+      }
+      if (spec.underFeet || spec.underHands) {
+        // Standing on the band (ends in the hands), or a band held down on
+        // the floor by the hands' weight: each hand to the floor.
+        const feet = scale(add(s.L.ankle, s.R.ankle), 0.5);
+        for (const side of ['L', 'R']) {
+          const g = implementPoint(s, side);
+          const floor = spec.underFeet ? [feet[0] + (s[side].ankle[0] - feet[0]) * 0.5, 0.8, feet[2] + (s[side].ankle[2] - feet[2]) * 0.5] : [g[0], 0.8, g[2]];
+          out.push(...segmented(g, floor, 0.8, 0.8, color, 0, 8));
+        }
+        break;
+      }
       if (!spec.to) {
         // Stretched between the two hands (pull-aparts, dislocates).
         const a = implementPoint(s, 'L'), b = implementPoint(s, 'R');
@@ -731,6 +781,17 @@ export function implementShapes(s, spec, pal) {
       push(hull(pts), pal.implementRed, D(c) + 0.5);
       break;
     }
+    case 'pad': {
+      // A tackle / ruck pad held upright in front of the chest.
+      const g = implementPoint(s, 'hands');
+      const fw = norm([apply(s.root, [1, 0, 0])[0], 0, apply(s.root, [1, 0, 0])[2]]);
+      const lat3 = norm(apply(s.root, [0, 0, 1]));
+      const c = add(g, fw, 7);
+      const pts = [];
+      for (const [l, u] of [[-16, -24], [16, -24], [16, 22], [-16, 22]]) pts.push(P(add(add(c, lat3, l), [0, 1, 0], u)));
+      push(hull(pts), pal.implementRed, D(c) + 0.5);
+      break;
+    }
     case 'jumprope': {
       // The rope's loop passing under the feet: hands → floor → hands.
       const a = implementPoint(s, 'L'), b = implementPoint(s, 'R');
@@ -812,12 +873,14 @@ export function fixtureShapes(s, fx, place, pal) {
     }
     case 'box': {
       const { x0, x1, top, z } = place;
-      box(x0, x1, 0, top, z - 20, z + 20, pal.wood, -40);
+      // `foam`: a soft balance pad instead of a wooden box.
+      box(x0, x1, 0, top, z - 20, z + 20, fx.foam ? pal.pad : pal.wood, -40);
       break;
     }
     case 'wall': {
       const { x } = place;
-      box(x, x + 6, 0, 150, -40, 40, pal.ground, -60);
+      if (place.side) box(x - 160, x + 160, 0, 150, place.z - 3, place.z + 3, pal.ground, -60);
+      else box(x, x + 6, 0, 150, -40, 40, pal.ground, -60);
       break;
     }
     case 'bar': {
@@ -1018,13 +1081,22 @@ export function fixtureShapes(s, fx, place, pal) {
       push(hull([P(W(x - 7, 84, o[2])), P(W(x - 7, 70, o[2])), P(W(x + 7, 70, o[2]))]), '#F4F4F2', D(W(x, 77, o[2])) + 0.01);
       break;
     }
+    case 'stairs': {
+      const { x, run, rise, count } = place;
+      for (let i = 0; i < count; i++) box(x + i * run, x + count * run + 30, 0, (i + 1) * rise, -30, 30, pal.pad, -40 - i * 0.01);
+      break;
+    }
     case 'hurdle': case 'cone': case 'ladder': {
       const { x } = place;
       if (fx.kind === 'cone') push([P([x - 5, 0, 0]), P([x + 5, 0, 0]), P([x, 14, 0])], pal.implementRed, -20);
       else if (fx.kind === 'hurdle') {
-        box(x - 1, x + 1, 0, 26, -20, -18, pal.steel, -30);
-        box(x - 1, x + 1, 0, 26, 18, 20, pal.steel, 30);
-        box(x - 1.5, x + 1.5, 23, 27, -20, 20, pal.implementRed, 0);
+        const h = place.height ?? 26;
+        for (let i = 0; i < (place.count ?? 1); i++) {
+          const hx = x + i * (place.gap ?? 0);
+          box(hx - 1, hx + 1, 0, h, -20, -18, pal.steel, -30);
+          box(hx - 1, hx + 1, 0, h, 18, 20, pal.steel, 30);
+          box(hx - 1.5, hx + 1.5, h - 3, h + 1, -20, 20, pal.implementRed, 0);
+        }
       } else for (let i = 0; i < 4; i++) box(x + i * 18, x + i * 18 + 1.5, 0, 0.8, -18, 18, pal.implementRed, -1e5 + 2);
       break;
     }

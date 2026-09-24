@@ -20,5 +20,5 @@ export const STRENGTH_SPORT_POSES = {
   'crossfit-style-conditioning-farmer-carry-medley': 'farmers-carry',
   'crossfit-style-conditioning-row-burpee-chipper': 'burpee',
   'crossfit-style-conditioning-goblet-squat-strength': 'goblet-squat',
-  'crossfit-style-conditioning-pull-up-progression': 'pull-up',
+  'crossfit-style-conditioning-pull-up-progression': 'pull-up-band',
 };

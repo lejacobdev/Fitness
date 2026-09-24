@@ -645,7 +645,8 @@ function placeFixtureRaw(fx, pel, k0, all) {
       }
       return { x0: pel[0] + fx.from, x1: pel[0] + fx.to, top: fx.top ?? pel[1] + (fx.below ?? -10), z: pel[2] };
     }
-    case 'wall': return { x: pel[0] + fx.at };
+    // `side`: a wall beside the athlete (side-on throws), `at` to the left (+) or right (−).
+    case 'wall': return fx.side ? { x: pel[0], z: pel[2] + fx.at, side: 1 } : { x: pel[0] + fx.at };
     case 'incline': {
       // Pad along the back of keyframe 0's trunk, seat under the pelvis.
       const upv = apply(k0.trunk, [0, 1, 0]), fw = apply(k0.trunk, [1, 0, 0]);
@@ -673,7 +674,11 @@ function placeFixtureRaw(fx, pel, k0, all) {
       const xs = all.map((s) => s.pelvis[0]);
       return { foot, seatTop: pel[1] - 10, fly: [foot[0] + 20, foot[1] + 2, 0], rail0: Math.min(...xs) - 20, rail1: foot[0] + 8 };
     }
-    case 'hurdle': case 'cone': case 'ladder': case 'sled': case 'control': return { x: pel[0] + (fx.at ?? 30) };
+    // Hurdles: `count` of them `gap` apart, `height` tall (mini hurdles for wickets and hops).
+    case 'hurdle': return { x: pel[0] + (fx.at ?? 30), count: fx.count ?? 1, gap: fx.gap ?? 0, height: fx.height ?? 26 };
+    case 'cone': case 'ladder': case 'sled': case 'control': return { x: pel[0] + (fx.at ?? 30) };
+    // Stairs: `count` steps, each `run` deep and `rise` high, the first edge `from` ahead.
+    case 'stairs': return { x: pel[0] + (fx.from ?? 20), run: fx.run ?? 30, rise: fx.rise ?? 17, count: fx.count ?? 6 };
     case 'surfboard': return { x0: pel[0] + (fx.from ?? -110), x1: pel[0] + (fx.to ?? 90), y: fx.y ?? 0, water: !!fx.water };
     case 'horse': return { seat: [pel[0], pel[1] - 9, pel[2]] };
     case 'climbwall': return { x: pel[0] + (fx.at ?? 30) };

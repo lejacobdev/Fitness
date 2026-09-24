@@ -4,7 +4,7 @@
  * like a treadmill: the glide foot slides back under the body as it would
  * on the ice.
  */
-import { add, apply, norm, scale, sub } from '../rig3d.js';
+import { add, apply, implementHead, keyframeAt, norm, placeKeyframes, rotY, scale, sub } from '../rig3d.js';
 import { P, both, kf, library, mirror, reachBoth } from './kit.js';
 
 const lib = library();
@@ -124,37 +124,52 @@ const slapSetup = holdStick(P(shotStance), ice(30, 70), air(4, 12, -6));
 const slapBack = holdStick(P(shotStance, { twist: -46, turn: -10, hipL: 24, kneeL: 20, hipR: 44, kneeR: 54 }), air(-30, 110, -80), air(-2, 30, -8));
 const slapImpact = holdStick(P(shotStance, { twist: 6, hipL: 46, kneeL: 56, hipR: 26, kneeR: 30, bend: 6 }), ice(20, 72), air(6, 8, 8));
 const slapFollow = holdStick(P(shotStance, { twist: 44, turn: 20, hipL: 44, kneeL: 50, hipR: 16, kneeR: 20, ankleR: -30, bend: 10 }), air(40, 70, 110), air(10, 30, 20));
+/** The puck: on the blade until contact, then off towards the net (the athlete's left). */
+const PUCK = { r: 3.4, shape: 'puck', color: 'black' };
+const shotAway = (h = 14) => ({ at: [70, h, 300] });
 def('hockey-slap-shot', 'Slap shot', {
-  view: 'front', thumb: 2, implement: stick({ puck: false }),
+  view: 'front', thumb: 2, implement: stick(), ball: PUCK,
   keyframes: [
-    kf(slapSetup, 'feet', { hold: 0.3, move: 0.5 }),
+    kf(slapSetup, 'feet', { hold: 0.3, move: 0.5, ball: 'head' }),
     kf(slapBack, 'feet', { hold: 0.15, move: 0.22 }),
-    kf(slapImpact, 'feet', { move: 0.14 }),
-    kf(slapFollow, 'L+Rtoe', { hold: 0.4, move: 0.6 }),
-    kf(slapSetup, 'feet', { hold: 0.1 }),
+    kf(slapImpact, 'feet', { move: 0.14, ball: 'head' }),
+    kf(slapFollow, 'L+Rtoe', { hold: 0.4, move: 0.6, ball: shotAway(24) }),
+    kf(slapSetup, 'feet', { hold: 0.1, ball: 'none' }),
   ],
 });
 const snapBack = holdStick(P(shotStance, { twist: -20, hipR: 42, kneeR: 50 }), ice(0, 50), air(0, 12, -6));
+// While the stick is raised, the puck waits on the ice where the blade meets it at impact.
+{
+  const p = lib.patterns.find((q) => q.slug === 'hockey-slap-shot');
+  const placed = placeKeyframes(p);
+  const spot = implementHead(p.implement, keyframeAt(p, 2, placed), PUCK.r);
+  const fw = apply(rotY(placed.view), [1, 0, 0]), lt = apply(rotY(placed.view), [0, 0, 1]);
+  for (const i of [0, 1]) {
+    const pel = keyframeAt(p, i, placed).pelvis;
+    const d = [spot[0] - pel[0], spot[1] - pel[1], spot[2] - pel[2]];
+    p.keyframes[i] = { ...p.keyframes[i], ball: { at: [d[0] * fw[0] + d[2] * fw[2], d[1], d[0] * lt[0] + d[2] * lt[2]] } };
+  }
+}
 def('hockey-snap-shot', 'Snap shot', {
-  view: 'front', thumb: 2, implement: stick({ puck: false }),
+  view: 'front', thumb: 2, implement: stick(), ball: PUCK,
   keyframes: [
-    kf(slapSetup, 'feet', { hold: 0.25, move: 0.3 }),
-    kf(snapBack, 'feet', { hold: 0.05, move: 0.14 }),
-    kf(slapImpact, 'feet', { move: 0.12 }),
-    kf(holdStick(P(shotStance, { twist: 30, turn: 14, hipL: 42, kneeL: 50, hipR: 18, kneeR: 24 }), air(40, 20, 100), air(10, 16, 14)), 'feet', { hold: 0.4, move: 0.5 }),
-    kf(slapSetup, 'feet', { hold: 0.1 }),
+    kf(slapSetup, 'feet', { hold: 0.25, move: 0.3, ball: 'head' }),
+    kf(snapBack, 'feet', { hold: 0.05, move: 0.14, ball: 'head' }),
+    kf(slapImpact, 'feet', { move: 0.12, ball: 'head' }),
+    kf(holdStick(P(shotStance, { twist: 30, turn: 14, hipL: 42, kneeL: 50, hipR: 18, kneeR: 24 }), air(40, 20, 100), air(10, 16, 14)), 'feet', { hold: 0.4, move: 0.5, ball: shotAway() }),
+    kf(slapSetup, 'feet', { hold: 0.1, ball: 'none' }),
   ],
 });
 
 // Wrist shot: the blade stays on the ice, sweeping the puck from behind the
 // back foot forward while the weight moves back to front, then a low-to-high finish.
 def('hockey-wrist-shot', 'Wrist shot', {
-  view: 'front', thumb: 1, implement: stick({ puck: true }),
+  view: 'front', thumb: 1, implement: stick(), ball: PUCK,
   keyframes: [
-    kf(holdStick(P(shotStance, { twist: -26, hipR: 44, kneeR: 54, hipL: 28, kneeL: 30 }), ice(-6, 20), air(0, 12, -8)), 'feet', { hold: 0.3, move: 0.3 }),
-    kf(holdStick(P(shotStance, { twist: 8, hipL: 44, kneeL: 54, hipR: 28, kneeR: 32 }), ice(24, 64), air(8, 10, 6)), 'feet', { move: 0.18 }),
-    kf(holdStick(P(shotStance, { twist: 34, turn: 12, hipL: 44, kneeL: 50, hipR: 18, kneeR: 24 }), air(40, 30, 100), air(10, 18, 16)), 'feet', { hold: 0.4, move: 0.5 }),
-    kf(holdStick(P(shotStance, { twist: -26, hipR: 44, kneeR: 54, hipL: 28, kneeL: 30 }), ice(-6, 20), air(0, 12, -8)), 'feet', { hold: 0.1 }),
+    kf(holdStick(P(shotStance, { twist: -26, hipR: 44, kneeR: 54, hipL: 28, kneeL: 30 }), ice(-6, 20), air(0, 12, -8)), 'feet', { hold: 0.3, move: 0.3, ball: 'head' }),
+    kf(holdStick(P(shotStance, { twist: 8, hipL: 44, kneeL: 54, hipR: 28, kneeR: 32 }), ice(24, 64), air(8, 10, 6)), 'feet', { move: 0.18, ball: 'head' }),
+    kf(holdStick(P(shotStance, { twist: 34, turn: 12, hipL: 44, kneeL: 50, hipR: 18, kneeR: 24 }), air(40, 30, 100), air(10, 18, 16)), 'feet', { hold: 0.4, move: 0.5, ball: shotAway(30) }),
+    kf(holdStick(P(shotStance, { twist: -26, hipR: 44, kneeR: 54, hipL: 28, kneeL: 30 }), ice(-6, 20), air(0, 12, -8)), 'feet', { hold: 0.1, ball: 'none' }),
   ],
 });
 def('hockey-stickhandling-dryland', 'Dryland stickhandling', {

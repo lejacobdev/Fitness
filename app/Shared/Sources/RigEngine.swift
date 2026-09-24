@@ -678,8 +678,10 @@ final class RigPlayback {
                 out.numbers = ["x0": pel.x + (p["from"] ?? -20), "x1": pel.x + (p["to"] ?? 20),
                                "top": p["top"] ?? pel.y + (p["below"] ?? -10), "z": pel.z]
             }
+            if let foam = p["foam"] { out.numbers["foam"] = foam }
         case "wall":
-            out.numbers = ["x": pel.x + (p["at"] ?? -12)]
+            // `side`: a wall beside the athlete (side-on throws), `at` to the left (+) or right (−).
+            out.numbers = (p["side"] ?? 0) != 0 ? ["x": pel.x, "z": pel.z + (p["at"] ?? 0), "side": 1] : ["x": pel.x + (p["at"] ?? -12)]
         case "incline":
             let upv = b0.trunk.apply(V3(0, 1, 0)), fw = b0.trunk.apply(V3(1, 0, 0))
             let from = pel - fw * 13 + upv * 4, to = pel - fw * 13 + upv * 44
@@ -716,8 +718,14 @@ final class RigPlayback {
         case "ramp":
             out.numbers = ["x0": pel.x + (p["from"] ?? 20), "x1": pel.x + (p["to"] ?? 110), "top": p["top"] ?? 60]
             out.points["seat"] = V3(pel.x, pel.y - 9, pel.z)
-        case "hurdle", "cone", "ladder", "sled", "control":
+        case "hurdle":
+            // Hurdles: `count` of them `gap` apart, `height` tall (mini hurdles for wickets and hops).
+            out.numbers = ["x": pel.x + (p["at"] ?? 30), "count": p["count"] ?? 1, "gap": p["gap"] ?? 0, "height": p["height"] ?? 26]
+        case "cone", "ladder", "sled", "control":
             out.numbers = ["x": pel.x + (p["at"] ?? 30)]
+        case "stairs":
+            // Stairs: `count` steps, each `run` deep and `rise` high, the first edge `from` ahead.
+            out.numbers = ["x": pel.x + (p["from"] ?? 20), "run": p["run"] ?? 30, "rise": p["rise"] ?? 17, "count": p["count"] ?? 6]
         case "net":
             out.numbers = ["x": pel.x + (p["at"] ?? 30), "top": p["top"] ?? 150]
         case "wheelchair", "racingchair":

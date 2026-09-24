@@ -7,7 +7,7 @@ export const RACKET_SPORT_POSES = {
   'tennis-spider-run': 'shuttle-turn',
   'tennis-wide-ball-recovery': 'tennis-forehand',
   'tennis-overhead-smash-feed': 'tennis-overhead',
-  'tennis-med-ball-side-throw': 'rotational-throw',
+  'tennis-med-ball-side-throw': 'rotational-throw-wall',
   'tennis-serve-and-first-ball': 'tennis-serve',
   'tennis-suicide-court-sprints': 'shuttle-turn',
   'tennis-return-of-serve-reads': 'split-step',
@@ -44,7 +44,7 @@ export const RACKET_SPORT_POSES = {
   'racquetball-center-court-recovery': 'squash-lunge-drop',
   'racquetball-reaction-rebounds': 'low-forehand',
   'racquetball-ceiling-ball-rally': 'badminton-clear',
-  'racquetball-med-ball-rotations': 'rotational-throw',
+  'racquetball-med-ball-rotations': 'rotational-throw-wall',
   'racquetball-serve-and-return-drill': 'low-forehand',
   'racquetball-suicides-front-back': 'shuttle-turn',
 };

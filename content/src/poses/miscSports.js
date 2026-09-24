@@ -1,5 +1,5 @@
 /** miscSports movement patterns (see ../poses.js for the format). */
-import { add, apply, scale } from '../rig3d.js';
+import { add, apply, implementHead, keyframeAt, placeKeyframes, rotY, scale } from '../rig3d.js';
 import { ATHLETIC, P, STAND, both, handsToFloor, kf, library, on, reach, reachBoth, side, solve, toeDown, levelFeet } from './kit.js';
 
 const lib = library();
@@ -336,5 +336,40 @@ def('band-pull-through', 'Band backhand pull-through', {
     kf(bhFollow, 'R+Ltoe', { hold: 0.3, move: 1 }),
   ],
 });
+
+
+// ── Golf balls ────────────────────────────────────────────────────────────
+/**
+ * The ball sits where the club face meets it (keyframe `spotFrom`, by default `impact`), so it stays put
+ * through the backswing; after `impact` it flies (or rolls, `ground`) to `to` =
+ * [forward, height above the ground, left] for the rest of the rep.
+ */
+function golfBall(slug, impact, to, { arc = 0, ground = false, spotFrom = impact } = {}) {
+  const p = lib.patterns.find((q) => q.slug === slug);
+  const r = 2.2;
+  p.ball = { r, color: 'white' };
+  const placed = placeKeyframes(p);
+  const spot = implementHead(p.implement, keyframeAt(p, spotFrom, placed), r);
+  const fw = apply(rotY(placed.view), [1, 0, 0]), lt = apply(rotY(placed.view), [0, 0, 1]);
+  const rel = (i, pt) => {
+    const pel = keyframeAt(p, i, placed).pelvis;
+    const d = [pt[0] - pel[0], pt[1] - pel[1], pt[2] - pel[2]];
+    return { at: [d[0] * fw[0] + d[2] * fw[2], d[1], d[0] * lt[0] + d[2] * lt[2]] };
+  };
+  const dest = add(add([spot[0], ground ? r : to[1], spot[2]], fw, to[0]), lt, to[2]);
+  p.keyframes = p.keyframes.map((k, i) => ({
+    ...k,
+    ball: rel(i, i <= impact ? [spot[0], r, spot[2]] : dest),
+    ...(i === impact ? { ballArc: arc } : {}),
+  }));
+}
+golfBall('golf-full-swing', 2, [30, 140, 520], { arc: 60 });
+golfBall('golf-swing-hold-finish', 2, [30, 140, 520], { arc: 60 });
+golfBall('golf-slow-swing', 2, [30, 140, 520], { arc: 60 });
+golfBall('golf-step-through', 3, [30, 140, 520], { arc: 60 });
+golfBall('golf-feet-together', 2, [30, 120, 480], { arc: 50 });
+golfBall('golf-pre-shot-routine', 6, [30, 140, 520], { arc: 60 });
+golfBall('golf-chip', 1, [10, 0, 150], { arc: 34, ground: true, spotFrom: 0 });
+golfBall('golf-putt', 1, [0, 0, 110], { ground: true, spotFrom: 0 });
 
 export const MISC_SPORTS = lib.patterns;
