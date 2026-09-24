@@ -619,7 +619,9 @@ final class RigPlayback {
 
     private func placeFixture() -> Fixture? {
         guard let fx = info.fixture else { return nil }
-        let k0 = keyframe(0)
+        // placeFrom: lay the fixture out from that keyframe on (a bike you run up to).
+        let from = min(Int(fx.params["placeFrom"] ?? 0), info.keyframes.count - 1)
+        let k0 = keyframe(from)
         let pel = k0.pelvis
         let back = M3.rotY(-view)
         func toBody(_ p: V3) -> V3 { pel + back.apply(p - pel) }
@@ -636,7 +638,8 @@ final class RigPlayback {
             return b
         }
         let b0 = bodySkel(k0)
-        let all = info.keyframes.indices.map { bodySkel(keyframe($0)) }
+        let to = fx.params["placeTo"].map { Int($0) } ?? info.keyframes.count
+        let all = info.keyframes.indices.dropFirst(from).prefix(max(0, to - from)).map { bodySkel(keyframe($0)) }
         var out = Fixture(kind: fx.kind, origin: pel, view: view)
         let p = fx.params
         switch fx.kind {
@@ -683,7 +686,7 @@ final class RigPlayback {
             let xs = all.map(\.pelvis.x)
             out.numbers = ["seatTop": pel.y - 10, "rail0": (xs.min() ?? 0) - 20, "rail1": foot.x + 8]
             out.points = ["foot": foot, "fly": V3(foot.x + 20, foot.y + 2, pel.z)]
-        case "hurdle", "cone", "ladder", "sled":
+        case "hurdle", "cone", "ladder", "sled", "control":
             out.numbers = ["x": pel.x + (p["at"] ?? 30)]
         case "net":
             out.numbers = ["x": pel.x + (p["at"] ?? 30), "top": p["top"] ?? 150]

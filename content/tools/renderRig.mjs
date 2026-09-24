@@ -33,7 +33,7 @@ patterns.forEach((p, row) => {
     : Array.from({ length: n }, (_, i) => frameAtTime(p, (i / n) * pathSeconds(p, placed), placed));
   cols = Math.max(cols, frames.length);
   // One camera box for the whole strip (like the app's fixed frame).
-  const all = frames.flatMap((s) => figureShapes(s, { scheme, implement: p.implement, fixture: p.fixture, fixturePlace: place, ball: p.ball, prosthetic: p.prosthetic }).filter((sh) => sh.depth > -1e5 && !sh.isBall).flatMap((sh) => sh.points));
+  const all = frames.flatMap((s) => figureShapes(s, { scheme, implement: p.implement, fixture: p.fixture, fixturePlace: place, ball: p.ball, prosthetic: p.prosthetic, wear: p.wear }).filter((sh) => sh.depth > -1e5 && !sh.isBall).flatMap((sh) => sh.points));
   const xs = all.map((q) => q[0]), ys = all.map((q) => q[1]);
   const minX = Math.min(...xs) - 4, maxX = Math.max(...xs) + 4, minY = Math.min(...ys) - 4, maxY = Math.max(4, Math.max(...ys)) + 4;
   const k = Math.min((cellW - 8) / (maxX - minX), (cellH - 26) / (maxY - minY));
@@ -43,7 +43,7 @@ patterns.forEach((p, row) => {
     const tx = x0 + 4 - minX * k + ((cellW - 8) - (maxX - minX) * k) / 2;
     const ty = y0 + 20 - minY * k;
     body += `<g transform="translate(${tx},${ty}) scale(${k})">`;
-    for (const sh of figureShapes(s, { scheme, implement: p.implement, fixture: p.fixture, fixturePlace: place, glow: p.previewGlow ?? {}, ball: p.ball, prosthetic: p.prosthetic })) {
+    for (const sh of figureShapes(s, { scheme, implement: p.implement, fixture: p.fixture, fixturePlace: place, glow: p.previewGlow ?? {}, ball: p.ball, prosthetic: p.prosthetic, wear: p.wear })) {
       if (sh.points.length < 2) continue;
       const d = `M${sh.points.map((q) => `${q[0].toFixed(2)},${q[1].toFixed(2)}`).join(' L')} Z`;
       const fill = sh.fill === 'none' ? 'none' : sh.fill;

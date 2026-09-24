@@ -279,6 +279,7 @@ function genPosePatternsSwift() {
     } : null,
     ball: p.ball ? { r: r3(p.ball.r ?? 6), color: p.ball.color ?? 'red', shape: p.ball.shape ?? null } : null,
     prosthetic: p.prosthetic ?? null,
+    wear: p.wear ?? null,
     cast: p.cast ? p.cast.map((c) => ({ pattern: c.pattern, at: [r3(c.at?.[0] ?? 0), r3(c.at?.[1] ?? 0)], facing: r3(c.facing ?? 0), phase: r3(c.phase ?? 0), follow: !!c.follow, tether: !!c.tether })) : null,
     path: p.path ? { kind: p.path.kind, length: p.path.length ?? null, radius: p.path.radius ?? null, angle: p.path.angle ?? null, grade: p.path.grade ?? null, turn: p.path.turn ?? null, dir: p.path.dir ?? null, speed: p.path.speed ?? null } : null,
     keyframes: p.keyframes.map((k) => ({
@@ -433,6 +434,8 @@ public struct PosePatternInfo: Sendable, Identifiable, Hashable, Codable {
     public let cast: [RigCastSpec]?
     /// "L" / "R": that leg is a below-knee running blade.
     public let prosthetic: String?
+    /// Headwear: "eyeshade" (goalball), "helmet" (cycling).
+    public let wear: [String]?
     public let keyframes: [PoseKeyframe]
 
     public var start: Pose { keyframes[0].pose }

@@ -593,8 +593,11 @@ export function project(p, pitch = CAMERA_PITCH) {
 export function placeFixture(pattern, placed = placeKeyframes(pattern)) {
   const fx = pattern.fixture;
   if (!fx) return null;
-  const k0 = keyframeAt(pattern, 0, placed);
-  const all = pattern.keyframes.map((_, i) => keyframeAt(pattern, i, placed));
+  // `placeFrom`: lay the fixture out from that keyframe on (a bike you run up to).
+  const from = fx.placeFrom ?? 0;
+  const k0 = keyframeAt(pattern, from, placed);
+  // `placeTo`: …and only up to that keyframe (a bike you get off).
+  const all = pattern.keyframes.map((_, i) => keyframeAt(pattern, i, placed)).slice(from, fx.placeTo ?? undefined);
   const pel = k0.pelvis;
   // Fixtures are laid out in the body's own axes (x forward, z left) around
   // keyframe 0's pelvis — the side view — and turned with the camera when
@@ -657,7 +660,7 @@ function placeFixtureRaw(fx, pel, k0, all) {
       const xs = all.map((s) => s.pelvis[0]);
       return { foot, seatTop: pel[1] - 10, fly: [foot[0] + 20, foot[1] + 2, 0], rail0: Math.min(...xs) - 20, rail1: foot[0] + 8 };
     }
-    case 'hurdle': case 'cone': case 'ladder': case 'sled': return { x: pel[0] + (fx.at ?? 30) };
+    case 'hurdle': case 'cone': case 'ladder': case 'sled': case 'control': return { x: pel[0] + (fx.at ?? 30) };
     case 'net': return { x: pel[0] + (fx.at ?? 30), top: fx.top ?? 150 };
     case 'wheelchair': case 'racingchair': return { seat: [pel[0], pel[1] - 9, pel[2]] };
     case 'blocks': return { L: [k0.L.toe[0], k0.L.toe[2]], R: [k0.R.toe[0], k0.R.toe[2]] };

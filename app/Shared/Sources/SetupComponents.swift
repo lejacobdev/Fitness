@@ -160,7 +160,7 @@ struct SeasonEditor: View {
             HStack(spacing: 10) {
                 Image(systemName: "calendar")
                     .foregroundStyle(AppTheme.blue)
-                Text("\(weeks) weeks of season. Your plan builds before it, maintains during it, and unloads after.")
+                Text("\(weeks) weeks of season. You'll get stronger before it, stay fresh during it, and recover after it.")
                     .font(.footnote)
                     .foregroundStyle(AppTheme.secondaryText)
             }
@@ -178,7 +178,7 @@ struct EquipmentChooser: View {
             HStack(spacing: 10) {
                 Image(systemName: "figure.strengthtraining.functional")
                     .foregroundStyle(AppTheme.green)
-                Text("Bodyweight work is always included — every quality has a no-equipment path.")
+                Text("No equipment? No problem — there's always a bodyweight option.")
                     .font(.footnote)
                     .foregroundStyle(AppTheme.secondaryText)
             }
@@ -232,7 +232,7 @@ struct CoachChooser: View {
             Button {
                 selection = false
             } label: {
-                OptionRow(title: "Not right now", subtitle: "You'll get safer regressions instead — change this any time", systemImage: "person.fill", isSelected: selection == false)
+                OptionRow(title: "Not right now", subtitle: "You'll only get moves that are safe to learn on your own — change this any time", systemImage: "person.fill", isSelected: selection == false)
             }
             .buttonStyle(.plain)
         }

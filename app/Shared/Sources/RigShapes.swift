@@ -256,6 +256,18 @@ enum RigShapes {
             push(faceShape, skinHead, headDepth)
             push(hairShape, Color(hex: pal.hair), headDepth + 0.001)
         }
+        // Headwear: goalball eyeshades, a bike helmet.
+        let wear = playback.info.wear ?? []
+        if wear.contains("helmet") {
+            let faceY = P(faceC).y
+            let dome = circle(P(hairC + headUp * 1.2), RigBones.headR + 1.6, 28).filter { $0.y <= faceY + 1 }
+            if dome.count >= 3 { push(hull(dome), Color(hex: pal.red), headDepth + 0.004) }
+        }
+        if wear.contains("eyeshade"), facing(headFwd) > -0.5 {
+            let lat = s.headFrame.apply(V3(0, 0, 1))
+            let eye = s.head + headFwd * (RigBones.headR - 1.2) + headUp * 0.6
+            push(capsule(P(eye - lat * 5.8), P(eye + lat * 5.8), 2.4, 2.4), Color(hex: "#1E1E22"), headDepth + 0.003)
+        }
         for σ in [1.0, -1.0] {
             let lat = s.headFrame.apply(V3(0, 0, σ))
             guard facing(lat) >= 0.2 else { continue }
@@ -511,6 +523,13 @@ enum RigShapes {
             let c = implementPoint(s, "hands") + V3(0, -3, 0)
             push(hull(disc(c, lateral, 7, 18)), pal.plate, D(c) + 0.6)
             push(capsule(P(c + lateral * 11), P(c - lateral * 11), 1.2, 1.2), pal.steel, D(c) + 0.61)
+        case "map":
+            // A folded map held up in the left hand to read.
+            let g = implementPoint(s, "L")
+            let fw = normed(s.chest.apply(V3(1, 0, 0))), up = normed(s.chest.apply(V3(0, 1, 0))), lat = normed(s.chest.apply(V3(0, 0, 1)))
+            let c = g + up * 5 - lat * 5
+            push(hull([(-7.0, -9.0), (7, -9), (7, 9), (-7, 9)].map { P(c + lat * $0.0 + up * $0.1) }), "#F2EFE6", D(c + fw * 2) + 0.6)
+            push(hull([(-5.0, 2.0), (4, 6), (4, 7.5), (-5, 3.5)].map { P(c + lat * $0.0 + up * ($0.1 - 4)) }), pal.red, D(c + fw * 2) + 0.61)
         case "kickboard":
             let c = implementPoint(s, "hands") + fwFlat * 12
             let lat3 = normed(s.root.apply(V3(0, 0, 1)))
@@ -650,6 +669,12 @@ enum RigShapes {
         case "ball":
             let at = W(p["at"] ?? .zero)
             push(circle(P(at), n["r"] ?? 30, 28), pal.red, D(at) - 12, opacity: 0.9)
+        case "control":
+            // An orienteering control: a post with the orange-and-white flag.
+            let x = n["x"] ?? 30
+            box(x - 1, x + 1, 0, 70, -1, 1, pal.steel, -2)
+            push(hull([P(W(x - 7, 84)), P(W(x + 7, 84)), P(W(x + 7, 70))]), "#E8762B", D(W(x, 77)))
+            push(hull([P(W(x - 7, 84)), P(W(x - 7, 70)), P(W(x + 7, 70))]), "#F4F4F2", D(W(x, 77)) + 0.01)
         case "hurdle", "cone", "ladder":
             let x = n["x"] ?? 30
             if fx.kind == "cone" {

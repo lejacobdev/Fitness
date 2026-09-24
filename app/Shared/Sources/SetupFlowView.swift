@@ -46,7 +46,7 @@ public struct SetupFlowView: View {
                 }
             case .position:
                 StepScaffold(
-                    progress: progress, title: "What position do you play?", subtitle: "Positions lean on different qualities — a goalkeeper isn't a midfielder.",
+                    progress: progress, title: "What position do you play?", subtitle: "Each position needs different things — a goalkeeper trains differently from a midfielder.",
                     onBack: { go(.sport) }, onContinue: { go(.season) }
                 ) {
                     if let sport {

@@ -125,7 +125,7 @@ const facing = (v) => project(norm(v)).depth;
 /** Ball colours by sport. */
 export const BALL_COLORS = { orange: '#E8762B', white: '#F4F4F2', yellow: '#D8E83A', red: '#E5383B', brown: '#8B4A2B', blue: '#2F6FE0', black: '#1E1E22' };
 
-export function figureShapes(s, { scheme = 'light', palette = null, glow = {}, implement = null, fixture = null, fixturePlace = null, ball = null, prosthetic = null } = {}) {
+export function figureShapes(s, { scheme = 'light', palette = null, glow = {}, implement = null, fixture = null, fixturePlace = null, ball = null, prosthetic = null, wear = null } = {}) {
   const pal = palette === 'partner' ? { ...PALETTE[scheme], ...PARTNER[scheme] } : PALETTE[scheme];
   const shapes = [];
   const push = (points, fill, depth, extra = {}) => shapes.push({ points, fill, depth, ...extra });
@@ -211,6 +211,17 @@ export function figureShapes(s, { scheme = 'light', palette = null, glow = {}, i
     push(faceShape, skinHead, headDepth);
     push(hairShape, pal.hair, headDepth + 0.001);
   }
+  // Headwear: goalball eyeshades, a bike helmet.
+  if (wear?.includes('helmet')) {
+    const faceY = P(faceC)[1];
+    const dome = circlePts(P(add(hairC, headUp, 1.2)), BONES.headR + 1.6, 28).filter((q) => q[1] <= faceY + 1);
+    if (dome.length >= 3) push(hull(dome), pal.implementRed, headDepth + 0.004);
+  }
+  if (wear?.includes('eyeshade') && facing(headFwd) > -0.5) {
+    const lat = apply(s.headFrame, [0, 0, 1]);
+    const eye = add(add(s.head, headFwd, BONES.headR - 1.2), headUp, 0.6);
+    push(capsule2(P(add(eye, lat, -5.8)), P(add(eye, lat, 5.8)), 2.4, 2.4), '#1E1E22', headDepth + 0.003);
+  }
   // Ears (only the one facing the camera shows).
   for (const σ of [1, -1]) {
     const lat = apply(s.headFrame, [0, 0, σ]);
@@ -291,10 +302,10 @@ export function figureShapes(s, { scheme = 'light', palette = null, glow = {}, i
  * the nearest person's shapes so it passes in front of or behind them
  * correctly. Cast members wear a lighter kit and never glow.
  */
-export function sceneShapes(s, { scheme = 'light', glow = {}, implement = null, fixture = null, fixturePlace = null, ball = null, prosthetic = null } = {}) {
+export function sceneShapes(s, { scheme = 'light', glow = {}, implement = null, fixture = null, fixturePlace = null, ball = null, prosthetic = null, wear = null } = {}) {
   const pal = PALETTE[scheme];
-  const groups = [{ s, shapes: figureShapes(s, { scheme, glow, implement, fixture, fixturePlace, ball: null, prosthetic }) }];
-  for (const m of s.cast ?? []) groups.push({ s: m.s, shapes: figureShapes(m.s, { scheme, palette: 'partner', implement: m.ref.implement ?? null, prosthetic: m.ref.prosthetic ?? null }) });
+  const groups = [{ s, shapes: figureShapes(s, { scheme, glow, implement, fixture, fixturePlace, ball: null, prosthetic, wear }) }];
+  for (const m of s.cast ?? []) groups.push({ s: m.s, shapes: figureShapes(m.s, { scheme, palette: 'partner', implement: m.ref.implement ?? null, prosthetic: m.ref.prosthetic ?? null, wear: m.ref.wear ?? null }) });
   // A guide's tether: a short cord from the athlete's left hand to the guide's right.
   (s.cast ?? []).forEach((m, i) => {
     if (!m.tether) return;
@@ -579,6 +590,16 @@ export function implementShapes(s, spec, pal) {
       push(capsule2(P(add(c, lat3, 11)), P(add(c, lat3, -11)), 1.2, 1.2), pal.steel, D(c) + 0.61);
       break;
     }
+    case 'map': {
+      // A folded map held up in the left hand to read.
+      const g = implementPoint(s, 'L');
+      const fw = norm(apply(s.chest, [1, 0, 0])), up = norm(apply(s.chest, [0, 1, 0])), lat = norm(apply(s.chest, [0, 0, 1]));
+      const c = add(add(g, up, 5), lat, -5);
+      const pts = [[-7, -9], [7, -9], [7, 9], [-7, 9]].map(([a, b]) => P(add(add(c, lat, a), up, b)));
+      push(hull(pts), '#F2EFE6', D(add(c, fw, 2)) + 0.6);
+      push(hull([[-5, 2], [4, 6], [4, 7.5], [-5, 3.5]].map(([a, b]) => P(add(add(c, lat, a), up, b - 4)))), pal.implementRed, D(add(c, fw, 2)) + 0.61);
+      break;
+    }
     case 'kickboard': {
       const g = implementPoint(s, 'hands');
       const fw = norm([apply(s.root, [1, 0, 0])[0], 0, apply(s.root, [1, 0, 0])[2]]);
@@ -777,6 +798,14 @@ export function fixtureShapes(s, fx, place, pal) {
       const { r } = place;
       const at = W(...place.at);
       push(circlePts(P(at), r, 28), pal.implementRed, D(at) - 12, { opacity: 0.9 });
+      break;
+    }
+    case 'control': {
+      // An orienteering control: a post with the orange-and-white flag.
+      const { x } = place;
+      box(x - 1, x + 1, 0, 70, -1, 1, pal.steel, -2);
+      push(hull([P(W(x - 7, 84, o[2])), P(W(x + 7, 84, o[2])), P(W(x + 7, 70, o[2]))]), '#E8762B', D(W(x, 77, o[2])));
+      push(hull([P(W(x - 7, 84, o[2])), P(W(x - 7, 70, o[2])), P(W(x + 7, 70, o[2]))]), '#F4F4F2', D(W(x, 77, o[2])) + 0.01);
       break;
     }
     case 'hurdle': case 'cone': case 'ladder': {
