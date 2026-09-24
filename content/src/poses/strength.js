@@ -1496,4 +1496,85 @@ def('backward-overhead-toss', 'Backward overhead toss', {
 });
 def('plate-pinch-hold', 'Plate pinch hold', { view: 'three-quarter', loop: true, thumb: 0, implement: { kind: 'dumbbells', at: 'hands' }, keyframes: breathe(P(both({ shoulderAbd: 12, elbow: 2 })), 'feet', { spine: -1 }) });
 
+// Weightlifting technique, powerlifting and conditioning circuits ------------
+const PVC = { kind: 'barbell', at: 'hands', pvc: true };
+/** Snatch grip: hands wide, the bar over mid-foot. */
+const wide = (p) => barOverMidfoot(p, 36);
+const snatchHang = wide(P(both({ hip: 40, knee: 22, ankle: 10, hipAbd: 8 }), { spine: 34, neck: -12 }));
+const snatchBelowKnee = wide(P(both({ hip: 70, knee: 50, ankle: 20, hipAbd: 8 }), { spine: 50, neck: -20 }));
+const snatchTriple = wide(P(both({ ankle: -30, hipAbd: 8 }), { spine: -6, neck: -4 }));
+const ohsBottom = P(both({ hip: 116, knee: 124, ankle: 38, hipAbd: 17, hipRot: -17, shoulder: 198, shoulderAbd: 30, elbow: 0 }), { spine: 22, neck: -10 });
+const ohsTop = P(both({ hipAbd: 10, hipRot: -10, shoulder: 176, shoulderAbd: 32, elbow: 0 }));
+/** PVC progression: overhead squat, snatch balance, hang snatch, then from mid-shin. */
+def('pvc-snatch-progression', 'PVC snatch progression', {
+  view: 'three-quarter', implement: PVC, thumb: 6,
+  keyframes: [
+    kf(ohsTop, 'feet', { hold: 0.2, move: 0.9 }), kf(ohsBottom, 'feet', { hold: 0.3, move: 0.8 }), kf(ohsTop, 'feet', { hold: 0.2, move: 0.5 }),
+    kf(P(both({ hip: 10, knee: 16, ankle: 6, hipAbd: 10, shoulder: 150, shoulderAbd: 34, elbow: 30 })), 'feet', { move: 0.3 }),
+    kf(ohsBottom, 'feet', { hold: 0.3, move: 0.7 }), kf(ohsTop, 'feet', { hold: 0.2, move: 0.5 }),
+    kf(snatchHang, 'feet', { hold: 0.2, move: 0.16 }), kf(snatchTriple, 'Ltoe+Rtoe', { move: 0.2 }), kf(ohsBottom, 'feet', { hold: 0.3, move: 0.7 }), kf(ohsTop, 'feet', { hold: 0.2, move: 0.5 }),
+    kf(snatchBelowKnee, 'feet', { hold: 0.2, move: 0.3 }), kf(snatchHang, 'feet', { move: 0.14 }), kf(snatchTriple, 'Ltoe+Rtoe', { move: 0.2 }), kf(ohsBottom, 'feet', { hold: 0.3, move: 0.7 }), kf(ohsTop, 'feet', { hold: 0.3 }),
+  ],
+});
+/** Snatch-grip pull: push the floor away, bar close past the knees, finish tall with a shrug — no pull under. */
+def('snatch-grip-pull', 'Snatch-grip pull', {
+  view: 'three-quarter', implement: { kind: 'barbell', at: 'hands' }, thumb: 2,
+  keyframes: [
+    kf(snatchBelowKnee, 'feet', { hold: 0.3, move: 0.4 }),
+    kf(snatchHang, 'feet', { move: 0.2 }),
+    kf(P(snatchTriple, { spine: -8 }), 'Ltoe+Rtoe', { hold: 0.3, move: 0.6 }),
+    kf(snatchHang, 'feet', { move: 0.5 }),
+    kf(snatchBelowKnee, 'feet', { hold: 0.2 }),
+  ],
+});
+/** Stick mobility: deep squat hold, pass-throughs, ankle rocks, then a paused overhead squat. */
+def('stick-mobility-complex', 'Stick mobility complex', {
+  view: 'three-quarter', implement: PVC, thumb: 1,
+  keyframes: [
+    kf(P(both({ shoulder: 20, shoulderAbd: 30, elbow: 0 })), 'feet', { hold: 0.2, move: 0.8 }),
+    kf(P(both({ hip: 118, knee: 132, ankle: 40, hipAbd: 20, hipRot: -20, shoulder: 60, shoulderAbd: 30, elbow: 10 }), { spine: 30, neck: -20 }), 'feet', { hold: 1.2, move: 0.8 }),
+    kf(P(both({ shoulder: 20, shoulderAbd: 40, elbow: 0 })), 'feet', { move: 0.8 }),
+    kf(P(both({ shoulder: 180, shoulderAbd: 50, elbow: 0 })), 'feet', { move: 0.8 }),
+    kf(P(both({ shoulder: -30, shoulderAbd: 60, elbow: 0 })), 'feet', { hold: 0.2, move: 0.8 }),
+    kf(P(both({ shoulder: 180, shoulderAbd: 50, elbow: 0 })), 'feet', { move: 0.8 }),
+    kf(P({ hipL: 60, kneeL: 90, ankleL: 40, hipR: -10, kneeR: 90, ankleR: -40, shoulderL: 30, shoulderR: 30, shoulderAbdL: 30, shoulderAbdR: 30 }), 'L+Rknee', { hold: 0.5, move: 0.8 }),
+    kf(ohsTop, 'feet', { move: 0.8 }),
+    kf(ohsBottom, 'feet', { hold: 2, move: 1 }),
+    kf(ohsTop, 'feet', { hold: 0.3 }),
+  ],
+});
+def('goblet-squat-pause', 'Paused goblet squat', {
+  view: 'three-quarter', implement: { kind: 'goblet', at: 'chest' },
+  keyframes: rep3(goblet(squatStand), goblet(P(both({ hip: 114, knee: 122, ankle: 36, hipAbd: 18, hipRot: -18 }), { spine: 34, neck: -26 })), { holdLow: 2 }),
+});
+def('rdl-dumbbells', 'Dumbbell Romanian deadlift', {
+  implement: { kind: 'dumbbells', at: 'hands' },
+  keyframes: [
+    ...tween(kf(rdlTop, 'feet', { hold: 0.3, move: 1.1 }), kf(rdlLow, 'feet'), 2, barOverMidfoot),
+    ...tween(kf(rdlLow, 'feet', { hold: 0.15, move: 0.9 }), kf(rdlTop, 'feet'), 2, barOverMidfoot),
+    kf(rdlTop, 'feet', { hold: 0.1 }),
+  ],
+});
+/** Inchworm: fold, walk the hands out to a plank, walk the feet in, stand. */
+const inchworm = [
+  kf(P(), 'feet', { hold: 0.2, move: 0.8 }),
+  kf(handsToFloor(P(both({ shoulder: 100, elbow: 0, knee: 30, hip: 20 }), { spine: 90, neck: -10 }), 40, 150), 'hands+Ltoe+Rtoe', { move: 0.8 }),
+  kf(P(both({ shoulder: 90, elbow: 0, ankle: -30 }), { spine: 90, neck: -10 }), 'hands+Ltoe+Rtoe', { hold: 0.3, move: 0.9, travel: [60, 0] }),
+  kf(handsToFloor(P(both({ shoulder: 100, elbow: 0, knee: 30, hip: 20 }), { spine: 90, neck: -10 }), 40, 150), 'hands+Ltoe+Rtoe', { move: 0.8, travel: [60, 0] }),
+  kf(P(), 'feet', { hold: 0.2 }),
+];
+def('movement-screen', 'Movement quality circuit', {
+  view: 'three-quarter', thumb: 1,
+  keyframes: [
+    ...lib.get('squat-bodyweight').keyframes,
+    ...inchworm,
+    ...lib.get('walking-lunge').keyframes.slice(0, 4),
+    ...lib.get('bear-crawl').keyframes,
+  ],
+});
+def('emom-squat-pushup-situp', 'Squats, push-ups, sit-ups', {
+  view: 'three-quarter', thumb: 1,
+  keyframes: [...lib.get('squat-bodyweight').keyframes, ...lib.get('push-up').keyframes, ...lib.get('sit-up').keyframes],
+});
+
 export const STRENGTH = lib.patterns;

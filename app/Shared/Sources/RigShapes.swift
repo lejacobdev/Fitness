@@ -408,7 +408,8 @@ enum RigShapes {
         switch spec.kind {
         case "barbell":
             out += segmented(at + lateral * 52, at - lateral * 52, 1.1, 1.1, Color(hex: pal.steel), n: 14)
-            for σ in [1.0, -1.0] {
+            // pvc: a light pipe for technique work — no plates.
+            for σ in spec.flags.contains("pvc") ? [] : [1.0, -1.0] {
                 for off in [34.0, 38.0] {
                     let c = at + lateral * (σ * off)
                     push(hull(disc(c, lateral, off == 34 ? 12 : 10)), pal.plate, D(c) + (σ > 0 ? 0 : -0.1))

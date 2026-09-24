@@ -408,7 +408,8 @@ export function implementShapes(s, spec, pal) {
       const half = 52;
       const a = add(at, lateral, half), b = add(at, lateral, -half);
       out.push(...segmented(a, b, 1.1, 1.1, pal.steel, 0, 14));
-      for (const σ of [1, -1]) {
+      // pvc: a light pipe for technique work — no plates.
+      if (!spec.pvc) for (const σ of [1, -1]) {
         for (const off of [34, 38]) {
           const c = add(at, lateral, σ * off);
           push(hull(discPoly(c, lateral, off === 34 ? 12 : 10)), pal.plate, D(c) + (σ > 0 ? 0 : -0.1));
