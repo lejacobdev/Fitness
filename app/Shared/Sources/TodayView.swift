@@ -115,7 +115,7 @@ struct TodayView: View {
                             restDayCard
                         }
                         // Overview widgets: each opens what it's about.
-                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 12)], spacing: 12) {
                             statCardItems
                         }
                         ForEach(SavedSkillPlans.days(on: selectedDate, athlete: athlete, catalogue: catalogue)) { day in
@@ -411,10 +411,10 @@ struct TodayView: View {
         let last = allSessions.first
         Button { activeSheet = .checkIn } label: {
             if todaysCheckIn == nil {
-                RingStatCard(value: "Check in", label: "How you feel", progress: 0, color: AppTheme.orange, systemImage: "sun.max.fill",
-                             caption: "10 seconds — tunes today's workout")
+                WidgetTile(value: "Check in", label: "How you feel", progress: 0, color: AppTheme.orange, systemImage: "sun.max.fill",
+                             caption: "10 seconds — tunes today's workout", highlight: true)
             } else {
-                RingStatCard(
+                WidgetTile(
                     value: band.map { $0 == .green ? "Ready to push" : ($0 == .amber ? "Go steady" : "Take it easy") } ?? "Learning you",
                     label: "Ready to train?",
                     progress: band.map { $0 == .green ? 1 : ($0 == .amber ? 0.6 : 0.3) } ?? 0.15,
@@ -425,7 +425,7 @@ struct TodayView: View {
             }
         }
         .buttonStyle(.plain)
-        Button { activeSheet = .checkIn } label: { RingStatCard(
+        Button { activeSheet = .checkIn } label: { WidgetTile(
             value: sleep.map { "\($0) of 5" } ?? "Not yet",
             label: "Sleep last night",
             progress: Double(sleep ?? 0) / 5,
@@ -436,7 +436,7 @@ struct TodayView: View {
         .buttonStyle(.plain)
         Button {
             if nextGame == nil { activeSheet = .addGame } else { selectedTab = .plan }
-        } label: { RingStatCard(
+        } label: { WidgetTile(
             value: daysToGame.map { $0 == 0 ? "Today" : ($0 == 1 ? "Tomorrow" : "In \($0) days") } ?? "None yet",
             label: "Next game",
             progress: daysToGame.map { max(0.05, 1 - Double($0) / 14) } ?? 0,
@@ -445,7 +445,7 @@ struct TodayView: View {
             caption: nextGame == nil ? "Tap to add one" : "Training eases off before it"
         ) }
         .buttonStyle(.plain)
-        Button { selectedTab = .plan } label: { RingStatCard(
+        Button { selectedTab = .plan } label: { WidgetTile(
             value: "\(loggedThisWeek) of \(week?.sessions.count ?? 0)",
             label: "Workouts this week",
             progress: Double(loggedThisWeek) / Double(plannedThisWeek),
@@ -454,7 +454,7 @@ struct TodayView: View {
             caption: "Tap to see the whole week"
         ) }
         .buttonStyle(.plain)
-        Button { activeSheet = .fuel } label: { RingStatCard(
+        Button { activeSheet = .fuel } label: { WidgetTile(
             value: gameOnSelectedDay != nil ? "Game day" : (displayedSession != nil ? "Training day" : "Rest day"),
             label: "Food & water",
             progress: 0.5,
@@ -463,7 +463,7 @@ struct TodayView: View {
             caption: "What to eat and drink today"
         ) }
         .buttonStyle(.plain)
-        Button { activeSheet = .history } label: { RingStatCard(
+        Button { activeSheet = .history } label: { WidgetTile(
             value: last.map { calendar.isDateInToday($0.startedAt) ? "Today" : (calendar.isDateInYesterday($0.startedAt) ? "Yesterday" : $0.startedAt.formatted(.dateTime.weekday(.abbreviated))) } ?? "None yet",
             label: "Last workout",
             progress: last == nil ? 0 : 1,

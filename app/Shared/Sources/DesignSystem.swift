@@ -251,6 +251,69 @@ public struct RingView<Center: View>: View {
 
 /// Cal AI's small macro card: a bold value, a gray label, and a ring with an
 /// icon underneath.
+/// A home-screen widget: what it is (label and icon, with a small ring) on
+/// top, the big value, then one line saying what it means. `highlight`
+/// outlines a tile that's asking for the next tap (the check-in).
+public struct WidgetTile: View {
+    let value: String
+    let label: String
+    let progress: Double
+    let color: Color
+    let systemImage: String
+    let caption: String?
+    let highlight: Bool
+
+    public init(value: String, label: String, progress: Double, color: Color, systemImage: String, caption: String? = nil, highlight: Bool = false) {
+        self.value = value
+        self.label = label
+        self.progress = progress
+        self.color = color
+        self.systemImage = systemImage
+        self.caption = caption
+        self.highlight = highlight
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(color)
+                Text(label)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Spacer(minLength: 4)
+                RingView(progress: progress, color: color, lineWidth: 4) { EmptyView() }
+                    .frame(width: 26, height: 26)
+            }
+            Text(value)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(AppTheme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            if let caption {
+                Text(caption)
+                    .font(.caption2)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .lineLimit(2, reservesSpace: true)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .cardStyle(padding: 14)
+        .overlay {
+            if highlight {
+                RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                    .strokeBorder(color, lineWidth: 2)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label): \(value)" + (caption.map { ". \($0)" } ?? ""))
+    }
+}
+
 public struct RingStatCard: View {
     let value: String
     let label: String
