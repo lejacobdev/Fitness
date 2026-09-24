@@ -260,31 +260,28 @@ public let muscleMapCanonicalHeight: Double = 200
 
 function genPosePatternsSwift() {
   const jointCases = JOINTS.map((j) => `    case ${j} = ${swiftStringLiteral(j)}`).join('\n');
-  const num = (v) => swiftDoubleLiteral(Math.round((v ?? 0) * 1000) / 1000);
-  const angles = (pose) => `[${JOINTS.map((j) => num(pose[j])).join(', ')}]`;
-  const optNum = (v) => (v == null ? 'nil' : num(v));
+  const r3 = (v) => Math.round((v ?? 0) * 1000) / 1000;
 
-  const keyframe = (k) => `PoseKeyframe(angles: ${angles(k.pose)}, contact: ${swiftStringLiteral(k.contact)}, hold: ${num(k.hold ?? 0)}, move: ${num(k.move ?? 0.6)}, surface: ${num(k.surface ?? 0)}, travel: [${num(k.travel?.[0] ?? 0)}, ${num(k.travel?.[1] ?? 0)}], chain: [${(k.chain ?? [0, 1]).join(', ')}])`;
-  const fixture = (f) => {
-    if (!f) return 'nil';
-    const params = Object.entries(f).filter(([k, v]) => k !== 'kind' && typeof v === 'number').map(([k, v]) => `${swiftStringLiteral(k)}: ${num(v)}`);
-    return `RigFixtureSpec(kind: ${swiftStringLiteral(f.kind)}, params: [${params.length ? params.join(', ') : ':'}], under: ${f.under ? swiftStringLiteral(f.under) : 'nil'})`;
-  };
-  const implement = (i) => {
-    if (!i) return 'nil';
-    const flags = Object.entries(i).filter(([, v]) => v === true).map(([k]) => swiftStringLiteral(k));
-    const numbers = Object.entries(i).filter(([, v]) => typeof v === 'number').map(([k, v]) => `${swiftStringLiteral(k)}: ${num(v)}`);
-    return `RigImplementSpec(kind: ${swiftStringLiteral(i.kind)}, at: ${swiftStringLiteral(i.at ?? 'hands')}, to: ${i.to ? `[${i.to.map(num).join(', ')}]` : 'nil'}, flags: [${flags.join(', ')}], numbers: [${numbers.length ? numbers.join(', ') : ':'}])`;
-  };
-
-  const structs = POSE_PATTERNS.map((p) => `PosePatternInfo(
-        id: ${swiftStringLiteral(p.slug)}, name: ${swiftStringLiteral(p.name)}, view: ${swiftStringLiteral(p.view ?? 'side')},
-        loops: ${p.loop ? 'true' : 'false'}, thumb: ${p.thumb ?? 0},
-        fixture: ${fixture(p.fixture)}, implement: ${implement(p.implement)},
-        keyframes: [
-            ${p.keyframes.map(keyframe).join(',\n            ')}
-        ]
-    )`);
+  // The data ships as JSON inside a raw string and is decoded once at
+  // launch: a Swift array literal this size makes the type checker run out
+  // of memory, a string literal costs nothing to compile.
+  const patterns = POSE_PATTERNS.map((p) => ({
+    id: p.slug, name: p.name, view: p.view ?? 'side', loops: !!p.loop, thumb: p.thumb ?? 0,
+    fixture: p.fixture ? {
+      kind: p.fixture.kind,
+      params: Object.fromEntries(Object.entries(p.fixture).filter(([k, v]) => k !== 'kind' && typeof v === 'number').map(([k, v]) => [k, r3(v)])),
+      under: typeof p.fixture.under === 'string' ? p.fixture.under : null,
+    } : null,
+    implement: p.implement ? {
+      kind: p.implement.kind, at: p.implement.at ?? 'hands', to: p.implement.to ? p.implement.to.map(r3) : null,
+      flags: Object.entries(p.implement).filter(([, v]) => v === true).map(([k]) => k),
+      numbers: Object.fromEntries(Object.entries(p.implement).filter(([, v]) => typeof v === 'number').map(([k, v]) => [k, r3(v)])),
+    } : null,
+    keyframes: p.keyframes.map((k) => ({
+      angles: JOINTS.map((j) => r3(k.pose[j])), contact: k.contact, hold: r3(k.hold ?? 0), move: r3(k.move ?? 0.6),
+      surface: r3(k.surface ?? 0), travel: [r3(k.travel?.[0] ?? 0), r3(k.travel?.[1] ?? 0)], chain: k.chain ?? [0, 1],
+    })),
+  }));
 
   // Golden samples: where rig3d.js puts key points, for the Swift parity test.
   const samples = [];
@@ -292,10 +289,11 @@ function genPosePatternsSwift() {
     const placed = placeKeyframes(p);
     for (const t of [0, 0.37, 0.71]) {
       const s = frameAt(p, t, placed);
-      const pts = [s.pelvis, s.head, s.L.ankle, s.R.toe, s.L.wrist, s.R.elbow, s.L.knee].flat();
-      samples.push(`RigGoldenSample(pattern: ${swiftStringLiteral(p.slug)}, t: ${num(t)}, points: [${pts.map(num).join(', ')}])`);
+      samples.push({ pattern: p.slug, t, points: [s.pelvis, s.head, s.L.ankle, s.R.toe, s.L.wrist, s.R.elbow, s.L.knee].flat().map(r3) });
     }
   }
+  const json = (v) => JSON.stringify(v);
+  if (json(patterns).includes('"#')) throw new Error('pose JSON would break the raw string literal');
 
   return `${generatedHeader('content/src/poses.js')}import Foundation
 
@@ -309,7 +307,7 @@ ${jointCases}
 public typealias Pose = [Joint: Double]
 
 /// One keyframe of a movement: joint angles in \`Joint.allCases\` order.
-public struct PoseKeyframe: Sendable, Hashable {
+public struct PoseKeyframe: Sendable, Hashable, Codable {
     public let angles: [Double]
     public let contact: String
     public let hold: Double
@@ -326,14 +324,14 @@ public struct PoseKeyframe: Sendable, Hashable {
 }
 
 /// A fixed object in the scene (bench, bar, box, bike…); numbers as in poses.js.
-public struct RigFixtureSpec: Sendable, Hashable {
+public struct RigFixtureSpec: Sendable, Hashable, Codable {
     public let kind: String
     public let params: [String: Double]
     public let under: String?
 }
 
 /// Equipment held or worn (barbell, racket, ball…).
-public struct RigImplementSpec: Sendable, Hashable {
+public struct RigImplementSpec: Sendable, Hashable, Codable {
     public let kind: String
     public let at: String
     public let to: [Double]?
@@ -342,7 +340,7 @@ public struct RigImplementSpec: Sendable, Hashable {
     public let numbers: [String: Double]
 }
 
-public struct PosePatternInfo: Sendable, Identifiable, Hashable {
+public struct PosePatternInfo: Sendable, Identifiable, Hashable, Codable {
     public let id: String
     public let name: String
     public let view: String
@@ -359,20 +357,28 @@ public struct PosePatternInfo: Sendable, Identifiable, Hashable {
 }
 
 /// Every movement the catalogue animates; each item names exactly one.
-public let posePatterns: [PosePatternInfo] = ${swiftArray(structs)}
+public let posePatterns: [PosePatternInfo] = {
+    do {
+        return try JSONDecoder().decode([PosePatternInfo].self, from: Data(posePatternsJSON.utf8))
+    } catch {
+        assertionFailure("pose data failed to decode: \\(error)")
+        return []
+    }
+}()
 
 public let posePatternsBySlug: [String: PosePatternInfo] =
     Dictionary(uniqueKeysWithValues: posePatterns.map { ($0.id, $0) })
 
 /// Reference joint positions computed by content/src/rig3d.js.
-public struct RigGoldenSample: Sendable {
+public struct RigGoldenSample: Sendable, Codable {
     public let pattern: String
     public let t: Double
     /// pelvis, head, L ankle, R toe, L wrist, R elbow, L knee — x, y, z each.
     public let points: [Double]
 }
 
-public let rigGoldenSamples: [RigGoldenSample] = ${swiftArray(samples)}
+public let rigGoldenSamples: [RigGoldenSample] =
+    (try? JSONDecoder().decode([RigGoldenSample].self, from: Data(rigGoldenSamplesJSON.utf8))) ?? []
 
 /// Swaps every left/right joint pair.
 public func mirrorPose(_ pose: Pose) -> Pose {
@@ -389,6 +395,10 @@ public func mirrorPose(_ pose: Pose) -> Pose {
     }
     return mirrored
 }
+
+private let posePatternsJSON = #"${json(patterns)}"#
+
+private let rigGoldenSamplesJSON = #"${json(samples)}"#
 `;
 }
 

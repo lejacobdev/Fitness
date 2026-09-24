@@ -1,12 +1,28 @@
 import Foundation
-import simd
 
 /// §9 job 2 — the exercise rig's maths: a 3D skeleton driven by joint
 /// angles, played through a pattern's keyframes with planted feet, hands and
 /// seats staying put. A line-for-line port of content/src/rig3d.js; the unit
 /// test `RigEngineTests` checks it against `rigGoldenSamples`, which that
 /// file generates, so the app and the previews can never drift apart.
-typealias V3 = SIMD3<Double>
+/// A plain 3D vector. (Deliberately not SIMD3: its many operator overloads
+/// make long vector expressions extremely slow for the Swift type checker.)
+struct V3: Equatable {
+    var x: Double, y: Double, z: Double
+    init(_ x: Double, _ y: Double, _ z: Double) { self.x = x; self.y = y; self.z = z }
+    static let zero = V3(0, 0, 0)
+
+    static func + (a: V3, b: V3) -> V3 { V3(a.x + b.x, a.y + b.y, a.z + b.z) }
+    static func - (a: V3, b: V3) -> V3 { V3(a.x - b.x, a.y - b.y, a.z - b.z) }
+    static func * (a: V3, k: Double) -> V3 { V3(a.x * k, a.y * k, a.z * k) }
+    static func / (a: V3, k: Double) -> V3 { V3(a.x / k, a.y / k, a.z / k) }
+    static prefix func - (a: V3) -> V3 { V3(-a.x, -a.y, -a.z) }
+    static func += (a: inout V3, b: V3) { a = a + b }
+
+    func dot(_ b: V3) -> Double { x * b.x + y * b.y + z * b.z }
+    func cross(_ b: V3) -> V3 { V3(y * b.z - z * b.y, z * b.x - x * b.z, x * b.y - y * b.x) }
+    var length: Double { (x * x + y * y + z * z).squareRoot() }
+}
 
 /// A rotation as three column vectors (local x, y, z in world space).
 struct M3 {
@@ -14,7 +30,9 @@ struct M3 {
 
     static let identity = M3(c0: V3(1, 0, 0), c1: V3(0, 1, 0), c2: V3(0, 0, 1))
 
-    func apply(_ v: V3) -> V3 { c0 * v.x + c1 * v.y + c2 * v.z }
+    func apply(_ v: V3) -> V3 {
+        V3(c0.x * v.x + c1.x * v.y + c2.x * v.z, c0.y * v.x + c1.y * v.y + c2.y * v.z, c0.z * v.x + c1.z * v.y + c2.z * v.z)
+    }
     static func * (a: M3, b: M3) -> M3 { M3(c0: a.apply(b.c0), c1: a.apply(b.c1), c2: a.apply(b.c2)) }
 
     /// + turns "down" toward "forward".
@@ -35,7 +53,7 @@ struct M3 {
 }
 
 @inline(__always) func normed(_ v: V3) -> V3 {
-    let l = simd_length(v)
+    let l = v.length
     return l == 0 ? v : v / l
 }
 

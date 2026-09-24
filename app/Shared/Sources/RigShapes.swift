@@ -87,7 +87,7 @@ enum RigShapes {
     static func disc(_ centre: V3, _ normal: V3, _ r: Double, _ n: Int = 18) -> [CGPoint] {
         let nn = normed(normal)
         let helper = abs(nn.y) < 0.9 ? V3(0, 1, 0) : V3(1, 0, 0)
-        let u = normed(simd_cross(nn, helper)), v = simd_cross(nn, u)
+        let u = normed(nn.cross(helper)), v = nn.cross(u)
         return (0..<n).map { i in
             let a = Double(i) / Double(n) * .pi * 2
             return P(centre + u * (cos(a) * r) + v * (sin(a) * r))
@@ -207,7 +207,7 @@ enum RigShapes {
             let fd = l.footDir
             let fl = normed(l.foot.apply(V3(0, 0, 1)))
             let fup = l.foot.apply(V3(0, 1, 0))
-            let fu = normed(fup - fd * simd_dot(fup, fd))
+            let fu = normed(fup - fd * (fup).dot(fd))
             var box: [CGPoint] = []
             for (along, upv, w) in [(-RigBones.heel - 0.5, 0.0, 3.6), (RigBones.foot + 0.8, 0, 3.2), (-RigBones.heel, 5.5, 3.4), (2, 6.4, 3.6), (RigBones.foot - 1, 2.6, 3.2), (RigBones.foot + 0.6, 1.2, 3)] {
                 for σ in [1.0, -1.0] { box.append(P(l.ankle + fd * along + fu * upv + fl * (σ * w))) }
@@ -392,7 +392,7 @@ enum RigShapes {
             let toIce = dir.y < -0.15 ? (top.y - 1) / -dir.y : .infinity
             let heel = top + dir * min(length - 10, toIce)
             push(capsule(P(top - dir * 6), P(heel), 1.3, 1.1), pal.plate, max(D(top), D(bottom)) + 0.6)
-            let bladeDir = normed(fwFlat - dir * simd_dot(fwFlat, dir))
+            let bladeDir = normed(fwFlat - dir * (fwFlat).dot(dir))
             push(capsule(P(heel), P(heel + bladeDir * 16), 1.6, 1.4), pal.plate, D(heel) + 0.6)
             if spec.flags.contains("puck") {
                 let puck = heel + bladeDir * 9 + fwFlat * 5
@@ -489,7 +489,7 @@ enum RigShapes {
             let oz = o.z
             box(rail0, rail1, seatTop - 8, seatTop - 4, oz - 5, oz + 5, pal.steel, -45)
             for x in [rail0 + 3, rail1 - 3] { box(x - 1.5, x + 1.5, 0, seatTop - 8, oz - 5, oz + 5, pal.steel, -46) }
-            let seatX = o.x + simd_dot(s.pelvis - o, ax)
+            let seatX = o.x + (s.pelvis - o).dot(ax)
             box(seatX - 8, seatX + 8, seatTop - 4, seatTop, oz - 9, oz + 9, pal.pad, -20)
             push(hull(disc(W(fly.x, fly.y, oz), az, 16, 20)), pal.plate, -44)
             box(foot.x - 2, foot.x + 2, foot.y - 4, foot.y + 14, oz - 12, oz + 12, pal.steel, -30)
