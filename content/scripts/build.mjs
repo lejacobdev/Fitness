@@ -281,7 +281,7 @@ function genPosePatternsSwift() {
     prosthetic: p.prosthetic ?? null,
     wear: p.wear ?? null,
     cast: p.cast ? p.cast.map((c) => ({ pattern: c.pattern, at: [r3(c.at?.[0] ?? 0), r3(c.at?.[1] ?? 0)], facing: r3(c.facing ?? 0), phase: r3(c.phase ?? 0), follow: !!c.follow, tether: !!c.tether })) : null,
-    path: p.path ? { kind: p.path.kind, length: p.path.length ?? null, radius: p.path.radius ?? null, angle: p.path.angle ?? null, grade: p.path.grade ?? null, turn: p.path.turn ?? null, dir: p.path.dir ?? null, speed: p.path.speed ?? null } : null,
+    path: p.path ? { kind: p.path.kind, length: p.path.length ?? null, radius: p.path.radius ?? null, angle: p.path.angle ?? null, grade: p.path.grade ?? null, waveAmp: p.path.wave?.amp ?? null, waveLength: p.path.wave?.length ?? null, turn: p.path.turn ?? null, dir: p.path.dir ?? null, speed: p.path.speed ?? null } : null,
     keyframes: p.keyframes.map((k) => ({
       angles: JOINTS.map((j) => r3(k.pose[j])), contact: k.contact, hold: r3(k.hold ?? 0), move: r3(k.move ?? 0.6),
       surface: r3(k.surface ?? 0), travel: [r3(k.travel?.[0] ?? 0), r3(k.travel?.[1] ?? 0)], chain: k.chain ?? [0, 1],
@@ -290,6 +290,7 @@ function genPosePatternsSwift() {
         : k.ball.floor ? { kind: 'floor', side: k.ball.floor, dx: r3(k.ball.dx ?? 0), dl: r3(k.ball.dl ?? 0) }
         : { kind: 'at', at: k.ball.at.map(r3) },
       ballArc: r3(k.ballArc ?? 0),
+      fxPitch: r3(k.fx?.pitch ?? 0), fxLift: r3(k.fx?.lift ?? 0), fxShift: r3(k.fx?.shift ?? 0),
     })),
   }));
 
@@ -349,6 +350,11 @@ public struct PoseKeyframe: Sendable, Hashable, Codable {
     public let ball: PoseBall?
     /// Height of the arc the ball flies on when it leaves this keyframe.
     public let ballArc: Double
+    /// The fixture's own motion here: a bike's pitch (degrees, nose up) and lift.
+    public let fxPitch: Double
+    public let fxLift: Double
+    /// …and how far it has rolled forward (a BMX gate start).
+    public let fxShift: Double
 
     public var pose: Pose {
         var out: Pose = [:]
@@ -386,6 +392,9 @@ public struct RigPathSpec: Sendable, Hashable, Codable {
     public let angle: Double?
     /// Rise per unit along a line path (a hill; negative runs downhill).
     public let grade: Double?
+    /// Rollers along a line path (a pump track): height and spacing.
+    public let waveAmp: Double?
+    public let waveLength: Double?
     public let kind: String
     public let length: Double?
     public let radius: Double?

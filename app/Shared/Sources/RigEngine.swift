@@ -122,6 +122,10 @@ struct RigSkeleton {
     var cast: [RigCastMember] = []
     /// Ground height under the athlete (non-zero on a hill path).
     var floor: Double = 0
+    /// The fixture's own motion: a bike's pitch (degrees, nose up) and lift.
+    var fxPitch: Double = 0, fxLift: Double = 0, fxShift: Double = 0
+    /// On a path, the fixture travels with the athlete: turned, then moved.
+    var fxMove: (heading: Double, offset: V3)? = nil
 
     func limb(_ side: String) -> RigLimb { side == "L" ? L : R }
 
@@ -424,6 +428,17 @@ final class RigPlayback {
     func frame(at t: Double, cast: [RigCastMember]) -> RigSkeleton {
         let (segment, u) = timing(t)
         var s = body(segment, u)
+        if info.fixture != nil {
+            let k0 = info.keyframes[segment], k1 = info.keyframes[(segment + 1) % info.keyframes.count]
+            let e = ease(segment, u)
+            s.fxPitch = k0.fxPitch + (k1.fxPitch - k0.fxPitch) * e
+            s.fxLift = k0.fxLift + (k1.fxLift - k0.fxLift) * e
+            s.fxShift = k0.fxShift + (k1.fxShift - k0.fxShift) * e
+            // The rider goes where the bike goes.
+            if s.fxShift != 0 || s.fxLift != 0 {
+                s = s.translated(by: M3.rotY(view).apply(V3(s.fxShift, 0, 0)) + V3(0, s.fxLift, 0))
+            }
+        }
         if info.ball != nil { s.ball = ballAt(segment, u, s, cast) }
         return s
     }
@@ -754,6 +769,17 @@ extension RigPlayback {
         return length / speed
     }
 
+    /// Slope of a line path at `seconds` (hill grade plus rollers).
+    func pathSlope(_ seconds: Double, total: Double) -> Double {
+        guard let path = info.path, path.kind == "line" else { return 0 }
+        let u = ((seconds / total).truncatingRemainder(dividingBy: 1) + 1).truncatingRemainder(dividingBy: 1)
+        let length = path.length ?? 200
+        let along = -length / 2 + length * u
+        var slope = path.grade ?? 0
+        if let amp = path.waveAmp, let len = path.waveLength { slope += amp * 2 * .pi / len * cos(2 * .pi / len * along) }
+        return slope
+    }
+
     /// Position (body axes) and heading (degrees) along the path at `seconds`.
     func pathAt(_ seconds: Double, total: Double) -> (pos: V3, heading: Double) {
         guard let path = info.path else { return (.zero, 0) }
@@ -784,7 +810,10 @@ extension RigPlayback {
             return (axis * along, half ? 0 : 180)
         }
         let along = -length / 2 + length * u
-        return (axis * along + V3(0, along * (path.grade ?? 0), 0), 0)
+        // grade: a hill; wave: rollers of height waveAmp every waveLength (a pump track).
+        var y = along * (path.grade ?? 0)
+        if let amp = path.waveAmp, let len = path.waveLength { y += amp * sin(2 * .pi / len * along) }
+        return (axis * along + V3(0, y, 0), 0)
     }
 
     /// The skeleton at `seconds` of real time, carried along its path.
@@ -796,7 +825,10 @@ extension RigPlayback {
             let (pos, heading) = pathAt(seconds, total: loop)
             let v = M3.rotY(view).apply(pos)
             s = s.moved(turning: heading, by: v)
-            if info.path?.grade != nil { s.floor = pos.y }
+            s.fxMove = (heading, v)
+            if info.path?.grade != nil || info.path?.waveAmp != nil { s.floor = pos.y }
+            // On rollers the bike follows the slope.
+            if info.fixture != nil, info.path?.waveAmp != nil { s.fxPitch += atan(pathSlope(seconds, total: loop)) * 180 / .pi }
             for i in cast.indices where cast[i].follow { cast[i].s = cast[i].s.moved(turning: heading, by: v) }
         }
         s.cast = cast

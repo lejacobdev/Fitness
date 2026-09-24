@@ -49,8 +49,10 @@ patterns.forEach((p, row) => {
       const fill = sh.fill === 'none' ? 'none' : sh.fill;
       body += `<path d="${d}" fill="${fill}"${sh.opacity != null ? ` fill-opacity="${sh.opacity.toFixed(2)}"` : ''}${sh.stroke ? ` stroke="${sh.stroke}" stroke-width="${sh.width ?? 1}"` : ''}/>`;
     }
-    const g = p.path?.grade ?? 0;
-    body += `<line x1="${minX}" x2="${maxX}" y1="${-minX * g}" y2="${-maxX * g}" stroke="#c9c9d0" stroke-width="${0.6 / k * 2}"/>`;
+    const g = p.path?.grade ?? 0, wv = p.path?.wave;
+    const gy = (x) => -(x * g + (wv ? wv.amp * Math.sin((2 * Math.PI * x) / wv.length) : 0));
+    const gpts = Array.from({ length: 41 }, (_, i) => { const x = minX + ((maxX - minX) * i) / 40; return `${x.toFixed(1)},${gy(x).toFixed(2)}`; });
+    body += `<polyline points="${gpts.join(' ')}" fill="none" stroke="#c9c9d0" stroke-width="${0.6 / k * 2}"/>`;
     body += '</g>';
     if (col === 0) body += `<text x="${x0 + 6}" y="${y0 + 13}" font-family="Helvetica" font-size="10" fill="#555">${p.slug}</text>`;
   });

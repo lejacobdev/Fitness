@@ -1377,8 +1377,8 @@ def('shuttle-turn', 'Shuttle turn', {
 
 // Machines and water ----------------------------------------------------------
 /** Seated pedalling: each ankle traces the crank circle; hands on the bars. */
-const CRANK = { f: 20, down: 58, r: 17 };
-const pedal = (deg, { lean = 36, stand = false } = {}) => {
+export const CRANK = { f: 20, down: 58, r: 17 };
+export const pedal = (deg, { lean = 36, stand = false } = {}) => {
   let q = P({ spine: lean, neck: -24 });
   const at = (a) => (sk) => {
     const c = add(add(sk.pelvis, apply(sk.root, [1, 0, 0]), CRANK.f + (stand ? 6 : 0)), [0, -CRANK.down - (stand ? 10 : 0), 0]);

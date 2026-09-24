@@ -663,7 +663,20 @@ export function fixtureShapes(s, fx, place, pal) {
   // place.origin, then turned with the camera view like the body is.
   const ax = apply(rotY(place.view ?? 0), [1, 0, 0]), az = apply(rotY(place.view ?? 0), [0, 0, 1]);
   const o = place.origin ?? [0, 0, 0];
-  const W = (x, y, z) => add(add(add([o[0], 0, o[2]], ax, x - o[0]), [0, y, 0]), az, (z ?? o[2]) - o[2]);
+  // A bike pitches about its rear-wheel contact and lifts; on a path the whole
+  // fixture travels (turned and moved) with the athlete.
+  const pitch = ((s.fx?.pitch ?? 0) * Math.PI) / 180, lift = s.fx?.lift ?? 0, shift = s.fx?.shift ?? 0;
+  const pivot = fx.kind === 'bike' && place.crank ? place.crank[0] - 38 : o[0];
+  const W = (x, y, z) => {
+    let bx = x, by = y;
+    if (pitch) {
+      const dx = x - pivot;
+      bx = pivot + dx * Math.cos(pitch) - y * Math.sin(pitch);
+      by = dx * Math.sin(pitch) + y * Math.cos(pitch);
+    }
+    const q = add(add(add([o[0], 0, o[2]], ax, bx + shift - o[0]), [0, by + lift, 0]), az, (z ?? o[2]) - o[2]);
+    return s.fxMove ? add(apply(rotY(s.fxMove.heading), q), s.fxMove.v) : q;
+  };
   const box = (x0, x1, y0, y1, z0, z1, fill, dz = 0) => {
     const pts = [];
     for (const x of [x0, x1]) for (const y of [y0, y1]) for (const z of [z0, z1]) pts.push(P(W(x, y, z)));

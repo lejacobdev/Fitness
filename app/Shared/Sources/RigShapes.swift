@@ -572,7 +572,22 @@ enum RigShapes {
         }
         let ax = M3.rotY(fx.view).apply(V3(1, 0, 0)), az = M3.rotY(fx.view).apply(V3(0, 0, 1))
         let o = fx.origin
-        func W(_ x: Double, _ y: Double, _ z: Double? = nil) -> V3 { V3(o.x, 0, o.z) + ax * (x - o.x) + V3(0, y, 0) + az * ((z ?? o.z) - o.z) }
+        // A bike pitches about its rear-wheel contact and lifts; on a path the
+        // whole fixture travels (turned and moved) with the athlete.
+        let pitch = s.fxPitch * .pi / 180, lift = s.fxLift, shift = s.fxShift
+        let pivot = fx.kind == "bike" ? (fx.points["crank"]?.x ?? o.x) - 38 : o.x
+        let move = s.fxMove
+        func W(_ x: Double, _ y: Double, _ z: Double? = nil) -> V3 {
+            var bx = x, by = y
+            if pitch != 0 {
+                let dx = x - pivot
+                bx = pivot + dx * cos(pitch) - y * sin(pitch)
+                by = dx * sin(pitch) + y * cos(pitch)
+            }
+            let q = V3(o.x, 0, o.z) + ax * (bx + shift - o.x) + V3(0, by + lift, 0) + az * ((z ?? o.z) - o.z)
+            guard let move else { return q }
+            return M3.rotY(move.heading).apply(q) + move.offset
+        }
         func W(_ p: V3) -> V3 { W(p.x, p.y, p.z) }
         func box(_ x0: Double, _ x1: Double, _ y0: Double, _ y1: Double, _ z0: Double, _ z1: Double, _ hex: String, _ dz: Double = 0) {
             var pts: [CGPoint] = []

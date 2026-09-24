@@ -358,7 +358,16 @@ function groundY(s, surface, lift) {
  */
 export function frameAt(pattern, t, placed = placeKeyframes(pattern), cast = null) {
   const { segment, u } = timing(pattern, t);
-  const s = bodyAt(pattern, segment, u, placed);
+  let s = bodyAt(pattern, segment, u, placed);
+  // The fixture's own motion (a bike pitching up for a manual, lifting in a jump).
+  if (pattern.fixture) {
+    const k0 = pattern.keyframes[segment], k1 = pattern.keyframes[(segment + 1) % pattern.keyframes.length];
+    const e = ease(k0, u);
+    const fx = { pitch: lerp(k0.fx?.pitch ?? 0, k1.fx?.pitch ?? 0, e), lift: lerp(k0.fx?.lift ?? 0, k1.fx?.lift ?? 0, e), shift: lerp(k0.fx?.shift ?? 0, k1.fx?.shift ?? 0, e) };
+    // The rider goes where the bike goes.
+    if (fx.shift || fx.lift) s = translate(s, add(apply(rotY(placed.view), [fx.shift, 0, 0]), [0, fx.lift, 0]));
+    s.fx = fx;
+  }
   if (pattern.ball) s.ball = ballAt(pattern, segment, u, s, placed, cast ?? (pattern.cast ? castAt(pattern, t, placed) : null));
   return s;
 }
@@ -749,7 +758,11 @@ export function pathAt(pattern, seconds, placed = placeKeyframes(pattern)) {
   }
   const along = -path.length / 2 + path.length * u;
   // grade: rise per unit along the path (a hill; negative runs downhill).
-  return { pos: add(scale(axis, along), [0, along * (path.grade ?? 0), 0]), heading: 0 };
+  // wave: rollers of height `amp` every `length` units (a pump track).
+  const k = path.wave ? (2 * Math.PI) / path.wave.length : 0;
+  const y = along * (path.grade ?? 0) + (path.wave ? path.wave.amp * Math.sin(k * along) : 0);
+  const slope = (path.grade ?? 0) + (path.wave ? path.wave.amp * k * Math.cos(k * along) : 0);
+  return { pos: add(scale(axis, along), [0, y, 0]), heading: 0, slope };
 }
 
 /** Turns a placed skeleton by `deg` about the vertical axis through the origin and moves it by `v`. */
@@ -782,8 +795,12 @@ export function frameAtTime(pattern, seconds, placed = placeKeyframes(pattern)) 
     // The path lives in the body's own axes; turn it with the camera view.
     const move = (sk) => moveSkeleton(sk, heading, apply(rotY(placed.view), pos));
     s = move(s);
+    // The fixture (a bike, a chair) travels with the athlete.
+    s.fxMove = { heading, v: apply(rotY(placed.view), pos) };
     // Where the ground is under the athlete (for the shadow on a hill).
-    if (pattern.path.grade) s.floor = pos[1];
+    if (pattern.path.grade || pattern.path.wave) s.floor = pos[1];
+    // On rollers the bike follows the slope.
+    if (s.fx && pattern.path.wave) s.fx.pitch += (Math.atan(pathAt(pattern, seconds, placed).slope) * 180) / Math.PI;
     if (cast) for (const m of cast) if (m?.follow) m.s = move(m.s);
   }
   if (cast) s.cast = cast;
