@@ -80,25 +80,22 @@ struct ImproveView: View {
         NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    HStack(alignment: .firstTextBaseline) {
-                        ScreenTitle("Improve")
+                    ScreenTitle("Improve", subtitle: "Extra training for the one thing you want to get better at.")
+                    HStack(spacing: 8) {
+                        Text("Training for")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.secondaryText)
                         SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
                     }
-                    Text(mode == .skill
-                        ? "Pick a skill. Get a day-by-day plan of the best drills for it, timed for your next game."
-                        : "Pick the muscles you want stronger. Get a complete workout you can start right away.")
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
+                    if !savedBlocks.isEmpty {
+                        savedSection
+                    }
+                    SectionHeader("What do you want to improve?", subtitle: "Choose one.")
                     modePicker
                     if mode == .skill {
-                        TipCard(id: "improve", icon: "target", title: "Weak at something? Start here",
-                                message: "Tap a skill (say, shooting power), pick your game date and you get a plan with the best drills for it. Press Start on any day to do it.")
                         howItWorks
                         searchField
                         skillGrid
-                        if !savedBlocks.isEmpty {
-                            savedSection
-                        }
                     } else {
                         TipCard(id: "muscles", icon: "figure.stand", title: "Build a workout by muscle",
                                 message: "Tap a quick pick or the body areas you want to train, choose how long you have, then press Start workout.")
@@ -131,26 +128,37 @@ struct ImproveView: View {
         }
     }
 
+    /// Two big, self-explaining choices instead of a small toggle.
     private var modePicker: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 12) {
             ForEach(Mode.allCases, id: \.self) { value in
+                let selected = mode == value
                 Button {
                     withAnimation(.snappy) { mode = value }
                 } label: {
-                    Text(value == .skill ? "Skills" : "Muscles")
-                        .font(.subheadline.bold())
-                        .foregroundStyle(mode == value ? AppTheme.inkInverse : AppTheme.ink)
-                        .frame(maxWidth: .infinity, minHeight: 40)
-                        .background(mode == value ? AppTheme.ink : .clear, in: Capsule())
+                    VStack(alignment: .leading, spacing: 8) {
+                        Image(systemName: value == .skill ? "target" : "figure.strengthtraining.traditional")
+                            .font(.system(size: 20, weight: .semibold))
+                        Text(value == .skill ? "A skill" : "Muscles")
+                            .font(.headline)
+                        Text(value == .skill ? "Like shooting or first-step speed. You get a day-by-day plan up to your next game." : "Pick body areas. You get one workout to do right now.")
+                            .font(.caption)
+                            .foregroundStyle(selected ? AppTheme.inkInverse.opacity(0.8) : AppTheme.secondaryText)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(selected ? AppTheme.inkInverse : AppTheme.ink)
+                    .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
+                    .padding(16)
+                    .background(selected ? AppTheme.ink : AppTheme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .shadow(color: .black.opacity(selected ? 0.15 : 0.05), radius: 8, x: 0, y: 3)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(value.rawValue)
-                .accessibilityAddTraits(mode == value ? .isSelected : [])
+                .accessibilityLabel(value == .skill ? "Improve a skill" : "Train muscles")
+                .accessibilityAddTraits(selected ? .isSelected : [])
             }
         }
-        .padding(4)
-        .background(AppTheme.card, in: Capsule())
-        .shadow(color: .black.opacity(0.05), radius: 6, x: 0, y: 2)
     }
 
     private var howItWorks: some View {
@@ -235,10 +243,10 @@ struct ImproveView: View {
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text(top.map(\.quality.shortName).joined(separator: " · "))
+            Text("Needs " + top.map { $0.quality.shortName.lowercased() }.joined(separator: " and "))
                 .font(.caption)
                 .foregroundStyle(AppTheme.secondaryText)
-                .lineLimit(1)
+                .lineLimit(2)
         }
         .frame(maxWidth: .infinity, minHeight: 130, alignment: .topLeading)
         .cardStyle(padding: 16)
@@ -246,7 +254,7 @@ struct ImproveView: View {
 
     private var savedSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionTitle("Saved plans")
+            SectionHeader("Your skill plans", subtitle: "Today's drills from these also show on your Today screen.")
             ForEach(savedBlocks) { saved in
                 NavigationLink(value: ImproveRoute.block(skillSlug: saved.skillSlug, gameDate: saved.targetDate, seed: saved.seed, isSaved: true)) {
                     HStack(spacing: 14) {

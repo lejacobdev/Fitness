@@ -158,23 +158,36 @@ public extension ButtonStyle where Self == SecondaryButtonStyle {
 /// The small black circle with a white glyph — Cal AI's floating "+".
 public struct FloatingActionButton: View {
     let systemImage: String
+    let title: String?
     let accessibilityLabel: String
     let action: () -> Void
 
-    public init(systemImage: String = "plus", accessibilityLabel: String, action: @escaping () -> Void) {
+    /// With a `title` it's a labelled black capsule, so what it does is never a guess.
+    public init(systemImage: String = "plus", title: String? = nil, accessibilityLabel: String, action: @escaping () -> Void) {
         self.systemImage = systemImage
+        self.title = title
         self.accessibilityLabel = accessibilityLabel
         self.action = action
     }
 
     public var body: some View {
         Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(AppTheme.inkInverse)
-                .frame(width: 60, height: 60)
-                .background(AppTheme.ink, in: Circle())
-                .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 6)
+            if let title {
+                Label(title, systemImage: systemImage)
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.inkInverse)
+                    .padding(.horizontal, 20)
+                    .frame(height: 54)
+                    .background(AppTheme.ink, in: Capsule())
+                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 6)
+            } else {
+                Image(systemName: systemImage)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(AppTheme.inkInverse)
+                    .frame(width: 60, height: 60)
+                    .background(AppTheme.ink, in: Circle())
+                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 6)
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
@@ -244,13 +257,16 @@ public struct RingStatCard: View {
     let progress: Double
     let color: Color
     let systemImage: String
+    /// One line saying what the number means or what tapping does.
+    let caption: String?
 
-    public init(value: String, label: String, progress: Double, color: Color, systemImage: String) {
+    public init(value: String, label: String, progress: Double, color: Color, systemImage: String, caption: String? = nil) {
         self.value = value
         self.label = label
         self.progress = progress
         self.color = color
         self.systemImage = systemImage
+        self.caption = caption
     }
 
     public var body: some View {
@@ -262,10 +278,18 @@ public struct RingStatCard: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                 Text(label)
-                    .font(.caption)
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.secondaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
+                if let caption {
+                    Text(caption)
+                        .font(.caption2)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .lineLimit(2, reservesSpace: true)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 2)
+                }
             }
             RingView(progress: progress, color: color, lineWidth: 6) {
                 Image(systemName: systemImage)
@@ -278,7 +302,7 @@ public struct RingStatCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle(padding: 14)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(label): \(value)")
+        .accessibilityLabel("\(label): \(value)" + (caption.map { ". \($0)" } ?? ""))
     }
 }
 
@@ -347,6 +371,35 @@ public struct WeekStrip: View {
         .buttonStyle(.plain)
         .accessibilityLabel(day.formatted(date: .complete, time: .omitted) + (isGame ? ", game day" : (isMarked ? ", has training" : "")))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+/// What the week strip's dots mean, in words under it.
+public struct WeekStripLegend: View {
+    public init() {}
+
+    public var body: some View {
+        HStack(spacing: 14) {
+            item(AppTheme.orange, "Workout")
+            item(AppTheme.brand, "Game")
+            HStack(spacing: 5) {
+                Circle().strokeBorder(AppTheme.ink, lineWidth: 1.5).frame(width: 10, height: 10)
+                Text("Today")
+            }
+            Spacer(minLength: 0)
+            Text("Tap a day to see it")
+        }
+        .font(.caption2)
+        .foregroundStyle(AppTheme.secondaryText)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Orange dot: workout day. Red dot: game day. Tap a day to see its plan.")
+    }
+
+    private func item(_ color: Color, _ text: String) -> some View {
+        HStack(spacing: 5) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text(text)
+        }
     }
 }
 
@@ -659,15 +712,30 @@ public struct ItemThumbnail: View {
 
 /// Human-readable dose, e.g. "3 × 8", "3 × 20s", "2 × 10 contacts".
 public enum DoseFormatter {
+    /// In plain words: "3 sets of 8 reps", "2 sets of 30 seconds each side".
     public static func text(_ dose: Dose) -> String {
         let perSide = dose.perSide == true ? " each side" : ""
+        let sets = dose.sets == 1 ? "1 set" : "\(dose.sets) sets"
         switch dose.kind {
-        case "reps": return "\(dose.sets) × \(dose.reps ?? 0)\(perSide)"
-        case "time": return "\(dose.sets) × \(dose.seconds ?? 0)s\(perSide)"
-        case "distance": return "\(dose.sets) × \(Int(dose.metres ?? 0))m"
-        case "contacts": return "\(dose.sets) × \(dose.contacts ?? 0) contacts"
-        default: return "\(dose.sets) sets"
+        case "reps": return "\(sets) of \(dose.reps ?? 0) reps\(perSide)"
+        case "time": return "\(sets) of \(duration(dose.seconds ?? 0))\(perSide)"
+        case "distance": return "\(dose.sets == 1 ? "1 time" : "\(dose.sets) times") \(Int(dose.metres ?? 0)) m"
+        case "contacts": return "\(sets) of \(dose.contacts ?? 0) jumps"
+        default: return sets
         }
+    }
+
+    /// "30 seconds", "1 minute", "1 min 30 s".
+    public static func duration(_ seconds: Int) -> String {
+        if seconds < 60 { return "\(seconds) seconds" }
+        let m = seconds / 60, s = seconds % 60
+        if s == 0 { return m == 1 ? "1 minute" : "\(m) minutes" }
+        return "\(m) min \(s) s"
+    }
+
+    /// "Rest 90 seconds between sets".
+    public static func rest(_ seconds: Int) -> String {
+        seconds <= 0 ? "No rest needed" : "Rest \(duration(seconds)) between sets"
     }
 }
 

@@ -56,11 +56,11 @@ struct MeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Me")
+                    ScreenTitle("Me", subtitle: "Your progress, your training setup and your account.")
                     profileCard
                     statsRow
 
-                    SectionTitle("Progress")
+                    SectionHeader("Your progress", subtitle: "How your sleep, training and body balance are going.")
                     SleepTrendCard(checkIns: athlete.checkIns)
                     LoadTrendCard(summary: LoadCalculator.summarize(sessions.map {
                         LoadSample(date: $0.startedAt, minutes: $0.minutes, rpe: $0.sessionRPE)
@@ -73,20 +73,20 @@ struct MeView: View {
                             if ProAccess.isPro { activeSheet = .exercises } else { showingPaywall = true }
                         }
                         menuDivider
-                        menuRow("Session history", icon: "clock.arrow.circlepath", tint: AppTheme.blue, detail: "\(sessions.count)") { activeSheet = .history }
+                        menuRow("Past workouts", icon: "clock.arrow.circlepath", tint: AppTheme.blue, detail: "\(sessions.count)") { activeSheet = .history }
                         menuDivider
-                        menuRow("Check-in history", icon: "sun.max.fill", tint: AppTheme.amber, detail: "\(athlete.checkIns.count)") { activeSheet = .checkIns }
+                        menuRow("Past check-ins", icon: "sun.max.fill", tint: AppTheme.amber, detail: "\(athlete.checkIns.count)") { activeSheet = .checkIns }
                     }
 
-                    SectionTitle("Fuel & health")
+                    SectionHeader("Food & health", subtitle: "What to eat and drink, and your Apple Health data.")
                     menuCard {
-                        menuRow("Fuel & hydration", icon: "fork.knife", tint: AppTheme.green, detail: "Today") { activeSheet = .fuel }
+                        menuRow("Food & water", icon: "fork.knife", tint: AppTheme.green, detail: "Today") { activeSheet = .fuel }
                         menuDivider
                         menuRow("Apple Health", icon: "heart.fill", tint: AppTheme.red,
                                 detail: HealthKitManager.shared.isAvailable ? "Connect" : "Unavailable") { activeSheet = .health }
                     }
 
-                    SectionTitle("Training setup")
+                    SectionHeader("Your training setup", subtitle: "Change any of these and your plan updates to match.")
                     menuCard {
                         menuRow(athlete.sports.count > 1 ? "Sports" : "Sport & position", icon: sportInfo.map { SportIcon.name(for: $0.slug) } ?? "sportscourt.fill", tint: AppTheme.brand,
                                 detail: athlete.sports.count > 1
@@ -102,14 +102,14 @@ struct MeView: View {
                         coachToggleRow
                     }
 
-                    SectionTitle("App")
+                    SectionHeader("Help & settings")
                     menuCard {
                         menuRow("Help & app tour", icon: "questionmark.circle.fill", tint: AppTheme.ink, detail: "") { activeSheet = .help }
                         menuDivider
                         menuRow("Reminders", icon: "bell.fill", tint: AppTheme.amber,
                                 detail: ReminderScheduler.settings.checkInEnabled ? "On" : "Off") { activeSheet = .reminders }
                         menuDivider
-                        menuRow("Downloads", icon: "arrow.down.circle.fill", tint: AppTheme.blue, detail: "Offline") { activeSheet = .downloads }
+                        menuRow("Downloads for offline use", icon: "arrow.down.circle.fill", tint: AppTheme.blue, detail: "") { activeSheet = .downloads }
                     }
 
                     #if os(iOS) && !APP_EXTENSION
@@ -118,18 +118,18 @@ struct MeView: View {
                         .cardStyle(padding: 16)
                     #endif
 
-                    SectionTitle("Your data")
+                    SectionHeader("Your data", subtitle: "It's yours: export it any time.")
                     menuCard {
                         menuRow("Export my data", icon: "square.and.arrow.up", tint: AppTheme.green, detail: "JSON") { activeSheet = .dataExport }
                         menuDivider
                         HStack(spacing: 14) {
                             menuIcon("icloud.fill", tint: AppTheme.blue)
-                            Text("Sync")
+                            Text("Backed up online")
                                 .font(.body)
                                 .foregroundStyle(AppTheme.ink)
                             Spacer()
                             let pending = sessions.filter { $0.syncedAt == nil }.count
-                            Text(pending == 0 ? "Up to date" : "\(pending) waiting")
+                            Text(pending == 0 ? "All saved" : "\(pending) waiting to upload")
                                 .font(.subheadline)
                                 .foregroundStyle(AppTheme.secondaryText)
                         }
@@ -461,10 +461,10 @@ struct LoadTrendCard: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Training load")
+                    Text("How hard you've trained")
                         .font(.headline)
                         .foregroundStyle(AppTheme.ink)
-                    Text("RPE × minutes, last 28 days")
+                    Text("Each bar is a day: how hard it felt × how long. Dashed line = your usual day.")
                         .font(.caption)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
@@ -583,7 +583,7 @@ struct SeasonEditorSheet: View {
     @State private var end = Date.now
 
     var body: some View {
-        StepScaffold(title: "Season dates", subtitle: "Your plan's phases — build, sharpen, maintain, unload — hang off these.", buttonTitle: "Save",
+        StepScaffold(title: "Season dates", subtitle: "Your plan changes through the season — getting stronger before it, staying fresh during it, recovering after — based on these dates.", buttonTitle: "Save",
                      onBack: { dismiss() }, onContinue: save) {
             SeasonEditor(start: $start, end: $end)
         }

@@ -47,11 +47,11 @@ struct PlanView: View {
 
     private var phaseExplanation: String {
         switch week?.phase {
-        case .offSeason: "Build phase. The highest volume of the year — this is when real strength and fitness gains happen."
-        case .preSeason: "Volume tapers as intensity climbs. Power, speed and sport conditioning take over."
-        case .inSeason: "Maintain, don't build. Two short quality sessions a week, never enough to cost you a game."
-        case .postSeason: "A deliberate unload. Recover properly, then build again."
-        case nil: "Pick a sport to generate your week."
+        case .offSeason: "No games for a while, so this is when you get stronger and fitter. Workouts are the longest of the year."
+        case .preSeason: "The season is coming. Workouts get shorter but faster and more sport-like, so you're sharp for game one."
+        case .inSeason: "Games come first. Two short workouts a week keep you strong without leaving you tired for games."
+        case .postSeason: "The season's over. Workouts are light so your body can recover before the next build."
+        case nil: "Pick your sport and we'll plan your week."
         }
     }
 
@@ -59,23 +59,35 @@ struct PlanView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    HStack(alignment: .firstTextBaseline) {
-                        ScreenTitle("Plan")
+                    HStack(alignment: .top) {
+                        ScreenTitle("Plan", subtitle: "Your training week, built around your games.")
+                        Spacer(minLength: 8)
+                        Button { showingAddGame = true } label: {
+                            Label("Add game", systemImage: "plus")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppTheme.inkInverse)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 9)
+                                .background(AppTheme.ink, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 6)
+                    }
+                    HStack(spacing: 8) {
+                        Text("Training for")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.secondaryText)
                         SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
                     }
-                    TipCard(id: "plan", icon: "hand.tap.fill", title: "Tap a day to preview it",
-                            message: "Each day shows its exercises — tap one to see how it's done, then press Start to do that session now.")
-                    phaseCard
-                    WeekStrip(selection: $selectedDate, marked: markedDays, gameDays: Set(athlete.competitions.map { calendar.startOfDay(for: $0.date) }))
+                    VStack(alignment: .leading, spacing: 8) {
+                        WeekStrip(selection: $selectedDate, marked: markedDays, gameDays: Set(athlete.competitions.map { calendar.startOfDay(for: $0.date) }))
+                        WeekStripLegend()
+                    }
                     selectedDayDetail
                     weekOverview
+                    SectionHeader("Your season", subtitle: "Your training changes as the season goes on.")
+                    phaseCard
                     gamesSection
-                    Button {
-                        showingAddGame = true
-                    } label: {
-                        Label("Add a game", systemImage: "plus")
-                    }
-                    .buttonStyle(.primary)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
@@ -115,11 +127,11 @@ struct PlanView: View {
             .frame(width: 70, height: 70)
             .accessibilityLabel("\(Int(seasonProgress * 100)) percent of the season done")
             VStack(alignment: .leading, spacing: 4) {
-                Text(AthleteStats.phaseLabel(week?.phase))
+                Text("Now: " + AthleteStats.phaseLabel(week?.phase))
                     .font(.title3.bold())
                     .foregroundStyle(AppTheme.ink)
                 if let athleteSport {
-                    Text("Season \(athleteSport.seasonStart.formatted(.dateTime.month(.abbreviated).day())) – \(athleteSport.seasonEnd.formatted(.dateTime.month(.abbreviated).day()))")
+                    Text("Season runs \(athleteSport.seasonStart.formatted(.dateTime.month(.abbreviated).day())) – \(athleteSport.seasonEnd.formatted(.dateTime.month(.abbreviated).day())) · \(Int(seasonProgress * 100))% done")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(AppTheme.blue)
                 }
@@ -138,11 +150,11 @@ struct PlanView: View {
     @ViewBuilder
     private var selectedDayDetail: some View {
         if let game = game(on: selectedDate) {
-            dayHeader("Game day", subtitle: "Warm-up only — everything this week was built around today.", icon: "sportscourt.fill", color: AppTheme.brand)
+            dayHeader("Game day", subtitle: "No workout — just warm up and play. The rest of the week was planned so you're fresh today.", icon: "sportscourt.fill", color: AppTheme.brand)
                 .accessibilityHint(game.notes ?? "")
         } else if let session = session(on: selectedDate) {
             VStack(alignment: .leading, spacing: 12) {
-                dayHeader(session.title, subtitle: "\(session.estimatedMinutes) min · \(session.items.count) exercises", icon: "figure.strengthtraining.traditional", color: AppTheme.orange)
+                dayHeader(session.title, subtitle: "About \(session.estimatedMinutes) min · \(session.items.count) exercises, in this order", icon: "figure.strengthtraining.traditional", color: AppTheme.orange)
                 ForEach(session.items, id: \.order) { item in
                     itemRow(item)
                 }
@@ -150,7 +162,7 @@ struct PlanView: View {
                     .padding(.top, 4)
             }
         } else {
-            dayHeader("Rest day", subtitle: "Nothing prescribed. Sleep, eat well, and come back fresh.", icon: "moon.zzz.fill", color: AppTheme.purple)
+            dayHeader("Rest day", subtitle: "No workout planned. Resting is part of getting stronger — sleep well and eat well.", icon: "moon.zzz.fill", color: AppTheme.purple)
         }
     }
 
@@ -192,7 +204,7 @@ struct PlanView: View {
                     Text(DoseFormatter.text(item.dose))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(AppTheme.orange)
-                    Text(item.rationale)
+                    Text("Why: " + item.rationale)
                         .font(.caption)
                         .foregroundStyle(AppTheme.secondaryText)
                         .multilineTextAlignment(.leading)
@@ -209,7 +221,7 @@ struct PlanView: View {
 
     private var weekOverview: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionTitle("This week")
+            SectionHeader("The whole week", subtitle: "Tap a day to see it above.")
             VStack(spacing: 0) {
                 ForEach(Array(weekDays.enumerated()), id: \.offset) { index, day in
                     Button {
@@ -245,7 +257,7 @@ struct PlanView: View {
                 .lineLimit(1)
             Spacer()
             if let session, game == nil {
-                Text("\(session.estimatedMinutes) min")
+                Text("about \(session.estimatedMinutes) min")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(AppTheme.secondaryText)
             }
@@ -261,7 +273,7 @@ struct PlanView: View {
         let upcoming = AthleteStats.upcomingCompetitions(athlete)
         if !upcoming.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
-                SectionTitle("Upcoming games")
+                SectionHeader("Upcoming games", subtitle: "Your workouts get lighter in the days before each one.")
                 VStack(spacing: 0) {
                     ForEach(Array(upcoming.enumerated()), id: \.element.id) { index, game in
                         gameRow(game)
@@ -292,7 +304,7 @@ struct PlanView: View {
                     .lineLimit(1)
             }
             Spacer()
-            Text(days == 0 ? "Today" : "in \(days)d")
+            Text(days == 0 ? "Today" : (days == 1 ? "Tomorrow" : "in \(days) days"))
                 .font(.caption.bold())
                 .foregroundStyle(AppTheme.ink)
                 .padding(.horizontal, 10)

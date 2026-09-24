@@ -452,7 +452,7 @@ struct ItemDetailView: View {
                             }
                         }
                         if item.isCoached {
-                            Tag("Coached only", color: AppTheme.brand)
+                            Tag("Do with a coach", color: AppTheme.brand)
                         }
                     }
                 }
@@ -460,8 +460,8 @@ struct ItemDetailView: View {
                 StartWorkoutButton("Try it now", session: .single(item))
 
                 HStack(spacing: 12) {
-                    factCard(DoseFormatter.text(item.defaultDose), "Dose", "repeat")
-                    factCard("\(item.restSeconds)s", "Rest", "timer")
+                    factCard(DoseFormatter.text(item.defaultDose), "How much", "repeat")
+                    factCard(DoseFormatter.duration(item.restSeconds), "Rest between sets", "timer")
                     factCard(item.surface.capitalized, "Where", "mappin.and.ellipse")
                 }
 

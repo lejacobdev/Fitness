@@ -95,14 +95,8 @@ struct TodayView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         header
-                        WeekStrip(selection: $selectedDate, marked: markedDays, gameDays: Set(athlete.competitions.map { calendar.startOfDay(for: $0.date) }))
-                        doThisNow
-                        exercisesSection
-                        ForEach(SavedSkillPlans.days(on: selectedDate, athlete: athlete, catalogue: catalogue)) { day in
-                            SkillPlanTodayCard(day: day, catalogue: catalogue) { detailItem = $0 }
-                        }
-                        statusSection
                         if isSelectedToday {
+                            // New here? The first steps come before everything else.
                             GettingStartedCard(
                                 athlete: athlete, hasLoggedSession: !allSessions.isEmpty,
                                 onCheckIn: { activeSheet = .checkIn },
@@ -114,6 +108,23 @@ struct TodayView: View {
                                 onLibrary: { selectedTab = .library }
                             )
                         }
+                        VStack(alignment: .leading, spacing: 8) {
+                            WeekStrip(selection: $selectedDate, marked: markedDays, gameDays: Set(athlete.competitions.map { calendar.startOfDay(for: $0.date) }))
+                            WeekStripLegend()
+                        }
+                        if !isSelectedToday {
+                            Button { selectedDate = .now } label: {
+                                Label("Back to today", systemImage: "arrow.uturn.backward")
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            .foregroundStyle(AppTheme.ink)
+                        }
+                        doThisNow
+                        exercisesSection
+                        ForEach(SavedSkillPlans.days(on: selectedDate, athlete: athlete, catalogue: catalogue)) { day in
+                            SkillPlanTodayCard(day: day, catalogue: catalogue) { detailItem = $0 }
+                        }
+                        statusSection
                         if isSelectedToday, let coachReport {
                             SectionHeader("Coach notes", subtitle: "What your last week of training says.")
                             CoachHeadlineCard(report: coachReport, catalogue: catalogue)
@@ -128,7 +139,7 @@ struct TodayView: View {
                 }
                 .scrollIndicators(.hidden)
 
-                FloatingActionButton(accessibilityLabel: "Quick actions") {
+                FloatingActionButton(title: "Add", accessibilityLabel: "Add: log a workout, check in, add a game, fuel or history") {
                     activeSheet = .quickActions
                 }
                 .padding(20)
@@ -147,7 +158,7 @@ struct TodayView: View {
                         pendingAction = action
                         activeSheet = nil
                     }
-                    .presentationDetents([.height(500)])
+                    .presentationDetents([.height(560)])
                 case .checkIn:
                     CheckInSheet(athlete: athlete)
                 case .addGame:
@@ -191,7 +202,7 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(greeting)
+                    Text(isSelectedToday ? "\(greeting) · \(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))" : selectedDate.formatted(.dateTime.month(.wide).day()))
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.secondaryText)
                     Text(isSelectedToday ? "Today" : selectedDate.formatted(.dateTime.weekday(.wide)))
@@ -206,7 +217,7 @@ struct TodayView: View {
                         .font(.subheadline.bold())
                         .foregroundStyle(AppTheme.ink)
                         .contentTransition(.numericText())
-                    Text(streak == 1 ? "day" : "days")
+                    Text("day streak")
                         .font(.caption)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
@@ -215,9 +226,14 @@ struct TodayView: View {
                 .background(AppTheme.card, in: Capsule())
                 .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(streak) day streak")
+                .accessibilityLabel("\(streak) day streak: days in a row you checked in or trained")
             }
-            SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
+            HStack(spacing: 8) {
+                Text("Training for")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+                SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
+            }
         }
     }
 
@@ -230,9 +246,9 @@ struct TodayView: View {
     private var doThisNow: some View {
         if isSelectedToday, todaysCheckIn == nil, gameOnSelectedDay == nil {
             VStack(alignment: .leading, spacing: 10) {
-                StepLabel(1, "Check in first — 10 seconds")
+                StepLabel(1, "First, tell us how you feel — 10 seconds")
                 CheckInCard(athlete: athlete)
-                if displayedSession != nil { StepLabel(2, "Then do today's workout").padding(.top, 6) }
+                if displayedSession != nil { StepLabel(2, "Then do today's workout — it adapts to your answers").padding(.top, 6) }
             }
         }
         if let game = gameOnSelectedDay {
@@ -260,20 +276,24 @@ struct TodayView: View {
                 .font(.title2.bold())
                 .foregroundStyle(AppTheme.ink)
             HStack(spacing: 14) {
-                Label("\(session.estimatedMinutes) min", systemImage: "clock")
+                Label("About \(session.estimatedMinutes) min", systemImage: "clock")
                 Label("\(session.items.count) exercises", systemImage: "list.bullet")
-                if let focus { Label(focus, systemImage: "scope") }
             }
             .font(.subheadline)
             .foregroundStyle(AppTheme.secondaryText)
             .labelStyle(CompactLabelStyle())
+            if let focus {
+                Text("Works on: \(focus.lowercased())")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
             if let reason = readinessAdjustment?.reason {
                 HStack(alignment: .top, spacing: 8) {
                     Circle().fill(AppTheme.color(for: todaysCheckIn?.readinessBand)).frame(width: 8, height: 8).padding(.top, 5)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Made lighter for how you feel today").font(.footnote.bold()).foregroundStyle(AppTheme.ink)
+                        Text("We made it lighter because of your check-in").font(.footnote.bold()).foregroundStyle(AppTheme.ink)
                         Text(reason).font(.footnote).foregroundStyle(AppTheme.secondaryText)
-                        Button("Use the original workout") { readinessOverridden = true }
+                        Button("I feel fine — use the full workout") { readinessOverridden = true }
                             .font(.footnote.weight(.semibold)).foregroundStyle(AppTheme.ink)
                     }
                 }
@@ -290,7 +310,14 @@ struct TodayView: View {
                         .buttonStyle(.primary)
                 }
             } else if selectedDate > .now {
+                Text("This is planned for \(selectedDate.formatted(.dateTime.weekday(.wide))). You can also do it now.")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.secondaryText)
                 StartWorkoutButton("Do this workout now", session: session, prominent: false)
+            } else {
+                Text(loggedOnSelectedDay.isEmpty ? "This day has passed." : "Done on this day.")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.secondaryText)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -301,9 +328,9 @@ struct TodayView: View {
     @ViewBuilder
     private var exercisesSection: some View {
         if gameOnSelectedDay == nil, let session = displayedSession {
-            SectionHeader("The exercises", subtitle: "Tap one to watch how it's done and see the muscles it works.")
-            ForEach(session.items, id: \.order) { item in
-                plannedItemRow(item)
+            SectionHeader("What's in this workout", subtitle: "Do them in this order. Tap one to watch how it's done.")
+            ForEach(Array(session.items.enumerated()), id: \.element.order) { index, item in
+                plannedItemRow(item, number: index + 1)
             }
         }
     }
@@ -312,8 +339,8 @@ struct TodayView: View {
     private var statusSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader("How you're doing", subtitle: todaysCheckIn == nil
-                ? "Readiness and sleep fill in after today's check-in."
-                : (todaysCheckIn?.readinessBand == nil ? "Readiness starts adjusting your workouts after a week of check-ins." : "From this morning's check-in."))
+                ? "The first two fill in after today's check-in. Tap any card for more."
+                : (todaysCheckIn?.readinessBand == nil ? "After a week of check-ins, we'll tell you how hard to train each day." : "Based on this morning's check-in. Tap any card for more."))
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 statCardItems
             }
@@ -329,64 +356,75 @@ struct TodayView: View {
         let nextGame = AthleteStats.upcomingCompetitions(athlete).first
         let daysToGame = nextGame.map { AthleteStats.daysUntil($0.date) }
             Button { activeSheet = .checkIn } label: { RingStatCard(
-                value: band.map { $0.rawValue.capitalized } ?? (todaysCheckIn == nil ? "Check in" : "Learning"),
-                label: "Readiness",
+                value: band.map { $0 == .green ? "Ready to push" : ($0 == .amber ? "Go steady" : "Take it easy") } ?? (todaysCheckIn == nil ? "Not yet" : "Learning you"),
+                label: "Ready to train?",
                 progress: band.map { $0 == .green ? 1 : ($0 == .amber ? 0.6 : 0.3) } ?? 0,
                 color: AppTheme.color(for: band),
-                systemImage: "waveform.path.ecg"
+                systemImage: "waveform.path.ecg",
+                caption: band == nil ? (todaysCheckIn == nil ? "Tap to check in" : "Needs a week of check-ins") : "From how you slept and feel"
             ) }
             .buttonStyle(.plain)
             .disabled(todaysCheckIn != nil)
             Button { activeSheet = .checkIn } label: { RingStatCard(
-                value: sleep.map { "\($0)/5" } ?? "—",
-                label: "Sleep",
+                value: sleep.map { "\($0) of 5" } ?? "Not yet",
+                label: "Sleep last night",
                 progress: Double(sleep ?? 0) / 5,
                 color: AppTheme.purple,
-                systemImage: "moon.fill"
+                systemImage: "moon.fill",
+                caption: sleep.map { $0 >= 4 ? "Well rested" : ($0 == 3 ? "Okay" : "Short on sleep") } ?? "Tap to check in"
             ) }
             .buttonStyle(.plain)
             .disabled(todaysCheckIn != nil)
             Button {
                 if nextGame == nil { activeSheet = .addGame } else { selectedTab = .plan }
             } label: { RingStatCard(
-                value: daysToGame.map { $0 == 0 ? "Today" : "\($0)d" } ?? "Add",
+                value: daysToGame.map { $0 == 0 ? "Today" : ($0 == 1 ? "Tomorrow" : "In \($0) days") } ?? "None yet",
                 label: "Next game",
                 progress: daysToGame.map { max(0.05, 1 - Double($0) / 14) } ?? 0,
                 color: AppTheme.brand,
-                systemImage: "sportscourt.fill"
+                systemImage: "sportscourt.fill",
+                caption: nextGame == nil ? "Tap to add one — your week builds up to it" : "Your training eases off before it"
             ) }
             .buttonStyle(.plain)
             Button { activeSheet = .history } label: { RingStatCard(
-                value: "\(loggedThisWeek) of \(week?.sessions.count ?? 0)",
-                label: "Workouts this week",
+                value: "\(loggedThisWeek) of \(week?.sessions.count ?? 0) done",
+                label: "This week",
                 progress: Double(loggedThisWeek) / Double(plannedThisWeek),
                 color: AppTheme.ink,
-                systemImage: "flame.fill"
+                systemImage: "flame.fill",
+                caption: "Tap to see your past workouts"
             ) }
             .buttonStyle(.plain)
     }
 
-    private func plannedItemRow(_ item: GeneratedPlannedItem) -> some View {
+    private func plannedItemRow(_ item: GeneratedPlannedItem, number: Int) -> some View {
         let catalogueItem = catalogue.item(item.itemSlug)
         return Button {
             detailItem = catalogueItem
         } label: {
             HStack(spacing: 14) {
                 ItemThumbnail(item: catalogueItem)
-                VStack(alignment: .leading, spacing: 5) {
+                    .overlay(alignment: .topLeading) {
+                        Text("\(number)")
+                            .font(.caption2.bold())
+                            .foregroundStyle(AppTheme.inkInverse)
+                            .frame(width: 20, height: 20)
+                            .background(AppTheme.ink, in: Circle())
+                            .offset(x: -6, y: -6)
+                    }
+                VStack(alignment: .leading, spacing: 4) {
                     Text(catalogueItem?.name ?? displayName(forSlug: item.itemSlug))
                         .font(.headline)
                         .foregroundStyle(AppTheme.ink)
                         .multilineTextAlignment(.leading)
-                    HStack(spacing: 6) {
-                        Text(DoseFormatter.text(item.dose))
-                        Text("·")
-                        Text("\(item.restSec)s rest")
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
+                    Text(DoseFormatter.text(item.dose))
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(AppTheme.ink)
+                    Text(DoseFormatter.rest(item.restSec))
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.secondaryText)
                     if let quality = qualitiesBySlug[item.quality] {
-                        Tag(quality.shortName, color: AppTheme.orange)
+                        Tag("Builds \(quality.shortName.lowercased())", color: AppTheme.orange)
                     }
                 }
                 Spacer(minLength: 0)
@@ -410,7 +448,7 @@ struct TodayView: View {
             Text(game.kind == .tournament ? "Tournament day" : (game.kind == .meet ? "Meet day" : "Game day"))
                 .font(.title3.bold())
                 .foregroundStyle(AppTheme.ink)
-            Text("The warm-up sequence and nothing else. Eat 3 hours out, top up an hour before, and go play.")
+            Text("No workout today — save your energy for the game. Eat a proper meal about 3 hours before, have a snack an hour before, warm up, and play.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
                 .multilineTextAlignment(.center)
@@ -429,7 +467,7 @@ struct TodayView: View {
             Text("Rest day")
                 .font(.title3.bold())
                 .foregroundStyle(AppTheme.ink)
-            Text("Recovery is part of the plan. Sleep is the best thing you can do for your training today.")
+            Text("No workout planned today. Resting is how your body gets stronger from training — a good night's sleep is today's job.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
                 .multilineTextAlignment(.center)
@@ -448,7 +486,7 @@ struct TodayView: View {
     private var recentActivity: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                SectionTitle("Recent activity")
+                SectionTitle("Your recent workouts")
                 Button("See all") { activeSheet = .history }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.secondaryText)
@@ -483,9 +521,9 @@ struct SessionRow: View {
                 }
                 HStack(spacing: 10) {
                     Label("\(session.minutes) min", systemImage: "clock")
-                    Label("\(session.sets.count) sets", systemImage: "list.bullet")
+                    Label("\(session.sets.count) sets done", systemImage: "list.bullet")
                     if let rpe = session.sessionRPE {
-                        Label("RPE \(rpe)", systemImage: "flame")
+                        Label("Effort \(rpe)/10", systemImage: "flame")
                     }
                 }
                 .font(.caption.weight(.medium))
@@ -514,17 +552,18 @@ struct QuickActionsSheet: View {
     private struct Tile: Identifiable {
         let action: QuickAction
         let title: String
+        let detail: String
         let icon: String
         var id: QuickAction { action }
     }
 
     private let tiles: [Tile] = [
-        Tile(action: .logWorkout, title: "Log a workout", icon: "figure.run"),
-        Tile(action: .checkIn, title: "Check-in", icon: "sun.max.fill"),
-        Tile(action: .addGame, title: "Add a game", icon: "sportscourt.fill"),
-        Tile(action: .improve, title: "Improve a skill", icon: "chart.line.uptrend.xyaxis"),
-        Tile(action: .fuel, title: "Fuel & water", icon: "fork.knife"),
-        Tile(action: .history, title: "History", icon: "clock.arrow.circlepath"),
+        Tile(action: .logWorkout, title: "Log a workout", detail: "Something you did that isn't in your plan", icon: "figure.run"),
+        Tile(action: .checkIn, title: "Check in", detail: "How you slept and feel today", icon: "sun.max.fill"),
+        Tile(action: .addGame, title: "Add a game", detail: "Your plan builds up to it", icon: "sportscourt.fill"),
+        Tile(action: .improve, title: "Improve a skill", detail: "A plan for one skill, like shooting", icon: "chart.line.uptrend.xyaxis"),
+        Tile(action: .fuel, title: "Food & water", detail: "What to eat and drink today", icon: "fork.knife"),
+        Tile(action: .history, title: "Past workouts", detail: "Everything you've done", icon: "clock.arrow.circlepath"),
     ]
 
     var body: some View {
@@ -533,20 +572,30 @@ struct QuickActionsSheet: View {
                 .fill(AppTheme.hairline)
                 .frame(width: 40, height: 5)
                 .padding(.top, 10)
+            Text("What do you want to do?")
+                .font(.headline)
+                .foregroundStyle(AppTheme.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 ForEach(tiles) { tile in
                     Button {
                         onSelect(tile.action)
                     } label: {
-                        VStack(spacing: 12) {
+                        VStack(spacing: 8) {
                             Image(systemName: tile.icon)
                                 .font(.system(size: 26, weight: .semibold))
                                 .foregroundStyle(AppTheme.ink)
                             Text(tile.title)
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(AppTheme.ink)
+                            Text(tile.detail)
+                                .font(.caption2)
+                                .foregroundStyle(AppTheme.secondaryText)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(2, reservesSpace: true)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 110)
+                        .padding(.horizontal, 8)
+                        .frame(maxWidth: .infinity, minHeight: 126)
                         .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 3)
                     }

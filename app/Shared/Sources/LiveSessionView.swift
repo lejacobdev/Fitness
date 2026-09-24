@@ -197,7 +197,7 @@ public struct LiveSessionView: View {
                 .font(.system(size: 26, weight: .bold))
                 .foregroundStyle(AppTheme.ink)
             HStack(spacing: 8) {
-                Tag("Target \(DoseFormatter.text(current.dose))", color: AppTheme.ink)
+                Tag("Goal: \(DoseFormatter.text(current.dose))", color: AppTheme.ink)
                 Tag(done >= current.dose.sets ? "All sets done" : "Set \(min(done + 1, current.dose.sets)) of \(current.dose.sets)",
                     color: done >= current.dose.sets ? AppTheme.green : AppTheme.orange)
             }
@@ -319,7 +319,7 @@ public struct LiveSessionView: View {
     private var upNext: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Session")
+                Text("All exercises in this workout")
                     .font(.headline)
                     .foregroundStyle(AppTheme.ink)
                 Spacer()
@@ -344,7 +344,7 @@ public struct LiveSessionView: View {
                             .foregroundStyle(AppTheme.ink)
                             .lineLimit(1)
                         Spacer()
-                        Text("\(done)/\(item.dose.sets)")
+                        Text("\(done) of \(item.dose.sets) sets")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(AppTheme.secondaryText)
                     }
@@ -662,7 +662,7 @@ struct RPEPromptView: View {
     }
 
     var body: some View {
-        StepScaffold(title: "How hard was that?", subtitle: "One tap. It's the most useful number in the app.", buttonTitle: "Save session", onContinue: onDone) {
+        StepScaffold(title: "How hard was that?", subtitle: "1 = very easy, 10 = the hardest you could do. It tells us how to plan your next days.", buttonTitle: "Save session", onContinue: onDone) {
             VStack(spacing: 18) {
                 Text("\(rpe)")
                     .font(.system(size: 80, weight: .bold))
@@ -686,7 +686,7 @@ struct RPEPromptView: View {
                                 .background(rpe == value ? AppTheme.ink : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("RPE \(value): \(description(value))")
+                        .accessibilityLabel("Effort \(value) of 10: \(description(value))")
                     }
                 }
             }
