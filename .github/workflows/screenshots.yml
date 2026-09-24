@@ -46,6 +46,9 @@ jobs:
         run: |
           set -euo pipefail
           APP=$(find app/build/Build/Products/Debug-iphonesimulator -maxdepth 1 -name '*.app' | head -1)
+          # Unsigned extensions can't be installed on the simulator; the
+          # screenshots only need the app itself.
+          rm -rf "$APP/PlugIns" "$APP/Watch"
           BUNDLE=com.studentathlete.app
           mkdir -p screenshots
           pick() { xcrun simctl list devices available | grep -E "$1" | head -1 | sed -E 's/^ *([^(]+) \(([0-9A-F-]+)\).*/\2/'; }
