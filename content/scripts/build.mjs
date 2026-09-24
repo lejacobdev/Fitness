@@ -277,9 +277,10 @@ function genPosePatternsSwift() {
       flags: Object.entries(p.implement).filter(([, v]) => v === true).map(([k]) => k),
       numbers: Object.fromEntries(Object.entries(p.implement).filter(([, v]) => typeof v === 'number').map(([k, v]) => [k, r3(v)])),
     } : null,
-    ball: p.ball ? { r: r3(p.ball.r ?? 6), color: p.ball.color ?? 'red' } : null,
-    cast: p.cast ? p.cast.map((c) => ({ pattern: c.pattern, at: [r3(c.at?.[0] ?? 0), r3(c.at?.[1] ?? 0)], facing: r3(c.facing ?? 0), phase: r3(c.phase ?? 0), follow: !!c.follow })) : null,
-    path: p.path ? { kind: p.path.kind, length: p.path.length ?? null, radius: p.path.radius ?? null, angle: p.path.angle ?? null, turn: p.path.turn ?? null, dir: p.path.dir ?? null, speed: p.path.speed ?? null } : null,
+    ball: p.ball ? { r: r3(p.ball.r ?? 6), color: p.ball.color ?? 'red', shape: p.ball.shape ?? null } : null,
+    prosthetic: p.prosthetic ?? null,
+    cast: p.cast ? p.cast.map((c) => ({ pattern: c.pattern, at: [r3(c.at?.[0] ?? 0), r3(c.at?.[1] ?? 0)], facing: r3(c.facing ?? 0), phase: r3(c.phase ?? 0), follow: !!c.follow, tether: !!c.tether })) : null,
+    path: p.path ? { kind: p.path.kind, length: p.path.length ?? null, radius: p.path.radius ?? null, angle: p.path.angle ?? null, grade: p.path.grade ?? null, turn: p.path.turn ?? null, dir: p.path.dir ?? null, speed: p.path.speed ?? null } : null,
     keyframes: p.keyframes.map((k) => ({
       angles: JOINTS.map((j) => r3(k.pose[j])), contact: k.contact, hold: r3(k.hold ?? 0), move: r3(k.move ?? 0.6),
       surface: r3(k.surface ?? 0), travel: [r3(k.travel?.[0] ?? 0), r3(k.travel?.[1] ?? 0)], chain: k.chain ?? [0, 1],
@@ -374,12 +375,16 @@ public struct RigCastSpec: Sendable, Hashable, Codable {
     public let facing: Double
     public let phase: Double
     public let follow: Bool
+    /// A guide runner's tether between the athlete's left hand and theirs.
+    public let tether: Bool
 }
 
 /// A travelling drill's path through the scene (see rig3d.js pathAt).
 public struct RigPathSpec: Sendable, Hashable, Codable {
     /// Degrees of arc for an 'arc' path.
     public let angle: Double?
+    /// Rise per unit along a line path (a hill; negative runs downhill).
+    public let grade: Double?
     public let kind: String
     public let length: Double?
     public let radius: Double?
@@ -392,6 +397,8 @@ public struct RigPathSpec: Sendable, Hashable, Codable {
 public struct RigBallSpec: Sendable, Hashable, Codable {
     public let r: Double
     public let color: String
+    /// "baton" for a relay baton; nil for a ball.
+    public let shape: String?
 }
 
 /// A fixed object in the scene (bench, bar, box, bike…); numbers as in poses.js.
@@ -424,6 +431,8 @@ public struct PosePatternInfo: Sendable, Identifiable, Hashable, Codable {
     public let ball: RigBallSpec?
     public let path: RigPathSpec?
     public let cast: [RigCastSpec]?
+    /// "L" / "R": that leg is a below-knee running blade.
+    public let prosthetic: String?
     public let keyframes: [PoseKeyframe]
 
     public var start: Pose { keyframes[0].pose }

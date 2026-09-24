@@ -136,15 +136,29 @@ enum RigShapes {
     static func scene(_ s: RigSkeleton, playback: RigPlayback, glow: [String: Double], palette pal: RigPalette, scheme: ColorScheme = .light) -> [RigShape] {
         var groups: [(pelvis: V3, shapes: [RigShape])] = [(s.pelvis, shapes(s, playback: playback, glow: glow, palette: pal, withBall: false))]
         for m in s.cast {
-            groups.append((m.s.pelvis, shapes(m.s, playback: m.playback, glow: [:], palette: pal.partner(scheme), withBall: false, withFixture: false)))
+            var member = shapes(m.s, playback: m.playback, glow: [:], palette: pal.partner(scheme), withBall: false, withFixture: false)
+            if m.tether {
+                // A guide's tether: a short cord from the athlete's left hand to the guide's right.
+                let a = s.L.wrist, b = m.s.R.wrist
+                let sag = (a + b) / 2 + V3(0, -6, 0)
+                member.append(RigShape(points: capsule(P(a), P(sag), 0.7, 0.7), color: Color(hex: pal.red), depth: (D(a) + D(sag)) / 2 + 0.5))
+                member.append(RigShape(points: capsule(P(sag), P(b), 0.7, 0.7), color: Color(hex: pal.red), depth: (D(sag) + D(b)) / 2 + 0.5))
+            }
+            groups.append((m.s.pelvis, member))
         }
         if let ball = s.ball, let spec = playback.info.ball {
             let depth = D(ball) + spec.r * 0.5
             var balls: [RigShape] = []
-            if spec.color == "white" {
+            if spec.shape == "baton" {
+                // A relay baton: a short tube standing up in the hand.
+                let up = normed(V3(0, 1, 0) + s.root.apply(V3(1, 0, 0)) * 0.35)
+                balls.append(RigShape(points: capsule(P(ball - up * 14), P(ball + up * 14), 1.9, 1.9), color: Color(hex: ballColors[spec.color] ?? pal.red), depth: depth, isBall: true))
+            } else if spec.color == "white" {
                 balls.append(RigShape(points: sphere(ball, spec.r + 0.5), color: Color(hex: "#8A8A90"), depth: depth - 0.001, isBall: true))
             }
-            balls.append(RigShape(points: sphere(ball, spec.r), color: Color(hex: ballColors[spec.color] ?? pal.red), depth: depth, isBall: true))
+            if spec.shape != "baton" {
+                balls.append(RigShape(points: sphere(ball, spec.r), color: Color(hex: ballColors[spec.color] ?? pal.red), depth: depth, isBall: true))
+            }
             func dist(_ p: V3) -> Double { hypot(p.x - ball.x, p.z - ball.z) }
             let near = groups.indices.min { dist(groups[$0].pelvis) < dist(groups[$1].pelvis) } ?? 0
             let at = groups[near].shapes.firstIndex { $0.depth > depth } ?? groups[near].shapes.count
@@ -172,15 +186,15 @@ enum RigShapes {
         // Shadow on the floor.
         if playback.info.fixture?.kind != "water" {
             let feet = [s.L.toe, s.L.heel, s.R.toe, s.R.heel, s.pelvis, s.L.wrist, s.R.wrist]
-            let xs = feet.map { P(V3($0.x, 0, $0.z)).x }
+            let xs = feet.map { P(V3($0.x, s.floor, $0.z)).x }
             let minX = (xs.min() ?? 0) - 6, maxX = (xs.max() ?? 0) + 6
-            let lowest = feet.map(\.y).min() ?? 0
+            let lowest = (feet.map(\.y).min() ?? 0) - s.floor
             if lowest < 30 {
                 let k = max(0.25, 1 - lowest / 40)
-                let cx = (minX + maxX) / 2, rx = (maxX - minX) / 2
+                let cx = (minX + maxX) / 2, rx = (maxX - minX) / 2, cy = P(V3(0, s.floor, 0)).y
                 let pts = (0..<20).map { i -> CGPoint in
                     let a = Double(i) / 20 * .pi * 2
-                    return CGPoint(x: cx + cos(a) * rx, y: sin(a) * 2.4 * k)
+                    return CGPoint(x: cx + cos(a) * rx, y: cy + sin(a) * 2.4 * k)
                 }
                 shapes.append(RigShape(points: pts, color: pal.shadow, depth: -1e6, order: shapes.count))
             }
@@ -250,13 +264,25 @@ enum RigShapes {
         }
 
         // Limbs.
-        for l in [s.L, s.R] {
+        for (side, l) in [("L", s.L), ("R", s.R)] {
+            let blade = playback.info.prosthetic == side
             func d(_ p: V3, _ q: V3) -> Double { (D(p) + D(q)) / 2 }
             func skin(_ depth: Double) -> Color { shade(pal.skinFar, pal.skinNear, depth) }
             let thighD = d(l.hip, l.knee), shinD = d(l.knee, l.ankle)
             let thigh = capsule(P(l.hip), P(l.knee), 8.2, 5.4)
             let tg = limbGlow(glow, l.thigh, l.hip, l.knee, 8.2, 5.4, ["thighFront", "thighBack", "thigh"])
             pushGlowing(thigh, skin(thighD), thighD, glowPoly: tg?.0, alpha: tg?.1 ?? 0)
+            if blade {
+                // A below-knee running blade: socket, then a carbon C-curve to the toe.
+                let down = normed(l.ankle - l.knee), back = normed(l.heel - l.toe)
+                let socket = l.knee + down * 16
+                let bend = l.ankle + back * 7 - down * 4
+                push(capsule(P(l.knee), P(socket), 5.4, 4.2), Color(hex: pal.steel), shinD + 0.02)
+                push(capsule(P(socket), P(bend), 2.2, 2.0), Color(hex: pal.plate), shinD + 0.01)
+                push(capsule(P(bend), P(l.toe + V3(0, 1, 0)), 2.0, 1.6), Color(hex: pal.plate), d(l.ankle, l.toe))
+                let shortsEnd = l.hip + l.thigh.apply(V3(0, -1, 0)) * (RigBones.thigh * 0.55)
+                push(capsule(P(l.hip), P(shortsEnd), 9.2, 7), shade(pal.shortsFar, pal.shortsNear, thighD), thighD + 0.01)
+            } else {
             let calfC = l.knee + l.shin.apply(V3(0, -1, 0)) * (RigBones.shin * 0.33) + l.shin.apply(V3(-1, 0, 0)) * 2.2
             let shinShape = hull(capsule(P(l.knee), P(l.ankle), 5.2, 3.2) + circle(P(calfC), 4.6))
             let sg = limbGlow(glow, l.shin, l.knee, l.ankle, 5.2, 3.2, ["shinFront", "shinBack", ""])
@@ -274,6 +300,7 @@ enum RigShapes {
             }
             let shoe = hull(box)
             pushGlowing(shoe, Color(hex: pal.shoe), D(l.ankle + fd * 5), glowPoly: shoe, alpha: (glow["foot"] ?? 0) * 0.6)
+            }
             // Arm.
             let upperD = d(l.shoulder, l.elbow), foreD = d(l.elbow, l.wrist)
             let ug = limbGlow(glow, l.arm, l.shoulder, l.elbow, 5, 3.9, ["upperArmFront", "upperArmBack", ""])
@@ -592,6 +619,23 @@ enum RigShapes {
             push(hull(disc(W(c.x, c.y, o.z - 13), az, 26, 24)), pal.steel, -40, stroke: 2.4)
             push(hull(disc(W(c.x, c.y, o.z + 13), az, 26, 24)), pal.steel, 40, stroke: 2.4)
             box(seat.x - 14, seat.x + 10, seat.y - 4, seat.y, o.z - 12, o.z + 12, pal.pad, -1)
+        case "blocks":
+            // Starting blocks: a pedal behind each foot on a rail.
+            let l = p["L"] ?? .zero, r = p["R"] ?? .zero
+            for q in [l, r] { box(q.x - 10, q.x - 2, 0, 9, q.z - 5, q.z + 5, pal.plate, -2) }
+            box(min(l.x, r.x) - 16, max(l.x, r.x), 0, 2, o.z - 2, o.z + 2, pal.steel, -3)
+        case "racingchair":
+            // Big cambered wheels with push rims, a low kneeling seat, a long frame to a small front wheel.
+            let seat = p["seat"] ?? .zero
+            let c = V3(seat.x + 2, 33, 0)
+            for sd in [-1.0, 1.0] {
+                push(hull(disc(W(c.x, c.y, o.z + sd * 19), az, 33, 28)), pal.steel, sd * 40, stroke: 2.2)
+                push(hull(disc(W(c.x, c.y, o.z + sd * 21), az, 24, 24)), pal.plate, sd * 41, stroke: 1.6)
+            }
+            box(seat.x - 16, seat.x + 16, seat.y - 8, seat.y, o.z - 12, o.z + 12, pal.pad, -1)
+            let front = V3(seat.x + 120, 9, 0)
+            push(capsule(P(W(seat.x + 10, seat.y - 4)), P(W(front.x, front.y + 4)), 1.6, 1.4), pal.steel, D(W(seat.x + 60, 20)) - 1)
+            push(hull(disc(W(front.x, front.y), az, 9, 18)), pal.steel, D(W(front.x, front.y)), stroke: 1.8)
         case "sled":
             let x = n["x"] ?? 50
             box(x, x + 30, 0, 8, -16, 16, pal.steel, -5)

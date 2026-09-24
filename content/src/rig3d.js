@@ -659,7 +659,8 @@ function placeFixtureRaw(fx, pel, k0, all) {
     }
     case 'hurdle': case 'cone': case 'ladder': case 'sled': return { x: pel[0] + (fx.at ?? 30) };
     case 'net': return { x: pel[0] + (fx.at ?? 30), top: fx.top ?? 150 };
-    case 'wheelchair': return { seat: [pel[0], pel[1] - 9, pel[2]] };
+    case 'wheelchair': case 'racingchair': return { seat: [pel[0], pel[1] - 9, pel[2]] };
+    case 'blocks': return { L: [k0.L.toe[0], k0.L.toe[2]], R: [k0.R.toe[0], k0.R.toe[2]] };
     case 'roller': {
       // Under a named body point of keyframe 0 (default: the thighs).
       const target = fx.under === 'back' ? add(pel, apply(k0.trunk, [0, 1, 0]), 25) : fx.under === 'calves' ? scale(add(k0.L.knee, k0.L.ankle), 0.5) : scale(add(k0.L.hip, k0.L.knee), 0.5);
@@ -743,7 +744,9 @@ export function pathAt(pattern, seconds, placed = placeKeyframes(pattern)) {
     const along = half ? -path.length / 2 + path.length * (u * 2) : path.length / 2 - path.length * ((u - 0.5) * 2);
     return { pos: scale(axis, along), heading: half ? 0 : 180 };
   }
-  return { pos: scale(axis, -path.length / 2 + path.length * u), heading: 0 };
+  const along = -path.length / 2 + path.length * u;
+  // grade: rise per unit along the path (a hill; negative runs downhill).
+  return { pos: add(scale(axis, along), [0, along * (path.grade ?? 0), 0]), heading: 0 };
 }
 
 /** Turns a placed skeleton by `deg` about the vertical axis through the origin and moves it by `v`. */
@@ -776,7 +779,9 @@ export function frameAtTime(pattern, seconds, placed = placeKeyframes(pattern)) 
     // The path lives in the body's own axes; turn it with the camera view.
     const move = (sk) => moveSkeleton(sk, heading, apply(rotY(placed.view), pos));
     s = move(s);
-    if (cast) for (const m of cast) if (m.follow) m.s = move(m.s);
+    // Where the ground is under the athlete (for the shadow on a hill).
+    if (pattern.path.grade) s.floor = pos[1];
+    if (cast) for (const m of cast) if (m?.follow) m.s = move(m.s);
   }
   if (cast) s.cast = cast;
   return s;
@@ -797,6 +802,7 @@ const castPlacements = new WeakMap();
 export function castAt(pattern, t, placed) {
   return pattern.cast.map((c) => {
     const ref = c.ref;
+    if (!ref) return null; // not resolved yet (while patterns are still being authored)
     let byView = castPlacements.get(ref);
     if (!byView) castPlacements.set(ref, (byView = new Map()));
     if (!byView.has(placed.view)) byView.set(placed.view, placeKeyframes(ref, { view: placed.view }));
@@ -804,6 +810,6 @@ export function castAt(pattern, t, placed) {
     const s = frameAt(ref, (((t + (c.phase ?? 0)) % 1) + 1) % 1, mp);
     s.ball = null;
     const [f, l] = c.at ?? [0, 0];
-    return { s: moveSkeleton(s, c.facing ?? 0, apply(rotY(placed.view), [f, 0, l ?? 0])), ref, follow: !!c.follow };
+    return { s: moveSkeleton(s, c.facing ?? 0, apply(rotY(placed.view), [f, 0, l ?? 0])), ref, follow: !!c.follow, tether: !!c.tether };
   });
 }

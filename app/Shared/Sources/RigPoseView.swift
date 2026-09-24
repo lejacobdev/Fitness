@@ -33,7 +33,8 @@ public struct RigPoseView: View {
             let skeleton = still ? RigFraming.thumbFrame(for: playback) : playback.frame(atTime: seconds, loop: loop)
             Canvas { context, size in
                 RigCanvas.draw(RigShapes.scene(skeleton, playback: playback, glow: glow, palette: palette, scheme: colorScheme), in: &context,
-                               size: size, frame: frame, ground: playback.info.fixture?.kind != "water" ? Color(hex: palette.ground) : nil)
+                               size: size, frame: frame, ground: playback.info.fixture?.kind != "water" ? Color(hex: palette.ground) : nil,
+                               grade: playback.info.path?.grade ?? 0)
             }
         }
         .accessibilityHidden(true) // decorative alongside the item's own text
@@ -109,15 +110,17 @@ enum RigFraming {
 }
 
 enum RigCanvas {
-    static func draw(_ shapes: [RigShape], in context: inout GraphicsContext, size: CGSize, frame: CGRect, ground: Color?) {
+    static func draw(_ shapes: [RigShape], in context: inout GraphicsContext, size: CGSize, frame: CGRect, ground: Color?, grade: Double = 0) {
         let scale = min(size.width / frame.width, size.height / frame.height)
         let offsetX = (size.width - frame.width * scale) / 2 - frame.minX * scale
         let offsetY = (size.height - frame.height * scale) / 2 - frame.minY * scale
         let transform = CGAffineTransform(translationX: offsetX, y: offsetY).scaledBy(x: scale, y: scale)
         if let ground {
             var line = Path()
-            line.move(to: CGPoint(x: frame.minX, y: 0))
-            line.addLine(to: CGPoint(x: frame.maxX, y: 0))
+            // A hill path's ground slopes with it (side view: height = x · grade).
+            let c = RigProjection.c
+            line.move(to: CGPoint(x: frame.minX, y: -frame.minX * grade * c))
+            line.addLine(to: CGPoint(x: frame.maxX, y: -frame.maxX * grade * c))
             context.stroke(line.applying(transform), with: .color(ground), lineWidth: 1.2)
         }
         for shape in shapes where shape.points.count >= 2 {

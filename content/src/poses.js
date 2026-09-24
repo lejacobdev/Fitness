@@ -32,11 +32,12 @@ import { VOLLEYBALL } from './poses/volleyball.js';
 import { RACKET } from './poses/racket.js';
 import { FIELD_SPORTS } from './poses/fieldSports.js';
 import { STICK_SPORTS } from './poses/stickSports.js';
+import { RUNNING } from './poses/running.js';
 
 export const POSE_MODEL_VERSION = 3;
 export { JOINTS };
 
-const PATTERNS = [...STRENGTH, ...TEAM_SPORTS, ...INDIVIDUAL_SPORTS, ...MISC_SPORTS, ...HOCKEY, ...SOCCER, ...BASKETBALL, ...VOLLEYBALL, ...RACKET, ...FIELD_SPORTS, ...STICK_SPORTS];
+const PATTERNS = [...STRENGTH, ...TEAM_SPORTS, ...INDIVIDUAL_SPORTS, ...MISC_SPORTS, ...HOCKEY, ...SOCCER, ...BASKETBALL, ...VOLLEYBALL, ...RACKET, ...FIELD_SPORTS, ...STICK_SPORTS, ...RUNNING];
 
 export const POSE_PATTERNS = PATTERNS;
 export const POSE_PATTERN_SLUGS = PATTERNS.map((p) => p.slug);

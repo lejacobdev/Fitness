@@ -12,7 +12,7 @@ const RANGES = {
 const range = (j) => RANGES[j] ?? RANGES[j.slice(0, -1)];
 const IMPLEMENTS = new Set(['lacrosse2', 'barbell', 'dumbbell', 'dumbbells', 'goblet', 'kettlebell', 'medball', 'plate', 'ball', 'football', 'puck',
   'bat', 'club', 'stick', 'racket', 'paddle', 'javelin', 'pole', 'lacrosse', 'bow', 'oar', 'band', 'cable', 'rope', 'prop', 'disc', 'shot', 'rifle', 'sword', 'glove', 'board', 'landmine', 'wristroller', 'jumprope', 'wheel', 'kickboard', 'hockeystick', 'bat2']);
-const FIXTURES = new Set(['bench', 'box', 'wall', 'bar', 'water', 'bike', 'rower', 'mat', 'hurdle', 'cone', 'ladder', 'net', 'wheelchair', 'sled', 'roller', 'ball', 'incline', 'kickball']);
+const FIXTURES = new Set(['blocks', 'racingchair', 'bench', 'box', 'wall', 'bar', 'water', 'bike', 'rower', 'mat', 'hurdle', 'cone', 'ladder', 'net', 'wheelchair', 'sled', 'roller', 'ball', 'incline', 'kickball']);
 const SAMPLES = 16;
 
 test('pattern slugs are unique', () => {

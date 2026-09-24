@@ -120,6 +120,8 @@ struct RigSkeleton {
     var ball: V3? = nil
     /// The other people in the drill, placed in the same world.
     var cast: [RigCastMember] = []
+    /// Ground height under the athlete (non-zero on a hill path).
+    var floor: Double = 0
 
     func limb(_ side: String) -> RigLimb { side == "L" ? L : R }
 
@@ -289,6 +291,7 @@ struct RigCastMember {
     var s: RigSkeleton
     let playback: RigPlayback
     let follow: Bool
+    let tether: Bool
 }
 
 final class RigPlayback {
@@ -439,7 +442,7 @@ final class RigPlayback {
             var s = playback.frame(at: u, cast: [])
             s.ball = nil
             let at = M3.rotY(view).apply(V3(spec.at.first ?? 0, 0, spec.at.count > 1 ? spec.at[1] : 0))
-            return RigCastMember(s: s.moved(turning: spec.facing, by: at), playback: playback, follow: spec.follow)
+            return RigCastMember(s: s.moved(turning: spec.facing, by: at), playback: playback, follow: spec.follow, tether: spec.tether)
         }
     }
 
@@ -684,8 +687,11 @@ final class RigPlayback {
             out.numbers = ["x": pel.x + (p["at"] ?? 30)]
         case "net":
             out.numbers = ["x": pel.x + (p["at"] ?? 30), "top": p["top"] ?? 150]
-        case "wheelchair":
+        case "wheelchair", "racingchair":
             out.points["seat"] = V3(pel.x, pel.y - 9, pel.z)
+        case "blocks":
+            out.points["L"] = b0.L.toe
+            out.points["R"] = b0.R.toe
         case "roller":
             let target: V3
             if fx.under == "back" { target = pel + b0.trunk.apply(V3(0, 1, 0)) * 25 }
@@ -774,7 +780,8 @@ extension RigPlayback {
             let along = half ? -length / 2 + length * (u * 2) : length / 2 - length * ((u - 0.5) * 2)
             return (axis * along, half ? 0 : 180)
         }
-        return (axis * (-length / 2 + length * u), 0)
+        let along = -length / 2 + length * u
+        return (axis * along + V3(0, along * (path.grade ?? 0), 0), 0)
     }
 
     /// The skeleton at `seconds` of real time, carried along its path.
@@ -786,6 +793,7 @@ extension RigPlayback {
             let (pos, heading) = pathAt(seconds, total: loop)
             let v = M3.rotY(view).apply(pos)
             s = s.moved(turning: heading, by: v)
+            if info.path?.grade != nil { s.floor = pos.y }
             for i in cast.indices where cast[i].follow { cast[i].s = cast[i].s.moved(turning: heading, by: v) }
         }
         s.cast = cast

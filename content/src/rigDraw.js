@@ -125,21 +125,22 @@ const facing = (v) => project(norm(v)).depth;
 /** Ball colours by sport. */
 export const BALL_COLORS = { orange: '#E8762B', white: '#F4F4F2', yellow: '#D8E83A', red: '#E5383B', brown: '#8B4A2B', blue: '#2F6FE0', black: '#1E1E22' };
 
-export function figureShapes(s, { scheme = 'light', palette = null, glow = {}, implement = null, fixture = null, fixturePlace = null, ball = null } = {}) {
+export function figureShapes(s, { scheme = 'light', palette = null, glow = {}, implement = null, fixture = null, fixturePlace = null, ball = null, prosthetic = null } = {}) {
   const pal = palette === 'partner' ? { ...PALETTE[scheme], ...PARTNER[scheme] } : PALETTE[scheme];
   const shapes = [];
   const push = (points, fill, depth, extra = {}) => shapes.push({ points, fill, depth, ...extra });
 
   // Shadow on the floor (always first).
+  const floor = s.floor ?? 0;
   const feet = [s.L.toe, s.L.heel, s.R.toe, s.R.heel, s.pelvis, s.L.wrist, s.R.wrist];
-  const onFloor = feet.map((p) => [p[0], 0, p[2]]);
+  const onFloor = feet.map((p) => [p[0], floor, p[2]]);
   const xs = onFloor.map((p) => P(p)[0]);
   const minX = Math.min(...xs) - 6, maxX = Math.max(...xs) + 6;
-  const lowest = Math.min(...feet.map((p) => p[1]));
+  const lowest = Math.min(...feet.map((p) => p[1])) - floor;
   if (lowest < 30) {
     const k = Math.max(0.25, 1 - lowest / 40);
-    const cx = (minX + maxX) / 2, rx = (maxX - minX) / 2;
-    push(Array.from({ length: 20 }, (_, i) => { const a = (i / 20) * Math.PI * 2; return [cx + Math.cos(a) * rx, Math.sin(a) * 2.4 * k]; }), pal.shadow, -1e6);
+    const cx = (minX + maxX) / 2, rx = (maxX - minX) / 2, cy = P([0, floor, 0])[1];
+    push(Array.from({ length: 20 }, (_, i) => { const a = (i / 20) * Math.PI * 2; return [cx + Math.cos(a) * rx, cy + Math.sin(a) * 2.4 * k]; }), pal.shadow, -1e6);
   }
 
   if (fixture) for (const f of fixtureShapes(s, fixture, fixturePlace, pal)) shapes.push(f);
@@ -226,6 +227,18 @@ export function figureShapes(s, { scheme = 'light', palette = null, glow = {}, i
     // Leg.
     const thighD = d(l.hip, l.knee), shinD = d(l.knee, l.ankle);
     push(capsule2(P(l.hip), P(l.knee), 8.2, 5.4), skin(thighD), thighD, { glow: limbGlow(glow, l.thigh, l.hip, l.knee, 8.2, 5.4, ['thighFront', 'thighBack', 'thigh']) });
+    if (prosthetic === k) {
+      // A below-knee running blade: socket, then a carbon C-curve to the toe.
+      const down = norm(sub(l.ankle, l.knee)), back = norm(sub(l.heel, l.toe));
+      const socket = add(l.knee, down, 16);
+      const bend = add(add(l.ankle, back, 7), down, -4);
+      push(capsule2(P(l.knee), P(socket), 5.4, 4.2), pal.steel, shinD + 0.02);
+      push(capsule2(P(socket), P(bend), 2.2, 2.0), pal.plate, shinD + 0.01);
+      push(capsule2(P(bend), P(add(l.toe, [0, 1, 0])), 2.0, 1.6), pal.plate, d(l.ankle, l.toe));
+      const shortsEnd = add(l.hip, apply(l.thigh, [0, -1, 0]), BONES.thigh * 0.55);
+      push(capsule2(P(l.hip), P(shortsEnd), 9.2, 7), shade(pal.shortsFar, pal.shortsNear, thighD), thighD + 0.01);
+    }
+    if (prosthetic !== k) {
     const calfC = add(add(l.knee, apply(l.shin, [0, -1, 0]), BONES.shin * 0.33), apply(l.shin, [-1, 0, 0]), 2.2);
     push(hull([...capsule2(P(l.knee), P(l.ankle), 5.2, 3.2), ...circlePts(P(calfC), 4.6)]), skin(shinD), shinD, { glow: limbGlow(glow, l.shin, l.knee, l.ankle, 5.2, 3.2, ['shinFront', 'shinBack', null]) });
     const shortsEnd = add(l.hip, apply(l.thigh, [0, -1, 0]), BONES.thigh * 0.55);
@@ -240,6 +253,7 @@ export function figureShapes(s, { scheme = 'light', palette = null, glow = {}, i
     }
     const footD = D(add(l.ankle, fd, 5));
     push(hull(box), pal.shoe, footD, { glow: glow.foot ? { poly: hull(box), alpha: glow.foot * 0.6 } : null });
+    }
     // Arm.
     const upperD = d(l.shoulder, l.elbow), foreD = d(l.elbow, l.wrist);
     push(capsule2(P(l.shoulder), P(l.elbow), 5, 3.9), skin(upperD), upperD, { glow: limbGlow(glow, l.arm, l.shoulder, l.elbow, 5, 3.9, ['upperArmFront', 'upperArmBack', null]) });
@@ -277,15 +291,30 @@ export function figureShapes(s, { scheme = 'light', palette = null, glow = {}, i
  * the nearest person's shapes so it passes in front of or behind them
  * correctly. Cast members wear a lighter kit and never glow.
  */
-export function sceneShapes(s, { scheme = 'light', glow = {}, implement = null, fixture = null, fixturePlace = null, ball = null } = {}) {
-  const groups = [{ s, shapes: figureShapes(s, { scheme, glow, implement, fixture, fixturePlace, ball: null }) }];
-  for (const m of s.cast ?? []) groups.push({ s: m.s, shapes: figureShapes(m.s, { scheme, palette: 'partner', implement: m.ref.implement ?? null }) });
+export function sceneShapes(s, { scheme = 'light', glow = {}, implement = null, fixture = null, fixturePlace = null, ball = null, prosthetic = null } = {}) {
+  const pal = PALETTE[scheme];
+  const groups = [{ s, shapes: figureShapes(s, { scheme, glow, implement, fixture, fixturePlace, ball: null, prosthetic }) }];
+  for (const m of s.cast ?? []) groups.push({ s: m.s, shapes: figureShapes(m.s, { scheme, palette: 'partner', implement: m.ref.implement ?? null, prosthetic: m.ref.prosthetic ?? null }) });
+  // A guide's tether: a short cord from the athlete's left hand to the guide's right.
+  (s.cast ?? []).forEach((m, i) => {
+    if (!m.tether) return;
+    const a = s.L.wrist, b = m.s.R.wrist;
+    const sag = add(scale(add(a, b), 0.5), [0, -6, 0]);
+    const group = groups[i + 1];
+    group.shapes.push({ points: capsule2(P(a), P(sag), 0.7, 0.7), fill: pal.implementRed, depth: (D(a) + D(sag)) / 2 + 0.5 });
+    group.shapes.push({ points: capsule2(P(sag), P(b), 0.7, 0.7), fill: pal.implementRed, depth: (D(sag) + D(b)) / 2 + 0.5 });
+  });
   if (s.ball && ball) {
-    const pal = PALETTE[scheme];
     const r = ball.r ?? 6, depth = D(s.ball) + r * 0.5;
     const balls = [];
+    if (ball.shape === 'baton') {
+      // A relay baton: a short tube standing up in the hand.
+      const up = norm(add([0, 1, 0], apply(s.root, [1, 0, 0]), 0.35));
+      balls.push({ points: capsule2(P(add(s.ball, up, -14)), P(add(s.ball, up, 14)), 1.9, 1.9), fill: BALL_COLORS[ball.color ?? 'red'] ?? pal.implementRed, depth, isBall: true });
+    } else {
     if ((ball.color ?? 'red') === 'white') balls.push({ points: sphere(s.ball, r + 0.5), fill: '#8A8A90', depth: depth - 0.001, isBall: true });
     balls.push({ points: sphere(s.ball, r), fill: BALL_COLORS[ball.color ?? 'red'] ?? pal.implementRed, depth, isBall: true });
+    }
     const dist = (g) => Math.hypot(g.s.pelvis[0] - s.ball[0], g.s.pelvis[2] - s.ball[2]);
     const near = groups.reduce((a, b) => (dist(b) < dist(a) ? b : a));
     const at = near.shapes.findIndex((sh) => sh.depth > depth);
@@ -700,6 +729,31 @@ export function fixtureShapes(s, fx, place, pal) {
       push(hull(discPoly(W(c[0], c[1], o[2] - 13), az, 26, 24)), 'none', -40, { stroke: pal.steel, width: 2.4 });
       push(hull(discPoly(W(c[0], c[1], o[2] + 13), az, 26, 24)), 'none', 40, { stroke: pal.steel, width: 2.4 });
       box(seat[0] - 14, seat[0] + 10, seat[1] - 4, seat[1], o[2] - 12, o[2] + 12, pal.pad, -1);
+      break;
+    }
+    case 'blocks': {
+      // Starting blocks: a pedal behind each foot on a rail.
+      for (const side of ['L', 'R']) {
+        const [x, z] = place[side];
+        box(x - 10, x - 2, 0, 9, z - 5, z + 5, pal.plate, -2);
+      }
+      const x0 = Math.min(place.L[0], place.R[0]) - 16, x1 = Math.max(place.L[0], place.R[0]);
+      box(x0, x1, 0, 2, o[2] - 2, o[2] + 2, pal.steel, -3);
+      break;
+    }
+    case 'racingchair': {
+      // A racing wheelchair: big cambered wheels with push rims, a low
+      // kneeling seat, and a long frame out to a small front wheel.
+      const { seat } = place;
+      const c = [seat[0] + 2, 33];
+      for (const sd of [-1, 1]) {
+        push(hull(discPoly(W(c[0], c[1], o[2] + sd * 19), az, 33, 28)), 'none', sd * 40, { stroke: pal.steel, width: 2.2 });
+        push(hull(discPoly(W(c[0], c[1], o[2] + sd * 21), az, 24, 24)), 'none', sd * 41, { stroke: pal.plate, width: 1.6 });
+      }
+      box(seat[0] - 16, seat[0] + 16, seat[1] - 8, seat[1], o[2] - 12, o[2] + 12, pal.pad, -1);
+      const front = [seat[0] + 120, 9];
+      push(capsule2(P(W(seat[0] + 10, seat[1] - 4)), P(W(front[0], front[1] + 4)), 1.6, 1.4), pal.steel, D(W(seat[0] + 60, 20)) - 1);
+      push(hull(discPoly(W(front[0], front[1]), az, 9, 18)), 'none', D(W(front[0], front[1])), { stroke: pal.steel, width: 1.8 });
       break;
     }
     case 'sled': {
