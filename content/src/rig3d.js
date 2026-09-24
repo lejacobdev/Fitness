@@ -654,7 +654,8 @@ function placeFixtureRaw(fx, pel, k0, all) {
     }
     case 'bar': {
       const grip = scale(add(k0.L.wrist, k0.R.wrist), 0.5);
-      return { at: add(grip, [0, 3, 0]) };
+      // `above`: how far over the hands (towels or a gi hang between).
+      return { at: add(grip, [0, fx.above ?? 3, 0]) };
     }
     case 'water': return { level: pel[1] + (fx.level ?? 6), x0: pel[0] - 120, x1: pel[0] + 120, ...(fx.deck != null ? { deckX: pel[0] + fx.deck, deckTop: fx.deckTop ?? 30 } : {}) };
     case 'mat': {

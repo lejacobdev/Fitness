@@ -686,7 +686,7 @@ final class RigPlayback {
             out.numbers = ["seatX": pel.x, "seatTop": pel.y - 10]
             out.points = ["padFrom": from, "padTo": to]
         case "bar":
-            out.points["at"] = (b0.L.wrist + b0.R.wrist) / 2 + V3(0, 3, 0)
+            out.points["at"] = (b0.L.wrist + b0.R.wrist) / 2 + V3(0, p["above"] ?? 3, 0)
         case "water":
             out.numbers = ["level": pel.y + (p["level"] ?? 6), "x0": pel.x - 120, "x1": pel.x + 120]
             if let deck = p["deck"] { out.numbers["deckX"] = pel.x + deck; out.numbers["deckTop"] = p["deckTop"] ?? 30 }

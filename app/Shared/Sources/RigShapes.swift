@@ -523,6 +523,12 @@ enum RigShapes {
             let c = implementPoint(s, "hands") + V3(0, -3, 0)
             push(hull(disc(c, lateral, 7, 18)), pal.plate, D(c) + 0.6)
             push(capsule(P(c + lateral * 11), P(c - lateral * 11), 1.2, 1.2), pal.steel, D(c) + 0.61)
+        case "towels":
+            // A towel (or gi fabric) in each hand, hanging from the bar above.
+            for side in ["L", "R"] {
+                let g = implementPoint(s, side)
+                push(capsule(P(g + V3(0, -4, 0)), P(g + V3(0, 24, 0)), 2.6, 2.6), "#E8E6DF", D(g) + 0.7)
+            }
         case "map":
             // A folded map held up in the left hand to read.
             let g = implementPoint(s, "L")

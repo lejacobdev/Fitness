@@ -591,6 +591,14 @@ export function implementShapes(s, spec, pal) {
       push(capsule2(P(add(c, lat3, 11)), P(add(c, lat3, -11)), 1.2, 1.2), pal.steel, D(c) + 0.61);
       break;
     }
+    case 'towels': {
+      // A towel (or gi fabric) in each hand, hanging from the bar above.
+      for (const side of ['L', 'R']) {
+        const g = implementPoint(s, side);
+        push(capsule2(P(add(g, [0, -4, 0])), P(add(g, [0, 24, 0])), 2.6, 2.6), '#E8E6DF', D(g) + 0.7);
+      }
+      break;
+    }
     case 'map': {
       // A folded map held up in the left hand to read.
       const g = implementPoint(s, 'L');
