@@ -80,4 +80,14 @@ export const OUTDOOR_POSES = {
   'ultimate-beach-heat-acclimation-intervals': 'jog',
   'ultimate-beach-sand-lateral-shuffle': 'lateral-shuffle',
   'ultimate-beach-paced-point-simulation': 'ultimate-come-back-cut',
+  // Keepers
+  'soccer-goalkeeper-set-and-shuffle': 'gk-set-shuffle',
+  'soccer-goalkeeper-low-diving-saves': 'gk-dive-save',
+  'soccer-goalkeeper-high-catch': 'gk-high-catch',
+  'soccer-goalkeeper-reaction-saves': 'gk-reaction-save',
+  'soccer-goalkeeper-overarm-distribution': 'gk-overarm-throw',
+  'soccer-goalkeeper-punt-distribution': 'gk-punt',
+  'ice-hockey-goaltender-butterfly-slides': 'goalie-butterfly-slide',
+  'ice-hockey-goaltender-t-push-tracking': 'goalie-t-push',
+  'lacrosse-goalie-arc-step-saves': 'lax-goalie-step-save',
 };

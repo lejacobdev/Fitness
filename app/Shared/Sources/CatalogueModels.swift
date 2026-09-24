@@ -68,6 +68,9 @@ public struct CatalogueItem: Codable, Sendable, Hashable {
     /// §8: the named skills of the drill's own sport it directly builds —
     /// what "I want to get better at shooting" surfaces first.
     public var skills: [String]? = nil
+    /// Positions of the drill's sport it is written for (a goalkeeper's
+    /// saves); plans for other positions never pick it. Nil: everyone.
+    public var positions: [String]? = nil
 
     private enum CodingKeys: String, CodingKey {
         case slug, name, kind, qualities, muscles, equipment, surface, minAge, supervisionLevel
@@ -76,7 +79,7 @@ public struct CatalogueItem: Codable, Sendable, Hashable {
         case unilateralEligible, tempoEligible, prop, variant, baseSlug
         case constraintAxes, equipmentChain, unilateralPosePattern, unilateralStabilityQuality
         case itemSportSlug = "sport"
-        case skills
+        case skills, positions
     }
 
     public var isUnilateralEligible: Bool { unilateralEligible ?? false }
@@ -128,4 +131,16 @@ public struct CataloguePack: Codable, Sendable {
     public let poseModelVersion: Int
     public let sport: SportInfo?
     public let items: [CatalogueItem]
+}
+
+extension CatalogueItem {
+    /// Whether this can go into a plan for an athlete of `sport` playing
+    /// `position`: general exercises fit everyone; a sport's drill fits only
+    /// that sport's athletes — never anyone else's plan — and a drill written
+    /// for positions (a goalkeeper's saves) only those positions.
+    public func fits(sport: String?, position: String?) -> Bool {
+        if let own = itemSportSlug, own != sport { return false }
+        if let positions { return position.map(positions.contains) ?? false }
+        return true
+    }
 }

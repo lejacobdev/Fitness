@@ -14,11 +14,17 @@ public struct MuscleWorkoutInput: Sendable {
     public let catalogue: Catalogue
     public let seed: String
     public let now: Date
+    /// Only general exercises and this sport's (and position's) drills.
+    public let sportSlug: String?
+    public let positionSlug: String?
 
     public init(
         regions: Set<MuscleRegion>, minutes: Int, birthDate: Date, trainsUnderCoach: Bool = false,
-        equipmentAvailable: Set<String> = [], catalogue: Catalogue, seed: String, now: Date = .now
+        equipmentAvailable: Set<String> = [], catalogue: Catalogue, seed: String, now: Date = .now,
+        sportSlug: String? = nil, positionSlug: String? = nil
     ) {
+        self.sportSlug = sportSlug
+        self.positionSlug = positionSlug
         self.regions = regions
         self.minutes = minutes
         self.birthDate = birthDate
@@ -43,7 +49,8 @@ public enum MuscleWorkoutGenerator {
 
         let eligible = input.catalogue.itemsBySlug.values
             .filter { item in
-                PlanGenerator.isEligibleForEquipment(item, available: input.equipmentAvailable)
+                item.fits(sport: input.sportSlug, position: input.positionSlug)
+                    && PlanGenerator.isEligibleForEquipment(item, available: input.equipmentAvailable)
                     && (input.trainsUnderCoach || !item.isCoached)
                     && item.minAge <= age
             }

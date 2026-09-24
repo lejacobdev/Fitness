@@ -29,12 +29,16 @@ public struct SkillMenuInput: Sendable {
     public let catalogue: Catalogue
     public let seed: String
     public let now: Date
+    /// Drills written for other positions are never picked.
+    public let positionSlug: String?
 
     public init(
         sportSlug: String, skillSlug: String, skillName: String, qualityWeights: [String: Double],
         today: Date, gameDate: Date, birthDate: Date, trainsUnderCoach: Bool = false,
-        equipmentAvailable: Set<String> = [], catalogue: Catalogue, seed: String, now: Date = .now
+        equipmentAvailable: Set<String> = [], catalogue: Catalogue, seed: String, now: Date = .now,
+        positionSlug: String? = nil
     ) {
+        self.positionSlug = positionSlug
         self.sportSlug = sportSlug
         self.skillSlug = skillSlug
         self.skillName = skillName
@@ -212,6 +216,7 @@ public enum SkillMenuEngine {
             let tagged = input.catalogue.itemsBySlug.values
                 .filter { item in
                     item.itemSportSlug == input.sportSlug
+                        && item.fits(sport: input.sportSlug, position: input.positionSlug)
                         && (item.skills ?? []).contains(input.skillSlug)
                         && PlanGenerator.isEligibleForEquipment(item, available: input.equipmentAvailable)
                         && (input.trainsUnderCoach || !item.isCoached)
@@ -241,6 +246,7 @@ public enum SkillMenuEngine {
                 input.catalogue.itemsBySlug.values
                     .filter { item in
                         (item.qualities[quality] ?? 0) >= 0.7
+                            && item.fits(sport: input.sportSlug, position: input.positionSlug)
                             && PlanGenerator.isEligibleForEquipment(item, available: input.equipmentAvailable)
                             && (input.trainsUnderCoach || !item.isCoached)
                             && item.minAge <= age

@@ -40,11 +40,12 @@ import { COMBAT } from './poses/combat.js';
 import { ARTISTIC } from './poses/artistic.js';
 import { PRECISION } from './poses/precision.js';
 import { OUTDOOR } from './poses/outdoor.js';
+import { KEEPERS } from './poses/keepers.js';
 
 export const POSE_MODEL_VERSION = 3;
 export { JOINTS };
 
-const PATTERNS = [...STRENGTH, ...TEAM_SPORTS, ...INDIVIDUAL_SPORTS, ...MISC_SPORTS, ...HOCKEY, ...SOCCER, ...BASKETBALL, ...VOLLEYBALL, ...RACKET, ...FIELD_SPORTS, ...STICK_SPORTS, ...RUNNING, ...ENDURANCE, ...BIKES, ...WATER_SPORTS, ...COMBAT, ...ARTISTIC, ...PRECISION, ...OUTDOOR];
+const PATTERNS = [...STRENGTH, ...TEAM_SPORTS, ...INDIVIDUAL_SPORTS, ...MISC_SPORTS, ...HOCKEY, ...SOCCER, ...BASKETBALL, ...VOLLEYBALL, ...RACKET, ...FIELD_SPORTS, ...STICK_SPORTS, ...RUNNING, ...ENDURANCE, ...BIKES, ...WATER_SPORTS, ...COMBAT, ...ARTISTIC, ...PRECISION, ...OUTDOOR, ...KEEPERS];
 
 export const POSE_PATTERNS = PATTERNS;
 export const POSE_PATTERN_SLUGS = PATTERNS.map((p) => p.slug);

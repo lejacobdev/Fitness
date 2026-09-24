@@ -733,7 +733,48 @@ const ADAPTED_FLOOR_HOCKEY = sportDrills('adapted-floor-hockey', [
   },
 ]);
 
+
+/** Goaltender / goalie drills (`positions`): skaters' and attackers' plans never get them. */
+const HOCKEY_GOALIE = sportDrills('ice-hockey', [
+  {
+    slug: 'goaltender-butterfly-slides', name: 'Goaltender Butterfly Slides', positions: ['goaltender'],
+    qualities: { 'lateral-power': 0.8, 'hip-mobility': 0.7 },
+    muscles: { 'adductors': 0.7, 'gluteus-medius': 0.6, 'obliques-external': 0.4 },
+    equipment: ['skates', 'stick'], prop: 'stick-hockey', surface: 'anywhere',
+    setup: ['In the crease, in your stance.'],
+    execution: ['Drop into the butterfly — knees together, pads flared flat on the ice, stick covering the five-hole.', 'Push off the post-side leg and slide across in the butterfly to the other post; recover to your feet.'],
+    cues: ['Chest up, gloves in front', 'Push, then lead with the knee'],
+    mistakes: ['Leaning back so the pads open a gap under you.'],
+    defaultDose: reps(3, 8), restSeconds: 60, startPose: 'lateral-shuffle', endPose: 'lateral-shuffle',
+  },
+  {
+    slug: 'goaltender-t-push-tracking', name: 'Goaltender T-Pushes', positions: ['goaltender'],
+    qualities: { 'lateral-power': 0.8, 'deceleration': 0.6 },
+    muscles: { 'gluteus-medius': 0.7, 'adductors': 0.6, 'vastus-lateralis': 0.5 },
+    equipment: ['skates', 'stick'], prop: 'stick-hockey', surface: 'anywhere',
+    setup: ['In the crease, facing the play.'],
+    execution: ['Turn the lead skate toward where you are going, push hard off the back skate in a T, and glide across.', 'Stop square to the shooter in your stance, then T-push back.'],
+    cues: ['Head and hands lead', 'Stop square, set, then go'],
+    mistakes: ['Over-rotating the shoulders so you arrive facing the wrong way.'],
+    defaultDose: reps(3, 10), restSeconds: 45, startPose: 'lateral-shuffle', endPose: 'lateral-shuffle',
+  },
+]);
+const LACROSSE_GOALIE = sportDrills('lacrosse', [
+  {
+    slug: 'goalie-arc-step-saves', name: 'Goalie Step-to-Ball Saves', positions: ['goalie'],
+    qualities: { 'reactive-strength': 0.8, 'lateral-power': 0.6 },
+    muscles: { 'gastrocnemius': 0.5, 'deltoid-anterior': 0.5, 'forearm-flexors': 0.5 },
+    equipment: ['stick', 'ball', 'partner', 'goal'], prop: 'stick-lacrosse', surface: 'field',
+    setup: ['In goal, a partner shoots from 8–10 yards to all four corners.'],
+    execution: ['From your stance (stick head up by the ear), step to the ball with the foot on its side and drive the stick head to it.', 'Top hand leads; step back to the arc before the next shot.'],
+    cues: ['Step at the ball, not back into the goal', 'Watch it into the pocket'],
+    mistakes: ['Only moving the stick and leaving the body behind.'],
+    defaultDose: reps(3, 10), restSeconds: 60, startPose: 'athletic-stance', endPose: 'athletic-stance',
+  },
+]);
+
 export const STICK_DRILLS = [
+  ...HOCKEY_GOALIE, ...LACROSSE_GOALIE,
   ...ICE_HOCKEY,
   ...INLINE_HOCKEY,
   ...FIELD_HOCKEY,

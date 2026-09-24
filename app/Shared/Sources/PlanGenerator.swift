@@ -19,14 +19,20 @@ public struct PlanGeneratorInput: Sendable {
     public let seed: String
     public let timeBudgetMinutesPerSession: Int
     public let now: Date
+    /// The athlete's sport and position: drills from other sports, and drills
+    /// written for other positions (a goalkeeper's saves), are never picked.
+    public let sportSlug: String?
+    public let positionSlug: String?
 
     public init(
         sportProfile: [String: Double], positionProfile: [String: Double]? = nil,
         seasonStart: Date, seasonEnd: Date, weekStart: Date, birthDate: Date,
         trainsUnderCoach: Bool = false, equipmentAvailable: Set<String> = [],
         catalogue: Catalogue, seed: String, timeBudgetMinutesPerSession: Int = 60,
-        now: Date = .now
+        now: Date = .now, sportSlug: String? = nil, positionSlug: String? = nil
     ) {
+        self.sportSlug = sportSlug
+        self.positionSlug = positionSlug
         self.sportProfile = sportProfile
         self.positionProfile = positionProfile
         self.seasonStart = seasonStart
@@ -121,13 +127,31 @@ public enum PlanGenerator {
         }
     }
 
+    // MARK: - Sport and position
+
+    /// A general exercise, or a drill of the athlete's own sport — and, when
+    /// the drill is written for particular positions, one of the athlete's.
+    static func fitsAthlete(_ item: CatalogueItem, input: PlanGeneratorInput) -> Bool {
+        item.fits(sport: input.sportSlug, position: input.positionSlug)
+    }
+
+    static func isForPosition(_ item: CatalogueItem, input: PlanGeneratorInput) -> Bool {
+        guard let position = input.positionSlug, let positions = item.positions else { return false }
+        return positions.contains(position) && item.itemSportSlug == input.sportSlug
+    }
+
     // MARK: - Quality targeting
 
+    /// The position leads: its qualities come first, the sport's fill in
+    /// behind at a third of their weight — so a goalkeeper's week is built on
+    /// reactive strength and vertical power, a midfielder's on aerobic base
+    /// and repeat sprints, from the same sport.
     private static func rankedQualities(sportProfile: [String: Double], positionProfile: [String: Double]?) -> [String] {
         var merged = sportProfile
         if let positionProfile {
+            merged = merged.mapValues { $0 * 0.35 }
             for (quality, weight) in positionProfile {
-                merged[quality] = max(merged[quality] ?? 0, weight)
+                merged[quality] = (merged[quality] ?? 0) + weight
             }
         }
         return merged.sorted { lhs, rhs in
@@ -178,19 +202,35 @@ public enum PlanGenerator {
         isYouthEnvelope: Bool, age: Int, weeklyContacts: inout Int, rng: inout SeededGenerator
     ) -> GeneratedSession {
         var candidates: [(quality: String, item: CatalogueItem)] = []
+        let fits = { (item: CatalogueItem) -> Bool in
+            fitsAthlete(item, input: input)
+                && isEligibleForEquipment(item, available: input.equipmentAvailable)
+                && (input.trainsUnderCoach || !item.isCoached)
+                && item.minAge <= age
+        }
         for quality in targetQualities {
             let eligible = input.catalogue.itemsBySlug.values
-                .filter { item in
-                    (item.qualities[quality] ?? 0) >= 0.7
-                        && isEligibleForEquipment(item, available: input.equipmentAvailable)
-                        && (input.trainsUnderCoach || !item.isCoached)
-                        && item.minAge <= age
-                }
+                .filter { item in (item.qualities[quality] ?? 0) >= 0.7 && fits(item) }
                 .sorted { $0.slug < $1.slug }
 
             guard !eligible.isEmpty else { continue }
-            let picked = eligible[Int(rng.next() % UInt64(eligible.count))]
-            candidates.append((quality, picked))
+            // Drills written for this athlete's position win when there are any.
+            let forPosition = eligible.filter { isForPosition($0, input: input) }
+            let pool = forPosition.isEmpty ? eligible : forPosition
+            let picked = pool[Int(rng.next() % UInt64(pool.count))]
+            if !candidates.contains(where: { $0.item.slug == picked.slug }) { candidates.append((quality, picked)) }
+        }
+        // Every session has at least one drill written for the position, when
+        // the athlete has one and such drills exist (a keeper always saves).
+        if !candidates.contains(where: { isForPosition($0.item, input: input) }) {
+            let positionDrills = input.catalogue.itemsBySlug.values
+                .filter { isForPosition($0, input: input) && fits($0) }
+                .sorted { $0.slug < $1.slug }
+            if !positionDrills.isEmpty {
+                let picked = positionDrills[Int(rng.next() % UInt64(positionDrills.count))]
+                let quality = picked.qualities.max { $0.value < $1.value }?.key ?? targetQualities.first ?? ""
+                candidates.append((quality, picked))
+            }
         }
 
         let blockRank: [QualityGroup: Int] = [.speed: 0, .power: 0, .strength: 1, .endurance: 2, .control: 3]

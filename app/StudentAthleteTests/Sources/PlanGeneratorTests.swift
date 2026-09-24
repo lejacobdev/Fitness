@@ -12,7 +12,7 @@ final class PlanGeneratorTests: XCTestCase {
     /// actually testing.
     private func makeItem(
         slug: String, qualities: [String: Double], equipment: [String] = [],
-        minAge: Int = 13, supervisionLevel: String = "SELF", defaultDose: Dose, restSeconds: Int = 60
+        minAge: Int = 13, supervisionLevel: String = "SELF", defaultDose: Dose, restSeconds: Int = 60, sport: String? = nil
     ) -> CatalogueItem {
         CatalogueItem(
             slug: slug, name: slug, kind: "exercise", qualities: qualities, muscles: [:],
@@ -21,7 +21,7 @@ final class PlanGeneratorTests: XCTestCase {
             defaultDose: defaultDose, restSeconds: restSeconds, startPose: "hinge", endPose: "hinge",
             unilateralEligible: nil, tempoEligible: nil, prop: nil, variant: nil, baseSlug: nil,
             constraintAxes: nil, equipmentChain: nil, unilateralPosePattern: nil, unilateralStabilityQuality: nil,
-            itemSportSlug: nil
+            itemSportSlug: sport
         )
     }
 
@@ -253,5 +253,73 @@ final class PlanGeneratorTests: XCTestCase {
 
         let sessionsWithTheItem = week.sessions.filter { session in session.items.contains { $0.itemSlug == "jump-drill" } }
         XCTAssertLessThan(sessionsWithTheItem.count, week.sessions.count, "expected the cap to skip at least one session's worth")
+    }
+
+    // MARK: - Sport and position
+
+    private func drill(_ slug: String, _ qualities: [String: Double], sport: String?, positions: [String]? = nil) -> CatalogueItem {
+        var item = makeItem(slug: slug, qualities: qualities, defaultDose: Dose(kind: "reps", sets: 3, reps: 8), sport: sport)
+        item.positions = positions
+        return item
+    }
+
+    private func positionWeek(position: String?) -> [String] {
+        let items = [
+            drill("keeper-dive", ["reactive-agility": 1.0, "vertical-power": 0.8], sport: "soccer", positions: ["goalkeeper"]),
+            drill("keeper-high-catch", ["vertical-power": 1.0], sport: "soccer", positions: ["goalkeeper"]),
+            drill("rondo", ["aerobic-base": 1.0, "reactive-agility": 0.8], sport: "soccer"),
+            drill("repeat-sprints", ["repeat-sprint": 1.0], sport: "soccer"),
+            drill("puck-handling", ["reactive-agility": 1.0], sport: "ice-hockey"),
+            drill("goalie-butterfly", ["reactive-agility": 1.0], sport: "ice-hockey", positions: ["goaltender"]),
+            drill("box-jump", ["vertical-power": 1.0], sport: nil),
+        ]
+        let keeper = ["reactive-agility": 1.0, "vertical-power": 0.9]
+        let midfield = ["aerobic-base": 1.0, "repeat-sprint": 0.9]
+        let input = PlanGeneratorInput(
+            sportProfile: ["aerobic-base": 0.8, "repeat-sprint": 0.8, "reactive-agility": 0.6],
+            positionProfile: position == "goalkeeper" ? keeper : position == nil ? nil : midfield,
+            seasonStart: date(2026, 9, 1), seasonEnd: date(2026, 11, 30), weekStart: date(2026, 6, 1),
+            birthDate: Date(timeIntervalSince1970: 0), trainsUnderCoach: false, equipmentAvailable: [],
+            catalogue: catalogue(items), seed: "seed-1", now: date(2026, 6, 1),
+            sportSlug: "soccer", positionSlug: position
+        )
+        return PlanGenerator.generate(input).sessions.flatMap { $0.items.map(\.itemSlug) }
+    }
+
+    func testAGoalkeeperGetsKeeperDrillsInEverySession() {
+        let slugs = positionWeek(position: "goalkeeper")
+        XCTAssertTrue(slugs.contains("keeper-dive") || slugs.contains("keeper-high-catch"))
+        XCTAssertFalse(slugs.contains("goalie-butterfly"), "another sport's goalie drill")
+        XCTAssertFalse(slugs.contains("puck-handling"), "another sport's drill")
+    }
+
+    func testAMidfielderNeverGetsKeeperDrills() {
+        let slugs = positionWeek(position: "midfielder")
+        XCTAssertFalse(slugs.contains("keeper-dive"))
+        XCTAssertFalse(slugs.contains("keeper-high-catch"))
+        XCTAssertFalse(slugs.contains("puck-handling"))
+        XCTAssertTrue(slugs.contains("rondo") || slugs.contains("repeat-sprints"))
+    }
+
+    func testNoPositionMeansNoPositionDrills() {
+        let slugs = positionWeek(position: nil)
+        XCTAssertFalse(slugs.contains { $0.hasPrefix("keeper-") })
+    }
+
+    func testGoalkeeperAndMidfielderWeeksDiffer() {
+        XCTAssertNotEqual(positionWeek(position: "goalkeeper"), positionWeek(position: "midfielder"))
+    }
+
+    func testAnotherSportsDrillNeverFitsAnyPlan() {
+        let hockey = drill("puck-handling", ["reactive-agility": 1.0], sport: "ice-hockey")
+        let general = drill("box-jump", ["vertical-power": 1.0], sport: nil)
+        let keeper = drill("keeper-dive", ["reactive-agility": 1.0], sport: "soccer", positions: ["goalkeeper"])
+        XCTAssertFalse(hockey.fits(sport: "soccer", position: nil))
+        XCTAssertFalse(hockey.fits(sport: nil, position: nil), "no sport means no sport drills")
+        XCTAssertTrue(hockey.fits(sport: "ice-hockey", position: nil))
+        XCTAssertTrue(general.fits(sport: "soccer", position: "midfielder"))
+        XCTAssertTrue(keeper.fits(sport: "soccer", position: "goalkeeper"))
+        XCTAssertFalse(keeper.fits(sport: "soccer", position: "midfielder"))
+        XCTAssertFalse(keeper.fits(sport: "soccer", position: nil))
     }
 }

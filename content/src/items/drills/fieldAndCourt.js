@@ -521,4 +521,75 @@ const FLAG = sportDrills('flag-football', [
   },
 ]);
 
-export const FIELD_AND_COURT_DRILLS = [...SOCCER, ...FOOTBALL, ...BASKETBALL, ...BASEBALL, ...SOFTBALL, ...FLAG];
+
+/** Written for goalkeepers only (`positions`): outfield plans never get them. */
+const SOCCER_KEEPER = sportDrills('soccer', [
+  {
+    slug: 'goalkeeper-set-and-shuffle', name: 'Keeper Set Position and Shuffle', positions: ['goalkeeper'],
+    qualities: { 'lateral-power': 0.8, 'reactive-strength': 0.6, 'deceleration': 0.5 },
+    muscles: { 'gluteus-medius': 0.7, 'adductors': 0.6, 'vastus-lateralis': 0.5 },
+    equipment: ['cones'], prop: 'ball-round', surface: 'field',
+    setup: ['Two cones on the goal line, one at each post.'],
+    execution: ['Shuffle post to post in the set position — feet shoulder-width, knees bent, weight on the balls of the feet, hands up in front.', 'Stop and set (a small hop to plant both feet) at each post and in the middle before moving again.'],
+    cues: ['Feet never cross', 'Hands stay up and in front'],
+    mistakes: ['Standing up tall between steps, so you are late to the next shot.'],
+    defaultDose: time(4, 30), restSeconds: 45, startPose: 'lateral-shuffle', endPose: 'lateral-shuffle',
+  },
+  {
+    slug: 'goalkeeper-low-diving-saves', name: 'Keeper Low Diving Saves', positions: ['goalkeeper'],
+    qualities: { 'lateral-power': 0.8, 'landing-mechanics': 0.7, 'reactive-strength': 0.6 },
+    muscles: { 'gluteus-maximus': 0.6, 'obliques-external': 0.6, 'deltoid-anterior': 0.5 },
+    equipment: ['ball', 'partner'], prop: 'ball-round', surface: 'field',
+    setup: ['On grass or a mat; a partner rolls or pushes balls just out of reach to either side.'],
+    execution: ['From the set position, step toward the ball and dive sideways, catching it with the bottom hand behind and the top hand on top.', 'Land on your side (never on the elbow), pull the ball in, and get back up to set.'],
+    cues: ['Step, then dive — never fall', 'Land on the side of the body, not the elbow'],
+    mistakes: ['Diving back toward the goal instead of forward to the ball.'],
+    defaultDose: reps(3, 6), restSeconds: 60, startPose: 'lateral-bound', endPose: 'landing',
+  },
+  {
+    slug: 'goalkeeper-high-catch', name: 'Keeper High Catch (W Catch)', positions: ['goalkeeper'],
+    qualities: { 'vertical-power': 0.9, 'reactive-strength': 0.6, 'landing-mechanics': 0.6 },
+    muscles: { 'gluteus-maximus': 0.6, 'gastrocnemius': 0.6, 'deltoid-anterior': 0.5 },
+    equipment: ['ball', 'partner'], prop: 'ball-round', surface: 'field',
+    setup: ['A partner lobs balls high toward you from about 10 yards.'],
+    execution: ['Take off from one leg with the other knee driving up for protection and catch the ball at the highest point.', 'Hands make a W behind the ball; bring it down into the chest and land balanced.'],
+    cues: ['Catch it in front of your head, not above it', 'Knee up, eyes on the ball'],
+    mistakes: ['Waiting on the ground and letting the ball drop onto you.'],
+    defaultDose: reps(3, 6), restSeconds: 60, startPose: 'vertical-jump', endPose: 'landing',
+  },
+  {
+    slug: 'goalkeeper-reaction-saves', name: 'Keeper Reaction Saves', positions: ['goalkeeper'],
+    qualities: { 'reactive-strength': 0.9, 'lateral-power': 0.6 },
+    muscles: { 'gastrocnemius': 0.5, 'deltoid-anterior': 0.5, 'forearm-flexors': 0.4 },
+    equipment: ['ball', 'partner', 'goal'], prop: 'ball-round', surface: 'field',
+    setup: ['In goal; a partner shoots firmly from 8–10 yards.'],
+    execution: ['Set as the shooter plants, then react and save the shot to the hands, behind the ball.', 'Get back to set before the next shot; the partner varies height and side.'],
+    cues: ['Set — small hop — as they strike', 'Get your body behind the ball'],
+    mistakes: ['Still moving when the ball is struck.'],
+    defaultDose: reps(3, 8), restSeconds: 60, startPose: 'athletic-stance', endPose: 'athletic-stance',
+  },
+  {
+    slug: 'goalkeeper-overarm-distribution', name: 'Keeper Overarm Throw', positions: ['goalkeeper'],
+    qualities: { 'rotational-power': 0.7, 'shoulder-stability': 0.6 },
+    muscles: { 'latissimus-dorsi': 0.6, 'pectoralis-major': 0.5, 'obliques-external': 0.5 },
+    equipment: ['ball', 'cones'], prop: 'ball-round', surface: 'field',
+    setup: ['A target cone 25–35 yards away.'],
+    execution: ['Step toward the target, bring the ball back with a straight arm and bowl it over the top.', 'Release so the ball skims low and fast to the target; switch to a rolled pass for short range.'],
+    cues: ['Straight arm over the top', 'Point the front shoulder at the target'],
+    mistakes: ['Throwing it high and slow so the receiver has to wait.'],
+    defaultDose: reps(3, 8), restSeconds: 45, startPose: 'overhead-throw', endPose: 'overhead-throw',
+  },
+  {
+    slug: 'goalkeeper-punt-distribution', name: 'Keeper Punts', positions: ['goalkeeper'],
+    qualities: { 'rotational-power': 0.6, 'single-leg-stability': 0.6, 'hip-mobility': 0.5 },
+    muscles: { 'rectus-femoris': 0.7, 'iliopsoas': 0.6, 'gluteus-medius': 0.4 },
+    equipment: ['ball'], prop: 'ball-round', surface: 'field',
+    setup: ['In the penalty area with a pile of balls.'],
+    execution: ['Hold the ball out in front, drop it and volley it with the laces as it falls.', 'Aim for distance with a flat, driven flight; land on the kicking foot.'],
+    cues: ['Drop it, don\'t throw it up', 'Toe down, lock the ankle'],
+    mistakes: ['Tossing the ball up so the timing changes every kick.'],
+    defaultDose: reps(3, 6), restSeconds: 45, startPose: 'instep-strike', endPose: 'instep-strike',
+  },
+]);
+
+export const FIELD_AND_COURT_DRILLS = [...SOCCER, ...SOCCER_KEEPER, ...FOOTBALL, ...BASKETBALL, ...BASEBALL, ...SOFTBALL, ...FLAG];

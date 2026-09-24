@@ -229,7 +229,8 @@ struct MuscleBuilderView: View {
             workout = MuscleWorkoutGenerator.generate(MuscleWorkoutInput(
                 regions: regions, minutes: minutes, birthDate: athlete.birthDate,
                 trainsUnderCoach: athlete.trainsUnderCoach, equipmentAvailable: Set(athlete.equipmentAvailable),
-                catalogue: catalogue, seed: "\(athlete.id)-muscles-\(regions.map(\.rawValue).sorted().joined())-\(minutes)-\(variation)"
+                catalogue: catalogue, seed: "\(athlete.id)-muscles-\(regions.map(\.rawValue).sorted().joined())-\(minutes)-\(variation)",
+                sportSlug: athlete.activeSport?.sportSlug, positionSlug: athlete.activeSport?.positionSlug
             ))
         }
     }

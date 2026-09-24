@@ -64,13 +64,11 @@ struct SportSwitcher: View {
                         }
                     }
                 }
-                if !ProAccess.isPro {
-                    Button {
-                        if SportSwitchLedger.canSwitch { showingChange = true } else { showingPaywall = true }
-                    } label: {
-                        Label("Change sport", systemImage: "arrow.left.arrow.right")
-                        if let summary = SportSwitchLedger.summary { Text(summary) }
-                    }
+                Button {
+                    if SportSwitchLedger.canSwitch { showingChange = true } else { showingPaywall = true }
+                } label: {
+                    Label("Change sport", systemImage: "arrow.left.arrow.right")
+                    Text(SportSwitchLedger.summary ?? "Replace \(activeName) with another sport")
                 }
                 Button {
                     if canAdd { showingAdd = true } else { showingPaywall = true }
@@ -155,14 +153,12 @@ struct SportsManagerSheet: View {
                     ForEach(athlete.sortedSports) { sport in
                         sportCard(sport)
                     }
-                    if !ProAccess.isPro {
-                        Button {
-                            if SportSwitchLedger.canSwitch { showingChange = true } else { showingPaywall = true }
-                        } label: {
-                            Label("Change sport", systemImage: "arrow.left.arrow.right")
-                        }
-                        .buttonStyle(.primary)
+                    Button {
+                        if SportSwitchLedger.canSwitch { showingChange = true } else { showingPaywall = true }
+                    } label: {
+                        Label("Change sport", systemImage: "arrow.left.arrow.right")
                     }
+                    .buttonStyle(.primary)
                     if canAdd {
                         Button { showingAdd = true } label: { Label("Add a sport", systemImage: "plus") }
                             .buttonStyle(.primary)

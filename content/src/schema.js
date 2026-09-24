@@ -276,6 +276,16 @@ export function validateItem(item, errors = []) {
     }
   }
 
+  // `positions` (drills only, optional): the positions of the drill's sport
+  // it is written for (a goalkeeper's saves); plans for other positions skip it.
+  if (item?.positions !== undefined) {
+    if (!Array.isArray(item.positions) || item.positions.length === 0 || item.positions.some((s) => typeof s !== 'string' || s.length === 0)) {
+      fail(errors, slug, 'positions must be a non-empty array of position slugs');
+    } else if (item.kind !== 'drill') {
+      fail(errors, slug, 'only drills are written for positions');
+    }
+  }
+
   return errors;
 }
 
