@@ -674,6 +674,7 @@ function placeFixtureRaw(fx, pel, k0, all) {
       return { foot, seatTop: pel[1] - 10, fly: [foot[0] + 20, foot[1] + 2, 0], rail0: Math.min(...xs) - 20, rail1: foot[0] + 8 };
     }
     case 'hurdle': case 'cone': case 'ladder': case 'sled': case 'control': return { x: pel[0] + (fx.at ?? 30) };
+    case 'ramp': return { x0: pel[0] + (fx.from ?? 20), x1: pel[0] + (fx.to ?? 110), top: fx.top ?? 60, seat: [pel[0], pel[1] - 9, pel[2]] };
     case 'net': return { x: pel[0] + (fx.at ?? 30), top: fx.top ?? 150 };
     case 'wheelchair': case 'racingchair': return { seat: [pel[0], pel[1] - 9, pel[2]] };
     case 'blocks': return { L: [k0.L.toe[0], k0.L.toe[2]], R: [k0.R.toe[0], k0.R.toe[2]] };

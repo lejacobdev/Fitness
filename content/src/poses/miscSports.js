@@ -275,4 +275,66 @@ def('ultimate-skying', 'Skying catch', {
   ],
 });
 
+// Golf variations ------------------------------------------------------------
+/** Feet together: the same swing with a narrow base, a shorter backswing and a held finish. */
+const narrow = both({ hip: 36, knee: 20, ankle: 10, hipAbd: 1 });
+def('golf-feet-together', 'Feet-together swings', {
+  view: 'front', thumb: 2, implement: { kind: 'club', at: 'L' },
+  keyframes: [
+    kf(handsOn(P(narrow, { spine: 32, neck: 22 }), inRoot(22, -12, 0)), 'feet', { hold: 0.5, move: 0.9 }),
+    kf(reachBoth(P(narrow, { spine: 32, neck: 22, twist: -60, turn: -10, neckTurn: 50 }, side('L', { wrist: 50, shoulderRot: 40 })), inChest(12, 4, -22), inChest(10, 6, -26)), 'feet', { hold: 0.1, move: 0.4 }),
+    kf(handsOn(P(narrow, { spine: 32, neck: 22, twist: 8, turn: 14, neckTurn: -10 }), inRoot(20, -13, 2)), 'feet', { move: 0.3 }),
+    kf(reachBoth(P(both({ hip: 10, knee: 8, hipAbd: 1 }), { spine: 8, twist: 30, turn: 50, neckTurn: -10 }), inChest(4, 10, 22), inChest(6, 8, 18)), 'feet', { hold: 3 }),
+  ],
+});
+/** Pre-shot routine: stand behind the ball looking at the target, one rehearsal swing, walk in, set up, go. */
+def('golf-pre-shot-routine', 'Pre-shot routine', {
+  view: 'front', thumb: 5, implement: { kind: 'club', at: 'L' },
+  keyframes: [
+    kf(reachBoth(P({ turn: 90, neckTurn: 10 }), inChest(20, -30, 4), inChest(20, -30, -4)), 'feet', { hold: 1, move: 0.6 }),
+    kf(golfAddress, 'feet', { move: 0.8, travel: [0, 0] }),
+    kf(golfTop, 'feet', { hold: 0.1, move: 0.5 }),
+    kf(golfFinish, 'L', { hold: 0.3, move: 0.6 }),
+    kf(golfAddress, 'feet', { hold: 0.8, move: 1.0 }),
+    kf(golfTop, 'feet', { hold: 0.12, move: 0.32 }),
+    kf(golfImpact, 'feet', { move: 0.32 }),
+    kf(golfFinish, 'L', { hold: 0.7 }),
+  ],
+});
+
+// Disc golf backhand ----------------------------------------------------------
+const DISC_BALL = { r: 10, color: 'orange', shape: 'disc' };
+const pullThrough = levelFeet(reach(P(both({ hip: 20, knee: 24, ankle: 12 }), { spine: 12, hipAbdR: 20, twist: 0, neckTurn: -30 }, side('L', { shoulder: 30, elbow: 60 })), 'R', inRoot(20, 30, 10)), 'R', 'hipR');
+/** Standstill: reach straight back away from the target, pull through close to the chest, snap. */
+def('disc-backhand-standstill', 'Standstill backhand', {
+  view: 'front', thumb: 1, ball: DISC_BALL,
+  keyframes: [
+    kf(xs0, 'feet', { hold: 0.4, move: 0.4, ball: 'R' }),
+    kf(xs3, 'L', { hold: 0.2, move: 0.3, ball: 'R' }),
+    kf(pullThrough, 'L+Rtoe', { move: 0.12, ball: 'R' }),
+    kf(bhFollow, 'R+Ltoe', { hold: 0.6, ball: { at: [0, 60, -420] } }),
+  ],
+});
+/** X-step: step, cross the back foot behind, plant, reach back, throw. */
+def('disc-x-step-drive', 'X-step run-up and drive', {
+  view: 'front', thumb: 4, ball: DISC_BALL,
+  keyframes: [
+    kf(xs0, 'feet', { hold: 0.3, move: 0.3, ball: 'R' }),
+    kf(xs1, 'R', { move: 0.3, travel: [0, -24], ball: 'R' }),
+    kf(xs2, 'feet', { move: 0.3, travel: [0, -24], ball: 'R' }),
+    kf(xs3, 'L', { move: 0.24, travel: [0, -20], ball: 'R' }),
+    kf(pullThrough, 'L+Rtoe', { move: 0.12, ball: 'R', travel: [0, -10] }),
+    kf(bhFollow, 'R+Ltoe', { hold: 0.6, ball: { at: [0, 60, -420] } }),
+  ],
+});
+/** Band anchored behind: pull through the throwing path with the hips turning, elbow leading. */
+def('band-pull-through', 'Band backhand pull-through', {
+  view: 'front', thumb: 1, implement: { kind: 'band', at: 'R', to: [0, 40, 60] },
+  keyframes: [
+    kf(xs3, 'L', { hold: 0.3, move: 0.5 }),
+    kf(pullThrough, 'L+Rtoe', { move: 0.4 }),
+    kf(bhFollow, 'R+Ltoe', { hold: 0.3, move: 1 }),
+  ],
+});
+
 export const MISC_SPORTS = lib.patterns;

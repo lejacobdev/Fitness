@@ -319,7 +319,14 @@ export function sceneShapes(s, { scheme = 'light', glow = {}, implement = null, 
   if (s.ball && ball) {
     const r = ball.r ?? 6, depth = D(s.ball) + r * 0.5;
     const balls = [];
-    if (ball.shape === 'flag') {
+    if (ball.shape === 'arrow') {
+      // An arrow in flight, pointing along its path (forward).
+      const fw = norm([apply(s.root, [1, 0, 0])[0], 0, apply(s.root, [1, 0, 0])[2]]);
+      balls.push({ points: capsule2(P(add(s.ball, fw, -30)), P(add(s.ball, fw, 30)), 0.6, 0.6), fill: pal.implementRed, depth, isBall: true });
+    } else if (ball.shape === 'disc') {
+      // A flying disc: flat, tilted slightly.
+      balls.push({ points: hull(discPoly(s.ball, norm(add([0, 1, 0], apply(s.root, [0, 0, 1]), 0.2)), 10.5, 18)), fill: BALL_COLORS[ball.color ?? 'red'] ?? pal.implementRed, depth, isBall: true });
+    } else if (ball.shape === 'flag') {
       // A tossed color-guard flag: pole upright and turning, silk at the top.
       const up = norm(add([0, 1, 0], apply(s.root, [1, 0, 0]), 0.25));
       // The silk angles between forward and sideways so it reads from any camera.
@@ -600,6 +607,44 @@ export function implementShapes(s, spec, pal) {
       push(capsule2(P(add(c, lat3, 11)), P(add(c, lat3, -11)), 1.2, 1.2), pal.steel, D(c) + 0.61);
       break;
     }
+    case 'bowlingballs': {
+      // A bowling ball hanging in each hand.
+      for (const side of ['L', 'R']) {
+        const c = add(implementPoint(s, side), [0, -9, 0]);
+        push(sphere(c, 10.8), '#1E1E22', D(c) + 0.5);
+      }
+      break;
+    }
+    case 'bow2': {
+      // Recurve bow in the left hand: limbs curve back from the grip, the string runs to the draw hand.
+      const g = implementPoint(s, 'L'), hand = implementPoint(s, 'R');
+      const up = norm(apply(s.chest, [0, 1, 0]));
+      const toBack = norm(sub(hand, g));
+      const tipU = add(add(g, up, 64), toBack, 10), tipD = add(add(g, up, -64), toBack, 10);
+      const midU = add(add(g, up, 34), toBack, -3), midD = add(add(g, up, -34), toBack, -3);
+      for (const [a, b] of [[g, midU], [midU, tipU], [g, midD], [midD, tipD]]) push(capsule2(P(a), P(b), 1.4, 1.1), pal.plate, D(g) + 0.9);
+      // The string follows the draw hand while it's on it; an arrow shows once drawn.
+      const reachLen = Math.hypot(...sub(hand, g));
+      const onString = reachLen < 86, drawn = onString && reachLen > 34;
+      const string = onString ? hand : add(g, toBack, 12);
+      push(capsule2(P(tipU), P(string), 0.35, 0.35), pal.steel, D(g) + 0.3);
+      push(capsule2(P(string), P(tipD), 0.35, 0.35), pal.steel, D(g) + 0.3);
+      if (drawn) push(capsule2(P(add(hand, norm(sub(g, hand)), -4)), P(add(g, norm(sub(g, hand)), 6)), 0.5, 0.5), pal.implementRed, D(g) + 0.35);
+      break;
+    }
+    case 'rifle2': {
+      // Target rifle (or a training dowel): butt in the right shoulder pocket, fore-end on the left hand.
+      const butt = add(add(s.R.shoulder, apply(s.chest, [1, 0, 0]), 4), apply(s.chest, [0, -1, 0]), 2);
+      const rest = implementPoint(s, 'L');
+      const dir = norm(sub(rest, butt));
+      const muzzle = add(rest, dir, spec.dowel ? 50 : 60);
+      if (spec.dowel) push(capsule2(P(butt), P(muzzle), 1.2, 1.2), pal.wood, D(rest) + 0.9);
+      else {
+        push(capsule2(P(butt), P(add(butt, dir, 34)), 3.6, 2.4), pal.wood, D(rest) + 0.9);
+        push(capsule2(P(add(butt, dir, 30)), P(muzzle), 1.6, 1.3), pal.plate, D(rest) + 0.91);
+      }
+      break;
+    }
     case 'flag': {
       // Color-guard flag: the pole runs from the bottom hand (L) through the top hand (R), the silk near its top.
       const lo = implementPoint(s, 'L'), hi = implementPoint(s, 'R');
@@ -857,6 +902,18 @@ export function fixtureShapes(s, fx, place, pal) {
       const { r } = place;
       const at = W(...place.at);
       push(circlePts(P(at), r, 28), pal.implementRed, D(at) - 12, { opacity: 0.9 });
+      break;
+    }
+    case 'ramp': {
+      // A boccia ramp: a sloped chute from beside the chair down to the floor ahead.
+      const { x0, x1, top, seat } = place;
+      // …with the athlete's wheelchair behind it.
+      const c = [seat[0] - 2, 26];
+      push(hull(discPoly(W(c[0], c[1], o[2] - 13), az, 26, 24)), 'none', -40, { stroke: pal.steel, width: 2.4 });
+      push(hull(discPoly(W(c[0], c[1], o[2] + 13), az, 26, 24)), 'none', 40, { stroke: pal.steel, width: 2.4 });
+      box(seat[0] - 14, seat[0] + 10, seat[1] - 4, seat[1], o[2] - 12, o[2] + 12, pal.pad, -1);
+      push(hull([P(W(x0, top, o[2] - 7)), P(W(x0, top, o[2] + 7)), P(W(x1, 1, o[2] + 7)), P(W(x1, 1, o[2] - 7))]), pal.wood, -8);
+      box(x0 - 2, x0 + 2, 0, top, o[2] - 5, o[2] + 5, pal.steel, -9);
       break;
     }
     case 'control': {

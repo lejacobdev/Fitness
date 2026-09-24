@@ -705,6 +705,9 @@ final class RigPlayback {
             let xs = all.map(\.pelvis.x)
             out.numbers = ["seatTop": pel.y - 10, "rail0": (xs.min() ?? 0) - 20, "rail1": foot.x + 8]
             out.points = ["foot": foot, "fly": V3(foot.x + 20, foot.y + 2, pel.z)]
+        case "ramp":
+            out.numbers = ["x0": pel.x + (p["from"] ?? 20), "x1": pel.x + (p["to"] ?? 110), "top": p["top"] ?? 60]
+            out.points["seat"] = V3(pel.x, pel.y - 9, pel.z)
         case "hurdle", "cone", "ladder", "sled", "control":
             out.numbers = ["x": pel.x + (p["at"] ?? 30)]
         case "net":

@@ -149,7 +149,15 @@ enum RigShapes {
         if let ball = s.ball, let spec = playback.info.ball {
             let depth = D(ball) + spec.r * 0.5
             var balls: [RigShape] = []
-            if spec.shape == "flag" {
+            if spec.shape == "arrow" {
+                // An arrow in flight, pointing along its path (forward).
+                let fw = normed(V3(s.root.apply(V3(1, 0, 0)).x, 0, s.root.apply(V3(1, 0, 0)).z))
+                balls.append(RigShape(points: capsule(P(ball - fw * 30), P(ball + fw * 30), 0.6, 0.6), color: Color(hex: pal.red), depth: depth, isBall: true))
+            } else if spec.shape == "disc" {
+                // A flying disc: flat, tilted slightly.
+                balls.append(RigShape(points: hull(disc(ball, normed(V3(0, 1, 0) + s.root.apply(V3(0, 0, 1)) * 0.2), 10.5, 18)),
+                                      color: Color(hex: ballColors[spec.color] ?? pal.red), depth: depth, isBall: true))
+            } else if spec.shape == "flag" {
                 // A tossed color-guard flag: pole upright and turning, silk at the top.
                 let up = normed(V3(0, 1, 0) + s.root.apply(V3(1, 0, 0)) * 0.25)
                 // The silk angles between forward and sideways so it reads from any camera.
@@ -534,6 +542,40 @@ enum RigShapes {
             let c = implementPoint(s, "hands") + V3(0, -3, 0)
             push(hull(disc(c, lateral, 7, 18)), pal.plate, D(c) + 0.6)
             push(capsule(P(c + lateral * 11), P(c - lateral * 11), 1.2, 1.2), pal.steel, D(c) + 0.61)
+        case "bowlingballs":
+            // A bowling ball hanging in each hand.
+            for side in ["L", "R"] {
+                let c = implementPoint(s, side) + V3(0, -9, 0)
+                push(sphere(c, 10.8), "#1E1E22", D(c) + 0.5)
+            }
+        case "bow2":
+            // Recurve bow in the left hand: limbs curve back from the grip, the string runs to the draw hand.
+            let g = implementPoint(s, "L"), hand = implementPoint(s, "R")
+            let up = normed(s.chest.apply(V3(0, 1, 0)))
+            let toBack = normed(hand - g)
+            let tipU = g + up * 64 + toBack * 10, tipD = g - up * 64 + toBack * 10
+            let midU = g + up * 34 - toBack * 3, midD = g - up * 34 - toBack * 3
+            for (a, b) in [(g, midU), (midU, tipU), (g, midD), (midD, tipD)] { push(capsule(P(a), P(b), 1.4, 1.1), pal.plate, D(g) + 0.9) }
+            // The string follows the draw hand while it's on it; an arrow shows once drawn.
+            let reachLen = (hand - g).length
+            let onString = reachLen < 86, drawn = onString && reachLen > 34
+            let string = onString ? hand : g + toBack * 12
+            push(capsule(P(tipU), P(string), 0.35, 0.35), pal.steel, D(g) + 0.3)
+            push(capsule(P(string), P(tipD), 0.35, 0.35), pal.steel, D(g) + 0.3)
+            if drawn { push(capsule(P(hand - normed(g - hand) * 4), P(g + normed(g - hand) * 6), 0.5, 0.5), pal.red, D(g) + 0.35) }
+        case "rifle2":
+            // Target rifle (or a training dowel): butt in the right shoulder pocket, fore-end on the left hand.
+            let butt = s.R.shoulder + s.chest.apply(V3(1, 0, 0)) * 4 - s.chest.apply(V3(0, 1, 0)) * 2
+            let rest = implementPoint(s, "L")
+            let dir = normed(rest - butt)
+            let dowel = spec.flags.contains("dowel")
+            let muzzle = rest + dir * (dowel ? 50 : 60)
+            if dowel {
+                push(capsule(P(butt), P(muzzle), 1.2, 1.2), pal.wood, D(rest) + 0.9)
+            } else {
+                push(capsule(P(butt), P(butt + dir * 34), 3.6, 2.4), pal.wood, D(rest) + 0.9)
+                push(capsule(P(butt + dir * 30), P(muzzle), 1.6, 1.3), pal.plate, D(rest) + 0.91)
+            }
         case "flag":
             // Color-guard flag: the pole runs from the bottom hand (L) through the top hand (R), the silk near its top.
             let lo = implementPoint(s, "L"), hi = implementPoint(s, "R")
@@ -729,6 +771,17 @@ enum RigShapes {
         case "ball":
             let at = W(p["at"] ?? .zero)
             push(circle(P(at), n["r"] ?? 30, 28), pal.red, D(at) - 12, opacity: 0.9)
+        case "ramp":
+            // A boccia ramp: a sloped chute from beside the chair down to the floor ahead.
+            let x0 = n["x0"] ?? 20, x1 = n["x1"] ?? 110, top = n["top"] ?? 60
+            // …with the athlete's wheelchair behind it.
+            let seat = p["seat"] ?? .zero
+            let wc = V3(seat.x - 2, 26, seat.z)
+            push(hull(disc(W(wc.x, wc.y, o.z - 13), az, 26, 24)), pal.steel, -40, stroke: 2.4)
+            push(hull(disc(W(wc.x, wc.y, o.z + 13), az, 26, 24)), pal.steel, 40, stroke: 2.4)
+            box(seat.x - 14, seat.x + 10, seat.y - 4, seat.y, o.z - 12, o.z + 12, pal.pad, -1)
+            push(hull([P(W(x0, top, o.z - 7)), P(W(x0, top, o.z + 7)), P(W(x1, 1, o.z + 7)), P(W(x1, 1, o.z - 7))]), pal.wood, -8)
+            box(x0 - 2, x0 + 2, 0, top, o.z - 5, o.z + 5, pal.steel, -9)
         case "control":
             // An orienteering control: a post with the orange-and-white flag.
             let x = n["x"] ?? 30
