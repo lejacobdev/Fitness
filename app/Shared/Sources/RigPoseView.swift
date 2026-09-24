@@ -38,6 +38,7 @@ public struct RigPoseView: View {
                                wave: playback.info.path.flatMap { p in p.waveAmp.flatMap { a in p.waveLength.map { (a, $0) } } })
             }
         }
+        .clipped() // water and backdrops are drawn wider than the view
         .accessibilityHidden(true) // decorative alongside the item's own text
     }
 
@@ -57,6 +58,7 @@ struct RigStillView: View {
             RigCanvas.draw(RigShapes.scene(skeleton, playback: playback, glow: [:], palette: palette, scheme: colorScheme), in: &context,
                            size: size, frame: frame, ground: playback.info.fixture?.kind != "water" ? Color(hex: palette.ground) : nil)
         }
+        .clipped()
         .accessibilityHidden(true)
     }
 }

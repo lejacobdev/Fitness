@@ -379,6 +379,8 @@ final class RigPlayback {
                 let a = shared.heightPoint(flattenBoth(raw[i - 1], contacts[i - 1], contacts[i - 1]))
                 let b = shared.heightPoint(s)
                 y = a.y + result[i - 1].y - b.y
+                // In water, `surface` sets how much deeper the body goes (a flip turn).
+                if shared.kind == "water" { y += info.keyframes[i].surface - info.keyframes[i - 1].surface }
             } else {
                 y = contactY(s, contacts[i], surface, lift)
             }
@@ -456,7 +458,7 @@ final class RigPlayback {
             let u = ((t + spec.phase).truncatingRemainder(dividingBy: 1) + 1).truncatingRemainder(dividingBy: 1)
             var s = playback.frame(at: u, cast: [])
             s.ball = nil
-            let at = M3.rotY(view).apply(V3(spec.at.first ?? 0, 0, spec.at.count > 1 ? spec.at[1] : 0))
+            let at = M3.rotY(view).apply(V3(spec.at.first ?? 0, spec.at.count > 2 ? spec.at[2] : 0, spec.at.count > 1 ? spec.at[1] : 0))
             return RigCastMember(s: s.moved(turning: spec.facing, by: at), playback: playback, follow: spec.follow, tether: spec.tether)
         }
     }
@@ -603,6 +605,7 @@ final class RigPlayback {
         if let shared, shared.pinsHeight {
             let s0 = flattenBoth(raw[i], c0, c0)
             y = shared.heightPoint(s0).y + o0.y - shared.heightPoint(s).y
+            if shared.kind == "water" { y += (k1.surface - k0.surface) * e }
         } else if c0.selfPinned || c1.selfPinned {
             y = o0.y + (o1.y - o0.y) * e
         } else if let shared {
@@ -686,6 +689,7 @@ final class RigPlayback {
             out.points["at"] = (b0.L.wrist + b0.R.wrist) / 2 + V3(0, 3, 0)
         case "water":
             out.numbers = ["level": pel.y + (p["level"] ?? 6), "x0": pel.x - 120, "x1": pel.x + 120]
+            if let deck = p["deck"] { out.numbers["deckX"] = pel.x + deck; out.numbers["deckTop"] = p["deckTop"] ?? 30 }
         case "mat":
             let xs = all.flatMap { sk in RigKinematics3D.contactPoints(sk).map(\.0.x) }
             out.numbers = ["x0": (xs.min() ?? 0) - 8, "x1": (xs.max() ?? 0) + 8]

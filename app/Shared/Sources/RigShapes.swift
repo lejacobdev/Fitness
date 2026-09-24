@@ -614,8 +614,20 @@ enum RigShapes {
                 push(capsule(P(foot), P(at + az * (σ * 45)), 1.4, 1.4), pal.steel, -60)
             }
         case "water":
-            let level = n["level"] ?? 0, x0 = n["x0"] ?? -120, x1 = n["x1"] ?? 120
-            push([CGPoint(x: x0, y: -level), CGPoint(x: x1, y: -level), CGPoint(x: x1, y: -level + 60), CGPoint(x: x0, y: -level + 60)], pal.water, -1e5, opacity: 0.35)
+            // The pool: water behind the swimmer, a clear layer over whatever is
+            // under the surface, and the surface line. Wide enough for any
+            // framing; left out of the camera framing itself (isBall).
+            let level = n["level"] ?? 0
+            let sheet = [CGPoint(x: -4000, y: -level), CGPoint(x: 4000, y: -level), CGPoint(x: 4000, y: -level + 600), CGPoint(x: -4000, y: -level + 600)]
+            push(sheet, pal.water, -1e5, opacity: 0.35)
+            out.append(RigShape(points: sheet, color: Color(hex: pal.water), opacity: 0.3, depth: 1e5, isBall: true))
+            let line = [CGPoint(x: -4000, y: -level - 0.6), CGPoint(x: 4000, y: -level - 0.6), CGPoint(x: 4000, y: -level + 0.6), CGPoint(x: -4000, y: -level + 0.6)]
+            out.append(RigShape(points: line, color: Color(hex: pal.water), opacity: 0.9, depth: 1e5 + 1, isBall: true))
+            // The pool deck at the edge, to climb out onto.
+            if let deckX = n["deckX"], let top = n["deckTop"] {
+                out.append(RigShape(points: [CGPoint(x: deckX, y: -top), CGPoint(x: 4000, y: -top), CGPoint(x: 4000, y: 600), CGPoint(x: deckX, y: 600)],
+                                    color: Color(hex: pal.ground), depth: 1e5 + 2, isBall: true))
+            }
         case "bike":
             let crankB = p["crank"] ?? .zero
             let crank = W(crankB), seat = W(p["seat"] ?? .zero), bars = W(p["bars"] ?? .zero)

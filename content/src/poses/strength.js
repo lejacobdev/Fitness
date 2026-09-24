@@ -1399,7 +1399,7 @@ def('cycling-standing', 'Cycling out of the saddle', {
   keyframes: [0, 45, 90, 135, 180, 225, 270, 315].map((d, i) => kf({ ...pedal(-d, { lean: 30, stand: true }), bend: Math.sin((d * Math.PI) / 180) * 6 }, 'seat', { move: 0.1, ...(i === 0 ? { surface: 28 } : {}) })),
 });
 /** Rowing erg: catch → legs → body swing → arms → recover. Feet stay on the foot plate. */
-const rowAt = (knee, lean, handleIn) => {
+export const rowAt = (knee, lean, handleIn) => {
   // Seat and foot plate at the same height: solve the hips so the ankles
   // stay level with the seat through the whole stroke.
   let q = P({ spine: lean, neck: -6, ...both({ knee, hip: 60, ankle: knee * 0.36, hipAbd: 8 }) });
@@ -1448,7 +1448,7 @@ def('swim-kick-board', 'Kicking with a board', {
 const tread = (a) => P({ spine: 8, neck: -6, hipL: 70, kneeL: 90, hipAbdL: 40, hipRotL: -30 * a, hipR: 70, kneeR: 90, hipAbdR: 40, hipRotR: 30 * a,
   shoulderL: 30, shoulderAbdL: 50, elbowL: 40, shoulderR: 30, shoulderAbdR: 50, elbowR: 40, wristL: 20 * a, wristR: -20 * a });
 def('treading-water', 'Treading water', {
-  view: 'front', loop: true, thumb: 0, fixture: { kind: 'water', level: 44 },
+  view: 'front', loop: true, thumb: 0, fixture: { kind: 'water', level: 58 },
   keyframes: [kf(tread(1), 'water', { move: 0.3 }), kf(tread(-1), 'water', { move: 0.3 })],
 });
 

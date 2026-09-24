@@ -42,7 +42,7 @@ const withBase = (base, parts) => P(base, parts);
 // ── Swimming (fixture water, contact water) ──────────────────────────────
 
 /** Freestyle arm phases for a prone swimmer: entry, catch, push, exit, two recovery points. */
-const FREE_ARM = [
+export const FREE_ARM = [
   { shoulder: 176, shoulderAbd: 10, elbow: 6, shoulderRot: 0 },
   { shoulder: 118, shoulderAbd: 16, elbow: 70, shoulderRot: 35 },
   { shoulder: 55, shoulderAbd: 14, elbow: 55, shoulderRot: 20 },
@@ -51,7 +51,7 @@ const FREE_ARM = [
   { shoulder: 110, shoulderAbd: 92, elbow: 95, shoulderRot: -10 },
 ];
 
-function freestyle({ spine = 88, neck = -20, neckTurns = [0, 0, 0, 0, 0, 0], kick = 12, roll = 22 } = {}) {
+export function freestyle({ spine = 88, neck = -20, neckTurns = [0, 0, 0, 0, 0, 0], kick = 12, roll = 22 } = {}) {
   const frames = [];
   for (let i = 0; i < 6; i++) {
     const L = FREE_ARM[i], R = FREE_ARM[(i + 3) % 6];
@@ -99,9 +99,9 @@ def('swim-flip-turn', 'Flip turn', {
   fixture: { kind: 'water', level: 16 },
   keyframes: [
     kf(P(side('L', FREE_ARM[3]), side('R', FREE_ARM[3]), { spine: 90, neck: -10 }, both({ ankle: -45 })), 'water', { hold: 0.1, move: 0.35 }),
-    kf(P(both({ shoulder: 30, elbow: 40, hip: 120, knee: 130, ankle: -30 }), { spine: 100, neck: 40 }), 'water', { move: 0.35 }),
-    kf(P(both({ shoulder: 180, elbow: 20, hip: 110, knee: 125, ankle: 0 }), { spine: -90, neck: 0 }), 'water', { hold: 0.25, move: 0.4 }),
-    kf(P(both({ shoulder: 180, shoulderAbd: 2, elbow: 0, ankle: -45 }), { spine: -90 }), 'water', { hold: 0.35, travel: [-40, 0] }),
+    kf(P(both({ shoulder: 30, elbow: 40, hip: 120, knee: 130, ankle: -30 }), { spine: 100, neck: 40 }), 'water', { move: 0.35, surface: -22 }),
+    kf(P(both({ shoulder: 180, elbow: 20, hip: 72, knee: 104, ankle: 10 }), { spine: -90, neck: 0 }), 'water', { hold: 0.25, move: 0.4, surface: -34 }),
+    kf(P(both({ shoulder: 180, shoulderAbd: 2, elbow: 0, ankle: -45 }), { spine: -90 }), 'water', { hold: 0.35, travel: [-40, 0], surface: -30 }),
   ],
 });
 
@@ -134,8 +134,8 @@ def('swim-track-start', 'Track start dive', {
 });
 
 // Water polo: upright in the water, eggbeater legs.
-const EGG_A = { hipL: 90, hipAbdL: 40, hipRotL: -30, kneeL: 100, ankleL: 20, hipR: 80, hipAbdR: 40, hipRotR: -30, kneeR: 60, ankleR: 20 };
-const EGG_B = { hipL: 80, hipAbdL: 40, hipRotL: -30, kneeL: 60, ankleL: 20, hipR: 90, hipAbdR: 40, hipRotR: -30, kneeR: 100, ankleR: 20 };
+export const EGG_A = { hipL: 90, hipAbdL: 40, hipRotL: -30, kneeL: 100, ankleL: 20, hipR: 80, hipAbdR: 40, hipRotR: -30, kneeR: 60, ankleR: 20 };
+export const EGG_B = { hipL: 80, hipAbdL: 40, hipRotL: -30, kneeL: 60, ankleL: 20, hipR: 90, hipAbdR: 40, hipRotR: -30, kneeR: 100, ankleR: 20 };
 
 def('wp-eggbeater-ball-overhead', 'Eggbeater with the ball overhead', {
   view: 'three-quarter', loop: true, thumb: 0,

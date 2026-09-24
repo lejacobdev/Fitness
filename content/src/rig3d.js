@@ -319,7 +319,9 @@ export function placeKeyframes(pattern, opts = {}) {
 function heightPin(prevRaw, raw, prev, cur, prevOffset, shared) {
   const a = heightPoint(flattenBoth(prevRaw, prev.contact, prev.contact), shared);
   const b = heightPoint(flattenBoth(raw, cur.contact, cur.contact), shared);
-  return a[1] + prevOffset[1] - b[1];
+  // In water, `surface` sets how much deeper the body goes (a flip turn).
+  const deeper = shared.kind === 'water' ? (cur.surface ?? 0) - (prev.surface ?? 0) : 0;
+  return a[1] + prevOffset[1] - b[1] + deeper;
 }
 
 
@@ -522,6 +524,7 @@ function frameFor(pattern, segment, u, pose, placed) {
   if (shared && pinsHeight(shared)) {
     const s0 = flattenBoth(placed.raw[i], k0.contact, k0.contact);
     y = heightPoint(s0, shared)[1] + o0[1] - heightPoint(s, shared)[1];
+    if (shared.kind === 'water') y += ((k1.surface ?? 0) - (k0.surface ?? 0)) * e;
   } else if (selfPinned(k0.contact) || selfPinned(k1.contact)) {
     y = lerp(o0[1], o1[1], e);
   } else if (shared) {
@@ -653,7 +656,7 @@ function placeFixtureRaw(fx, pel, k0, all) {
       const grip = scale(add(k0.L.wrist, k0.R.wrist), 0.5);
       return { at: add(grip, [0, 3, 0]) };
     }
-    case 'water': return { level: pel[1] + (fx.level ?? 6), x0: pel[0] - 120, x1: pel[0] + 120 };
+    case 'water': return { level: pel[1] + (fx.level ?? 6), x0: pel[0] - 120, x1: pel[0] + 120, ...(fx.deck != null ? { deckX: pel[0] + fx.deck, deckTop: fx.deckTop ?? 30 } : {}) };
     case 'mat': {
       const xs = all.flatMap((s) => bodyPoints(s).map((p) => p[0]));
       return { x0: Math.min(...xs) - 8, x1: Math.max(...xs) + 8 };
@@ -829,7 +832,8 @@ export function castAt(pattern, t, placed) {
     const mp = byView.get(placed.view);
     const s = frameAt(ref, (((t + (c.phase ?? 0)) % 1) + 1) % 1, mp);
     s.ball = null;
-    const [f, l] = c.at ?? [0, 0];
-    return { s: moveSkeleton(s, c.facing ?? 0, apply(rotY(placed.view), [f, 0, l ?? 0])), ref, follow: !!c.follow, tether: !!c.tether };
+    // at: [forward, left, up] — `up` lowers a partner standing on the pool floor.
+    const [f, l, up] = c.at ?? [0, 0, 0];
+    return { s: moveSkeleton(s, c.facing ?? 0, apply(rotY(placed.view), [f, up ?? 0, l ?? 0])), ref, follow: !!c.follow, tether: !!c.tether };
   });
 }

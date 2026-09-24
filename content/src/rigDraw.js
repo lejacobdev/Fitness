@@ -132,12 +132,13 @@ export function figureShapes(s, { scheme = 'light', palette = null, glow = {}, i
 
   // Shadow on the floor (always first).
   const floor = s.floor ?? 0;
+  const inWater = fixture?.kind === 'water';
   const feet = [s.L.toe, s.L.heel, s.R.toe, s.R.heel, s.pelvis, s.L.wrist, s.R.wrist];
   const onFloor = feet.map((p) => [p[0], floor, p[2]]);
   const xs = onFloor.map((p) => P(p)[0]);
   const minX = Math.min(...xs) - 6, maxX = Math.max(...xs) + 6;
   const lowest = Math.min(...feet.map((p) => p[1])) - floor;
-  if (lowest < 30) {
+  if (lowest < 30 && !inWater) {
     const k = Math.max(0.25, 1 - lowest / 40);
     const cx = (minX + maxX) / 2, rx = (maxX - minX) / 2, cy = P([0, floor, 0])[1];
     push(Array.from({ length: 20 }, (_, i) => { const a = (i / 20) * Math.PI * 2; return [cx + Math.cos(a) * rx, cy + Math.sin(a) * 2.4 * k]; }), pal.shadow, -1e6);
@@ -709,8 +710,16 @@ export function fixtureShapes(s, fx, place, pal) {
       break;
     }
     case 'water': {
-      const { level, x0, x1 } = place;
-      push([[x0, -level], [x1, -level], [x1, -level + 60], [x0, -level + 60]].map(([x, y]) => [x, y]), pal.water, -1e5, { opacity: 0.35 });
+      // The pool: water behind the swimmer, a clear layer over whatever is
+      // under the surface, and the surface line. Wide enough for any framing;
+      // left out of the camera framing itself.
+      const { level } = place;
+      const sheet = [[-4000, -level], [4000, -level], [4000, -level + 600], [-4000, -level + 600]];
+      push(sheet, pal.water, -1e5, { opacity: 0.35 });
+      push(sheet, pal.water, 1e5, { opacity: 0.3, isBall: true });
+      push([[-4000, -level - 0.6], [4000, -level - 0.6], [4000, -level + 0.6], [-4000, -level + 0.6]], pal.water, 1e5 + 1, { opacity: 0.9, isBall: true });
+      // The pool deck at the edge, to climb out onto.
+      if (place.deckX != null) push([[place.deckX, -place.deckTop], [4000, -place.deckTop], [4000, 600], [place.deckX, 600]], pal.ground, 1e5 + 2, { isBall: true });
       break;
     }
     case 'bike': {

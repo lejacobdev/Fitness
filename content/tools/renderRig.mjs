@@ -42,7 +42,8 @@ patterns.forEach((p, row) => {
     body += `<rect x="${x0 + 1}" y="${y0 + 1}" width="${cellW - 2}" height="${cellH - 2}" rx="8" fill="${scheme === 'light' ? '#f4f4f6' : '#111'}"/>`;
     const tx = x0 + 4 - minX * k + ((cellW - 8) - (maxX - minX) * k) / 2;
     const ty = y0 + 20 - minY * k;
-    body += `<g transform="translate(${tx},${ty}) scale(${k})">`;
+    const clip = `c${row}_${col}`;
+    body += `<clipPath id="${clip}"><rect x="${x0 + 1}" y="${y0 + 1}" width="${cellW - 2}" height="${cellH - 2}" rx="8"/></clipPath><g clip-path="url(#${clip})"><g transform="translate(${tx},${ty}) scale(${k})">`;
     for (const sh of figureShapes(s, { scheme, implement: p.implement, fixture: p.fixture, fixturePlace: place, glow: p.previewGlow ?? {}, ball: p.ball, prosthetic: p.prosthetic, wear: p.wear })) {
       if (sh.points.length < 2) continue;
       const d = `M${sh.points.map((q) => `${q[0].toFixed(2)},${q[1].toFixed(2)}`).join(' L')} Z`;
@@ -52,8 +53,8 @@ patterns.forEach((p, row) => {
     const g = p.path?.grade ?? 0, wv = p.path?.wave;
     const gy = (x) => -(x * g + (wv ? wv.amp * Math.sin((2 * Math.PI * x) / wv.length) : 0));
     const gpts = Array.from({ length: 41 }, (_, i) => { const x = minX + ((maxX - minX) * i) / 40; return `${x.toFixed(1)},${gy(x).toFixed(2)}`; });
-    body += `<polyline points="${gpts.join(' ')}" fill="none" stroke="#c9c9d0" stroke-width="${0.6 / k * 2}"/>`;
-    body += '</g>';
+    if (p.fixture?.kind !== 'water') body += `<polyline points="${gpts.join(' ')}" fill="none" stroke="#c9c9d0" stroke-width="${0.6 / k * 2}"/>`;
+    body += '</g></g>';
     if (col === 0) body += `<text x="${x0 + 6}" y="${y0 + 13}" font-family="Helvetica" font-size="10" fill="#555">${p.slug}</text>`;
   });
 });
