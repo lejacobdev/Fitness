@@ -34,7 +34,7 @@ struct TodayView: View {
     @State private var coachReport: CoachReportContent?
 
     enum TodaySheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, fuel
+        case quickActions, checkIn, addGame, history, fuel, exercises
         var id: String { rawValue }
     }
 
@@ -106,9 +106,25 @@ struct TodayView: View {
                             }
                             .foregroundStyle(AppTheme.ink)
                         }
-                        doThisNow
+                        // The day's plan: the big widget.
+                        if let game = gameOnSelectedDay {
+                            gameDayCard(game)
+                        } else if let session = displayedSession {
+                            workoutCard(session)
+                        } else {
+                            restDayCard
+                        }
+                        // Overview widgets: each opens what it's about.
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                            statCardItems
+                        }
+                        ForEach(SavedSkillPlans.days(on: selectedDate, athlete: athlete, catalogue: catalogue)) { day in
+                            SkillPlanTodayCard(day: day, catalogue: catalogue) { detailItem = $0 }
+                        }
+                        if isSelectedToday, let coachReport {
+                            CoachHeadlineCard(report: coachReport, catalogue: catalogue)
+                        }
                         if isSelectedToday {
-                            // New here? The next few things to try, right after today's main action.
                             GettingStartedCard(
                                 athlete: athlete, hasLoggedSession: !allSessions.isEmpty,
                                 onCheckIn: { activeSheet = .checkIn },
@@ -120,24 +136,17 @@ struct TodayView: View {
                                 onLibrary: { selectedTab = .library }
                             )
                         }
-                        exercisesSection
-                        ForEach(SavedSkillPlans.days(on: selectedDate, athlete: athlete, catalogue: catalogue)) { day in
-                            SkillPlanTodayCard(day: day, catalogue: catalogue) { detailItem = $0 }
-                        }
-                        statusSection
-                        if isSelectedToday, let coachReport {
-                            SectionHeader("Coach notes", subtitle: "What your last week of training says.")
-                            CoachHeadlineCard(report: coachReport, catalogue: catalogue)
-                        }
-                        if !allSessions.isEmpty {
-                            recentActivity
-                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
-                    .padding(.bottom, 40)
+                    .padding(.bottom, 100)
                 }
                 .scrollIndicators(.hidden)
+
+                FloatingActionButton(accessibilityLabel: "Add: log a workout, check in, add a game, food or past workouts") {
+                    activeSheet = .quickActions
+                }
+                .padding(20)
 
             }
             .appScreen()
@@ -157,12 +166,36 @@ struct TodayView: View {
                     .presentationDetents([.height(560)])
                 case .checkIn:
                     CheckInSheet(athlete: athlete)
+                        .presentationDetents([.large])
                 case .addGame:
                     AddGameSheet(athlete: athlete, onSaved: onPlanInputsChanged)
                 case .history:
                     SessionHistoryView()
                 case .fuel:
                     FuelView(athlete: athlete, todaysSession: plannedForSelectedDay)
+                case .exercises:
+                    NavigationStack {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Do them in this order. Tap one to watch how it's done.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(AppTheme.secondaryText)
+                                ForEach(Array((displayedSession?.items ?? []).enumerated()), id: \.element.order) { index, item in
+                                    plannedItemRow(item, number: index + 1)
+                                }
+                            }
+                            .padding(20)
+                        }
+                        .appScreen()
+                        .navigationTitle(displayedSession?.title ?? "Exercises")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) { Button("Done") { activeSheet = nil }.fontWeight(.semibold) }
+                        }
+                        .sheet(item: $detailItem) { item in
+                            NavigationStack { ItemDetailView(item: item) }
+                        }
+                    }
                 }
             }
             .sheet(item: $detailItem) { item in
@@ -229,17 +262,6 @@ struct TodayView: View {
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
                 SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
-                Spacer(minLength: 4)
-                Button { activeSheet = .quickActions } label: {
-                    Label("Add", systemImage: "plus")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.inkInverse)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(AppTheme.ink, in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Add: log a workout, check in, add a game, food or past workouts")
             }
         }
     }
@@ -308,6 +330,28 @@ struct TodayView: View {
                 Button("Use the lighter workout instead") { readinessOverridden = false }
                     .font(.footnote.weight(.semibold)).foregroundStyle(AppTheme.ink)
             }
+            // What's in it: a row of thumbnails, each opening its how-to.
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(session.items, id: \.order) { item in
+                        let catalogueItem = catalogue.item(item.itemSlug)
+                        Button { detailItem = catalogueItem } label: { ItemThumbnail(item: catalogueItem, size: 56) }
+                            .buttonStyle(.plain)
+                            .disabled(catalogueItem == nil)
+                            .accessibilityLabel(catalogueItem?.name ?? displayName(forSlug: item.itemSlug))
+                    }
+                    Button { activeSheet = .exercises } label: {
+                        VStack(spacing: 2) {
+                            Image(systemName: "list.bullet").font(.subheadline.weight(.semibold))
+                            Text("See all").font(.caption2.weight(.semibold))
+                        }
+                        .foregroundStyle(AppTheme.ink)
+                        .frame(width: 56, height: 56)
+                        .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
             if isSelectedToday {
                 if done {
                     Button { liveLaunch = LiveSessionLaunch(planned: nil) } label: { Label("Log another workout", systemImage: "plus") }
@@ -356,52 +400,78 @@ struct TodayView: View {
 
     // MARK: - Stat cards
 
+    /// The overview widgets under the day's plan. Each opens what it's about;
+    /// the check-in opens as an overlay.
     @ViewBuilder
     private var statCardItems: some View {
         let band = todaysCheckIn?.readinessBand
         let sleep = todaysCheckIn?.sleepQuality
         let nextGame = AthleteStats.upcomingCompetitions(athlete).first
         let daysToGame = nextGame.map { AthleteStats.daysUntil($0.date) }
-            Button { activeSheet = .checkIn } label: { RingStatCard(
-                value: band.map { $0 == .green ? "Ready to push" : ($0 == .amber ? "Go steady" : "Take it easy") } ?? (todaysCheckIn == nil ? "Not yet" : "Learning you"),
-                label: "Ready to train?",
-                progress: band.map { $0 == .green ? 1 : ($0 == .amber ? 0.6 : 0.3) } ?? 0,
-                color: AppTheme.color(for: band),
-                systemImage: "waveform.path.ecg",
-                caption: band == nil ? (todaysCheckIn == nil ? "Tap to check in" : "Needs a week of check-ins") : "From how you slept and feel"
-            ) }
-            .buttonStyle(.plain)
-            .disabled(todaysCheckIn != nil)
-            Button { activeSheet = .checkIn } label: { RingStatCard(
-                value: sleep.map { "\($0) of 5" } ?? "Not yet",
-                label: "Sleep last night",
-                progress: Double(sleep ?? 0) / 5,
-                color: AppTheme.purple,
-                systemImage: "moon.fill",
-                caption: sleep.map { $0 >= 4 ? "Well rested" : ($0 == 3 ? "Okay" : "Short on sleep") } ?? "Tap to check in"
-            ) }
-            .buttonStyle(.plain)
-            .disabled(todaysCheckIn != nil)
-            Button {
-                if nextGame == nil { activeSheet = .addGame } else { selectedTab = .plan }
-            } label: { RingStatCard(
-                value: daysToGame.map { $0 == 0 ? "Today" : ($0 == 1 ? "Tomorrow" : "In \($0) days") } ?? "None yet",
-                label: "Next game",
-                progress: daysToGame.map { max(0.05, 1 - Double($0) / 14) } ?? 0,
-                color: AppTheme.brand,
-                systemImage: "sportscourt.fill",
-                caption: nextGame == nil ? "Tap to add one — your week builds up to it" : "Your training eases off before it"
-            ) }
-            .buttonStyle(.plain)
-            Button { activeSheet = .history } label: { RingStatCard(
-                value: "\(loggedThisWeek) of \(week?.sessions.count ?? 0) done",
-                label: "This week",
-                progress: Double(loggedThisWeek) / Double(plannedThisWeek),
-                color: AppTheme.ink,
-                systemImage: "flame.fill",
-                caption: "Tap to see your past workouts"
-            ) }
-            .buttonStyle(.plain)
+        let last = allSessions.first
+        Button { activeSheet = .checkIn } label: {
+            if todaysCheckIn == nil {
+                RingStatCard(value: "Check in", label: "How you feel", progress: 0, color: AppTheme.orange, systemImage: "sun.max.fill",
+                             caption: "10 seconds — tunes today's workout")
+            } else {
+                RingStatCard(
+                    value: band.map { $0 == .green ? "Ready to push" : ($0 == .amber ? "Go steady" : "Take it easy") } ?? "Learning you",
+                    label: "Ready to train?",
+                    progress: band.map { $0 == .green ? 1 : ($0 == .amber ? 0.6 : 0.3) } ?? 0.15,
+                    color: AppTheme.color(for: band),
+                    systemImage: "waveform.path.ecg",
+                    caption: band == nil ? "Needs a week of check-ins" : "Tap to change your answers"
+                )
+            }
+        }
+        .buttonStyle(.plain)
+        Button { activeSheet = .checkIn } label: { RingStatCard(
+            value: sleep.map { "\($0) of 5" } ?? "Not yet",
+            label: "Sleep last night",
+            progress: Double(sleep ?? 0) / 5,
+            color: AppTheme.purple,
+            systemImage: "moon.fill",
+            caption: sleep.map { $0 >= 4 ? "Well rested" : ($0 == 3 ? "Okay" : "Short on sleep") } ?? "Fills in after your check-in"
+        ) }
+        .buttonStyle(.plain)
+        Button {
+            if nextGame == nil { activeSheet = .addGame } else { selectedTab = .plan }
+        } label: { RingStatCard(
+            value: daysToGame.map { $0 == 0 ? "Today" : ($0 == 1 ? "Tomorrow" : "In \($0) days") } ?? "None yet",
+            label: "Next game",
+            progress: daysToGame.map { max(0.05, 1 - Double($0) / 14) } ?? 0,
+            color: AppTheme.brand,
+            systemImage: "sportscourt.fill",
+            caption: nextGame == nil ? "Tap to add one" : "Training eases off before it"
+        ) }
+        .buttonStyle(.plain)
+        Button { selectedTab = .plan } label: { RingStatCard(
+            value: "\(loggedThisWeek) of \(week?.sessions.count ?? 0)",
+            label: "Workouts this week",
+            progress: Double(loggedThisWeek) / Double(plannedThisWeek),
+            color: AppTheme.ink,
+            systemImage: "flame.fill",
+            caption: "Tap to see the whole week"
+        ) }
+        .buttonStyle(.plain)
+        Button { activeSheet = .fuel } label: { RingStatCard(
+            value: gameOnSelectedDay != nil ? "Game day" : (displayedSession != nil ? "Training day" : "Rest day"),
+            label: "Food & water",
+            progress: 0.5,
+            color: AppTheme.green,
+            systemImage: "fork.knife",
+            caption: "What to eat and drink today"
+        ) }
+        .buttonStyle(.plain)
+        Button { activeSheet = .history } label: { RingStatCard(
+            value: last.map { calendar.isDateInToday($0.startedAt) ? "Today" : (calendar.isDateInYesterday($0.startedAt) ? "Yesterday" : $0.startedAt.formatted(.dateTime.weekday(.abbreviated))) } ?? "None yet",
+            label: "Last workout",
+            progress: last == nil ? 0 : 1,
+            color: AppTheme.blue,
+            systemImage: "clock.arrow.circlepath",
+            caption: last.map { "\($0.minutes) min" + ($0.sessionRPE.map { " · effort \($0)/10" } ?? "") } ?? "Your workouts show here"
+        ) }
+        .buttonStyle(.plain)
     }
 
     private func plannedItemRow(_ item: GeneratedPlannedItem, number: Int) -> some View {

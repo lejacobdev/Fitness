@@ -674,6 +674,10 @@ function placeFixtureRaw(fx, pel, k0, all) {
       return { foot, seatTop: pel[1] - 10, fly: [foot[0] + 20, foot[1] + 2, 0], rail0: Math.min(...xs) - 20, rail1: foot[0] + 8 };
     }
     case 'hurdle': case 'cone': case 'ladder': case 'sled': case 'control': return { x: pel[0] + (fx.at ?? 30) };
+    case 'surfboard': return { x0: pel[0] + (fx.from ?? -110), x1: pel[0] + (fx.to ?? 90), y: fx.y ?? 0, water: !!fx.water };
+    case 'horse': return { seat: [pel[0], pel[1] - 9, pel[2]] };
+    case 'climbwall': return { x: pel[0] + (fx.at ?? 30) };
+    case 'boat': return { level: pel[1] + (fx.level ?? -20) };
     case 'ramp': return { x0: pel[0] + (fx.from ?? 20), x1: pel[0] + (fx.to ?? 110), top: fx.top ?? 60, seat: [pel[0], pel[1] - 9, pel[2]] };
     case 'net': return { x: pel[0] + (fx.at ?? 30), top: fx.top ?? 150 };
     case 'wheelchair': case 'racingchair': return { seat: [pel[0], pel[1] - 9, pel[2]] };
@@ -765,6 +769,13 @@ export function pathAt(pattern, seconds, placed = placeKeyframes(pattern)) {
   // grade: rise per unit along the path (a hill; negative runs downhill).
   // wave: rollers of height `amp` every `length` units (a pump track).
   const k = path.wave ? (2 * Math.PI) / path.wave.length : 0;
+  // swerve: linked turns weaving `amp` side to side every `length` (skiing a corridor).
+  if (path.swerve) {
+    const ks = (2 * Math.PI) / path.swerve.length;
+    const side = path.swerve.amp * Math.sin(ks * along), slopeZ = path.swerve.amp * ks * Math.cos(ks * along);
+    const yS = along * (path.grade ?? 0);
+    return { pos: [along, yS, side], heading: (Math.atan(slopeZ) * 180) / Math.PI, slope: path.grade ?? 0 };
+  }
   const y = along * (path.grade ?? 0) + (path.wave ? path.wave.amp * Math.sin(k * along) : 0);
   const slope = (path.grade ?? 0) + (path.wave ? path.wave.amp * k * Math.cos(k * along) : 0);
   return { pos: add(scale(axis, along), [0, y, 0]), heading: 0, slope };

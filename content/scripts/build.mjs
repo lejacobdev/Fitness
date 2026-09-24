@@ -281,7 +281,7 @@ function genPosePatternsSwift() {
     prosthetic: p.prosthetic ?? null,
     wear: p.wear ?? null,
     cast: p.cast ? p.cast.map((c) => ({ pattern: c.pattern, at: [r3(c.at?.[0] ?? 0), r3(c.at?.[1] ?? 0), r3(c.at?.[2] ?? 0)], facing: r3(c.facing ?? 0), phase: r3(c.phase ?? 0), follow: !!c.follow, tether: !!c.tether })) : null,
-    path: p.path ? { kind: p.path.kind, length: p.path.length ?? null, radius: p.path.radius ?? null, angle: p.path.angle ?? null, grade: p.path.grade ?? null, waveAmp: p.path.wave?.amp ?? null, waveLength: p.path.wave?.length ?? null, turn: p.path.turn ?? null, dir: p.path.dir ?? null, speed: p.path.speed ?? null } : null,
+    path: p.path ? { kind: p.path.kind, length: p.path.length ?? null, radius: p.path.radius ?? null, angle: p.path.angle ?? null, grade: p.path.grade ?? null, waveAmp: p.path.wave?.amp ?? null, waveLength: p.path.wave?.length ?? null, swerveAmp: p.path.swerve?.amp ?? null, swerveLength: p.path.swerve?.length ?? null, turn: p.path.turn ?? null, dir: p.path.dir ?? null, speed: p.path.speed ?? null } : null,
     keyframes: p.keyframes.map((k) => ({
       angles: JOINTS.map((j) => r3(k.pose[j])), contact: k.contact, hold: r3(k.hold ?? 0), move: r3(k.move ?? 0.6),
       surface: r3(k.surface ?? 0), travel: [r3(k.travel?.[0] ?? 0), r3(k.travel?.[1] ?? 0)], chain: k.chain ?? [0, 1],
@@ -395,6 +395,9 @@ public struct RigPathSpec: Sendable, Hashable, Codable {
     /// Rollers along a line path (a pump track): height and spacing.
     public let waveAmp: Double?
     public let waveLength: Double?
+    /// Linked turns weaving side to side along a line path (skiing).
+    public let swerveAmp: Double?
+    public let swerveLength: Double?
     public let kind: String
     public let length: Double?
     public let radius: Double?

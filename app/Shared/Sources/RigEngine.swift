@@ -705,6 +705,14 @@ final class RigPlayback {
             let xs = all.map(\.pelvis.x)
             out.numbers = ["seatTop": pel.y - 10, "rail0": (xs.min() ?? 0) - 20, "rail1": foot.x + 8]
             out.points = ["foot": foot, "fly": V3(foot.x + 20, foot.y + 2, pel.z)]
+        case "surfboard":
+            out.numbers = ["x0": pel.x + (p["from"] ?? -110), "x1": pel.x + (p["to"] ?? 90), "y": p["y"] ?? 0, "water": p["water"] ?? 0]
+        case "horse":
+            out.points["seat"] = V3(pel.x, pel.y - 9, pel.z)
+        case "climbwall":
+            out.numbers = ["x": pel.x + (p["at"] ?? 30)]
+        case "boat":
+            out.numbers = ["level": pel.y + (p["level"] ?? -20)]
         case "ramp":
             out.numbers = ["x0": pel.x + (p["from"] ?? 20), "x1": pel.x + (p["to"] ?? 110), "top": p["top"] ?? 60]
             out.points["seat"] = V3(pel.x, pel.y - 9, pel.z)
@@ -817,6 +825,11 @@ extension RigPlayback {
             return (axis * along, half ? 0 : 180)
         }
         let along = -length / 2 + length * u
+        // swerve: linked turns weaving side to side (skiing a corridor).
+        if let amp = path.swerveAmp, let len = path.swerveLength {
+            let ks = 2 * Double.pi / len
+            return (V3(along, along * (path.grade ?? 0), amp * sin(ks * along)), atan(amp * ks * cos(ks * along)) * 180 / .pi)
+        }
         // grade: a hill; wave: rollers of height waveAmp every waveLength (a pump track).
         var y = along * (path.grade ?? 0)
         if let amp = path.waveAmp, let len = path.waveLength { y += amp * sin(2 * .pi / len * along) }

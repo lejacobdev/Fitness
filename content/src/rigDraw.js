@@ -531,6 +531,44 @@ export function implementShapes(s, spec, pal) {
       push(capsule2(P(a), P(b), 2.2, 2.2), pal.implementRed, Math.min(D(l.ankle), D(r.ankle)) - 0.5);
       break;
     }
+    case 'oar2': {
+      // A sweep oar: both hands on the handle, the shaft through the pin on the rigger, the blade out over the water.
+      const handle = scale(add(implementPoint(s, 'L'), implementPoint(s, 'R')), 0.5);
+      const pin = add(add(add(s.pelvis, apply(s.root, [1, 0, 0]), 8), [0, 20, 0]), apply(s.root, [0, 0, -1]), 70);
+      const dir = norm(sub(pin, handle));
+      const tip = add(handle, dir, 260);
+      push(capsule2(P(add(handle, dir, -10)), P(tip), 1.2, 1.2), pal.steel, D(pin) - 0.2);
+      push(capsule2(P(add(tip, dir, -40)), P(tip), 4.5, 4.5), pal.implementRed, D(tip) - 0.1);
+      break;
+    }
+    case 'skateboard': {
+      // Deck between the feet (it tilts with them for an ollie or a manual), trucks and wheels underneath.
+      const l = s.L, r = s.R;
+      const mid = scale(add(l.toe, r.heel), 0.5);
+      const along = norm(sub(l.toe, r.heel));
+      const a = add(add(mid, along, 42), [0, -2.5, 0]), b = add(add(mid, along, -42), [0, -2.5, 0]);
+      push(capsule2(P(a), P(b), 2, 2), pal.plate, Math.min(D(l.ankle), D(r.ankle)) - 0.5);
+      for (const k of [28, -28]) {
+        const w = add(add(mid, along, k), [0, -6.5, 0]);
+        push(circlePts(P(w), 3, 10), pal.steel, D(w) - 0.6);
+      }
+      break;
+    }
+    case 'skis': {
+      // A ski under each foot along the foot (long in front), and poles when asked.
+      for (const l of [s.L, s.R]) {
+        const fd = norm([l.footDir[0], l.footDir[1], l.footDir[2]]);
+        const sole = add(l.ankle, [0, -6, 0]);
+        push(capsule2(P(add(sole, fd, -45)), P(add(sole, fd, 95)), 1.4, 1.4), pal.implementRed, D(l.ankle) - 0.4);
+      }
+      if (spec.poles) for (const side of ['L', 'R']) {
+        const g = implementPoint(s, side);
+        const back = apply(s.root, [-1, 0, 0]);
+        const dir = norm(add([0, -1, 0], back, 0.35));
+        push(capsule2(P(add(g, dir, -6)), P(add(g, dir, 104)), 0.9, 0.7), pal.steel, D(g) + 0.6);
+      }
+      break;
+    }
     case 'band': case 'cable': {
       const color = spec.kind === 'band' ? pal.implementRed : pal.steel;
       if (!spec.to) {
@@ -914,6 +952,62 @@ export function fixtureShapes(s, fx, place, pal) {
       box(seat[0] - 14, seat[0] + 10, seat[1] - 4, seat[1], o[2] - 12, o[2] + 12, pal.pad, -1);
       push(hull([P(W(x0, top, o[2] - 7)), P(W(x0, top, o[2] + 7)), P(W(x1, 1, o[2] + 7)), P(W(x1, 1, o[2] - 7))]), pal.wood, -8);
       box(x0 - 2, x0 + 2, 0, top, o[2] - 5, o[2] + 5, pal.steel, -9);
+      break;
+    }
+    case 'surfboard': {
+      // A surfboard lying under the athlete (on a mat or the water).
+      const { x0, x1, y } = place;
+      if (fx.water) {
+        const sheet = [[-4000, -(y + 1)], [4000, -(y + 1)], [4000, -(y + 1) + 600], [-4000, -(y + 1) + 600]];
+        push(sheet, pal.water, -1e5, { opacity: 0.35 });
+        push(sheet, pal.water, 1e5, { opacity: 0.3, isBall: true });
+      }
+      const pts = [];
+      for (let i = 0; i <= 12; i++) {
+        const t = i / 12, x = x0 + (x1 - x0) * t, w = 26 * Math.sin(Math.PI * Math.min(1, t * 1.15)) + 2;
+        pts.push(P(W(x, y + 3, o[2] + w)), P(W(x, y, o[2] - w)));
+      }
+      push(hull(pts), '#F4F4F2', -4);
+      push(hull([P(W(x0 + 10, y + 3.2, o[2] + 1)), P(W(x1 - 10, y + 3.2, o[2] + 1)), P(W(x1 - 10, y + 3.2, o[2] - 1)), P(W(x0 + 10, y + 3.2, o[2] - 1))]), pal.implementRed, -3.9);
+      break;
+    }
+    case 'horse': {
+      // A horse under the rider: barrel, neck and head forward, four legs, a tail.
+      const { seat } = place;
+      const x = seat[0], top = seat[1] - 6;
+      const bodyPts = [];
+      for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; bodyPts.push(P(W(x + 8 + Math.cos(a) * 62, top - 22 + Math.sin(a) * 24, o[2]))); }
+      const coat = '#8B5A3C';
+      push(hull(bodyPts), coat, -30);
+      push(capsule2(P(W(x + 60, top - 10, o[2])), P(W(x + 90, top + 40, o[2])), 12, 8), coat, -30);
+      push(hull(circlePts(P(W(x + 100, top + 44, o[2])), 10, 12).concat(circlePts(P(W(x + 118, top + 30, o[2])), 7, 12))), coat, -29.9);
+      for (const [dx, dz] of [[42, 10], [42, -10], [-40, 10], [-40, -10]]) {
+        push(capsule2(P(W(x + dx, top - 36, o[2] + dz)), P(W(x + dx + 2, 0, o[2] + dz)), 5, 3.4), dz > 0 ? coat : '#6E4730', dz > 0 ? 30 : -35);
+      }
+      push(capsule2(P(W(x - 52, top - 14, o[2])), P(W(x - 66, top - 60, o[2])), 3, 2), '#3A2A20', -31);
+      box(x - 14, x + 14, top - 4, top + 2, o[2] - 12, o[2] + 12, pal.plate, -1);
+      break;
+    }
+    case 'climbwall': {
+      // A climbing wall in front with coloured holds.
+      const { x } = place;
+      box(x, x + 6, 0, 320, o[2] - 160, o[2] + 160, pal.ground, -60);
+      const colours = ['#E5383B', '#2F6FE0', '#D8E83A', '#F28C28', '#2BB673'];
+      let n = 0;
+      for (let hy = 20; hy < 300; hy += 34) for (let hz = -140; hz <= 140; hz += 40) {
+        const c = W(x - 1, hy + ((hz / 40) % 2) * 10, o[2] + hz + ((hy / 34) % 2) * 16);
+        push(circlePts(P(c), 3.2, 8), colours[n++ % colours.length], -59);
+      }
+      break;
+    }
+    case 'boat': {
+      // A rowing shell on the water: hull along the boat, a rigger out to the oar's pin.
+      const { level } = place;
+      const sheet = [[-4000, -level], [4000, -level], [4000, -level + 600], [-4000, -level + 600]];
+      push(sheet, pal.water, -1e5, { opacity: 0.35 });
+      push(hull([P(W(o[0] - 170, level + 2, o[2])), P(W(o[0] + 170, level + 2, o[2])), P(W(o[0] + 130, level - 8, o[2])), P(W(o[0] - 130, level - 8, o[2]))]), '#F4F4F2', -20);
+      push(capsule2(P(W(o[0] + 8, level + 10, o[2])), P(W(o[0] + 8, level + 22, o[2] - 70)), 1, 1), pal.steel, -21);
+      push(sheet, pal.water, 1e5, { opacity: 0.25, isBall: true });
       break;
     }
     case 'control': {

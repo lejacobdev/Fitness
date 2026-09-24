@@ -131,12 +131,26 @@ struct CheckInCard: View {
 struct CheckInSheet: View {
     let athlete: Athlete
     @Environment(\.dismiss) private var dismiss
+    @State private var firstToday = true
+
+    init(athlete: Athlete) {
+        self.athlete = athlete
+        _firstToday = State(initialValue: AthleteStats.todaysCheckIn(athlete) == nil)
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    CheckInCard(athlete: athlete, existing: AthleteStats.todaysCheckIn(athlete))
+                    // A first check-in closes itself once all four answers are in.
+                    CheckInCard(athlete: athlete, existing: AthleteStats.todaysCheckIn(athlete)) {
+                        if firstToday {
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(700))
+                                dismiss()
+                            }
+                        }
+                    }
                     if let band = AthleteStats.todaysCheckIn(athlete)?.readinessBand {
                         ReadinessSummaryRow(band: band)
                     }

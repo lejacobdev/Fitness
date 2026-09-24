@@ -542,6 +542,37 @@ enum RigShapes {
             let c = implementPoint(s, "hands") + V3(0, -3, 0)
             push(hull(disc(c, lateral, 7, 18)), pal.plate, D(c) + 0.6)
             push(capsule(P(c + lateral * 11), P(c - lateral * 11), 1.2, 1.2), pal.steel, D(c) + 0.61)
+        case "oar2":
+            // A sweep oar: both hands on the handle, the shaft through the pin on the rigger, the blade out over the water.
+            let handle = (implementPoint(s, "L") + implementPoint(s, "R")) / 2
+            let pin = s.pelvis + s.root.apply(V3(1, 0, 0)) * 8 + V3(0, 20, 0) + s.root.apply(V3(0, 0, -1)) * 70
+            let dir = normed(pin - handle)
+            let tip = handle + dir * 260
+            push(capsule(P(handle - dir * 10), P(tip), 1.2, 1.2), pal.steel, D(pin) - 0.2)
+            push(capsule(P(tip - dir * 40), P(tip), 4.5, 4.5), pal.red, D(tip) - 0.1)
+        case "skateboard":
+            // Deck between the feet (it tilts with them), trucks and wheels underneath.
+            let mid = (s.L.toe + s.R.heel) / 2
+            let along = normed(s.L.toe - s.R.heel)
+            push(capsule(P(mid + along * 42 - V3(0, 2.5, 0)), P(mid - along * 42 - V3(0, 2.5, 0)), 2, 2), pal.plate, min(D(s.L.ankle), D(s.R.ankle)) - 0.5)
+            for k in [28.0, -28.0] {
+                let w = mid + along * k - V3(0, 6.5, 0)
+                push(circle(P(w), 3, 10), pal.steel, D(w) - 0.6)
+            }
+        case "skis":
+            // A ski under each foot along the foot (long in front), and poles when asked.
+            for l in [s.L, s.R] {
+                let fd = normed(l.footDir)
+                let sole = l.ankle - V3(0, 6, 0)
+                push(capsule(P(sole - fd * 45), P(sole + fd * 95), 1.4, 1.4), pal.red, D(l.ankle) - 0.4)
+            }
+            if spec.flags.contains("poles") {
+                for side in ["L", "R"] {
+                    let g = implementPoint(s, side)
+                    let dir = normed(V3(0, -1, 0) + s.root.apply(V3(-1, 0, 0)) * 0.35)
+                    push(capsule(P(g - dir * 6), P(g + dir * 104), 0.9, 0.7), pal.steel, D(g) + 0.6)
+                }
+            }
         case "bowlingballs":
             // A bowling ball hanging in each hand.
             for side in ["L", "R"] {
@@ -771,6 +802,55 @@ enum RigShapes {
         case "ball":
             let at = W(p["at"] ?? .zero)
             push(circle(P(at), n["r"] ?? 30, 28), pal.red, D(at) - 12, opacity: 0.9)
+        case "surfboard":
+            // A surfboard lying under the athlete (on a mat or the water).
+            let x0 = n["x0"] ?? -110, x1 = n["x1"] ?? 90, y = n["y"] ?? 0
+            if (n["water"] ?? 0) > 0 {
+                let sheet = [CGPoint(x: -4000, y: -(y + 1)), CGPoint(x: 4000, y: -(y + 1)), CGPoint(x: 4000, y: -(y + 1) + 600), CGPoint(x: -4000, y: -(y + 1) + 600)]
+                push(sheet, pal.water, -1e5, opacity: 0.35)
+                out.append(RigShape(points: sheet, color: Color(hex: pal.water), opacity: 0.3, depth: 1e5, isBall: true))
+            }
+            var pts: [CGPoint] = []
+            for i in 0...12 {
+                let t = Double(i) / 12, x = x0 + (x1 - x0) * t, w = 26 * sin(.pi * min(1, t * 1.15)) + 2
+                pts.append(P(W(x, y + 3, o.z + w))); pts.append(P(W(x, y, o.z - w)))
+            }
+            push(hull(pts), "#F4F4F2", -4)
+            push(hull([P(W(x0 + 10, y + 3.2, o.z + 1)), P(W(x1 - 10, y + 3.2, o.z + 1)), P(W(x1 - 10, y + 3.2, o.z - 1)), P(W(x0 + 10, y + 3.2, o.z - 1))]), pal.red, -3.9)
+        case "horse":
+            // A horse under the rider: barrel, neck and head forward, four legs, a tail.
+            let seat = p["seat"] ?? .zero
+            let x = seat.x, top = seat.y - 6
+            let coat = "#8B5A3C"
+            push(hull((0..<16).map { i -> CGPoint in let a = Double(i) / 16 * .pi * 2; return P(W(x + 8 + cos(a) * 62, top - 22 + sin(a) * 24, o.z)) }), coat, -30)
+            push(capsule(P(W(x + 60, top - 10, o.z)), P(W(x + 90, top + 40, o.z)), 12, 8), coat, -30)
+            push(hull(circle(P(W(x + 100, top + 44, o.z)), 10, 12) + circle(P(W(x + 118, top + 30, o.z)), 7, 12)), coat, -29.9)
+            for (dx, dz) in [(42.0, 10.0), (42, -10), (-40, 10), (-40, -10)] {
+                push(capsule(P(W(x + dx, top - 36, o.z + dz)), P(W(x + dx + 2, 0, o.z + dz)), 5, 3.4), dz > 0 ? coat : "#6E4730", dz > 0 ? 30 : -35)
+            }
+            push(capsule(P(W(x - 52, top - 14, o.z)), P(W(x - 66, top - 60, o.z)), 3, 2), "#3A2A20", -31)
+            box(x - 14, x + 14, top - 4, top + 2, o.z - 12, o.z + 12, pal.plate, -1)
+        case "climbwall":
+            // A climbing wall in front with coloured holds.
+            let x = n["x"] ?? 30
+            box(x, x + 6, 0, 320, o.z - 160, o.z + 160, pal.ground, -60)
+            let colours = ["#E5383B", "#2F6FE0", "#D8E83A", "#F28C28", "#2BB673"]
+            var k = 0
+            for hy in stride(from: 20.0, to: 300, by: 34) {
+                for hz in stride(from: -140.0, through: 140, by: 40) {
+                    let c = W(x - 1, hy + (hz / 40).truncatingRemainder(dividingBy: 2) * 10, o.z + hz + (hy / 34).truncatingRemainder(dividingBy: 2) * 16)
+                    push(circle(P(c), 3.2, 8), colours[k % colours.count], -59)
+                    k += 1
+                }
+            }
+        case "boat":
+            // A rowing shell on the water: hull along the boat, a rigger out to the oar's pin.
+            let level = n["level"] ?? 0
+            let sheet = [CGPoint(x: -4000, y: -level), CGPoint(x: 4000, y: -level), CGPoint(x: 4000, y: -level + 600), CGPoint(x: -4000, y: -level + 600)]
+            push(sheet, pal.water, -1e5, opacity: 0.35)
+            push(hull([P(W(o.x - 170, level + 2)), P(W(o.x + 170, level + 2)), P(W(o.x + 130, level - 8)), P(W(o.x - 130, level - 8))]), "#F4F4F2", -20)
+            push(capsule(P(W(o.x + 8, level + 10)), P(W(o.x + 8, level + 22, o.z - 70)), 1, 1), pal.steel, -21)
+            out.append(RigShape(points: sheet, color: Color(hex: pal.water), opacity: 0.25, depth: 1e5, isBall: true))
         case "ramp":
             // A boccia ramp: a sloped chute from beside the chair down to the floor ahead.
             let x0 = n["x0"] ?? 20, x1 = n["x1"] ?? 110, top = n["top"] ?? 60
