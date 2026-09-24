@@ -149,4 +149,27 @@ enum SportPackInstaller {
             }
         }
     }
+
+    /// Pro: every sport's library on this phone for offline use. Reports
+    /// progress as (done, total); returns how many packs failed.
+    @discardableResult
+    static func installAll(context: ModelContext, progress: @escaping @MainActor (Int, Int) -> Void) async -> Int {
+        let client = APIClient(baseURL: AppConfig.backendBaseURL)
+        let downloader = PackDownloader(client: client, packsDirectory: AppConfig.packsDirectory())
+        guard let manifest = try? await downloader.fetchManifest() else { return -1 }
+        let recorder = DownloadedPackRecorder(context: context)
+        var failed = 0
+        for (index, pack) in manifest.packs.enumerated() {
+            progress(index, manifest.packs.count)
+            if (try? recorder.isDownloaded(slug: pack.slug, atLeastVersion: pack.version)) == true,
+               downloader.locallyAvailablePackFiles().contains(pack.file) { continue }
+            if (try? await downloader.download(slug: pack.slug, manifest: manifest)) != nil {
+                try? recorder.record(slug: pack.slug, version: pack.version)
+            } else {
+                failed += 1
+            }
+        }
+        progress(manifest.packs.count, manifest.packs.count)
+        return failed
+    }
 }

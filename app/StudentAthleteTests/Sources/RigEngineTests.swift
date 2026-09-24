@@ -14,9 +14,11 @@ final class RigEngineTests: XCTestCase {
             }
             let playback = RigPlaybackCache.playback(for: pattern)
             let s = sample.time == true ? playback.frame(atTime: sample.t, loop: playback.loopSeconds) : playback.frame(at: sample.t)
-            let points = [s.pelvis, s.head, s.L.ankle, s.R.toe, s.L.wrist, s.R.elbow, s.L.knee].flatMap { [$0.x, $0.y, $0.z] }
+            let tail = sample.cast == true ? [s.cast.first?.s.pelvis ?? .zero, s.cast.first?.s.head ?? .zero] : [s.R.elbow, s.L.knee]
+            let points = ([s.pelvis, s.head, s.L.ankle, s.R.toe, s.L.wrist] + tail).flatMap { [$0.x, $0.y, $0.z] }
             for (index, (swift, js)) in zip(points, sample.points).enumerated() {
-                XCTAssertEqual(swift, js, accuracy: 0.05, "\(sample.pattern) t=\(sample.t) value \(index)")
+                // Along a path, speed is sampled numerically on both sides: allow half a unit.
+                XCTAssertEqual(swift, js, accuracy: sample.time == true ? 0.5 : 0.05, "\(sample.pattern) t=\(sample.t) value \(index)")
             }
             if let jsBall = sample.ball {
                 guard let ball = s.ball else { XCTFail("\(sample.pattern) t=\(sample.t): Swift lost the ball"); continue }
@@ -44,7 +46,7 @@ final class RigEngineTests: XCTestCase {
         for pattern in posePatterns {
             let playback = RigPlaybackCache.playback(for: pattern)
             for n in 0..<6 {
-                let shapes = RigShapes.shapes(playback.frame(at: Double(n) / 6), playback: playback, glow: ["chest": 1, "thighFront": 1], palette: .forScheme(.light))
+                let shapes = RigShapes.scene(playback.frame(atTime: Double(n) / 6 * playback.loopSeconds, loop: playback.loopSeconds), playback: playback, glow: ["chest": 1, "thighFront": 1], palette: .forScheme(.light))
                 XCTAssertFalse(shapes.isEmpty, pattern.id)
                 for shape in shapes {
                     for p in shape.points { XCTAssertTrue(p.x.isFinite && p.y.isFinite, "\(pattern.id) has a non-finite point") }

@@ -30,9 +30,9 @@ public struct RigPoseView: View {
         let loop = RigFraming.loopSeconds(for: playback)
         TimelineView(.animation(paused: still)) { timeline in
             let seconds = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: loop)
-            let skeleton = still ? playback.keyframe(min(pattern.thumb, pattern.keyframes.count - 1)) : playback.frame(atTime: seconds, loop: loop)
+            let skeleton = still ? RigFraming.thumbFrame(for: playback) : playback.frame(atTime: seconds, loop: loop)
             Canvas { context, size in
-                RigCanvas.draw(RigShapes.shapes(skeleton, playback: playback, glow: glow, palette: palette), in: &context,
+                RigCanvas.draw(RigShapes.scene(skeleton, playback: playback, glow: glow, palette: palette, scheme: colorScheme), in: &context,
                                size: size, frame: frame, ground: playback.info.fixture?.kind != "water" ? Color(hex: palette.ground) : nil)
             }
         }
@@ -50,9 +50,9 @@ struct RigStillView: View {
         let playback = RigPlaybackCache.playback(for: pattern)
         let palette = RigPalette.forScheme(colorScheme)
         let frame = RigFraming.bounds(for: playback)
-        let skeleton = playback.keyframe(min(pattern.thumb, pattern.keyframes.count - 1))
+        let skeleton = RigFraming.thumbFrame(for: playback)
         Canvas { context, size in
-            RigCanvas.draw(RigShapes.shapes(skeleton, playback: playback, glow: [:], palette: palette), in: &context,
+            RigCanvas.draw(RigShapes.scene(skeleton, playback: playback, glow: [:], palette: palette, scheme: colorScheme), in: &context,
                            size: size, frame: frame, ground: playback.info.fixture?.kind != "water" ? Color(hex: palette.ground) : nil)
         }
         .accessibilityHidden(true)
@@ -74,6 +74,19 @@ enum RigFraming {
         return value
     }
 
+    /// The still frame: the thumb keyframe, with the cast where they stand then.
+    static func thumbFrame(for playback: RigPlayback) -> RigSkeleton {
+        let i = min(playback.info.thumb, playback.info.keyframes.count - 1)
+        var s = playback.keyframe(i)
+        if playback.info.cast != nil {
+            var at = 0.0
+            let moves = playback.info.loops ? playback.info.keyframes.count : playback.info.keyframes.count - 1
+            for k in 0..<i { at += playback.info.keyframes[k].hold + (k < moves ? playback.info.keyframes[k].move : 0) }
+            s.cast = playback.castAt((at + 1e-6) / playback.cycleSeconds)
+        }
+        return s
+    }
+
     static func bounds(for playback: RigPlayback) -> CGRect {
         if let hit = cache[playback.info.id] { return hit }
         var minX = Double.infinity, maxX = -Double.infinity, minY = Double.infinity, maxY = -Double.infinity
@@ -82,7 +95,7 @@ enum RigFraming {
         let samples = playback.info.path == nil ? 20 : 40
         for n in 0..<samples {
             let s = playback.frame(atTime: Double(n) / Double(samples) * loop, loop: loop)
-            for shape in RigShapes.shapes(s, playback: playback, glow: [:], palette: palette) where shape.depth > -1e5 && !shape.isBall {
+            for shape in RigShapes.scene(s, playback: playback, glow: [:], palette: palette) where shape.depth > -1e5 && !shape.isBall {
                 for p in shape.points {
                     minX = min(minX, p.x); maxX = max(maxX, p.x); minY = min(minY, p.y); maxY = max(maxY, p.y)
                 }

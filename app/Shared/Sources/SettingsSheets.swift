@@ -113,12 +113,16 @@ struct DownloadsSheet: View {
     @State private var catalogueCount = 0
     @State private var isRefreshing = false
     @State private var message: String?
+    @State private var allProgress: (done: Int, total: Int)?
+    @State private var showingPaywall = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     ScreenTitle("Downloads", subtitle: "Everything here works with no signal.")
+
+                    downloadAllCard
 
                     HStack(spacing: 12) {
                         stat("\(catalogueCount)", "exercises & drills")
@@ -178,6 +182,56 @@ struct DownloadsSheet: View {
                         .foregroundStyle(AppTheme.ink)
                 }
             }
+        }
+    }
+
+    /// Pro: every exercise and drill from every sport, for offline use.
+    private var downloadAllCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text("Every sport, offline")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.ink)
+                if !ProAccess.isPro { ProBadge() }
+            }
+            Text("Download all exercises and drills from all \(allSports.count) sports, so you can browse and train any of them with no signal.")
+                .font(.footnote)
+                .foregroundStyle(AppTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            if let allProgress, allProgress.done < allProgress.total {
+                ProgressView(value: Double(allProgress.done), total: Double(max(allProgress.total, 1)))
+                    .tint(AppTheme.ink)
+                Text("Downloading \(allProgress.done + 1) of \(allProgress.total)…")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            Button(action: downloadAll) {
+                Label(allProgress != nil && allProgress!.done < allProgress!.total ? "Downloading…" : "Download all sports",
+                      systemImage: ProAccess.isPro ? "arrow.down.circle.fill" : "lock.fill")
+            }
+            .buttonStyle(.primary)
+            .disabled(allProgress != nil && allProgress!.done < allProgress!.total)
+        }
+        .cardStyle(padding: 16)
+        .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .additionalSportDownloads)
+    }
+
+    private func downloadAll() {
+        guard ProAccess.isPro else {
+            showingPaywall = true
+            return
+        }
+        message = nil
+        allProgress = (0, 1)
+        Task {
+            let failed = await SportPackInstaller.installAll(context: modelContext) { done, total in
+                allProgress = (done, total)
+            }
+            catalogueCount = CatalogueLoader.load(from: AppConfig.packsDirectory()).itemsBySlug.count
+            allProgress = nil
+            message = failed < 0 ? "Couldn't reach the server — check your connection and try again."
+                : failed > 0 ? "\(failed) libraries didn't download. Try again to finish."
+                : "All sports downloaded — \(catalogueCount) items on this phone."
         }
     }
 

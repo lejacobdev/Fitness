@@ -282,7 +282,7 @@ export function ease(k, u) {
  * whatever a contact pins stays pinned from one keyframe to the next.
  */
 export function placeKeyframes(pattern, opts = {}) {
-  const view = VIEWS[pattern.view ?? 'side'] ?? 0;
+  const view = opts.view ?? VIEWS[pattern.view ?? 'side'] ?? 0;
   const frames = pattern.keyframes;
   const raw = frames.map((k) => skeleton(k.pose, { view, mirrored: opts.mirrored }));
   const offsets = [];
@@ -356,10 +356,10 @@ function groundY(s, surface, lift) {
  * Rep patterns hold each keyframe, move between them, then cut back to the
  * first; loop patterns move continuously and wrap from the last to the first.
  */
-export function frameAt(pattern, t, placed = placeKeyframes(pattern)) {
+export function frameAt(pattern, t, placed = placeKeyframes(pattern), cast = null) {
   const { segment, u } = timing(pattern, t);
   const s = bodyAt(pattern, segment, u, placed);
-  if (pattern.ball) s.ball = ballAt(pattern, segment, u, s, placed);
+  if (pattern.ball) s.ball = ballAt(pattern, segment, u, s, placed, cast ?? (pattern.cast ? castAt(pattern, t, placed) : null));
   return s;
 }
 
@@ -372,12 +372,12 @@ export function frameAt(pattern, t, placed = placeKeyframes(pattern)) {
  * riding the hand when held, arcing when `ballArc` is set on the keyframe
  * it leaves from.
  */
-export function ballAt(pattern, segment, u, s, placed) {
+export function ballAt(pattern, segment, u, s, placed, cast = null) {
   const n = pattern.keyframes.length;
   const i = segment, j = (segment + 1) % n;
   const k0 = pattern.keyframes[i], k1 = pattern.keyframes[j];
   const e = ease(k0, u);
-  const b0 = ballPoint(pattern, i, s, placed), b1 = ballPoint(pattern, j, s, placed);
+  const b0 = ballPoint(pattern, i, s, placed, cast), b1 = ballPoint(pattern, j, s, placed, cast);
   if (!b0 && !b1) return null;
   if (!b0) return e > 0.5 ? b1 : null;
   if (!b1) return e < 0.5 ? b0 : null;
@@ -385,16 +385,25 @@ export function ballAt(pattern, segment, u, s, placed) {
   return add(p, [0, (k0.ballArc ?? 0) * 4 * e * (1 - e), 0]);
 }
 
-function ballPoint(pattern, index, current, placed) {
-  const spec = pattern.keyframes[index].ball ?? 'hands';
+function ballPoint(pattern, index, current, placed, cast = null) {
+  let spec = pattern.keyframes[index].ball ?? 'hands';
   const r = pattern.ball.r ?? 6;
   if (spec === 'none') return null;
   const grip = (l) => add(l.wrist, apply(l.hand, [0, -1, 0]), 3.5);
   const inHand = (sk, side) => add(grip(sk[side]), apply(sk[side].hand, [1, 0, 0]), r * 0.9);
   const under = (sk, side) => add(grip(sk[side]), [0, -(r + 1.5), 0]);
+  // 'c0:L' — with cast member 0 (in their hand, at their foot, their stick…).
+  let sk = current, impl = pattern.implement;
+  if (typeof spec === 'string' && /^c\d+:/.test(spec)) {
+    const idx = Number(spec.slice(1, spec.indexOf(':')));
+    const member = cast?.[idx];
+    if (!member) return null;
+    sk = member.s;
+    impl = member.ref.implement;
+    spec = spec.slice(spec.indexOf(':') + 1);
+  }
   if (typeof spec === 'string') {
-    const sk = current;
-    if (spec === 'head') return implementHead(pattern.implement, sk, r);
+    if (spec === 'head') return implementHead(impl, sk, r);
     switch (spec) {
       case 'L': case 'R': return inHand(sk, spec);
       case 'Ldown': return under(sk, 'L');
@@ -725,9 +734,42 @@ export function moveSkeleton(s, deg, v) {
  */
 export function frameAtTime(pattern, seconds, placed = placeKeyframes(pattern)) {
   const cycle = cycleSeconds(pattern);
-  const s = frameAt(pattern, (((seconds / cycle) % 1) + 1) % 1, placed);
-  if (!pattern.path) return s;
-  const { pos, heading } = pathAt(pattern, seconds, placed);
-  // The path lives in the body's own axes; turn it with the camera view.
-  return moveSkeleton(s, heading, apply(rotY(placed.view), pos));
+  const t = (((seconds / cycle) % 1) + 1) % 1;
+  const cast = pattern.cast ? castAt(pattern, t, placed) : null;
+  let s = frameAt(pattern, t, placed, cast);
+  if (pattern.path) {
+    const { pos, heading } = pathAt(pattern, seconds, placed);
+    // The path lives in the body's own axes; turn it with the camera view.
+    const move = (sk) => moveSkeleton(sk, heading, apply(rotY(placed.view), pos));
+    s = move(s);
+    if (cast) for (const m of cast) if (m.follow) m.s = move(m.s);
+  }
+  if (cast) s.cast = cast;
+  return s;
+}
+
+// ── Cast: the other people in a drill ─────────────────────────────────────
+
+/**
+ * A drill with a partner, a passer, a defender or a whole line shows them:
+ *   cast: [{ pattern: 'slug', at: [forward, left], facing: deg, phase: 0..1, follow }]
+ * Each member plays their own pattern in step with the athlete (the same
+ * cycle position, shifted by `phase`), standing at `at` in the athlete's
+ * body axes and turned `facing` degrees (180 = facing the athlete).
+ * `follow` carries them along the athlete's path. poses.js resolves the
+ * slug into `ref` (the member's pattern).
+ */
+const castPlacements = new WeakMap();
+export function castAt(pattern, t, placed) {
+  return pattern.cast.map((c) => {
+    const ref = c.ref;
+    let byView = castPlacements.get(ref);
+    if (!byView) castPlacements.set(ref, (byView = new Map()));
+    if (!byView.has(placed.view)) byView.set(placed.view, placeKeyframes(ref, { view: placed.view }));
+    const mp = byView.get(placed.view);
+    const s = frameAt(ref, (((t + (c.phase ?? 0)) % 1) + 1) % 1, mp);
+    s.ball = null;
+    const [f, l] = c.at ?? [0, 0];
+    return { s: moveSkeleton(s, c.facing ?? 0, apply(rotY(placed.view), [f, 0, l ?? 0])), ref, follow: !!c.follow };
+  });
 }

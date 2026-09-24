@@ -13,7 +13,7 @@ function timeOfKeyframe(p, i) {
   for (let k = 0; k < i; k++) at += (p.keyframes[k].hold ?? 0) + (k < moves ? p.keyframes[k].move ?? 0.6 : 0);
   return (at + 1e-6) / cycleSeconds(p);
 }
-import { figureShapes } from '../src/rigDraw.js';
+import { sceneShapes as figureShapes } from '../src/rigDraw.js';
 
 const out = process.argv[2] ?? '/tmp/rig.png';
 const only = process.argv[3] && process.argv[3] !== 'all' ? process.argv[3].split(',') : null;
@@ -29,10 +29,8 @@ patterns.forEach((p, row) => {
   const placed = placeKeyframes(p);
   const place = placeFixture(p, placed);
   const frames = keyframesOnly
-    ? p.keyframes.map((_, i) => { const t = timeOfKeyframe(p, i); return frameAt(p, t, placed); })
-    : p.path
-      ? Array.from({ length: n }, (_, i) => frameAtTime(p, (i / n) * pathSeconds(p, placed), placed))
-      : Array.from({ length: n }, (_, i) => frameAt(p, i / n, placed));
+    ? p.keyframes.map((_, i) => frameAtTime(p, timeOfKeyframe(p, i) * cycleSeconds(p), placed))
+    : Array.from({ length: n }, (_, i) => frameAtTime(p, (i / n) * pathSeconds(p, placed), placed));
   cols = Math.max(cols, frames.length);
   // One camera box for the whole strip (like the app's fixed frame).
   const all = frames.flatMap((s) => figureShapes(s, { scheme, implement: p.implement, fixture: p.fixture, fixturePlace: place, ball: p.ball }).filter((sh) => sh.depth > -1e5 && !sh.isBall).flatMap((sh) => sh.points));

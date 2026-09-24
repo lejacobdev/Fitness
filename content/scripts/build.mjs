@@ -278,6 +278,7 @@ function genPosePatternsSwift() {
       numbers: Object.fromEntries(Object.entries(p.implement).filter(([, v]) => typeof v === 'number').map(([k, v]) => [k, r3(v)])),
     } : null,
     ball: p.ball ? { r: r3(p.ball.r ?? 6), color: p.ball.color ?? 'red' } : null,
+    cast: p.cast ? p.cast.map((c) => ({ pattern: c.pattern, at: [r3(c.at?.[0] ?? 0), r3(c.at?.[1] ?? 0)], facing: r3(c.facing ?? 0), phase: r3(c.phase ?? 0), follow: !!c.follow })) : null,
     path: p.path ? { kind: p.path.kind, length: p.path.length ?? null, radius: p.path.radius ?? null, turn: p.path.turn ?? null, dir: p.path.dir ?? null, speed: p.path.speed ?? null } : null,
     keyframes: p.keyframes.map((k) => ({
       angles: JOINTS.map((j) => r3(k.pose[j])), contact: k.contact, hold: r3(k.hold ?? 0), move: r3(k.move ?? 0.6),
@@ -305,6 +306,15 @@ function genPosePatternsSwift() {
     for (const f of [0.1, 0.45, 0.8]) {
       const s = frameAtTime(p, f * total, placed);
       samples.push({ pattern: p.slug, t: r3(f * total), time: true, points: [s.pelvis, s.head, s.L.ankle, s.R.toe, s.L.wrist, s.R.elbow, s.L.knee].flat().map(r3), ball: s.ball ? s.ball.map(r3) : null });
+    }
+  }
+  for (const p of POSE_PATTERNS.filter((x) => x.cast).slice(0, 4)) {
+    const placed = placeKeyframes(p);
+    const total = pathSeconds(p, placed);
+    for (const f of [0.2, 0.6]) {
+      const s = frameAtTime(p, f * total, placed);
+      const m = s.cast[0].s;
+      samples.push({ pattern: p.slug, t: r3(f * total), time: true, points: [s.pelvis, s.head, s.L.ankle, s.R.toe, s.L.wrist, m.pelvis, m.head].flat().map(r3), ball: s.ball ? s.ball.map(r3) : null, cast: true });
     }
   }
   const json = (v) => JSON.stringify(v);
@@ -355,6 +365,17 @@ public struct PoseBall: Sendable, Hashable, Codable {
     public let at: [Double]?
 }
 
+/// Another person in the drill (partner, passer, defender): they play
+/// \`pattern\` in step with the athlete, standing at \`at\` (forward, left in
+/// the athlete's axes), turned \`facing\` degrees, shifted \`phase\` of a cycle.
+public struct RigCastSpec: Sendable, Hashable, Codable {
+    public let pattern: String
+    public let at: [Double]
+    public let facing: Double
+    public let phase: Double
+    public let follow: Bool
+}
+
 /// A travelling drill's path through the scene (see rig3d.js pathAt).
 public struct RigPathSpec: Sendable, Hashable, Codable {
     public let kind: String
@@ -400,6 +421,7 @@ public struct PosePatternInfo: Sendable, Identifiable, Hashable, Codable {
     public let implement: RigImplementSpec?
     public let ball: RigBallSpec?
     public let path: RigPathSpec?
+    public let cast: [RigCastSpec]?
     public let keyframes: [PoseKeyframe]
 
     public var start: Pose { keyframes[0].pose }
@@ -429,6 +451,8 @@ public struct RigGoldenSample: Sendable, Codable {
     public let ball: [Double]?
     /// True when t is seconds of real time along a path (not a cycle fraction).
     public let time: Bool?
+    /// True when the last two points are the first cast member's pelvis and head.
+    public let cast: Bool?
 }
 
 public let rigGoldenSamples: [RigGoldenSample] =

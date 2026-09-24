@@ -23,6 +23,12 @@ export const PALETTE = {
   },
 };
 
+/** A cast member's kit: lighter, so the athlete doing the drill stands out. */
+export const PARTNER = {
+  light: { shirtNear: '#9AA3B5', shirtFar: '#7A8396', shortsNear: '#6E7688', shortsFar: '#555C6C', hair: '#4A3525' },
+  dark: { shirtNear: '#3A3F4C', shirtFar: '#2A2E38', shortsNear: '#4A505E', shortsFar: '#353945', hair: '#4A3525' },
+};
+
 /** Torso cross-sections: t along pelvis→neck, lateral half-width, front and back depth. */
 export const TORSO = [
   [0, 13.5, 8, 9.5], [0.18, 12.8, 9, 8.6], [0.45, 12.2, 8, 7.6],
@@ -119,8 +125,8 @@ const facing = (v) => project(norm(v)).depth;
 /** Ball colours by sport. */
 export const BALL_COLORS = { orange: '#E8762B', white: '#F4F4F2', yellow: '#D8E83A', red: '#E5383B', brown: '#8B4A2B', blue: '#2F6FE0', black: '#1E1E22' };
 
-export function figureShapes(s, { scheme = 'light', glow = {}, implement = null, fixture = null, fixturePlace = null, ball = null } = {}) {
-  const pal = PALETTE[scheme];
+export function figureShapes(s, { scheme = 'light', palette = null, glow = {}, implement = null, fixture = null, fixturePlace = null, ball = null } = {}) {
+  const pal = palette === 'partner' ? { ...PALETTE[scheme], ...PARTNER[scheme] } : PALETTE[scheme];
   const shapes = [];
   const push = (points, fill, depth, extra = {}) => shapes.push({ points, fill, depth, ...extra });
 
@@ -262,6 +268,32 @@ export function figureShapes(s, { scheme = 'light', glow = {}, implement = null,
     if (sh.glowRegion && glow[sh.glowRegion]) out.push({ points: sh.points, fill: pal.glow, opacity: glow[sh.glowRegion] * 0.85, depth: sh.depth });
   }
   return out;
+}
+
+/**
+ * A whole scene: the athlete plus any cast (partner, passer, defender).
+ * Each person is drawn whole, far to near (they stand apart, so whole-figure
+ * order is right); every floor shadow goes first; the ball is sorted into
+ * the nearest person's shapes so it passes in front of or behind them
+ * correctly. Cast members wear a lighter kit and never glow.
+ */
+export function sceneShapes(s, { scheme = 'light', glow = {}, implement = null, fixture = null, fixturePlace = null, ball = null } = {}) {
+  const groups = [{ s, shapes: figureShapes(s, { scheme, glow, implement, fixture, fixturePlace, ball: null }) }];
+  for (const m of s.cast ?? []) groups.push({ s: m.s, shapes: figureShapes(m.s, { scheme, palette: 'partner', implement: m.ref.implement ?? null }) });
+  if (s.ball && ball) {
+    const pal = PALETTE[scheme];
+    const r = ball.r ?? 6, depth = D(s.ball) + r * 0.5;
+    const balls = [];
+    if ((ball.color ?? 'red') === 'white') balls.push({ points: sphere(s.ball, r + 0.5), fill: '#8A8A90', depth: depth - 0.001, isBall: true });
+    balls.push({ points: sphere(s.ball, r), fill: BALL_COLORS[ball.color ?? 'red'] ?? pal.implementRed, depth, isBall: true });
+    const dist = (g) => Math.hypot(g.s.pelvis[0] - s.ball[0], g.s.pelvis[2] - s.ball[2]);
+    const near = groups.reduce((a, b) => (dist(b) < dist(a) ? b : a));
+    const at = near.shapes.findIndex((sh) => sh.depth > depth);
+    near.shapes.splice(at < 0 ? near.shapes.length : at, 0, ...balls);
+  }
+  groups.sort((a, b) => D(a.s.pelvis) - D(b.s.pelvis));
+  const shadows = groups.flatMap((g) => g.shapes.filter((sh) => sh.depth <= -1e5));
+  return [...shadows, ...groups.flatMap((g) => g.shapes.filter((sh) => sh.depth > -1e5))];
 }
 
 const mulM = (a, b) => [apply(a, b[0]), apply(a, b[1]), apply(a, b[2])];

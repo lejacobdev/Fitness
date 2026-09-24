@@ -116,6 +116,8 @@ struct RigSkeleton {
     var twist: Double
     /// The ball's centre, for patterns with a ball (nil when out of play).
     var ball: V3? = nil
+    /// The other people in the drill, placed in the same world.
+    var cast: [RigCastMember] = []
 
     func limb(_ side: String) -> RigLimb { side == "L" ? L : R }
 
@@ -280,6 +282,13 @@ struct RigShared {
 // MARK: - Playback
 
 /// One pattern, parsed and placed once, ready to produce any frame.
+/// One other person in a drill, as placed at a moment.
+struct RigCastMember {
+    var s: RigSkeleton
+    let playback: RigPlayback
+    let follow: Bool
+}
+
 final class RigPlayback {
     let info: PosePatternInfo
     let view: Double
@@ -289,12 +298,13 @@ final class RigPlayback {
     private(set) var offsets: [V3] = []
     let cycleSeconds: Double
 
-    init(_ info: PosePatternInfo) {
+    init(_ info: PosePatternInfo, view viewOverride: Double? = nil) {
         self.info = info
-        view = RigViews.yaw(info.view)
+        let yaw = viewOverride ?? RigViews.yaw(info.view)
+        view = yaw
         angles = info.keyframes.map { RigAngles(values: $0.angles) }
         contacts = info.keyframes.map { RigContact($0.contact) }
-        raw = angles.map { RigKinematics3D.skeleton($0, view: RigViews.yaw(info.view)) }
+        raw = angles.map { RigKinematics3D.skeleton($0, view: yaw) }
         let moves = info.loops ? info.keyframes.count : info.keyframes.count - 1
         var total = 0.0
         for (i, k) in info.keyframes.enumerated() {
@@ -403,10 +413,32 @@ final class RigPlayback {
 
     /// The placed skeleton at cycle position `t` in [0, 1), with the ball.
     func frame(at t: Double) -> RigSkeleton {
+        frame(at: t, cast: info.cast == nil ? [] : castAt(t))
+    }
+
+    func frame(at t: Double, cast: [RigCastMember]) -> RigSkeleton {
         let (segment, u) = timing(t)
         var s = body(segment, u)
-        if info.ball != nil { s.ball = ballAt(segment, u, s) }
+        if info.ball != nil { s.ball = ballAt(segment, u, s, cast) }
         return s
+    }
+
+    // MARK: Cast (port of rig3d.js castAt)
+
+    /// Each member's playback, placed in this pattern's camera view.
+    lazy var castPlaybacks: [(spec: RigCastSpec, playback: RigPlayback)] = (info.cast ?? []).compactMap { spec in
+        guard let pattern = posePatternsBySlug[spec.pattern] else { return nil }
+        return (spec, RigPlayback(pattern, view: view))
+    }
+
+    func castAt(_ t: Double) -> [RigCastMember] {
+        castPlaybacks.map { spec, playback in
+            let u = ((t + spec.phase).truncatingRemainder(dividingBy: 1) + 1).truncatingRemainder(dividingBy: 1)
+            var s = playback.frame(at: u, cast: [])
+            s.ball = nil
+            let at = M3.rotY(view).apply(V3(spec.at.first ?? 0, 0, spec.at.count > 1 ? spec.at[1] : 0))
+            return RigCastMember(s: s.moved(turning: spec.facing, by: at), playback: playback, follow: spec.follow)
+        }
     }
 
     // MARK: Ball (port of rig3d.js ballAt / ballPoint)
@@ -419,11 +451,11 @@ final class RigPlayback {
         return k
     }
 
-    private func ballAt(_ segment: Int, _ u: Double, _ s: RigSkeleton) -> V3? {
+    private func ballAt(_ segment: Int, _ u: Double, _ s: RigSkeleton, _ cast: [RigCastMember]) -> V3? {
         let n = info.keyframes.count
         let j = (segment + 1) % n
         let e = ease(segment, u)
-        let b0 = ballPoint(segment, s), b1 = ballPoint(j, s)
+        let b0 = ballPoint(segment, s, cast), b1 = ballPoint(j, s, cast)
         switch (b0, b1) {
         case (nil, nil): return nil
         case (nil, let b?): return e > 0.5 ? b : nil
@@ -434,39 +466,49 @@ final class RigPlayback {
         }
     }
 
-    private func ballPoint(_ index: Int, _ current: RigSkeleton) -> V3? {
+    private func ballPoint(_ index: Int, _ skeleton: RigSkeleton, _ cast: [RigCastMember]) -> V3? {
         let spec = info.keyframes[index].ball ?? PoseBall(kind: "hands", side: nil, dx: nil, dl: nil, at: nil)
         let r = info.ball?.r ?? 6
         func grip(_ l: RigLimb) -> V3 { l.wrist + l.hand.apply(V3(0, -1, 0)) * 3.5 }
-        switch spec.kind {
+        // "c0:L" — with cast member 0 (their hand, foot, stick…).
+        var kind = spec.kind
+        var current = skeleton
+        var implement = info.implement
+        if kind.hasPrefix("c"), let colon = kind.firstIndex(of: ":"), let idx = Int(kind[kind.index(after: kind.startIndex)..<colon]) {
+            guard idx < cast.count else { return nil }
+            current = cast[idx].s
+            implement = cast[idx].playback.info.implement
+            kind = String(kind[kind.index(after: colon)...])
+        }
+        switch kind {
         case "none":
             return nil
         case "head":
             // Where the held implement meets the ball (as rig3d.js implementHead).
             let lengths: [String: Double] = ["bat": 48, "club": 58, "stick": 56, "racket": 30, "paddle": 20, "lacrosse": 50]
-            let kind = info.implement?.kind ?? "racket"
+            let kind = implement?.kind ?? "racket"
             if kind == "bat2" {
                 let lo = grip(current.L), hi = grip(current.R)
                 return lo + normed(hi - lo) * 48
             }
-            let h = current.limb(info.implement?.at == "L" ? "L" : "R")
+            let h = current.limb(implement?.at == "L" ? "L" : "R")
             let g = grip(h)
             let dir = normed(h.hand.apply(V3(0, -1, 0)) + h.fore.apply(V3(0, -1, 0)) * 0.6)
             let len = lengths[kind] ?? 30
             let along = kind == "racket" ? len + 9 : (kind == "paddle" ? len + 6 : (kind == "bat" ? len - 8 : len))
             return g + dir * along + h.hand.apply(V3(1, 0, 0)) * (r + 1)
         case "L", "R":
-            let l = current.limb(spec.kind)
+            let l = current.limb(kind)
             return grip(l) + l.hand.apply(V3(1, 0, 0)) * (r * 0.9)
         case "Ldown", "Rdown":
-            return grip(current.limb(String(spec.kind.prefix(1)))) + V3(0, -(r + 1.5), 0)
+            return grip(current.limb(String(kind.prefix(1)))) + V3(0, -(r + 1.5), 0)
         case "footL", "footR":
-            let l = current.limb(String(spec.kind.suffix(1)))
+            let l = current.limb(String(kind.suffix(1)))
             return l.toe + current.root.apply(V3(1, 0, 0)) * (r * 0.6) + V3(0, r, 0)
         case "floor", "at":
             let k = placedKeyframe(index)
             let fw = M3.rotY(view).apply(V3(1, 0, 0)), lt = M3.rotY(view).apply(V3(0, 0, 1))
-            if spec.kind == "floor" {
+            if kind == "floor" {
                 let g = spec.side == "hands" ? (grip(k.L) + grip(k.R)) / 2 : grip(k.limb(spec.side ?? "R"))
                 return V3(g.x, r + info.keyframes[index].surface, g.z) + fw * (spec.dx ?? 0) + lt * (spec.dl ?? 0)
             }
@@ -699,10 +741,16 @@ extension RigPlayback {
     /// The skeleton at `seconds` of real time, carried along its path.
     func frame(atTime seconds: Double, loop: Double) -> RigSkeleton {
         let t = ((seconds / cycleSeconds).truncatingRemainder(dividingBy: 1) + 1).truncatingRemainder(dividingBy: 1)
-        let s = frame(at: t)
-        guard info.path != nil else { return s }
-        let (pos, heading) = pathAt(seconds, total: loop)
-        return s.moved(turning: heading, by: M3.rotY(view).apply(pos))
+        var cast = info.cast == nil ? [] : castAt(t)
+        var s = frame(at: t, cast: cast)
+        if info.path != nil {
+            let (pos, heading) = pathAt(seconds, total: loop)
+            let v = M3.rotY(view).apply(pos)
+            s = s.moved(turning: heading, by: v)
+            for i in cast.indices where cast[i].follow { cast[i].s = cast[i].s.moved(turning: heading, by: v) }
+        }
+        s.cast = cast
+        return s
     }
 }
 

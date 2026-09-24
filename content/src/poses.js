@@ -41,6 +41,17 @@ export const POSE_PATTERNS = PATTERNS;
 export const POSE_PATTERN_SLUGS = PATTERNS.map((p) => p.slug);
 const BY_SLUG = new Map(PATTERNS.map((p) => [p.slug, p]));
 
+// A drill's other people (partner, passer, defender) play library patterns:
+// resolve each member's slug to that pattern once, here.
+for (const p of PATTERNS) {
+  for (const c of p.cast ?? []) {
+    const ref = BY_SLUG.get(c.pattern);
+    if (!ref) throw new Error(`${p.slug}: cast member plays unknown pattern ${JSON.stringify(c.pattern)}`);
+    if (ref.cast) throw new Error(`${p.slug}: cast member ${c.pattern} has its own cast`);
+    Object.defineProperty(c, 'ref', { value: ref, enumerable: false });
+  }
+}
+
 export function posePattern(slug) {
   const found = BY_SLUG.get(slug);
   if (!found) throw new Error(`unknown pose pattern ${JSON.stringify(slug)}`);

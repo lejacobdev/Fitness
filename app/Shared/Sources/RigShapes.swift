@@ -19,6 +19,19 @@ struct RigPalette {
     var skinNear, skinFar, shirtNear, shirtFar, shortsNear, shortsFar, shoe, hair, ground, steel, plate, wood, pad, water, glow, red: String
     var shadow: Color
 
+    /// A cast member's kit (partner, passer, defender): lighter, so the
+    /// athlete doing the drill stands out (rigDraw.js PARTNER).
+    func partner(_ scheme: ColorScheme) -> RigPalette {
+        var p = self
+        if scheme == .dark {
+            p.shirtNear = "#3A3F4C"; p.shirtFar = "#2A2E38"; p.shortsNear = "#4A505E"; p.shortsFar = "#353945"
+        } else {
+            p.shirtNear = "#9AA3B5"; p.shirtFar = "#7A8396"; p.shortsNear = "#6E7688"; p.shortsFar = "#555C6C"
+        }
+        p.hair = "#4A3525"
+        return p
+    }
+
     static func forScheme(_ scheme: ColorScheme) -> RigPalette {
         scheme == .dark
             ? RigPalette(skinNear: "#D9A47A", skinFar: "#A9764F", shirtNear: "#5C6272", shirtFar: "#3E4250", shortsNear: "#707688", shortsFar: "#4E5363",
@@ -117,8 +130,35 @@ enum RigShapes {
 
     // MARK: The figure
 
-    /// Shapes for one frame, far to near.
-    static func shapes(_ s: RigSkeleton, playback: RigPlayback, glow: [String: Double], palette pal: RigPalette) -> [RigShape] {
+    /// The whole scene: the athlete plus any cast. Each person is drawn whole,
+    /// far to near; every floor shadow first; the ball sorted into the nearest
+    /// person's shapes (rigDraw.js sceneShapes).
+    static func scene(_ s: RigSkeleton, playback: RigPlayback, glow: [String: Double], palette pal: RigPalette, scheme: ColorScheme = .light) -> [RigShape] {
+        var groups: [(pelvis: V3, shapes: [RigShape])] = [(s.pelvis, shapes(s, playback: playback, glow: glow, palette: pal, withBall: false))]
+        for m in s.cast {
+            groups.append((m.s.pelvis, shapes(m.s, playback: m.playback, glow: [:], palette: pal.partner(scheme), withBall: false, withFixture: false)))
+        }
+        if let ball = s.ball, let spec = playback.info.ball {
+            let depth = D(ball) + spec.r * 0.5
+            var balls: [RigShape] = []
+            if spec.color == "white" {
+                balls.append(RigShape(points: sphere(ball, spec.r + 0.5), color: Color(hex: "#8A8A90"), depth: depth - 0.001, isBall: true))
+            }
+            balls.append(RigShape(points: sphere(ball, spec.r), color: Color(hex: ballColors[spec.color] ?? pal.red), depth: depth, isBall: true))
+            func dist(_ p: V3) -> Double { hypot(p.x - ball.x, p.z - ball.z) }
+            let near = groups.indices.min { dist(groups[$0].pelvis) < dist(groups[$1].pelvis) } ?? 0
+            let at = groups[near].shapes.firstIndex { $0.depth > depth } ?? groups[near].shapes.count
+            groups[near].shapes.insert(contentsOf: balls, at: at)
+        }
+        if groups.count == 1 { return groups[0].shapes }
+        groups.sort { D($0.pelvis) < D($1.pelvis) }
+        let all = groups.flatMap(\.shapes)
+        return all.filter { $0.depth <= -1e5 } + all.filter { $0.depth > -1e5 }
+    }
+
+    /// One person's shapes for one frame, far to near.
+    static func shapes(_ s: RigSkeleton, playback: RigPlayback, glow: [String: Double], palette pal: RigPalette,
+                       withBall: Bool = true, withFixture: Bool = true) -> [RigShape] {
         var shapes: [RigShape] = []
         var glowOverlays: [Int: (points: [CGPoint], alpha: Double)] = [:]
         func push(_ points: [CGPoint], _ color: Color, _ depth: Double, opacity: Double = 1, stroke: Double? = nil) {
@@ -146,7 +186,7 @@ enum RigShapes {
             }
         }
 
-        if let fx = playback.fixture { shapes += fixtureShapes(s, fx, pal) }
+        if withFixture, let fx = playback.fixture { shapes += fixtureShapes(s, fx, pal) }
 
         // Torso slices.
         struct SlicePoint { var world: V3; var front: Double }
@@ -250,7 +290,7 @@ enum RigShapes {
         if let spec = playback.info.implement {
             shapes += implementShapes(s, spec, pal)
         }
-        if let ball = s.ball, let spec = playback.info.ball {
+        if withBall, let ball = s.ball, let spec = playback.info.ball {
             let depth = D(ball) + spec.r * 0.5
             if spec.color == "white" {
                 shapes.append(RigShape(points: sphere(ball, spec.r + 0.5), color: Color(hex: "#8A8A90"), depth: depth - 0.001, isBall: true))

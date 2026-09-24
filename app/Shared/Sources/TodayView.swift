@@ -93,11 +93,15 @@ struct TodayView: View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 18) {
                         header
                         WeekStrip(selection: $selectedDate, marked: markedDays, gameDays: Set(athlete.competitions.map { calendar.startOfDay(for: $0.date) }))
-                        heroCard
-                        statCards
+                        doThisNow
+                        exercisesSection
+                        ForEach(SavedSkillPlans.days(on: selectedDate, athlete: athlete, catalogue: catalogue)) { day in
+                            SkillPlanTodayCard(day: day, catalogue: catalogue) { detailItem = $0 }
+                        }
+                        statusSection
                         if isSelectedToday {
                             GettingStartedCard(
                                 athlete: athlete, hasLoggedSession: !allSessions.isEmpty,
@@ -111,14 +115,8 @@ struct TodayView: View {
                             )
                         }
                         if isSelectedToday, let coachReport {
+                            SectionHeader("Coach notes", subtitle: "What your last week of training says.")
                             CoachHeadlineCard(report: coachReport, catalogue: catalogue)
-                        }
-                        if isSelectedToday {
-                            checkInSection
-                        }
-                        daySection
-                        ForEach(SavedSkillPlans.days(on: selectedDate, athlete: athlete, catalogue: catalogue)) { day in
-                            SkillPlanTodayCard(day: day, catalogue: catalogue) { detailItem = $0 }
                         }
                         if !allSessions.isEmpty {
                             recentActivity
@@ -184,93 +182,152 @@ struct TodayView: View {
 
     // MARK: - Header
 
+    private var greeting: String {
+        let hour = calendar.component(.hour, from: .now)
+        return hour < 12 ? "Good morning" : (hour < 18 ? "Good afternoon" : "Good evening")
+    }
+
     private var header: some View {
-        HStack(spacing: 10) {
-            Image("Logo")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 34, height: 34)
-                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-                .accessibilityHidden(true)
-            SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
-            Spacer()
-            HStack(spacing: 4) {
-                Image(systemName: "flame.fill")
-                    .foregroundStyle(AppTheme.orange)
-                Text("\(streak)")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(AppTheme.ink)
-                    .contentTransition(.numericText())
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(AppTheme.card, in: Capsule())
-            .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(streak) day streak")
-        }
-    }
-
-    // MARK: - Hero
-
-    private var heroNumber: String {
-        if gameOnSelectedDay != nil { return "Game" }
-        if let displayedSession { return "\(displayedSession.estimatedMinutes)" }
-        return "Rest"
-    }
-
-    private var heroLabel: String {
-        if gameOnSelectedDay != nil { return "Warm-up only today" }
-        if displayedSession != nil { return "Minutes planned" }
-        return "Recovery day"
-    }
-
-    private var heroCard: some View {
-        HStack(alignment: .center, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(heroNumber)
-                    .font(.system(size: 50, weight: .bold))
-                    .foregroundStyle(AppTheme.ink)
-                    .contentTransition(.numericText())
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                Text(heroLabel)
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
-                if let displayedSession {
-                    Tag(displayedSession.title, color: AppTheme.ink)
-                        .padding(.top, 4)
-                }
-            }
-            Spacer(minLength: 0)
-            RingView(progress: Double(loggedThisWeek) / Double(plannedThisWeek), color: AppTheme.ink, lineWidth: 10) {
-                VStack(spacing: 2) {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 18))
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(greeting)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                    Text(isSelectedToday ? "Today" : selectedDate.formatted(.dateTime.weekday(.wide)))
+                        .font(.system(size: 32, weight: .bold))
                         .foregroundStyle(AppTheme.ink)
-                    Text("\(loggedThisWeek)/\(week?.sessions.count ?? 0)")
-                        .font(.caption.bold())
-                        .foregroundStyle(AppTheme.secondaryText)
-                    Text("this week")
-                        .font(.system(size: 9, weight: .semibold))
+                }
+                Spacer()
+                HStack(spacing: 4) {
+                    Image(systemName: "flame.fill")
+                        .foregroundStyle(AppTheme.orange)
+                    Text("\(streak)")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(AppTheme.ink)
+                        .contentTransition(.numericText())
+                    Text(streak == 1 ? "day" : "days")
+                        .font(.caption)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(AppTheme.card, in: Capsule())
+                .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(streak) day streak")
             }
-            .frame(width: 112, height: 112)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(loggedThisWeek) of \(week?.sessions.count ?? 0) sessions done this week")
+            SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
         }
-        .cardStyle(padding: 22)
+    }
+
+    // MARK: - Do this now
+
+    /// The one thing to do next, first on the screen: the check-in if it's
+    /// still to do, then the day's workout with its Start button right on it
+    /// (or the game-day / rest-day card).
+    @ViewBuilder
+    private var doThisNow: some View {
+        if isSelectedToday, todaysCheckIn == nil, gameOnSelectedDay == nil {
+            VStack(alignment: .leading, spacing: 10) {
+                StepLabel(1, "Check in first — 10 seconds")
+                CheckInCard(athlete: athlete)
+                if displayedSession != nil { StepLabel(2, "Then do today's workout").padding(.top, 6) }
+            }
+        }
+        if let game = gameOnSelectedDay {
+            gameDayCard(game)
+        } else if let session = displayedSession {
+            workoutCard(session)
+        } else {
+            restDayCard
+        }
+    }
+
+    private func workoutCard(_ session: GeneratedSession) -> some View {
+        let done = isSelectedToday && !loggedOnSelectedDay.isEmpty
+        let focus = session.focusQualities.first.flatMap { qualitiesBySlug[$0]?.shortName }
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(isSelectedToday ? "TODAY'S WORKOUT" : "\(selectedDate.formatted(.dateTime.weekday(.wide)).uppercased())'S WORKOUT")
+                    .font(.caption.weight(.bold))
+                    .tracking(0.8)
+                    .foregroundStyle(AppTheme.secondaryText)
+                Spacer()
+                if done { Tag("Done", color: AppTheme.green) }
+            }
+            Text(session.title)
+                .font(.title2.bold())
+                .foregroundStyle(AppTheme.ink)
+            HStack(spacing: 14) {
+                Label("\(session.estimatedMinutes) min", systemImage: "clock")
+                Label("\(session.items.count) exercises", systemImage: "list.bullet")
+                if let focus { Label(focus, systemImage: "scope") }
+            }
+            .font(.subheadline)
+            .foregroundStyle(AppTheme.secondaryText)
+            .labelStyle(CompactLabelStyle())
+            if let reason = readinessAdjustment?.reason {
+                HStack(alignment: .top, spacing: 8) {
+                    Circle().fill(AppTheme.color(for: todaysCheckIn?.readinessBand)).frame(width: 8, height: 8).padding(.top, 5)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Made lighter for how you feel today").font(.footnote.bold()).foregroundStyle(AppTheme.ink)
+                        Text(reason).font(.footnote).foregroundStyle(AppTheme.secondaryText)
+                        Button("Use the original workout") { readinessOverridden = true }
+                            .font(.footnote.weight(.semibold)).foregroundStyle(AppTheme.ink)
+                    }
+                }
+            } else if isSelectedToday, readinessOverridden {
+                Button("Use the lighter workout instead") { readinessOverridden = false }
+                    .font(.footnote.weight(.semibold)).foregroundStyle(AppTheme.ink)
+            }
+            if isSelectedToday {
+                if done {
+                    Button { liveLaunch = LiveSessionLaunch(planned: nil) } label: { Label("Log another workout", systemImage: "plus") }
+                        .buttonStyle(.secondary)
+                } else {
+                    Button { liveLaunch = LiveSessionLaunch(planned: session) } label: { Label("Start workout", systemImage: "play.fill") }
+                        .buttonStyle(.primary)
+                }
+            } else if selectedDate > .now {
+                StartWorkoutButton("Do this workout now", session: session, prominent: false)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle(padding: 20)
+    }
+
+    /// The workout's exercises, each opening its how-to.
+    @ViewBuilder
+    private var exercisesSection: some View {
+        if gameOnSelectedDay == nil, let session = displayedSession {
+            SectionHeader("The exercises", subtitle: "Tap one to watch how it's done and see the muscles it works.")
+            ForEach(session.items, id: \.order) { item in
+                plannedItemRow(item)
+            }
+        }
+    }
+
+    /// Readiness, sleep, next game and the week — each card opens what it's about.
+    private var statusSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("How you're doing", subtitle: todaysCheckIn == nil
+                ? "Readiness and sleep fill in after today's check-in."
+                : (todaysCheckIn?.readinessBand == nil ? "Readiness starts adjusting your workouts after a week of check-ins." : "From this morning's check-in."))
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                statCardItems
+            }
+        }
     }
 
     // MARK: - Stat cards
 
-    private var statCards: some View {
+    @ViewBuilder
+    private var statCardItems: some View {
         let band = todaysCheckIn?.readinessBand
         let sleep = todaysCheckIn?.sleepQuality
         let nextGame = AthleteStats.upcomingCompetitions(athlete).first
         let daysToGame = nextGame.map { AthleteStats.daysUntil($0.date) }
-        return HStack(spacing: 12) {
             Button { activeSheet = .checkIn } label: { RingStatCard(
                 value: band.map { $0.rawValue.capitalized } ?? (todaysCheckIn == nil ? "Check in" : "Learning"),
                 label: "Readiness",
@@ -299,72 +356,14 @@ struct TodayView: View {
                 systemImage: "sportscourt.fill"
             ) }
             .buttonStyle(.plain)
-        }
-    }
-
-    // MARK: - Check-in
-
-    @ViewBuilder
-    private var checkInSection: some View {
-        if let todaysCheckIn {
-            if todaysCheckIn.readinessBand == nil {
-                HStack(spacing: 12) {
-                    Image(systemName: "sparkles")
-                        .foregroundStyle(AppTheme.purple)
-                    Text("Checked in. Still learning your baseline — readiness adjustments start after a week of check-ins.")
-                        .font(.footnote)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .cardStyle(padding: 16)
-            }
-        } else {
-            CheckInCard(athlete: athlete)
-        }
-    }
-
-    // MARK: - The selected day
-
-    @ViewBuilder
-    private var daySection: some View {
-        if let game = gameOnSelectedDay {
-            gameDayCard(game)
-        } else if let session = displayedSession {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    SectionTitle(isSelectedToday ? "Today's session" : selectedDate.formatted(.dateTime.weekday(.wide)))
-                    Text("\(session.items.count) exercises")
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-                if let reason = readinessAdjustment?.reason {
-                    readinessBanner(reason: reason)
-                } else if isSelectedToday, readinessOverridden {
-                    Button("Use the readiness-adjusted session") { readinessOverridden = false }
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(AppTheme.ink)
-                }
-                ForEach(session.items, id: \.order) { item in
-                    plannedItemRow(item)
-                }
-                if isSelectedToday {
-                    if loggedOnSelectedDay.isEmpty {
-                        Button { liveLaunch = LiveSessionLaunch(planned: session) } label: {
-                            Label("Start session", systemImage: "play.fill")
-                        }
-                            .buttonStyle(.primary)
-                            .padding(.top, 4)
-                    } else {
-                        completedRow
-                    }
-                } else if selectedDate > .now {
-                    StartWorkoutButton("Do this session now", session: session, prominent: false)
-                        .padding(.top, 4)
-                }
-            }
-        } else {
-            restDayCard
-        }
+            Button { activeSheet = .history } label: { RingStatCard(
+                value: "\(loggedThisWeek) of \(week?.sessions.count ?? 0)",
+                label: "Workouts this week",
+                progress: Double(loggedThisWeek) / Double(plannedThisWeek),
+                color: AppTheme.ink,
+                systemImage: "flame.fill"
+            ) }
+            .buttonStyle(.plain)
     }
 
     private func plannedItemRow(_ item: GeneratedPlannedItem) -> some View {
@@ -399,49 +398,6 @@ struct TodayView: View {
         }
         .buttonStyle(.plain)
         .disabled(catalogueItem == nil)
-    }
-
-    private func readinessBanner(reason: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(AppTheme.color(for: todaysCheckIn?.readinessBand))
-                    .frame(width: 10, height: 10)
-                Text("Adjusted for your readiness")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(AppTheme.ink)
-            }
-            Text(reason)
-                .font(.footnote)
-                .foregroundStyle(AppTheme.secondaryText)
-            Button("Use the original session instead") { readinessOverridden = true }
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-                .padding(.top, 2)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle(padding: 16)
-    }
-
-    private var completedRow: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.title2)
-                .foregroundStyle(AppTheme.green)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Done for today")
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.ink)
-                Text("Nice work. Logged \(loggedOnSelectedDay.count) session\(loggedOnSelectedDay.count == 1 ? "" : "s").")
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-            Spacer()
-            Button("Log more") { liveLaunch = LiveSessionLaunch(planned: nil) }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-        }
-        .cardStyle(padding: 16)
     }
 
     private func gameDayCard(_ game: Competition) -> some View {

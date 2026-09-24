@@ -466,6 +466,64 @@ public struct ScreenTitle: View {
     }
 }
 
+/// A section heading with a one-line explanation under it, so every block
+/// on a screen says what it is for.
+public struct SectionHeader<Trailing: View>: View {
+    let title: String
+    let subtitle: String?
+    let trailing: Trailing
+
+    public init(_ title: String, subtitle: String? = nil, @ViewBuilder trailing: () -> Trailing = { EmptyView() }) {
+        self.title = title
+        self.subtitle = subtitle
+        self.trailing = trailing()
+    }
+
+    public var body: some View {
+        HStack(alignment: .lastTextBaseline) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.title3.bold())
+                    .foregroundStyle(AppTheme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 8)
+            trailing
+        }
+        .padding(.top, 6)
+    }
+}
+
+/// A small numbered step label ("1  Check in first").
+public struct StepLabel: View {
+    let number: Int
+    let text: String
+
+    public init(_ number: Int, _ text: String) {
+        self.number = number
+        self.text = text
+    }
+
+    public var body: some View {
+        HStack(spacing: 10) {
+            Text("\(number)")
+                .font(.caption.bold())
+                .foregroundStyle(AppTheme.inkInverse)
+                .frame(width: 22, height: 22)
+                .background(AppTheme.ink, in: Circle())
+            Text(text)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+        }
+    }
+}
+
 public struct SectionTitle: View {
     let title: String
 
