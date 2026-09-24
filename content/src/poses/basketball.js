@@ -65,7 +65,8 @@ const dribbleRun = () => {
   });
   return frames;
 };
-def('bb-dribble-run', 'Dribbling on the run', { loop: true, ball: BB, thumb: 0, keyframes: dribbleRun() });
+def('bb-dribble-run', 'Dribbling on the run', {
+  path: { kind: 'line', length: 380 }, loop: true, ball: BB, thumb: 0, keyframes: dribbleRun() });
 /** Crossover: low dribble from right to left hand in front of the body. */
 def('bb-crossover', 'Crossover dribble', {
   view: 'front', loop: true, ball: BB, thumb: 1,
@@ -148,6 +149,7 @@ def('bb-box-out', 'Box-out and rebound', {
 // Defence ----------------------------------------------------------------------
 const defStance = both({ hip: 52, knee: 62, ankle: 28, hipAbd: 24, shoulderAbd: 60, elbow: 20, shoulder: 30 });
 def('bb-defensive-slide', 'Defensive slide', {
+  path: { kind: 'line', length: 220, dir: 'left', speed: 110 },
   view: 'front', loop: true, thumb: 0,
   keyframes: [
     kf(P(defStance, { spine: 26, neck: -14 }), 'feet', { move: 0.16 }),

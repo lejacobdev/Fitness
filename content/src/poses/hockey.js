@@ -35,10 +35,11 @@ const stride = [
   P(glide, { hipL: 60, kneeL: 74, ankleL: 30, hipR: 58, kneeR: 90, ankleR: -4, hipAbdR: 8, hipRotR: -10, ...skateArms(20, 20) }),
 ];
 def('hockey-skating-stride', 'Skating stride', {
-  view: 'three-quarter', loop: true, thumb: 0,
+  view: 'three-quarter', loop: true, thumb: 0, path: { kind: 'line', length: 420, speed: 260 },
   keyframes: [...stride, ...stride.map(mirror)].map((p) => kf(p, 'air', { move: 0.24 })),
 });
 def('hockey-skating-with-stick', 'Skating with the puck', {
+  path: { kind: 'line', length: 420, speed: 220 },
   view: 'three-quarter', loop: true, thumb: 0, implement: stick({ puck: true }),
   keyframes: [...stride, ...stride.map(mirror)].map((p) => kf(holdStick(p, ice(80, 20), air(10, 4, -8)), 'air', { move: 0.26 })),
 });
@@ -47,10 +48,11 @@ const lean = { spine: 30, neck: -18, bend: 16, turn: 12 };
 const crossA = P(lean, { hipL: 56, kneeL: 72, ankleL: 30, hipAbdL: -12, hipR: 40, kneeR: 50, hipAbdR: 30, ...skateArms(50, 10) });
 const crossB = P(lean, { hipL: 30, kneeL: 20, ankleL: -10, hipAbdL: -30, hipRotL: 10, hipR: 64, kneeR: 80, ankleR: 26, hipAbdR: -18, hipRotR: -14, ...skateArms(20, 40) });
 def('hockey-crossovers', 'Crossovers', {
-  view: 'front', loop: true, thumb: 1,
+  view: 'three-quarter', loop: true, thumb: 1, path: { kind: 'circle', radius: 110, turn: 1, speed: 200 },
   keyframes: [kf(crossA, 'air', { move: 0.3 }), kf(crossB, 'air', { move: 0.3 })],
 });
 def('hockey-tight-turn', 'Tight turn on the inside edges', {
+  path: { kind: 'circle', radius: 60, turn: 1, speed: 150 },
   view: 'front', loop: true, thumb: 0, implement: stick({ puck: true }),
   keyframes: [
     kf(holdStick(P({ spine: 34, neck: -20, bend: 26, hipL: 74, kneeL: 90, ankleL: 32, hipAbdL: 6, hipR: 50, kneeR: 60, hipAbdR: 26 }), ice(64, 60), air(12, 4, -4)), 'air', { hold: 0.2, move: 0.6 }),

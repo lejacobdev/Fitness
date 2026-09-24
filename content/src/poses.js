@@ -29,11 +29,13 @@ import { HOCKEY } from './poses/hockey.js';
 import { SOCCER } from './poses/soccer.js';
 import { BASKETBALL } from './poses/basketball.js';
 import { VOLLEYBALL } from './poses/volleyball.js';
+import { RACKET } from './poses/racket.js';
+import { FIELD_SPORTS } from './poses/fieldSports.js';
 
 export const POSE_MODEL_VERSION = 3;
 export { JOINTS };
 
-const PATTERNS = [...STRENGTH, ...TEAM_SPORTS, ...INDIVIDUAL_SPORTS, ...MISC_SPORTS, ...HOCKEY, ...SOCCER, ...BASKETBALL, ...VOLLEYBALL];
+const PATTERNS = [...STRENGTH, ...TEAM_SPORTS, ...INDIVIDUAL_SPORTS, ...MISC_SPORTS, ...HOCKEY, ...SOCCER, ...BASKETBALL, ...VOLLEYBALL, ...RACKET, ...FIELD_SPORTS];
 
 export const POSE_PATTERNS = PATTERNS;
 export const POSE_PATTERN_SLUGS = PATTERNS.map((p) => p.slug);

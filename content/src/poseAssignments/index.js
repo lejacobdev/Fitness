@@ -8,5 +8,8 @@ import { TEAM_SPORT_POSES } from './teamSports.js';
 import { INDIVIDUAL_SPORT_POSES } from './individualSports.js';
 import { MISC_SPORT_POSES } from './miscSports.js';
 import { COURT_SPORT_POSES } from './courtSports.js';
+import { NET_SPORT_POSES } from './netSports.js';
+import { RACKET_SPORT_POSES } from './racketSports.js';
+import { FIELD_SPORT_POSES } from './fieldSports.js';
 
-export const POSE_ASSIGNMENTS = { ...EXERCISE_POSES, ...TEAM_SPORT_POSES, ...INDIVIDUAL_SPORT_POSES, ...MISC_SPORT_POSES, ...COURT_SPORT_POSES };
+export const POSE_ASSIGNMENTS = { ...EXERCISE_POSES, ...TEAM_SPORT_POSES, ...INDIVIDUAL_SPORT_POSES, ...MISC_SPORT_POSES, ...COURT_SPORT_POSES, ...NET_SPORT_POSES, ...RACKET_SPORT_POSES, ...FIELD_SPORT_POSES };

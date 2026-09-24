@@ -6,12 +6,12 @@ import { POSE_PATTERNS, mirrorPose } from '../src/poses.js';
 
 const RANGES = {
   spine: [-135, 170], bend: [-95, 95], twist: [-80, 80], turn: [-360, 360], neck: [-60, 70], neckTurn: [-80, 80], lift: [0, 90],
-  shoulder: [-100, 210], shoulderAbd: [-95, 180], shoulderRot: [-100, 100], elbow: [0, 160], wrist: [-95, 80],
+  shoulder: [-100, 300], shoulderAbd: [-95, 180], shoulderRot: [-100, 100], elbow: [0, 160], wrist: [-95, 80],
   hip: [-95, 170], hipAbd: [-30, 90], hipRot: [-60, 60], knee: [0, 160], ankle: [-95, 45],
 };
 const range = (j) => RANGES[j] ?? RANGES[j.slice(0, -1)];
 const IMPLEMENTS = new Set(['barbell', 'dumbbell', 'dumbbells', 'goblet', 'kettlebell', 'medball', 'plate', 'ball', 'football', 'puck',
-  'bat', 'club', 'stick', 'racket', 'paddle', 'javelin', 'pole', 'lacrosse', 'bow', 'oar', 'band', 'cable', 'rope', 'prop', 'disc', 'shot', 'rifle', 'sword', 'glove', 'board', 'landmine', 'wristroller', 'jumprope', 'wheel', 'kickboard', 'hockeystick']);
+  'bat', 'club', 'stick', 'racket', 'paddle', 'javelin', 'pole', 'lacrosse', 'bow', 'oar', 'band', 'cable', 'rope', 'prop', 'disc', 'shot', 'rifle', 'sword', 'glove', 'board', 'landmine', 'wristroller', 'jumprope', 'wheel', 'kickboard', 'hockeystick', 'bat2']);
 const FIXTURES = new Set(['bench', 'box', 'wall', 'bar', 'water', 'bike', 'rower', 'mat', 'hurdle', 'cone', 'ladder', 'net', 'wheelchair', 'sled', 'roller', 'ball', 'incline', 'kickball']);
 const SAMPLES = 16;
 

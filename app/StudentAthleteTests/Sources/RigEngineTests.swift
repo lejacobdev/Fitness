@@ -12,7 +12,8 @@ final class RigEngineTests: XCTestCase {
                 XCTFail("unknown pattern \(sample.pattern)")
                 continue
             }
-            let s = RigPlaybackCache.playback(for: pattern).frame(at: sample.t)
+            let playback = RigPlaybackCache.playback(for: pattern)
+            let s = sample.time == true ? playback.frame(atTime: sample.t, loop: playback.loopSeconds) : playback.frame(at: sample.t)
             let points = [s.pelvis, s.head, s.L.ankle, s.R.toe, s.L.wrist, s.R.elbow, s.L.knee].flatMap { [$0.x, $0.y, $0.z] }
             for (index, (swift, js)) in zip(points, sample.points).enumerated() {
                 XCTAssertEqual(swift, js, accuracy: 0.05, "\(sample.pattern) t=\(sample.t) value \(index)")

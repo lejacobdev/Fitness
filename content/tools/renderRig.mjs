@@ -4,7 +4,7 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import { POSE_PATTERNS } from '../src/poses.js';
-import { cycleSeconds, frameAt, keyframeAt, placeFixture, placeKeyframes, timing } from '../src/rig3d.js';
+import { cycleSeconds, frameAt, frameAtTime, keyframeAt, pathSeconds, placeFixture, placeKeyframes, timing } from '../src/rig3d.js';
 
 /** Cycle position of the start of keyframe i's hold (so KEYFRAMES=1 shows the ball too). */
 function timeOfKeyframe(p, i) {
@@ -30,10 +30,12 @@ patterns.forEach((p, row) => {
   const place = placeFixture(p, placed);
   const frames = keyframesOnly
     ? p.keyframes.map((_, i) => { const t = timeOfKeyframe(p, i); return frameAt(p, t, placed); })
-    : Array.from({ length: n }, (_, i) => frameAt(p, i / n, placed));
+    : p.path
+      ? Array.from({ length: n }, (_, i) => frameAtTime(p, (i / n) * pathSeconds(p, placed), placed))
+      : Array.from({ length: n }, (_, i) => frameAt(p, i / n, placed));
   cols = Math.max(cols, frames.length);
   // One camera box for the whole strip (like the app's fixed frame).
-  const all = frames.flatMap((s) => figureShapes(s, { scheme, implement: p.implement, fixture: p.fixture, fixturePlace: place, ball: p.ball }).filter((sh) => sh.depth > -1e5).flatMap((sh) => sh.points));
+  const all = frames.flatMap((s) => figureShapes(s, { scheme, implement: p.implement, fixture: p.fixture, fixturePlace: place, ball: p.ball }).filter((sh) => sh.depth > -1e5 && !sh.isBall).flatMap((sh) => sh.points));
   const xs = all.map((q) => q[0]), ys = all.map((q) => q[1]);
   const minX = Math.min(...xs) - 4, maxX = Math.max(...xs) + 4, minY = Math.min(...ys) - 4, maxY = Math.max(4, Math.max(...ys)) + 4;
   const k = Math.min((cellW - 8) / (maxX - minX), (cellH - 26) / (maxY - minY));

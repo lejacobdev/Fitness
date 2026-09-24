@@ -614,6 +614,7 @@ const gait = (phases, { lean = 0, neck = 0, move = 0.1, extra = {} } = {}) => {
 const armsSwing = (fwdL, backR, elbow) => ({ shoulderL: fwdL, shoulderR: backR, elbowL: elbow, elbowR: elbow, shoulderAbdL: 8, shoulderAbdR: 8 });
 
 def('sprint', 'Sprinting', {
+  path: { kind: 'line', length: 460 },
   loop: true, thumb: 0,
   keyframes: gait([
     { hipL: 36, kneeL: 18, ankleL: 2, hipR: -12, kneeR: 96, ankleR: -24, ...armsSwing(-40, 60, 92), lift: 0 },
@@ -623,6 +624,7 @@ def('sprint', 'Sprinting', {
   ], { lean: 12, neck: -6, move: 0.085 }),
 });
 def('jog', 'Easy run', {
+  path: { kind: 'line', length: 380 },
   loop: true, thumb: 0,
   keyframes: gait([
     { hipL: 26, kneeL: 14, ankleL: 4, hipR: -10, kneeR: 70, ankleR: -20, ...armsSwing(-26, 34, 86) },
@@ -632,6 +634,7 @@ def('jog', 'Easy run', {
   ], { lean: 6, neck: -2, move: 0.13 }),
 });
 def('walk', 'Walking', {
+  path: { kind: 'line', length: 300, speed: 110 },
   loop: true, thumb: 0,
   keyframes: gait([
     { hipL: 24, kneeL: 2, ankleL: 10, hipR: -14, kneeR: 14, ankleR: -22, ...armsSwing(-16, 18, 12) },
@@ -641,6 +644,7 @@ def('walk', 'Walking', {
   ], { lean: 2, move: 0.17 }),
 });
 def('march', 'Marching', {
+  path: { kind: 'line', length: 240, speed: 70 },
   loop: true, thumb: 1,
   keyframes: gait([
     { hipL: 0, kneeL: 2, hipR: 0, kneeR: 4, ...armsSwing(0, 0, 10) },
@@ -648,6 +652,7 @@ def('march', 'Marching', {
   ], { move: 0.28 }),
 });
 def('high-knees', 'High knees', {
+  path: { kind: 'line', length: 220, speed: 60 },
   loop: true, thumb: 1,
   keyframes: gait([
     { hipL: 0, kneeL: 6, ankleL: -20, hipR: 40, kneeR: 60, ...armsSwing(-10, 20, 90) },
@@ -655,6 +660,7 @@ def('high-knees', 'High knees', {
   ], { lean: 2, move: 0.12 }),
 });
 def('a-skip', 'A-skip', {
+  path: { kind: 'line', length: 300, speed: 95 },
   loop: true, thumb: 1,
   keyframes: gait([
     { hipL: 0, kneeL: 8, ankleL: 0, hipR: 30, kneeR: 50, ...armsSwing(-10, 20, 90) },
@@ -663,6 +669,7 @@ def('a-skip', 'A-skip', {
   ], { lean: 3, move: 0.15 }),
 });
 def('b-skip', 'B-skip', {
+  path: { kind: 'line', length: 300, speed: 95 },
   loop: true, thumb: 2,
   keyframes: gait([
     { hipL: 0, kneeL: 8, ankleL: 0, hipR: 30, kneeR: 50, ...armsSwing(-10, 20, 90) },
@@ -672,6 +679,7 @@ def('b-skip', 'B-skip', {
   ], { lean: 3, move: 0.14 }),
 });
 def('backpedal', 'Backpedal', {
+  path: { kind: 'line', length: 300, dir: 'back', speed: 130 },
   loop: true, thumb: 0,
   keyframes: gait([
     { hipL: 44, kneeL: 60, ankleL: 24, hipR: 64, kneeR: 90, ankleR: -10, ...armsSwing(-20, 30, 88) },
@@ -725,6 +733,7 @@ def('cut-45', '45-degree cut', {
 });
 const stance = both({ hip: 44, knee: 54, ankle: 24, hipAbd: 20, hipRot: -4, shoulder: 30, elbow: 80, shoulderAbd: 14 });
 def('lateral-shuffle', 'Lateral shuffle', {
+  path: { kind: 'line', length: 240, dir: 'left', speed: 140 },
   view: 'front', loop: true, thumb: 0,
   keyframes: [
     kf(P(stance, { spine: 26, neck: -16 }), 'air', { move: 0.14, travel: [0, 0] }),
@@ -732,6 +741,7 @@ def('lateral-shuffle', 'Lateral shuffle', {
   ],
 });
 def('crossover-run', 'Crossover run', {
+  path: { kind: 'line', length: 300, dir: 'left', speed: 170 },
   view: 'front', loop: true, thumb: 1,
   keyframes: [
     kf(P(stance, { spine: 20, neck: -12, twist: 10 }), 'air', { move: 0.14 }),
@@ -741,6 +751,7 @@ def('crossover-run', 'Crossover run', {
   ],
 });
 def('carioca', 'Carioca', {
+  path: { kind: 'line', length: 260, dir: 'left', speed: 120 },
   view: 'front', loop: true, thumb: 1,
   keyframes: [
     kf(P(both({ hip: 16, knee: 20, ankle: 8, hipAbd: 14 }), { spine: 8, shoulderAbdL: 70, shoulderAbdR: 70, elbowL: 10, elbowR: 10 }), 'air', { move: 0.15 }),
@@ -750,6 +761,7 @@ def('carioca', 'Carioca', {
   ],
 });
 def('lateral-band-walk', 'Lateral band walk', {
+  path: { kind: 'line', length: 160, dir: 'left', speed: 32 },
   view: 'front', loop: true, thumb: 1,
   keyframes: [
     kf(P(both({ hip: 36, knee: 42, ankle: 20, hipAbd: 12, shoulder: 30, elbow: 70 }), { spine: 22 }), 'feet', { hold: 0.1, move: 0.4 }),
@@ -869,6 +881,7 @@ def('jump-rope', 'Jump rope', {
   ],
 });
 def('bound', 'Bounding', {
+  path: { kind: 'line', length: 420 },
   loop: true, thumb: 1,
   keyframes: gait([
     { hipL: 40, kneeL: 20, ankleL: 4, hipR: -20, kneeR: 50, ankleR: -24, ...armsSwing(-40, 50, 60) },
@@ -960,6 +973,7 @@ def('mountain-climber', 'Mountain climbers', {
 const crawl = (a) => handsAbove(P(both({ hip: 90, knee: 90, ankle: 30, shoulder: 88, elbow: 0, shoulderAbd: 8, wrist: -85 }), { neck: -14 },
   { hipL: 90 + a, kneeL: 90 + a * 0.4, hipR: 90 - a, kneeR: 90 - a * 0.4, shoulderL: 88 - a * 0.6, shoulderR: 88 + a * 0.6 }), 0, 40, 110);
 def('bear-crawl', 'Bear crawl', {
+  path: { kind: 'line', length: 200, speed: 50 },
   loop: true, thumb: 0,
   keyframes: [kf(crawl(16), 'hands+Ltoe+Rtoe', { move: 0.35 }), kf(crawl(-16), 'hands+Ltoe+Rtoe', { move: 0.35 })],
 });
@@ -985,9 +999,12 @@ const walkPhases = (arms, extra = {}) => [
   { hipL: -14, kneeL: 4, ankleL: -8, hipR: 24, kneeR: 8, ankleR: 8, ...arms, ...extra },
   { hipL: -10, kneeL: 28, ankleL: -22, hipR: 22, kneeR: 2, ankleR: 10, ...arms, ...extra },
 ];
-def('farmers-carry', "Farmer's carry", { view: 'three-quarter', loop: true, thumb: 0, implement: { kind: 'dumbbells', at: 'hands' }, keyframes: gait(walkPhases(carryArms), { move: 0.2 }) });
-def('suitcase-carry', 'Suitcase carry', { view: 'front', loop: true, thumb: 0, implement: { kind: 'dumbbell', at: 'R' }, keyframes: gait(walkPhases({ ...carryArms, shoulderAbdL: 20 }, { bend: 3 }), { move: 0.2 }) });
-def('overhead-carry', 'Overhead carry', { view: 'three-quarter', loop: true, thumb: 0, implement: { kind: 'dumbbells', at: 'hands' }, keyframes: gait(walkPhases(both({ shoulder: 176, shoulderAbd: 14, elbow: 2 })), { move: 0.2 }) });
+def('farmers-carry', "Farmer's carry", {
+  path: { kind: 'line', length: 280, speed: 100 }, view: 'three-quarter', loop: true, thumb: 0, implement: { kind: 'dumbbells', at: 'hands' }, keyframes: gait(walkPhases(carryArms), { move: 0.2 }) });
+def('suitcase-carry', 'Suitcase carry', {
+  path: { kind: 'line', length: 280, dir: 'left', speed: 100 }, view: 'front', loop: true, thumb: 0, implement: { kind: 'dumbbell', at: 'R' }, keyframes: gait(walkPhases({ ...carryArms, shoulderAbdL: 20 }, { bend: 3 }), { move: 0.2 }) });
+def('overhead-carry', 'Overhead carry', {
+  path: { kind: 'line', length: 280, speed: 100 }, view: 'three-quarter', loop: true, thumb: 0, implement: { kind: 'dumbbells', at: 'hands' }, keyframes: gait(walkPhases(both({ shoulder: 176, shoulderAbd: 14, elbow: 2 })), { move: 0.2 }) });
 const ropeStance = both({ hip: 50, knee: 50, ankle: 22, hipAbd: 14 });
 def('battle-ropes', 'Battle rope waves', {
   view: 'three-quarter', loop: true, thumb: 0, implement: { kind: 'rope', at: 'hands' },
@@ -1418,6 +1435,7 @@ const stroke = [
   P(swimBase, { shoulderL: 20, shoulderAbdL: 10, elbowL: 30, shoulderR: 178, elbowR: 4, twist: -25, hipL: -6, hipR: 6 }),
 ];
 def('swim-freestyle', 'Freestyle swimming', {
+  path: { kind: 'line', length: 220, speed: 90 },
   loop: true, thumb: 0, fixture: { kind: 'water', level: 12 },
   keyframes: [...stroke, ...stroke.map(mirrorKit)].map((p) => kf(p, 'water', { move: 0.22 })),
 });

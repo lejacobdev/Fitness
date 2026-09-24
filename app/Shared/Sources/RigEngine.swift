@@ -441,6 +441,20 @@ final class RigPlayback {
         switch spec.kind {
         case "none":
             return nil
+        case "head":
+            // Where the held implement meets the ball (as rig3d.js implementHead).
+            let lengths: [String: Double] = ["bat": 48, "club": 58, "stick": 56, "racket": 30, "paddle": 20, "lacrosse": 50]
+            let kind = info.implement?.kind ?? "racket"
+            if kind == "bat2" {
+                let lo = grip(current.L), hi = grip(current.R)
+                return lo + normed(hi - lo) * 48
+            }
+            let h = current.limb(info.implement?.at == "L" ? "L" : "R")
+            let g = grip(h)
+            let dir = normed(h.hand.apply(V3(0, -1, 0)) + h.fore.apply(V3(0, -1, 0)) * 0.6)
+            let len = lengths[kind] ?? 30
+            let along = kind == "racket" ? len + 9 : (kind == "paddle" ? len + 6 : (kind == "bat" ? len - 8 : len))
+            return g + dir * along + h.hand.apply(V3(1, 0, 0)) * (r + 1)
         case "L", "R":
             let l = current.limb(spec.kind)
             return grip(l) + l.hand.apply(V3(1, 0, 0)) * (r * 0.9)
@@ -625,6 +639,92 @@ final class RigPlayback {
             return nil
         }
         return out
+    }
+}
+
+// MARK: - Paths (port of rig3d.js strideSpeed / pathSeconds / pathAt / frameAtTime)
+
+extension RigPlayback {
+    private static let pathAxes: [String: V3] = ["forward": V3(1, 0, 0), "back": V3(-1, 0, 0), "left": V3(0, 0, 1), "right": V3(0, 0, -1)]
+
+    /// How fast the planted foot slides back under the body (units/second).
+    func strideSpeed(axis: V3) -> Double {
+        let n = 48
+        let dir = M3.rotY(view).apply(axis)
+        var dist = 0.0, time = 0.0
+        var prev: (foot: String, p: V3)?
+        func low(_ l: RigLimb) -> V3 { [l.ankle, l.toe, l.heel].min { $0.y < $1.y } ?? l.ankle }
+        for i in 0...n {
+            let s = frame(at: Double(i) / Double(n))
+            let pl = low(s.L), pr = low(s.R)
+            let foot = pl.y <= pr.y ? "L" : "R"
+            let p = foot == "L" ? pl : pr
+            if let prev, prev.foot == foot, max(p.y, prev.p.y) < 3 {
+                dist += -(p - prev.p).dot(dir)
+                time += cycleSeconds / Double(n)
+            }
+            prev = (foot, p)
+        }
+        return time > 0 ? max(0, dist / time) : 0
+    }
+
+    /// Seconds for one full pass (the whole animation loop).
+    var loopSeconds: Double {
+        guard let path = info.path else { return cycleSeconds }
+        let axis = Self.pathAxes[path.dir ?? "forward"] ?? V3(1, 0, 0)
+        let speed = path.speed ?? max(strideSpeed(axis: axis), 20)
+        let length: Double = path.kind == "circle" ? 2 * .pi * (path.radius ?? 100) : (path.kind == "shuttle" ? (path.length ?? 200) * 2 : (path.length ?? 200))
+        return length / speed
+    }
+
+    /// Position (body axes) and heading (degrees) along the path at `seconds`.
+    func pathAt(_ seconds: Double, total: Double) -> (pos: V3, heading: Double) {
+        guard let path = info.path else { return (.zero, 0) }
+        let u = ((seconds / total).truncatingRemainder(dividingBy: 1) + 1).truncatingRemainder(dividingBy: 1)
+        if path.kind == "circle" {
+            let turn = path.turn ?? 1, r = path.radius ?? 100
+            let theta = 2 * Double.pi * u
+            return (V3(r * sin(theta), 0, turn * r * (1 - cos(theta))), turn * theta * 180 / .pi)
+        }
+        let axis = Self.pathAxes[path.dir ?? "forward"] ?? V3(1, 0, 0)
+        let length = path.length ?? 200
+        if path.kind == "shuttle" {
+            let half = u < 0.5
+            let along = half ? -length / 2 + length * (u * 2) : length / 2 - length * ((u - 0.5) * 2)
+            return (axis * along, half ? 0 : 180)
+        }
+        return (axis * (-length / 2 + length * u), 0)
+    }
+
+    /// The skeleton at `seconds` of real time, carried along its path.
+    func frame(atTime seconds: Double, loop: Double) -> RigSkeleton {
+        let t = ((seconds / cycleSeconds).truncatingRemainder(dividingBy: 1) + 1).truncatingRemainder(dividingBy: 1)
+        let s = frame(at: t)
+        guard info.path != nil else { return s }
+        let (pos, heading) = pathAt(seconds, total: loop)
+        return s.moved(turning: heading, by: M3.rotY(view).apply(pos))
+    }
+}
+
+extension RigSkeleton {
+    /// Turned `deg` about the vertical axis through the origin, then moved by `v`.
+    func moved(turning deg: Double, by v: V3) -> RigSkeleton {
+        let r = M3.rotY(deg)
+        func t(_ p: V3) -> V3 { r.apply(p) + v }
+        func limb(_ l: RigLimb) -> RigLimb {
+            var o = l
+            o.arm = r * l.arm; o.fore = r * l.fore; o.hand = r * l.hand; o.thigh = r * l.thigh; o.shin = r * l.shin; o.foot = r * l.foot
+            o.footDir = r.apply(l.footDir)
+            o.shoulder = t(l.shoulder); o.elbow = t(l.elbow); o.wrist = t(l.wrist); o.handTip = t(l.handTip)
+            o.hip = t(l.hip); o.knee = t(l.knee); o.ankle = t(l.ankle); o.toe = t(l.toe); o.heel = t(l.heel)
+            return o
+        }
+        var o = self
+        o.root = r * root; o.trunk = r * trunk; o.chest = r * chest; o.headFrame = r * headFrame
+        o.pelvis = t(pelvis); o.neckBase = t(neckBase); o.neckTop = t(neckTop); o.head = t(head)
+        o.L = limb(L); o.R = limb(R)
+        o.ball = ball.map(t)
+        return o
     }
 }
 

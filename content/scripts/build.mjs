@@ -26,7 +26,7 @@ import { buildAnatomy } from '../src/anatomy.js';
 import { CATALOGUE, BASE_ITEMS, INTERIM_BY_POSE } from '../src/catalogue.js';
 import { MUSCLE_MODEL_VERSION, MUSCLES } from '../src/muscles.js';
 import { JOINTS, POSE_MODEL_VERSION, POSE_PATTERNS } from '../src/poses.js';
-import { frameAt, placeKeyframes } from '../src/rig3d.js';
+import { frameAt, frameAtTime, pathSeconds, placeKeyframes } from '../src/rig3d.js';
 import { PROPS } from '../src/props.js';
 import { QUALITIES, QUALITY_MODEL_VERSION } from '../src/qualities.js';
 import { EQUIPMENT, EQUIPMENT_LEVELS, PLYOMETRIC_DOSE_KIND } from '../src/schema.js';
@@ -278,6 +278,7 @@ function genPosePatternsSwift() {
       numbers: Object.fromEntries(Object.entries(p.implement).filter(([, v]) => typeof v === 'number').map(([k, v]) => [k, r3(v)])),
     } : null,
     ball: p.ball ? { r: r3(p.ball.r ?? 6), color: p.ball.color ?? 'red' } : null,
+    path: p.path ? { kind: p.path.kind, length: p.path.length ?? null, radius: p.path.radius ?? null, turn: p.path.turn ?? null, dir: p.path.dir ?? null, speed: p.path.speed ?? null } : null,
     keyframes: p.keyframes.map((k) => ({
       angles: JOINTS.map((j) => r3(k.pose[j])), contact: k.contact, hold: r3(k.hold ?? 0), move: r3(k.move ?? 0.6),
       surface: r3(k.surface ?? 0), travel: [r3(k.travel?.[0] ?? 0), r3(k.travel?.[1] ?? 0)], chain: k.chain ?? [0, 1],
@@ -296,6 +297,14 @@ function genPosePatternsSwift() {
     for (const t of [0, 0.37, 0.71]) {
       const s = frameAt(p, t, placed);
       samples.push({ pattern: p.slug, t, points: [s.pelvis, s.head, s.L.ankle, s.R.toe, s.L.wrist, s.R.elbow, s.L.knee].flat().map(r3), ball: s.ball ? s.ball.map(r3) : null });
+    }
+  }
+  for (const p of POSE_PATTERNS.filter((x) => x.path).slice(0, 4)) {
+    const placed = placeKeyframes(p);
+    const total = pathSeconds(p, placed);
+    for (const f of [0.1, 0.45, 0.8]) {
+      const s = frameAtTime(p, f * total, placed);
+      samples.push({ pattern: p.slug, t: r3(f * total), time: true, points: [s.pelvis, s.head, s.L.ankle, s.R.toe, s.L.wrist, s.R.elbow, s.L.knee].flat().map(r3), ball: s.ball ? s.ball.map(r3) : null });
     }
   }
   const json = (v) => JSON.stringify(v);
@@ -346,6 +355,16 @@ public struct PoseBall: Sendable, Hashable, Codable {
     public let at: [Double]?
 }
 
+/// A travelling drill's path through the scene (see rig3d.js pathAt).
+public struct RigPathSpec: Sendable, Hashable, Codable {
+    public let kind: String
+    public let length: Double?
+    public let radius: Double?
+    public let turn: Double?
+    public let dir: String?
+    public let speed: Double?
+}
+
 /// The ball a pattern uses: radius and colour name.
 public struct RigBallSpec: Sendable, Hashable, Codable {
     public let r: Double
@@ -380,6 +399,7 @@ public struct PosePatternInfo: Sendable, Identifiable, Hashable, Codable {
     public let fixture: RigFixtureSpec?
     public let implement: RigImplementSpec?
     public let ball: RigBallSpec?
+    public let path: RigPathSpec?
     public let keyframes: [PoseKeyframe]
 
     public var start: Pose { keyframes[0].pose }
@@ -407,6 +427,8 @@ public struct RigGoldenSample: Sendable, Codable {
     public let points: [Double]
     /// The ball's centre, when the pattern has a ball in play at t.
     public let ball: [Double]?
+    /// True when t is seconds of real time along a path (not a cycle fraction).
+    public let time: Bool?
 }
 
 public let rigGoldenSamples: [RigGoldenSample] =

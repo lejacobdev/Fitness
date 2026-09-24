@@ -10,6 +10,9 @@ struct RigShape {
     var depth: Double
     var stroke: Double? = nil
     var order: Int = 0
+    /// The ball in play: drawn, but left out of the camera framing so a
+    /// thrown ball simply flies out of the picture.
+    var isBall = false
 }
 
 struct RigPalette {
@@ -63,6 +66,19 @@ enum RigShapes {
         let n = CGPoint(x: side.x / l, y: side.y / l)
         return [a, b, CGPoint(x: b.x + n.x * rb, y: b.y + n.y * rb), CGPoint(x: a.x + n.x * ra, y: a.y + n.y * ra)]
     }
+
+    /// A long thin object (bar, stick, band, rope) as short pieces, each at
+    /// its own depth, so hands and limbs pass in front of or behind it
+    /// correctly along its length.
+    static func segmented(_ a: V3, _ b: V3, _ ra: Double, _ rb: Double, _ color: Color, bias: Double = 0, n: Int = 10) -> [RigShape] {
+        (0..<n).map { i in
+            let t0 = Double(i) / Double(n), t1 = Double(i + 1) / Double(n)
+            let p0 = a * (1 - t0) + b * t0, p1 = a * (1 - t1) + b * t1
+            return RigShape(points: capsule(P(p0), P(p1), ra + (rb - ra) * t0, ra + (rb - ra) * t1), color: color, depth: (D(p0) + D(p1)) / 2 + bias)
+        }
+    }
+    /// Hands sit on top of whatever they grip.
+    static let gripBias = 0.6
 
     static func P(_ p: V3) -> CGPoint { RigProjection.point(p) }
     static func D(_ p: V3) -> Double { RigProjection.depth(p) }
@@ -228,14 +244,18 @@ enum RigShapes {
             let fore = capsule(P(l.elbow), P(l.wrist), 3.8, 2.7)
             pushGlowing(fore, skin(foreD), foreD, glowPoly: fore, alpha: (glow["forearm"] ?? 0) * 0.85)
             let handC = l.wrist + l.hand.apply(V3(0, -1, 0)) * (RigBones.hand * 0.45)
-            push(capsule(P(l.wrist), P(handC), 2.8, 3.2), skin(D(handC)), D(handC) + 0.02)
+            push(capsule(P(l.wrist), P(handC), 2.8, 3.2), skin(D(handC)), D(handC) + gripBias)
         }
 
         if let spec = playback.info.implement {
             shapes += implementShapes(s, spec, pal)
         }
         if let ball = s.ball, let spec = playback.info.ball {
-            push(sphere(ball, spec.r), Color(hex: ballColors[spec.color] ?? pal.red), D(ball) + spec.r * 0.5)
+            let depth = D(ball) + spec.r * 0.5
+            if spec.color == "white" {
+                shapes.append(RigShape(points: sphere(ball, spec.r + 0.5), color: Color(hex: "#8A8A90"), depth: depth - 0.001, isBall: true))
+            }
+            shapes.append(RigShape(points: sphere(ball, spec.r), color: Color(hex: ballColors[spec.color] ?? pal.red), depth: depth, isBall: true))
         }
 
         // Far to near (stable), each glow straight after its base shape.
@@ -308,7 +328,7 @@ enum RigShapes {
 
         switch spec.kind {
         case "barbell":
-            push(capsule(P(at + lateral * 52), P(at - lateral * 52), 1.1, 1.1), pal.steel, D(at) - 0.05)
+            out += segmented(at + lateral * 52, at - lateral * 52, 1.1, 1.1, Color(hex: pal.steel), n: 14)
             for σ in [1.0, -1.0] {
                 for off in [34.0, 38.0] {
                     let c = at + lateral * (σ * off)
@@ -350,7 +370,7 @@ enum RigShapes {
             let start = spec.kind == "javelin" ? oneGrip - dir * 30 : oneGrip
             let tip = oneGrip + dir * (lengths[spec.kind] ?? 50)
             let thick = spec.kind == "bat" ? (1.4, 2.8) : (1.1, 1.3)
-            push(capsule(P(start), P(tip), thick.0, thick.1), spec.kind == "bat" ? pal.wood : pal.red, D(oneGrip) + 0.8)
+            out += segmented(start, tip, thick.0, thick.1, Color(hex: spec.kind == "bat" ? pal.wood : pal.red), n: 8)
             if spec.kind == "racket" || spec.kind == "paddle" {
                 let head = oneGrip + dir * ((lengths[spec.kind] ?? 30) + (spec.kind == "racket" ? 9 : 6))
                 push(hull(disc(head, one.hand.apply(V3(1, 0, 0)), spec.kind == "racket" ? 10 : 7, 16)), pal.red, D(oneGrip) + 0.81)
@@ -381,16 +401,16 @@ enum RigShapes {
             if let to = spec.to {
                 let base = (s.L.ankle + s.R.ankle) / 2
                 let target = V3(base.x, 0, base.z) + fwFlat * to[0] + V3(0, to[1], 0) + azFlat * (to.count > 2 ? to[2] : 0)
-                push(capsule(P(at), P(target), 0.8, 0.8), hex, D(at) - 0.2)
+                out += segmented(at, target, 0.8, 0.8, Color(hex: hex), n: 10)
                 if spec.kind == "cable" { push(circle(P(target), 3, 10), pal.steel, D(target) - 0.3) }
             } else {
                 let a = implementPoint(s, "L"), b = implementPoint(s, "R")
-                push(capsule(P(a), P(b), 0.9, 0.9), hex, max(D(a), D(b)) + 0.5)
+                out += segmented(a, b, 0.9, 0.9, Color(hex: hex), n: 8)
             }
         case "landmine":
             let pivot = V3(oneGrip.x, 0, oneGrip.z) + fwFlat * 95
             let axis = normed(oneGrip - pivot)
-            push(capsule(P(oneGrip), P(pivot), 1.3, 1.1), pal.steel, D(oneGrip) + 0.5)
+            out += segmented(oneGrip, pivot, 1.3, 1.1, Color(hex: pal.steel), n: 10)
             push(hull(disc(oneGrip - axis * 6, axis, 10, 16)), pal.plate, D(oneGrip) + 0.49)
         case "hockeystick":
             let top = implementPoint(s, "R"), bottom = implementPoint(s, "L")
@@ -398,7 +418,7 @@ enum RigShapes {
             let length = spec.numbers["length"] ?? 128
             let toIce = dir.y < -0.15 ? (top.y - 1) / -dir.y : .infinity
             let heel = top + dir * min(length - 10, toIce)
-            push(capsule(P(top - dir * 6), P(heel), 1.3, 1.1), pal.plate, max(D(top), D(bottom)) + 0.6)
+            out += segmented(top - dir * 6, heel, 1.3, 1.1, Color(hex: pal.plate), n: 10)
             let bladeDir = normed(fwFlat - dir * (fwFlat).dot(dir))
             push(capsule(P(heel), P(heel + bladeDir * 16), 1.6, 1.4), pal.plate, D(heel) + 0.6)
             if spec.flags.contains("puck") {
@@ -406,6 +426,10 @@ enum RigShapes {
                 if spec.flags.contains("ball") { push(sphere(V3(puck.x, 3.6, puck.z), 3.6), pal.red, D(puck) + 0.5) }
                 else { push(hull(disc(V3(puck.x, 1, puck.z), V3(0, 1, 0), 3.4, 12)), pal.shoe, D(puck) + 0.5) }
             }
+        case "bat2":
+            let lo = implementPoint(s, "L"), hi = implementPoint(s, "R")
+            let dir = normed(hi - lo)
+            out += segmented(lo - dir * 3, lo + dir * 62, 1.3, 2.9, Color(hex: pal.wood), n: 8)
         case "wheel":
             let c = implementPoint(s, "hands") + V3(0, -3, 0)
             push(hull(disc(c, lateral, 7, 18)), pal.plate, D(c) + 0.6)
@@ -424,10 +448,10 @@ enum RigShapes {
                 let sag = sin(t * .pi)
                 pts.append(V3(lat.x, lat.y + (low - lat.y) * sag, lat.z) + fwFlat * (6 * sag))
             }
-            for i in 0..<(pts.count - 1) { push(capsule(P(pts[i]), P(pts[i + 1]), 0.6, 0.6), pal.red, max(D(a), D(b)) + 1) }
+            for i in 0..<(pts.count - 1) { push(capsule(P(pts[i]), P(pts[i + 1]), 0.6, 0.6), pal.red, (D(pts[i]) + D(pts[i + 1])) / 2) }
         case "wristroller":
             let a = implementPoint(s, "L"), b = implementPoint(s, "R")
-            push(capsule(P(a + (a - b) * 0.2), P(b + (b - a) * 0.2), 1.5, 1.5), pal.steel, max(D(a), D(b)) + 0.5)
+            out += segmented(a + (a - b) * 0.2, b + (b - a) * 0.2, 1.5, 1.5, Color(hex: pal.steel), n: 6)
             let mid = (a + b) / 2, low = mid + V3(0, -(spec.numbers["drop"] ?? 30), 0)
             push(capsule(P(mid), P(low), 0.5, 0.5), pal.steel, D(mid) + 0.4)
             push(hull(disc(low, V3(1, 0, 0), 6, 12)), pal.plate, D(mid) + 0.41)
@@ -436,7 +460,7 @@ enum RigShapes {
             for i in 0...10 {
                 pts.append(at + fwFlat * (Double(i) * 8) + V3(0, -at.y * (Double(i) / 10) * 0.9 + sin(Double(i) * 1.3 + (spec.numbers["phase"] ?? 0)) * 4, 0))
             }
-            for i in 0..<(pts.count - 1) { push(capsule(P(pts[i]), P(pts[i + 1]), 1.3, 1.3), pal.red, D(at) + 0.5) }
+            for i in 0..<(pts.count - 1) { push(capsule(P(pts[i]), P(pts[i + 1]), 1.3, 1.3), pal.red, (D(pts[i]) + D(pts[i + 1])) / 2) }
         default:
             break
         }
@@ -473,7 +497,7 @@ enum RigShapes {
             box(x, x + 6, 0, 150, -40, 40, pal.ground, -60)
         case "bar":
             let at = W(p["at"] ?? .zero)
-            push(capsule(P(at + az * 45), P(at - az * 45), 1.6, 1.6), pal.steel, D(at) + 20)
+            out += segmented(at + az * 45, at - az * 45, 1.6, 1.6, Color(hex: pal.steel), n: 14)
             for σ in [1.0, -1.0] {
                 let foot = V3(at.x, 0, at.z) + az * (σ * 45)
                 push(capsule(P(foot), P(at + az * (σ * 45)), 1.4, 1.4), pal.steel, -60)

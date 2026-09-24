@@ -394,6 +394,7 @@ function ballPoint(pattern, index, current, placed) {
   const under = (sk, side) => add(grip(sk[side]), [0, -(r + 1.5), 0]);
   if (typeof spec === 'string') {
     const sk = current;
+    if (spec === 'head') return implementHead(pattern.implement, sk, r);
     switch (spec) {
       case 'L': case 'R': return inHand(sk, spec);
       case 'Ldown': return under(sk, 'L');
@@ -410,6 +411,28 @@ function ballPoint(pattern, index, current, placed) {
   }
   const [f, h, l] = spec.at;
   return add(add(add(k.pelvis, fw, f), [0, h, 0]), lt, l ?? 0);
+}
+
+/**
+ * Where a held implement meets the ball: a racket or paddle's strings, a
+ * bat's barrel, a club's face (same geometry rigDraw.js draws).
+ */
+export const IMPLEMENT_LENGTHS = { bat: 48, club: 58, stick: 56, racket: 30, paddle: 20, lacrosse: 50 };
+export function implementHead(spec, sk, r = 0) {
+  const kind = spec?.kind ?? 'racket';
+  if (kind === 'bat2') {
+    // Two-handed bat: the sweet spot 48 along the line from the knob hand.
+    const grip = (l) => add(l.wrist, apply(l.hand, [0, -1, 0]), 3.5);
+    const lo = grip(sk.L), hi = grip(sk.R);
+    return add(lo, norm(sub(hi, lo)), 48);
+  }
+  const h = sk[spec?.at === 'L' ? 'L' : 'R'];
+  const grip = add(h.wrist, apply(h.hand, [0, -1, 0]), 3.5);
+  const dir = norm(add(apply(h.hand, [0, -1, 0]), apply(h.fore, [0, -1, 0]), 0.6));
+  const len = IMPLEMENT_LENGTHS[kind] ?? 30;
+  const along = kind === 'racket' ? len + 9 : kind === 'paddle' ? len + 6 : kind === 'bat' ? len - 8 : len;
+  const face = apply(h.hand, [1, 0, 0]);
+  return add(add(grip, dir, along), face, r + 1);
 }
 
 function bodyAt(pattern, segment, u, placed) {
@@ -614,4 +637,97 @@ function placeFixtureRaw(fx, pel, k0, all) {
     case 'ball': return { at: [pel[0] + (fx.dx ?? 0), fx.r ?? 30, pel[2]], r: fx.r ?? 30 };
     default: return null;
   }
+}
+
+// ── Paths: drills that travel ─────────────────────────────────────────────
+
+/**
+ * A travelling drill moves through the scene instead of running in place:
+ *   path: { kind: 'line', length, dir }     straight across (dir: 'forward' | 'back' | 'left' | 'right')
+ *   path: { kind: 'circle', radius, turn }  round a circle (turn: 1 = to the left, -1 = right)
+ *   path: { kind: 'shuttle', length }       out, turn round, and back
+ * Speed comes from the stride itself (how fast the planted foot moves back
+ * under the body), so feet grip the ground instead of sliding.
+ */
+export function strideSpeed(pattern, placed = placeKeyframes(pattern), axis = [1, 0, 0]) {
+  const n = 48, secs = cycleSeconds(pattern);
+  const dir = apply(rotY(placed.view), axis);
+  let dist = 0, time = 0;
+  let prev = null;
+  // Track the lowest point of the lower foot (ankle, toe or heel) while it
+  // is on the ground: how fast it slides back is how fast the body travels.
+  const low = (l) => [l.ankle, l.toe, l.heel].reduce((m, q) => (q[1] < m[1] ? q : m));
+  for (let i = 0; i <= n; i++) {
+    const s = frameAt(pattern, i / n, placed);
+    const pl = low(s.L), pr = low(s.R);
+    const foot = pl[1] <= pr[1] ? 'L' : 'R';
+    const p = foot === 'L' ? pl : pr;
+    if (prev && prev.foot === foot && Math.max(p[1], prev.p[1]) < 3) {
+      dist += -dot(sub(p, prev.p), dir);
+      time += secs / n;
+    }
+    prev = { foot, p };
+  }
+  return time > 0 ? Math.max(0, dist / time) : 0;
+}
+
+const PATH_AXIS = { forward: [1, 0, 0], back: [-1, 0, 0], left: [0, 0, 1], right: [0, 0, -1] };
+
+/** Seconds for one full pass of the path (the animation's full cycle). */
+export function pathSeconds(pattern, placed = placeKeyframes(pattern)) {
+  const path = pattern.path;
+  if (!path) return cycleSeconds(pattern);
+  const speed = path.speed ?? Math.max(strideSpeed(pattern, placed, PATH_AXIS[path.dir ?? 'forward'] ?? [1, 0, 0]), 20);
+  const length = path.kind === 'circle' ? 2 * Math.PI * path.radius : path.kind === 'shuttle' ? path.length * 2 : path.length;
+  return length / speed;
+}
+
+/** Where the path has the body at `seconds`: position (body axes) and heading (degrees). */
+export function pathAt(pattern, seconds, placed = placeKeyframes(pattern)) {
+  const path = pattern.path;
+  const total = pathSeconds(pattern, placed);
+  const u = (((seconds / total) % 1) + 1) % 1;
+  if (path.kind === 'circle') {
+    // Starts at the origin heading forward; the centre is on the turning side
+    // (left = +z). Heading follows the tangent.
+    const turn = path.turn ?? 1;
+    const theta = 2 * Math.PI * u;
+    return { pos: [path.radius * Math.sin(theta), 0, turn * path.radius * (1 - Math.cos(theta))], heading: (turn * theta * 180) / Math.PI };
+  }
+  const axis = PATH_AXIS[path.dir ?? 'forward'] ?? [1, 0, 0];
+  if (path.kind === 'shuttle') {
+    const half = u < 0.5;
+    const along = half ? -path.length / 2 + path.length * (u * 2) : path.length / 2 - path.length * ((u - 0.5) * 2);
+    return { pos: scale(axis, along), heading: half ? 0 : 180 };
+  }
+  return { pos: scale(axis, -path.length / 2 + path.length * u), heading: 0 };
+}
+
+/** Turns a placed skeleton by `deg` about the vertical axis through the origin and moves it by `v`. */
+export function moveSkeleton(s, deg, v) {
+  const R = rotY(deg);
+  const t = (p) => add(apply(R, p), v);
+  const f = (m) => mul(R, m);
+  const limb = (l) => ({
+    ...l, arm: f(l.arm), fore: f(l.fore), hand: f(l.hand), thigh: f(l.thigh), shin: f(l.shin), foot: f(l.foot), footDir: apply(R, l.footDir),
+    shoulder: t(l.shoulder), elbow: t(l.elbow), wrist: t(l.wrist), handTip: t(l.handTip), hip: t(l.hip), knee: t(l.knee), ankle: t(l.ankle), toe: t(l.toe), heel: t(l.heel),
+  });
+  return {
+    ...s, root: f(s.root), trunk: f(s.trunk), chest: f(s.chest), headFrame: f(s.headFrame),
+    pelvis: t(s.pelvis), neckBase: t(s.neckBase), neckTop: t(s.neckTop), head: t(s.head), L: limb(s.L), R: limb(s.R),
+    ball: s.ball ? t(s.ball) : s.ball,
+  };
+}
+
+/**
+ * The skeleton at `seconds` of real time: the movement's own cycle, carried
+ * along its path when it has one.
+ */
+export function frameAtTime(pattern, seconds, placed = placeKeyframes(pattern)) {
+  const cycle = cycleSeconds(pattern);
+  const s = frameAt(pattern, (((seconds / cycle) % 1) + 1) % 1, placed);
+  if (!pattern.path) return s;
+  const { pos, heading } = pathAt(pattern, seconds, placed);
+  // The path lives in the body's own axes; turn it with the camera view.
+  return moveSkeleton(s, heading, apply(rotY(placed.view), pos));
 }

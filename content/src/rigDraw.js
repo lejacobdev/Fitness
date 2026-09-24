@@ -87,6 +87,23 @@ function halfCapsule2(a, b, ra, rb, sideVec) {
 }
 
 const P = (p) => { const q = project(p); return [q.x, q.y]; };
+
+/**
+ * A long thin object (bar, stick, band, rope) as short pieces, each at its
+ * own depth — so hands and limbs pass correctly in front of or behind it
+ * along its length rather than all of it sitting at one depth.
+ */
+export function segmented(a, b, ra, rb, fill, bias = 0, n = 10) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const t0 = i / n, t1 = (i + 1) / n;
+    const p0 = add(scale(a, 1 - t0), b, t0), p1 = add(scale(a, 1 - t1), b, t1);
+    out.push({ points: capsule2(P(p0), P(p1), ra + (rb - ra) * t0, ra + (rb - ra) * t1), fill, depth: (D(p0) + D(p1)) / 2 + bias });
+  }
+  return out;
+}
+/** Hands sit on top of whatever they grip. */
+const GRIP_BIAS = 0.6;
 const D = (p) => project(p).depth;
 /** Screen-space direction of a world direction. */
 const dir2 = (v) => { const q = project(v); return [q.x, q.y]; };
@@ -225,11 +242,16 @@ export function figureShapes(s, { scheme = 'light', glow = {}, implement = null,
       { glow: glow.shoulderCap ? { poly: circlePts(P(l.shoulder), 5.8), alpha: glow.shoulderCap * 0.85 } : null });
     push(capsule2(P(l.elbow), P(l.wrist), 3.8, 2.7), skin(foreD), foreD, { glow: glow.forearm ? { poly: capsule2(P(l.elbow), P(l.wrist), 3.8, 2.7), alpha: glow.forearm * 0.85 } : null });
     const handC = add(l.wrist, apply(l.hand, [0, -1, 0]), BONES.hand * 0.45);
-    push(capsule2(P(l.wrist), P(handC), 2.8, 3.2), skin(D(handC)), D(handC) + 0.02);
+    push(capsule2(P(l.wrist), P(handC), 2.8, 3.2), skin(D(handC)), D(handC) + GRIP_BIAS);
   }
 
   if (implement) for (const f of implementShapes(s, implement, pal)) shapes.push(f);
-  if (s.ball && ball) push(sphere(s.ball, ball.r ?? 6), BALL_COLORS[ball.color ?? 'red'] ?? pal.implementRed, D(s.ball) + (ball.r ?? 6) * 0.5);
+  if (s.ball && ball) {
+    const r = ball.r ?? 6, depth = D(s.ball) + r * 0.5;
+    // White balls get a thin dark rim so they read on a light background.
+    if ((ball.color ?? 'red') === 'white') push(sphere(s.ball, r + 0.5), '#8A8A90', depth - 0.001, { isBall: true });
+    push(sphere(s.ball, r), BALL_COLORS[ball.color ?? 'red'] ?? pal.implementRed, depth, { isBall: true });
+  }
 
   // Expand per-shape glow into overlay shapes right after their base.
   const out = [];
@@ -312,7 +334,7 @@ export function implementShapes(s, spec, pal) {
     case 'barbell': {
       const half = 52;
       const a = add(at, lateral, half), b = add(at, lateral, -half);
-      push(capsule2(P(a), P(b), 1.1, 1.1), pal.steel, D(at) - 0.05);
+      out.push(...segmented(a, b, 1.1, 1.1, pal.steel, 0, 14));
       for (const σ of [1, -1]) {
         for (const off of [34, 38]) {
           const c = add(at, lateral, σ * off);
@@ -375,7 +397,7 @@ export function implementShapes(s, spec, pal) {
       const start = spec.kind === 'javelin' ? add(g, dir, -30) : g;
       const tip = add(g, dir, lengths[spec.kind]);
       const thick = spec.kind === 'bat' ? [1.4, 2.8] : [1.1, 1.3];
-      push(capsule2(P(start), P(tip), thick[0], thick[1]), spec.kind === 'bat' ? pal.wood : pal.implementRed, D(g) + 0.8);
+      out.push(...segmented(start, tip, thick[0], thick[1], spec.kind === 'bat' ? pal.wood : pal.implementRed, 0, 8));
       if (spec.kind === 'racket' || spec.kind === 'paddle') {
         const head = add(g, dir, lengths[spec.kind] + (spec.kind === 'racket' ? 9 : 6));
         push(hull(discPoly(head, apply(h.hand, [1, 0, 0]), spec.kind === 'racket' ? 10 : 7, 16)), pal.implementRed, D(g) + 0.81, { outline: true });
@@ -425,7 +447,7 @@ export function implementShapes(s, spec, pal) {
       if (!spec.to) {
         // Stretched between the two hands (pull-aparts, dislocates).
         const a = implementPoint(s, 'L'), b = implementPoint(s, 'R');
-        push(capsule2(P(a), P(b), 0.9, 0.9), color, Math.max(D(a), D(b)) + 0.5);
+        out.push(...segmented(a, b, 0.9, 0.9, color, 0, 8));
         break;
       }
       // Anchored: `to` is [forward, up, left] from the feet, in the body's own axes.
@@ -433,7 +455,7 @@ export function implementShapes(s, spec, pal) {
       const ax = norm([apply(s.root, [1, 0, 0])[0], 0, apply(s.root, [1, 0, 0])[2]]);
       const az = norm([apply(s.root, [0, 0, 1])[0], 0, apply(s.root, [0, 0, 1])[2]]);
       const to = add(add(add([base[0], 0, base[2]], ax, spec.to[0]), [0, spec.to[1], 0]), az, spec.to[2] ?? 0);
-      push(capsule2(P(at), P(to), 0.8, 0.8), color, D(at) - 0.2);
+      out.push(...segmented(at, to, 0.8, 0.8, color, 0, 10));
       if (spec.kind === 'cable') push(circlePts(P(to), 3, 10), pal.steel, D(to) - 0.3);
       break;
     }
@@ -441,7 +463,7 @@ export function implementShapes(s, spec, pal) {
       const g = implementPoint(s, spec.at ?? 'L');
       const ax = norm([apply(s.root, [1, 0, 0])[0], 0, apply(s.root, [1, 0, 0])[2]]);
       const pivot = add([g[0], 0, g[2]], ax, 95);
-      push(capsule2(P(g), P(pivot), 1.3, 1.1), pal.steel, D(g) + 0.5);
+      out.push(...segmented(g, pivot, 1.3, 1.1, pal.steel, 0, 10));
       push(hull(discPoly(add(g, norm(sub(g, pivot)), -6), norm(sub(g, pivot)), 10, 16)), pal.plate, D(g) + 0.49);
       break;
     }
@@ -454,7 +476,7 @@ export function implementShapes(s, spec, pal) {
       const length = spec.length ?? 128;
       const toIce = dir[1] < -0.15 ? (top[1] - 1) / -dir[1] : Infinity;
       const heel = add(top, dir, Math.min(length - 10, toIce));
-      push(capsule2(P(add(top, dir, -6)), P(heel), 1.3, 1.1), pal.plate, Math.max(D(top), D(bottom)) + 0.6);
+      out.push(...segmented(add(top, dir, -6), heel, 1.3, 1.1, pal.plate, 0, 10));
       const fw = norm([apply(s.root, [1, 0, 0])[0], 0, apply(s.root, [1, 0, 0])[2]]);
       const bladeDir = norm(sub(fw, scale(dir, dot(fw, dir))));
       const toe = add(heel, bladeDir, 16);
@@ -464,6 +486,13 @@ export function implementShapes(s, spec, pal) {
         if (spec.ball) push(sphere([puck[0], 3.6, puck[2]], 3.6), pal.implementRed, D(puck) + 0.5);
         else push(hull(discPoly([puck[0], 1, puck[2]], [0, 1, 0], 3.4, 12)), pal.shoe, D(puck) + 0.5);
       }
+      break;
+    }
+    case 'bat2': {
+      // A bat gripped in both hands: bottom hand (L, at the knob) and top hand (R).
+      const lo = implementPoint(s, 'L'), hi = implementPoint(s, 'R');
+      const dir = norm(sub(hi, lo));
+      out.push(...segmented(add(lo, dir, -3), add(lo, dir, 62), 1.3, 2.9, pal.wood, 0, 8));
       break;
     }
     case 'wheel': {
@@ -495,12 +524,12 @@ export function implementShapes(s, spec, pal) {
         const sag = Math.sin(t * Math.PI);
         pts.push(add([lateral[0], lateral[1] + (low - lateral[1]) * sag, lateral[2]], fw, 6 * sag));
       }
-      for (let i = 0; i < pts.length - 1; i++) push(capsule2(P(pts[i]), P(pts[i + 1]), 0.6, 0.6), pal.implementRed, Math.max(D(a), D(b)) + 1);
+      for (let i = 0; i < pts.length - 1; i++) push(capsule2(P(pts[i]), P(pts[i + 1]), 0.6, 0.6), pal.implementRed, (D(pts[i]) + D(pts[i + 1])) / 2);
       break;
     }
     case 'wristroller': {
       const a = implementPoint(s, 'L'), b = implementPoint(s, 'R');
-      push(capsule2(P(add(a, sub(a, b), 0.2)), P(add(b, sub(b, a), 0.2)), 1.5, 1.5), pal.steel, Math.max(D(a), D(b)) + 0.5);
+      out.push(...segmented(add(a, sub(a, b), 0.2), add(b, sub(b, a), 0.2), 1.5, 1.5, pal.steel, 0, 6));
       const mid = scale(add(a, b), 0.5);
       const low = add(mid, [0, -(spec.drop ?? 30), 0]);
       push(capsule2(P(mid), P(low), 0.5, 0.5), pal.steel, D(mid) + 0.4);
@@ -514,7 +543,7 @@ export function implementShapes(s, spec, pal) {
         const p = add(add(at, fwd, i * 8), [0, -at[1] * (i / 10) * 0.9 + Math.sin(i * 1.3 + (spec.phase ?? 0)) * 4, 0]);
         pts.push(p);
       }
-      for (let i = 0; i < pts.length - 1; i++) push(capsule2(P(pts[i]), P(pts[i + 1]), 1.3, 1.3), pal.implementRed, D(at) + 0.5);
+      for (let i = 0; i < pts.length - 1; i++) push(capsule2(P(pts[i]), P(pts[i + 1]), 1.3, 1.3), pal.implementRed, (D(pts[i]) + D(pts[i + 1])) / 2);
       break;
     }
     default: break;
@@ -561,7 +590,7 @@ export function fixtureShapes(s, fx, place, pal) {
     }
     case 'bar': {
       const at = W(...place.at);
-      push(capsule2(P(add(at, az, 45)), P(add(at, az, -45)), 1.6, 1.6), pal.steel, D(at) + 20);
+      out.push(...segmented(add(at, az, 45), add(at, az, -45), 1.6, 1.6, pal.steel, 0, 14));
       for (const σ of [1, -1]) {
         const foot = add([at[0], 0, at[2]], az, σ * 45);
         push(capsule2(P(foot), P(add(at, az, σ * 45)), 1.4, 1.4), pal.steel, -60);

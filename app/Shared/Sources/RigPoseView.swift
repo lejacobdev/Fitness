@@ -27,11 +27,10 @@ public struct RigPoseView: View {
         let palette = RigPalette.forScheme(colorScheme)
         let frame = RigFraming.bounds(for: playback)
         let still = !animated || reduceMotion
+        let loop = RigFraming.loopSeconds(for: playback)
         TimelineView(.animation(paused: still)) { timeline in
-            let t = still
-                ? stillPhase(playback)
-                : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: playback.cycleSeconds) / playback.cycleSeconds
-            let skeleton = still ? playback.keyframe(min(pattern.thumb, pattern.keyframes.count - 1)) : playback.frame(at: t)
+            let seconds = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: loop)
+            let skeleton = still ? playback.keyframe(min(pattern.thumb, pattern.keyframes.count - 1)) : playback.frame(atTime: seconds, loop: loop)
             Canvas { context, size in
                 RigCanvas.draw(RigShapes.shapes(skeleton, playback: playback, glow: glow, palette: palette), in: &context,
                                size: size, frame: frame, ground: playback.info.fixture?.kind != "water" ? Color(hex: palette.ground) : nil)
@@ -40,7 +39,6 @@ public struct RigPoseView: View {
         .accessibilityHidden(true) // decorative alongside the item's own text
     }
 
-    private func stillPhase(_ playback: RigPlayback) -> Double { 0 }
 }
 
 /// A still frame for list thumbnails — the pattern's most telling keyframe.
@@ -66,14 +64,25 @@ struct RigStillView: View {
 @MainActor
 enum RigFraming {
     private static var cache: [String: CGRect] = [:]
+    private static var loops: [String: Double] = [:]
+
+    /// Seconds for the whole animation (a travelling drill's full path).
+    static func loopSeconds(for playback: RigPlayback) -> Double {
+        if let hit = loops[playback.info.id] { return hit }
+        let value = max(playback.loopSeconds, 0.2)
+        loops[playback.info.id] = value
+        return value
+    }
 
     static func bounds(for playback: RigPlayback) -> CGRect {
         if let hit = cache[playback.info.id] { return hit }
         var minX = Double.infinity, maxX = -Double.infinity, minY = Double.infinity, maxY = -Double.infinity
         let palette = RigPalette.forScheme(.light)
-        for n in 0..<20 {
-            let s = playback.frame(at: Double(n) / 20)
-            for shape in RigShapes.shapes(s, playback: playback, glow: [:], palette: palette) where shape.depth > -1e5 {
+        let loop = loopSeconds(for: playback)
+        let samples = playback.info.path == nil ? 20 : 40
+        for n in 0..<samples {
+            let s = playback.frame(atTime: Double(n) / Double(samples) * loop, loop: loop)
+            for shape in RigShapes.shapes(s, playback: playback, glow: [:], palette: palette) where shape.depth > -1e5 && !shape.isBall {
                 for p in shape.points {
                     minX = min(minX, p.x); maxX = max(maxX, p.x); minY = min(minY, p.y); maxY = max(maxY, p.y)
                 }
