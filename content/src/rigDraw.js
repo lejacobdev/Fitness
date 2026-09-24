@@ -534,7 +534,7 @@ export function implementShapes(s, spec, pal) {
     case 'oar2': {
       // A sweep oar: both hands on the handle, the shaft through the pin on the rigger, the blade out over the water.
       const handle = scale(add(implementPoint(s, 'L'), implementPoint(s, 'R')), 0.5);
-      const pin = add(add(add(s.pelvis, apply(s.root, [1, 0, 0]), 8), [0, 20, 0]), apply(s.root, [0, 0, -1]), 70);
+      const pin = add(add(add(s.pelvis, apply(s.root, [1, 0, 0]), 8), [0, 12, 0]), apply(s.root, [0, 0, -1]), 70);
       const dir = norm(sub(pin, handle));
       const tip = add(handle, dir, 260);
       push(capsule2(P(add(handle, dir, -10)), P(tip), 1.2, 1.2), pal.steel, D(pin) - 0.2);
@@ -967,7 +967,7 @@ export function fixtureShapes(s, fx, place, pal) {
         const t = i / 12, x = x0 + (x1 - x0) * t, w = 26 * Math.sin(Math.PI * Math.min(1, t * 1.15)) + 2;
         pts.push(P(W(x, y + 3, o[2] + w)), P(W(x, y, o[2] - w)));
       }
-      push(hull(pts), '#F4F4F2', -4);
+      push(hull(pts), '#F2B134', -4);
       push(hull([P(W(x0 + 10, y + 3.2, o[2] + 1)), P(W(x1 - 10, y + 3.2, o[2] + 1)), P(W(x1 - 10, y + 3.2, o[2] - 1)), P(W(x0 + 10, y + 3.2, o[2] - 1))]), pal.implementRed, -3.9);
       break;
     }
@@ -976,15 +976,15 @@ export function fixtureShapes(s, fx, place, pal) {
       const { seat } = place;
       const x = seat[0], top = seat[1] - 6;
       const bodyPts = [];
-      for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; bodyPts.push(P(W(x + 8 + Math.cos(a) * 62, top - 22 + Math.sin(a) * 24, o[2]))); }
+      for (let i = 0; i < 20; i++) { const a = (i / 20) * Math.PI * 2; bodyPts.push(P(W(x + 6 + Math.cos(a) * 74, top - 30 + Math.sin(a) * 30, o[2]))); }
       const coat = '#8B5A3C';
       push(hull(bodyPts), coat, -30);
-      push(capsule2(P(W(x + 60, top - 10, o[2])), P(W(x + 90, top + 40, o[2])), 12, 8), coat, -30);
-      push(hull(circlePts(P(W(x + 100, top + 44, o[2])), 10, 12).concat(circlePts(P(W(x + 118, top + 30, o[2])), 7, 12))), coat, -29.9);
-      for (const [dx, dz] of [[42, 10], [42, -10], [-40, 10], [-40, -10]]) {
-        push(capsule2(P(W(x + dx, top - 36, o[2] + dz)), P(W(x + dx + 2, 0, o[2] + dz)), 5, 3.4), dz > 0 ? coat : '#6E4730', dz > 0 ? 30 : -35);
+      push(hull([P(W(x + 48, top - 20, o[2])), P(W(x + 70, top - 40, o[2])), P(W(x + 104, top + 26, o[2])), P(W(x + 88, top + 36, o[2]))]), coat, -30);
+      push(hull([P(W(x + 88, top + 38, o[2])), P(W(x + 104, top + 28, o[2])), P(W(x + 136, top + 4, o[2])), P(W(x + 130, top - 6, o[2]))]), coat, -29.9);
+      for (const [dx, dz] of [[48, 10], [48, -10], [-46, 10], [-46, -10]]) {
+        push(capsule2(P(W(x + dx, top - 50, o[2] + dz)), P(W(x + dx + 2, 2, o[2] + dz)), 5.5, 3.2), dz > 0 ? coat : '#6E4730', dz > 0 ? 30 : -35);
       }
-      push(capsule2(P(W(x - 52, top - 14, o[2])), P(W(x - 66, top - 60, o[2])), 3, 2), '#3A2A20', -31);
+      push(capsule2(P(W(x - 64, top - 20, o[2])), P(W(x - 76, top - 70, o[2])), 3, 2), '#3A2A20', -31);
       box(x - 14, x + 14, top - 4, top + 2, o[2] - 12, o[2] + 12, pal.plate, -1);
       break;
     }

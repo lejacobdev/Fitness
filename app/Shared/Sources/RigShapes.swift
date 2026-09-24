@@ -545,7 +545,7 @@ enum RigShapes {
         case "oar2":
             // A sweep oar: both hands on the handle, the shaft through the pin on the rigger, the blade out over the water.
             let handle = (implementPoint(s, "L") + implementPoint(s, "R")) / 2
-            let pin = s.pelvis + s.root.apply(V3(1, 0, 0)) * 8 + V3(0, 20, 0) + s.root.apply(V3(0, 0, -1)) * 70
+            let pin = s.pelvis + s.root.apply(V3(1, 0, 0)) * 8 + V3(0, 12, 0) + s.root.apply(V3(0, 0, -1)) * 70
             let dir = normed(pin - handle)
             let tip = handle + dir * 260
             push(capsule(P(handle - dir * 10), P(tip), 1.2, 1.2), pal.steel, D(pin) - 0.2)
@@ -815,20 +815,20 @@ enum RigShapes {
                 let t = Double(i) / 12, x = x0 + (x1 - x0) * t, w = 26 * sin(.pi * min(1, t * 1.15)) + 2
                 pts.append(P(W(x, y + 3, o.z + w))); pts.append(P(W(x, y, o.z - w)))
             }
-            push(hull(pts), "#F4F4F2", -4)
+            push(hull(pts), "#F2B134", -4)
             push(hull([P(W(x0 + 10, y + 3.2, o.z + 1)), P(W(x1 - 10, y + 3.2, o.z + 1)), P(W(x1 - 10, y + 3.2, o.z - 1)), P(W(x0 + 10, y + 3.2, o.z - 1))]), pal.red, -3.9)
         case "horse":
             // A horse under the rider: barrel, neck and head forward, four legs, a tail.
             let seat = p["seat"] ?? .zero
             let x = seat.x, top = seat.y - 6
             let coat = "#8B5A3C"
-            push(hull((0..<16).map { i -> CGPoint in let a = Double(i) / 16 * .pi * 2; return P(W(x + 8 + cos(a) * 62, top - 22 + sin(a) * 24, o.z)) }), coat, -30)
-            push(capsule(P(W(x + 60, top - 10, o.z)), P(W(x + 90, top + 40, o.z)), 12, 8), coat, -30)
-            push(hull(circle(P(W(x + 100, top + 44, o.z)), 10, 12) + circle(P(W(x + 118, top + 30, o.z)), 7, 12)), coat, -29.9)
-            for (dx, dz) in [(42.0, 10.0), (42, -10), (-40, 10), (-40, -10)] {
-                push(capsule(P(W(x + dx, top - 36, o.z + dz)), P(W(x + dx + 2, 0, o.z + dz)), 5, 3.4), dz > 0 ? coat : "#6E4730", dz > 0 ? 30 : -35)
+            push(hull((0..<20).map { i -> CGPoint in let a = Double(i) / 20 * .pi * 2; return P(W(x + 6 + cos(a) * 74, top - 30 + sin(a) * 30, o.z)) }), coat, -30)
+            push(hull([P(W(x + 48, top - 20, o.z)), P(W(x + 70, top - 40, o.z)), P(W(x + 104, top + 26, o.z)), P(W(x + 88, top + 36, o.z))]), coat, -30)
+            push(hull([P(W(x + 88, top + 38, o.z)), P(W(x + 104, top + 28, o.z)), P(W(x + 136, top + 4, o.z)), P(W(x + 130, top - 6, o.z))]), coat, -29.9)
+            for (dx, dz) in [(48.0, 10.0), (48, -10), (-46, 10), (-46, -10)] {
+                push(capsule(P(W(x + dx, top - 50, o.z + dz)), P(W(x + dx + 2, 2, o.z + dz)), 5.5, 3.2), dz > 0 ? coat : "#6E4730", dz > 0 ? 30 : -35)
             }
-            push(capsule(P(W(x - 52, top - 14, o.z)), P(W(x - 66, top - 60, o.z)), 3, 2), "#3A2A20", -31)
+            push(capsule(P(W(x - 64, top - 20, o.z)), P(W(x - 76, top - 70, o.z)), 3, 2), "#3A2A20", -31)
             box(x - 14, x + 14, top - 4, top + 2, o.z - 12, o.z + 12, pal.plate, -1)
         case "climbwall":
             // A climbing wall in front with coloured holds.
