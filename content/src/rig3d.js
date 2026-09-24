@@ -426,9 +426,31 @@ function ballPoint(pattern, index, current, placed, cast = null) {
  * Where a held implement meets the ball: a racket or paddle's strings, a
  * bat's barrel, a club's face (same geometry rigDraw.js draws).
  */
+/** Bottom hand to the centre of a lacrosse head. */
+export const LACROSSE_HEAD = 96;
 export const IMPLEMENT_LENGTHS = { bat: 48, club: 58, stick: 56, racket: 30, paddle: 20, lacrosse: 50 };
 export function implementHead(spec, sk, r = 0) {
   const kind = spec?.kind ?? 'racket';
+  const gripOf = (l) => add(l.wrist, apply(l.hand, [0, -1, 0]), 3.5);
+  const fwFlat = () => { const f = apply(sk.root, [1, 0, 0]); return norm([f[0], 0, f[2]]); };
+  if (kind === 'hockeystick') {
+    // On the blade, on the ground (same geometry rigDraw.js draws).
+    const top = gripOf(spec.leftTop ? sk.L : sk.R), dir = norm(sub(gripOf(spec.leftTop ? sk.R : sk.L), top));
+    const length = spec.length ?? 128;
+    const toIce = dir[1] < -0.15 ? (top[1] - 1) / -dir[1] : Infinity;
+    const heel = add(top, dir, Math.min(length - 10, toIce));
+    const fw = fwFlat();
+    const blade = norm(sub(fw, scale(dir, dot(fw, dir))));
+    const p = add(add(heel, blade, 9), fw, 5);
+    return [p[0], Math.max(r, heel[1]), p[2]];
+  }
+  if (kind === 'lacrosse2') {
+    // In the pocket of a two-handed stick (bottom hand L, top hand R).
+    const lo = gripOf(sk.L), dir = norm(sub(gripOf(sk.R), lo));
+    const fw = fwFlat();
+    const face = norm(sub(fw, scale(dir, dot(fw, dir))));
+    return add(add(lo, dir, spec.head ?? LACROSSE_HEAD), face, Math.max(0, r - 2));
+  }
   if (kind === 'bat2') {
     // Two-handed bat: the sweet spot 48 along the line from the knob hand.
     const grip = (l) => add(l.wrist, apply(l.hand, [0, -1, 0]), 3.5);
@@ -687,7 +709,7 @@ export function pathSeconds(pattern, placed = placeKeyframes(pattern)) {
   const path = pattern.path;
   if (!path) return cycleSeconds(pattern);
   const speed = path.speed ?? Math.max(strideSpeed(pattern, placed, PATH_AXIS[path.dir ?? 'forward'] ?? [1, 0, 0]), 20);
-  const length = path.kind === 'circle' ? 2 * Math.PI * path.radius : path.kind === 'shuttle' ? path.length * 2 : path.length;
+  const length = path.kind === 'arc' ? (2 * Math.PI * path.radius * path.angle) / 180 : path.kind === 'circle' ? 2 * Math.PI * path.radius : path.kind === 'figure8' ? 4 * Math.PI * path.radius : path.kind === 'shuttle' ? path.length * 2 : path.length;
   return length / speed;
 }
 
@@ -702,6 +724,18 @@ export function pathAt(pattern, seconds, placed = placeKeyframes(pattern)) {
     const turn = path.turn ?? 1;
     const theta = 2 * Math.PI * u;
     return { pos: [path.radius * Math.sin(theta), 0, turn * path.radius * (1 - Math.cos(theta))], heading: (turn * theta * 180) / Math.PI };
+  }
+  if (path.kind === 'arc') {
+    // Sideways back and forth along an arc of `angle` degrees round a centre
+    // `radius` behind, always facing out from it (a keeper squaring up).
+    const phi = (path.angle / 2) * Math.sin(2 * Math.PI * u) * (Math.PI / 180);
+    return { pos: [path.radius * Math.cos(phi) - path.radius, 0, path.radius * Math.sin(phi)], heading: (phi * 180) / Math.PI };
+  }
+  if (path.kind === 'figure8') {
+    // Round one circle to the left, then one to the right, through the origin.
+    const half = u < 0.5 ? 1 : -1;
+    const theta = 4 * Math.PI * (u < 0.5 ? u : u - 0.5);
+    return { pos: [path.radius * Math.sin(theta), 0, half * path.radius * (1 - Math.cos(theta))], heading: (half * theta * 180) / Math.PI };
   }
   const axis = PATH_AXIS[path.dir ?? 'forward'] ?? [1, 0, 0];
   if (path.kind === 'shuttle') {

@@ -279,7 +279,7 @@ function genPosePatternsSwift() {
     } : null,
     ball: p.ball ? { r: r3(p.ball.r ?? 6), color: p.ball.color ?? 'red' } : null,
     cast: p.cast ? p.cast.map((c) => ({ pattern: c.pattern, at: [r3(c.at?.[0] ?? 0), r3(c.at?.[1] ?? 0)], facing: r3(c.facing ?? 0), phase: r3(c.phase ?? 0), follow: !!c.follow })) : null,
-    path: p.path ? { kind: p.path.kind, length: p.path.length ?? null, radius: p.path.radius ?? null, turn: p.path.turn ?? null, dir: p.path.dir ?? null, speed: p.path.speed ?? null } : null,
+    path: p.path ? { kind: p.path.kind, length: p.path.length ?? null, radius: p.path.radius ?? null, angle: p.path.angle ?? null, turn: p.path.turn ?? null, dir: p.path.dir ?? null, speed: p.path.speed ?? null } : null,
     keyframes: p.keyframes.map((k) => ({
       angles: JOINTS.map((j) => r3(k.pose[j])), contact: k.contact, hold: r3(k.hold ?? 0), move: r3(k.move ?? 0.6),
       surface: r3(k.surface ?? 0), travel: [r3(k.travel?.[0] ?? 0), r3(k.travel?.[1] ?? 0)], chain: k.chain ?? [0, 1],
@@ -378,6 +378,8 @@ public struct RigCastSpec: Sendable, Hashable, Codable {
 
 /// A travelling drill's path through the scene (see rig3d.js pathAt).
 public struct RigPathSpec: Sendable, Hashable, Codable {
+    /// Degrees of arc for an 'arc' path.
+    public let angle: Double?
     public let kind: String
     public let length: Double?
     public let radius: Double?

@@ -2,7 +2,7 @@
  * Authoring kit for pose patterns (see ../poses.js for the pattern format and
  * ../rig3d.js for every angle convention). Pattern files import from here.
  */
-import { BONES, JOINTS as RIG_JOINTS, add, apply, len, skeleton, sub } from '../rig3d.js';
+import { BONES, JOINTS as RIG_JOINTS, add, apply, len, norm, skeleton, sub } from '../rig3d.js';
 
 export const JOINTS = RIG_JOINTS;
 
@@ -159,16 +159,22 @@ function reachOnce(p, s, target) {
       return len(sub(k[s].wrist, target(k)));
     };
     let best = [q[`shoulder${s}`], q[`shoulderAbd${s}`]], bestErr = err(...best);
-    for (let f = -70; f <= 200; f += 10) for (let a = -60; a <= 130; a += 10) {
-      const e = err(f, a);
-      if (e < bestErr) { bestErr = e; best = [f, a]; }
+    // The coarse scan finds the right basin; later rounds (only the elbow
+    // changed) just refine from there.
+    if (round === 0) {
+      for (let f = -70; f <= 200; f += 10) for (let a = -60; a <= 130; a += 10) {
+        const e = err(f, a);
+        if (e < bestErr) { bestErr = e; best = [f, a]; }
+      }
     }
     for (const step of [5, 2.5, 1, 0.5, 0.25, 0.1]) {
       let improved = true;
       while (improved) {
         improved = false;
         for (const [df, da] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
-          const c = [best[0] + df, best[1] + da], e = err(...c);
+          const c = [best[0] + df, best[1] + da];
+          if (c[0] < -90 || c[0] > 250 || c[1] < -90 || c[1] > 175) continue; // stay inside the joint's range
+          const e = err(...c);
           if (e < bestErr - 1e-9) { bestErr = e; best = c; improved = true; }
         }
       }
@@ -238,7 +244,9 @@ export function reachLeg(p, s, target) {
       while (improved) {
         improved = false;
         for (const [df, da] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
-          const c = [best[0] + df, best[1] + da], e = err(...c);
+          const c = [best[0] + df, best[1] + da];
+          if (c[0] < -90 || c[0] > 250 || c[1] < -90 || c[1] > 175) continue; // stay inside the joint's range
+          const e = err(...c);
           if (e < bestErr - 1e-9) { bestErr = e; best = c; improved = true; }
         }
       }
@@ -318,3 +326,39 @@ export function library() {
     },
   };
 }
+
+// ── Shared movement helpers (gaits, where things are, holding sticks) ──────
+
+/** Arms swinging in a run: left shoulder forward `fwdL`, right `backR`. */
+export const armsSwing = (fwdL, backR, elbow) => ({ shoulderL: fwdL, shoulderR: backR, elbowL: elbow, elbowR: elbow, shoulderAbdL: 8, shoulderAbdR: 8 });
+/** A gait from its left-side phases: the right side mirrors them. */
+export const gait = (phases, { lean = 0, neck = 0, move = 0.1, extra = {} } = {}) => {
+  const left = phases.map((ph) => P({ spine: lean, neck, ...extra, ...ph }));
+  return [...left, ...left.map(mirror)].map((p) => kf(p, 'air', { move }));
+};
+export const fwdOf = (sk) => apply(sk.root, [1, 0, 0]);
+export const leftOf = (sk) => apply(sk.root, [0, 0, 1]);
+export const floorY = (sk) => Math.min(sk.L.ankle[1], sk.R.ankle[1]);
+/** A point on the ground `f` forward of the pelvis and `l` to its left. */
+export const ground = (f, l, up = 1) => (sk) => add(add([sk.pelvis[0], floorY(sk) + up, sk.pelvis[2]], fwdOf(sk), f), leftOf(sk), l);
+/** A point `h` above the pelvis, `f` forward, `l` to the left. */
+export const air = (f, h, l) => (sk) => add(add(add(sk.pelvis, fwdOf(sk), f), [0, h, 0]), leftOf(sk), l);
+
+/**
+ * Both hands on a hockey-type stick: the top hand at `top(sk)`, the blade at
+ * `blade(sk)`, the lower hand `share` of the way down. Ice hockey (left
+ * shot) has the right hand on top; field hockey (`leftTop`) the left.
+ */
+export const holdStick = (p, blade, top, { share = 0.42, leftTop = false } = {}) => {
+  const lower = (sk) => add(top(sk), sub(blade(sk), top(sk)), share);
+  return leftTop
+    ? reachBoth(p, top, lower, { rot: [-40, -20, 0, 20, 40], prefer: (sk, s) => sk[s].elbow[1] })
+    : reachBoth(p, lower, top, { rot: [-40, -20, 0, 20, 40], prefer: (sk, s) => sk[s].elbow[1] });
+};
+
+/**
+ * Both hands on a lacrosse stick (right-handed: bottom hand L at `bottom`,
+ * top hand R `gap` further up the shaft towards `head`).
+ */
+export const holdLax = (p, bottom, head, gap = 36) => reachBoth(p, bottom,
+  (sk) => add(bottom(sk), norm(sub(head(sk), bottom(sk))), gap), { rot: [-40, -20, 0, 20, 40], prefer: (sk, s) => sk[s].elbow[1] });

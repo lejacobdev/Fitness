@@ -6,7 +6,7 @@
  * Every shape is a closed polygon in screen space (x right, y down) with a
  * depth; drawing them far-to-near is the whole renderer.
  */
-import { BONES, add, apply, dot, norm, project, scale, sub, rotY } from './rig3d.js';
+import { BONES, LACROSSE_HEAD, add, apply, dot, norm, project, scale, sub, rotY } from './rig3d.js';
 
 export const PALETTE = {
   light: {
@@ -502,7 +502,8 @@ export function implementShapes(s, spec, pal) {
     case 'hockeystick': {
       // Shaft through both hands (top hand R, bottom hand L: a left shot),
       // continuing to the blade; the blade lies along the ice when it's down.
-      const top = implementPoint(s, 'R'), bottom = implementPoint(s, 'L');
+      // leftTop: field-hockey grip (left hand on top, ball on the right).
+      const top = implementPoint(s, spec.leftTop ? 'L' : 'R'), bottom = implementPoint(s, spec.leftTop ? 'R' : 'L');
       const dir = norm(sub(bottom, top));
       // The shaft runs until it meets the ice (or its full length in the air).
       const length = spec.length ?? 128;
@@ -518,6 +519,21 @@ export function implementShapes(s, spec, pal) {
         if (spec.ball) push(sphere([puck[0], 3.6, puck[2]], 3.6), pal.implementRed, D(puck) + 0.5);
         else push(hull(discPoly([puck[0], 1, puck[2]], [0, 1, 0], 3.4, 12)), pal.shoe, D(puck) + 0.5);
       }
+      break;
+    }
+    case 'lacrosse2': {
+      // Two-handed lacrosse stick: bottom hand L near the butt, top hand R,
+      // the shaft running on past the top hand to the head (the pocket faces forward).
+      const lo = implementPoint(s, 'L'), hi = implementPoint(s, 'R');
+      const dir = norm(sub(hi, lo));
+      const fw = norm([apply(s.root, [1, 0, 0])[0], 0, apply(s.root, [1, 0, 0])[2]]);
+      const face = norm(sub(fw, scale(dir, dot(fw, dir))));
+      // `head`: bottom hand to the head (choked up for a face-off); the shaft is 104 long.
+      const reachHead = spec.head ?? LACROSSE_HEAD;
+      out.push(...segmented(add(lo, dir, reachHead - 104), add(lo, dir, reachHead - 7), 1.2, 1.2, pal.plate, 0, 10));
+      const head = add(lo, dir, reachHead);
+      push(hull(discPoly(head, face, 7.5, 16)), pal.steel, D(head) + 0.4);
+      push(hull(discPoly(add(head, face, 0.4), face, 5.8, 16)), pal.plate, D(head) + 0.41);
       break;
     }
     case 'bat2': {

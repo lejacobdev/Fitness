@@ -58,6 +58,8 @@ struct M3 {
 }
 
 enum RigBones {
+    /// Bottom hand to the centre of a lacrosse head (rig3d.js LACROSSE_HEAD).
+    static let lacrosseHead = 96.0
     static let torso = 42.0, neck = 7.0, headR = 9.0, upperArm = 27.0, forearm = 24.0, hand = 8.0
     static let thigh = 40.0, shin = 39.0, foot = 15.0, heel = 3.5
     static let shoulderHalf = 15.0, hipHalf = 8.0, hipDrop = 2.0
@@ -487,6 +489,22 @@ final class RigPlayback {
             // Where the held implement meets the ball (as rig3d.js implementHead).
             let lengths: [String: Double] = ["bat": 48, "club": 58, "stick": 56, "racket": 30, "paddle": 20, "lacrosse": 50]
             let kind = implement?.kind ?? "racket"
+            let fwFlat = normed(V3(current.root.apply(V3(1, 0, 0)).x, 0, current.root.apply(V3(1, 0, 0)).z))
+            if kind == "hockeystick" {
+                let leftTop = implement?.flags.contains("leftTop") == true
+                let top = grip(leftTop ? current.L : current.R), dir = normed(grip(leftTop ? current.R : current.L) - top)
+                let length = implement?.numbers["length"] ?? 128
+                let toIce = dir.y < -0.15 ? (top.y - 1) / -dir.y : .infinity
+                let heel = top + dir * min(length - 10, toIce)
+                let blade = normed(fwFlat - dir * fwFlat.dot(dir))
+                let p = heel + blade * 9 + fwFlat * 5
+                return V3(p.x, max(r, heel.y), p.z)
+            }
+            if kind == "lacrosse2" {
+                let lo = grip(current.L), dir = normed(grip(current.R) - lo)
+                let face = normed(fwFlat - dir * fwFlat.dot(dir))
+                return lo + dir * (implement?.numbers["head"] ?? RigBones.lacrosseHead) + face * max(0, r - 2)
+            }
             if kind == "bat2" {
                 let lo = grip(current.L), hi = grip(current.R)
                 return lo + normed(hi - lo) * 48
@@ -715,7 +733,15 @@ extension RigPlayback {
         guard let path = info.path else { return cycleSeconds }
         let axis = Self.pathAxes[path.dir ?? "forward"] ?? V3(1, 0, 0)
         let speed = path.speed ?? max(strideSpeed(axis: axis), 20)
-        let length: Double = path.kind == "circle" ? 2 * .pi * (path.radius ?? 100) : (path.kind == "shuttle" ? (path.length ?? 200) * 2 : (path.length ?? 200))
+        let radius: Double = path.radius ?? 100
+        let length: Double
+        switch path.kind {
+        case "arc": length = 2 * Double.pi * radius * (path.angle ?? 90) / 180
+        case "circle": length = 2 * Double.pi * radius
+        case "figure8": length = 4 * Double.pi * radius
+        case "shuttle": length = (path.length ?? 200) * 2
+        default: length = path.length ?? 200
+        }
         return length / speed
     }
 
@@ -727,6 +753,19 @@ extension RigPlayback {
             let turn = path.turn ?? 1, r = path.radius ?? 100
             let theta = 2 * Double.pi * u
             return (V3(r * sin(theta), 0, turn * r * (1 - cos(theta))), turn * theta * 180 / .pi)
+        }
+        if path.kind == "arc" {
+            // Sideways along an arc round a centre `radius` behind, facing out from it.
+            let r = path.radius ?? 100
+            let phi = (path.angle ?? 90) / 2 * sin(2 * .pi * u) * .pi / 180
+            return (V3(r * cos(phi) - r, 0, r * sin(phi)), phi * 180 / .pi)
+        }
+        if path.kind == "figure8" {
+            // One circle to the left, then one to the right, through the origin.
+            let r = path.radius ?? 100
+            let half: Double = u < 0.5 ? 1 : -1
+            let theta = 4 * Double.pi * (u < 0.5 ? u : u - 0.5)
+            return (V3(r * sin(theta), 0, half * r * (1 - cos(theta))), half * theta * 180 / .pi)
         }
         let axis = Self.pathAxes[path.dir ?? "forward"] ?? V3(1, 0, 0)
         let length = path.length ?? 200

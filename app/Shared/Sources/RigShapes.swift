@@ -453,7 +453,8 @@ enum RigShapes {
             out += segmented(oneGrip, pivot, 1.3, 1.1, Color(hex: pal.steel), n: 10)
             push(hull(disc(oneGrip - axis * 6, axis, 10, 16)), pal.plate, D(oneGrip) + 0.49)
         case "hockeystick":
-            let top = implementPoint(s, "R"), bottom = implementPoint(s, "L")
+            let leftTop = spec.flags.contains("leftTop")
+            let top = implementPoint(s, leftTop ? "L" : "R"), bottom = implementPoint(s, leftTop ? "R" : "L")
             let dir = normed(bottom - top)
             let length = spec.numbers["length"] ?? 128
             let toIce = dir.y < -0.15 ? (top.y - 1) / -dir.y : .infinity
@@ -466,6 +467,15 @@ enum RigShapes {
                 if spec.flags.contains("ball") { push(sphere(V3(puck.x, 3.6, puck.z), 3.6), pal.red, D(puck) + 0.5) }
                 else { push(hull(disc(V3(puck.x, 1, puck.z), V3(0, 1, 0), 3.4, 12)), pal.shoe, D(puck) + 0.5) }
             }
+        case "lacrosse2":
+            let lo = implementPoint(s, "L"), hi = implementPoint(s, "R")
+            let dir = normed(hi - lo)
+            let face = normed(fwFlat - dir * fwFlat.dot(dir))
+            let reachHead = spec.numbers["head"] ?? RigBones.lacrosseHead
+            out += segmented(lo + dir * (reachHead - 104), lo + dir * (reachHead - 7), 1.2, 1.2, Color(hex: pal.plate), n: 10)
+            let head = lo + dir * reachHead
+            push(hull(disc(head, face, 7.5, 16)), pal.steel, D(head) + 0.4)
+            push(hull(disc(head + face * 0.4, face, 5.8, 16)), pal.plate, D(head) + 0.41)
         case "bat2":
             let lo = implementPoint(s, "L"), hi = implementPoint(s, "R")
             let dir = normed(hi - lo)
