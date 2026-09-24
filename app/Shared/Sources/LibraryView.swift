@@ -64,15 +64,16 @@ public struct LibraryView: View {
     }
 
     private var filteredItems: [CatalogueItem] {
-        allItems.filter { item in
-            (searchText.isEmpty || item.name.localizedCaseInsensitiveContains(searchText))
-                && (group == nil || item.qualities.contains { entry in entry.value >= 0.5 && qualitiesBySlug[entry.key]?.group == group })
+        let filtered = allItems.filter { item in
+            (group == nil || item.qualities.contains { entry in entry.value >= 0.5 && qualitiesBySlug[entry.key]?.group == group })
                 && equipment.allows(item)
                 && (kind == nil || item.kind == kind)
                 && (surface == nil || item.surface == surface)
                 && (!mySportOnly || (sportSlug != nil && item.itemSportSlug == sportSlug))
                 && (region == nil || item.muscles.contains { entry in entry.value >= 0.5 && musclesBySlug[entry.key]?.region == region })
         }
+        // Best matches first: name, then sport, skills, muscles, equipment, how it's done.
+        return CatalogueSearch.rank(filtered, query: searchText)
     }
 
     private var activeFilterCount: Int {

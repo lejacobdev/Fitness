@@ -69,8 +69,7 @@ struct ImproveView: View {
 
     private var skills: [SportSkill] {
         let all = sportInfo?.skills ?? []
-        guard !searchText.isEmpty else { return all }
-        return all.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        return FuzzySearch.rank(all, query: searchText, fields: CatalogueSearch.fields)
     }
 
     private var savedBlocks: [SkillBlock] {

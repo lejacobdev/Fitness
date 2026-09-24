@@ -67,9 +67,7 @@ struct SportChooser: View {
     @State private var searchText = ""
 
     private var sports: [SportInfo] {
-        allSports
-            .filter { searchText.isEmpty || $0.name.localizedCaseInsensitiveContains(searchText) }
-            .sorted { $0.name < $1.name }
+        FuzzySearch.rank(allSports.sorted { $0.name < $1.name }, query: searchText, fields: CatalogueSearch.fields)
     }
 
     var body: some View {

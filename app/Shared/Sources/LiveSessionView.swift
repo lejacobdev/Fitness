@@ -593,10 +593,10 @@ struct ExercisePickerSheet: View {
     @State private var group: QualityGroup?
 
     private var items: [CatalogueItem] {
-        catalogue.itemsBySlug.values
-            .filter { searchText.isEmpty || $0.name.localizedCaseInsensitiveContains(searchText) }
+        let filtered = catalogue.itemsBySlug.values
             .filter { group == nil || $0.primaryQuality?.group == group }
             .sorted { $0.name < $1.name }
+        return CatalogueSearch.rank(filtered, query: searchText)
     }
 
     var body: some View {
