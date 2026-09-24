@@ -279,10 +279,10 @@ struct GettingStartedCard: View {
                     }
                     .frame(width: 52, height: 52)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Getting started")
+                        Text("Your next steps")
                             .font(.headline)
                             .foregroundStyle(AppTheme.ink)
-                        Text("Tap a step to do it now.")
+                        Text("\(done) of \(steps.count) done · tap one to do it now")
                             .font(.caption)
                             .foregroundStyle(AppTheme.secondaryText)
                     }
@@ -299,7 +299,7 @@ struct GettingStartedCard: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Hide getting started")
                 }
-                ForEach(steps) { step in
+                ForEach(steps.filter { !$0.done }) { step in
                     Button(action: step.action) {
                         HStack(spacing: 12) {
                             Image(systemName: step.done ? "checkmark" : step.icon)

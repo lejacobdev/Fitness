@@ -95,19 +95,6 @@ struct TodayView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         header
-                        if isSelectedToday {
-                            // New here? The first steps come before everything else.
-                            GettingStartedCard(
-                                athlete: athlete, hasLoggedSession: !allSessions.isEmpty,
-                                onCheckIn: { activeSheet = .checkIn },
-                                onAddGame: { activeSheet = .addGame },
-                                onStartSession: {
-                                    liveLaunch = LiveSessionLaunch(planned: gameOnSelectedDay == nil ? displayedSession : nil)
-                                },
-                                onImprove: { selectedTab = .improve },
-                                onLibrary: { selectedTab = .library }
-                            )
-                        }
                         VStack(alignment: .leading, spacing: 8) {
                             WeekStrip(selection: $selectedDate, marked: markedDays, gameDays: Set(athlete.competitions.map { calendar.startOfDay(for: $0.date) }))
                             WeekStripLegend()
@@ -120,6 +107,19 @@ struct TodayView: View {
                             .foregroundStyle(AppTheme.ink)
                         }
                         doThisNow
+                        if isSelectedToday {
+                            // New here? The next few things to try, right after today's main action.
+                            GettingStartedCard(
+                                athlete: athlete, hasLoggedSession: !allSessions.isEmpty,
+                                onCheckIn: { activeSheet = .checkIn },
+                                onAddGame: { activeSheet = .addGame },
+                                onStartSession: {
+                                    liveLaunch = LiveSessionLaunch(planned: gameOnSelectedDay == nil ? displayedSession : nil)
+                                },
+                                onImprove: { selectedTab = .improve },
+                                onLibrary: { selectedTab = .library }
+                            )
+                        }
                         exercisesSection
                         ForEach(SavedSkillPlans.days(on: selectedDate, athlete: athlete, catalogue: catalogue)) { day in
                             SkillPlanTodayCard(day: day, catalogue: catalogue) { detailItem = $0 }
@@ -135,14 +135,10 @@ struct TodayView: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
-                    .padding(.bottom, 100)
+                    .padding(.bottom, 40)
                 }
                 .scrollIndicators(.hidden)
 
-                FloatingActionButton(title: "Add", accessibilityLabel: "Add: log a workout, check in, add a game, fuel or history") {
-                    activeSheet = .quickActions
-                }
-                .padding(20)
             }
             .appScreen()
             .toolbar(.hidden, for: .navigationBar)
@@ -233,6 +229,17 @@ struct TodayView: View {
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
                 SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
+                Spacer(minLength: 4)
+                Button { activeSheet = .quickActions } label: {
+                    Label("Add", systemImage: "plus")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.inkInverse)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(AppTheme.ink, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add: log a workout, check in, add a game, food or past workouts")
             }
         }
     }
