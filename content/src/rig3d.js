@@ -153,6 +153,8 @@ export function contactPoints(s) {
     [add(s.pelvis, fwd, 8), 0], [add(s.pelvis, fwd, -9.5), 0], [add(s.pelvis, lat, 13), 0], [add(s.pelvis, lat, -13), 0],
     [add(chest, fwd, 10), 0], [add(chest, fwd, -9.2), 0], [add(chest, lat, 15), 0], [add(chest, lat, -15), 0],
     [s.head, BONES.headR], [s.neckTop, 4],
+    // The sit bones, so a body sitting on the floor rests on them.
+    [add(s.pelvis, up, -9), 0],
   ];
   for (const l of [s.L, s.R]) {
     pts.push([l.shoulder, 5], [l.elbow, 3.8], [l.wrist, 2.7], [l.handTip, 1.5], [l.knee, 5.2], [l.ankle, 0], [l.toe, 0], [l.heel, 0]);
@@ -356,6 +358,61 @@ function groundY(s, surface, lift) {
  */
 export function frameAt(pattern, t, placed = placeKeyframes(pattern)) {
   const { segment, u } = timing(pattern, t);
+  const s = bodyAt(pattern, segment, u, placed);
+  if (pattern.ball) s.ball = ballAt(pattern, segment, u, s, placed);
+  return s;
+}
+
+/**
+ * The ball, for patterns that have one: each keyframe says where it is —
+ * in a hand ('L', 'R', 'hands', 'Ldown'/'Rdown' under the palm for a
+ * dribble), at a foot ('footL'), on the floor under a hand
+ * ({ floor: 'L', dx }), at a point relative to that keyframe's pelvis
+ * ({ at: [forward, up, left] }), or 'none'. It moves between keyframes,
+ * riding the hand when held, arcing when `ballArc` is set on the keyframe
+ * it leaves from.
+ */
+export function ballAt(pattern, segment, u, s, placed) {
+  const n = pattern.keyframes.length;
+  const i = segment, j = (segment + 1) % n;
+  const k0 = pattern.keyframes[i], k1 = pattern.keyframes[j];
+  const e = ease(k0, u);
+  const b0 = ballPoint(pattern, i, s, placed), b1 = ballPoint(pattern, j, s, placed);
+  if (!b0 && !b1) return null;
+  if (!b0) return e > 0.5 ? b1 : null;
+  if (!b1) return e < 0.5 ? b0 : null;
+  const p = add(scale(b0, 1 - e), b1, e);
+  return add(p, [0, (k0.ballArc ?? 0) * 4 * e * (1 - e), 0]);
+}
+
+function ballPoint(pattern, index, current, placed) {
+  const spec = pattern.keyframes[index].ball ?? 'hands';
+  const r = pattern.ball.r ?? 6;
+  if (spec === 'none') return null;
+  const grip = (l) => add(l.wrist, apply(l.hand, [0, -1, 0]), 3.5);
+  const inHand = (sk, side) => add(grip(sk[side]), apply(sk[side].hand, [1, 0, 0]), r * 0.9);
+  const under = (sk, side) => add(grip(sk[side]), [0, -(r + 1.5), 0]);
+  if (typeof spec === 'string') {
+    const sk = current;
+    switch (spec) {
+      case 'L': case 'R': return inHand(sk, spec);
+      case 'Ldown': return under(sk, 'L');
+      case 'Rdown': return under(sk, 'R');
+      case 'footL': case 'footR': { const l = sk[spec.slice(-1)]; return add(add(l.toe, apply(sk.root, [1, 0, 0]), r * 0.6), [0, r - l.toe[1] + l.toe[1], 0]); }
+      default: return add(scale(add(grip(sk.L), grip(sk.R)), 0.5), apply(sk.chest, [1, 0, 0]), r * 0.8);
+    }
+  }
+  const k = keyframeAt(pattern, index, placed);
+  const fw = apply(rotY(placed.view), [1, 0, 0]), lt = apply(rotY(placed.view), [0, 0, 1]);
+  if (spec.floor) {
+    const g = spec.floor === 'hands' ? scale(add(grip(k.L), grip(k.R)), 0.5) : grip(k[spec.floor]);
+    return add(add([g[0], r + (pattern.keyframes[index].surface ?? 0), g[2]], fw, spec.dx ?? 0), lt, spec.dl ?? 0);
+  }
+  const [f, h, l] = spec.at;
+  return add(add(add(k.pelvis, fw, f), [0, h, 0]), lt, l ?? 0);
+}
+
+function bodyAt(pattern, segment, u, placed) {
   const k0 = pattern.keyframes[segment], k1 = pattern.keyframes[(segment + 1) % pattern.keyframes.length];
   const base = lerpPose(k0.pose, k1.pose, ease(k0, u));
   let s = frameFor(pattern, segment, u, base, placed);

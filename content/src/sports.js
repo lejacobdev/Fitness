@@ -16,7 +16,7 @@
 
 import { isQuality } from './qualities.js';
 
-export const SPORT_CATALOGUE_VERSION = 1;
+export const SPORT_CATALOGUE_VERSION = 2;
 
 export const SEASONS = ['FALL', 'WINTER', 'SPRING', 'SUMMER', 'YEAR_ROUND'];
 export const CONTACT_LEVELS = ['NONE', 'LIMITED', 'CONTACT', 'COLLISION'];

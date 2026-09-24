@@ -25,7 +25,7 @@ const INTERIM_BY_PAIR = {
   'lateral-bound→landing': 'skater-bound', 'broad-jump→landing': 'broad-jump', 'horizontal-push→sprint-cycle': 'mountain-climber',
   'squat→horizontal-pull': 'rowing-erg', 'vertical-pull→overhead-throw': 'swim-freestyle', 'hinge→isometric-hold': 'glute-bridge',
 };
-const INTERIM_BY_POSE = {
+export const INTERIM_BY_POSE = {
   squat: 'squat-bodyweight', hinge: 'rdl', lunge: 'reverse-lunge', 'split-squat': 'split-squat', 'single-leg-rdl': 'single-leg-rdl',
   'horizontal-push': 'push-up', 'horizontal-pull': 'seated-cable-row', 'vertical-push': 'overhead-press', 'vertical-pull': 'pull-up',
   'anti-rotation-press': 'pallof-press', 'trunk-flexion': 'sit-up', 'trunk-rotation': 'woodchop', carry: 'farmers-carry', pogo: 'pogo',

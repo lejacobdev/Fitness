@@ -4,7 +4,15 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import { POSE_PATTERNS } from '../src/poses.js';
-import { frameAt, keyframeAt, placeFixture, placeKeyframes, timing } from '../src/rig3d.js';
+import { cycleSeconds, frameAt, keyframeAt, placeFixture, placeKeyframes, timing } from '../src/rig3d.js';
+
+/** Cycle position of the start of keyframe i's hold (so KEYFRAMES=1 shows the ball too). */
+function timeOfKeyframe(p, i) {
+  let at = 0;
+  const moves = p.loop ? p.keyframes.length : p.keyframes.length - 1;
+  for (let k = 0; k < i; k++) at += (p.keyframes[k].hold ?? 0) + (k < moves ? p.keyframes[k].move ?? 0.6 : 0);
+  return (at + 1e-6) / cycleSeconds(p);
+}
 import { figureShapes } from '../src/rigDraw.js';
 
 const out = process.argv[2] ?? '/tmp/rig.png';
@@ -21,11 +29,11 @@ patterns.forEach((p, row) => {
   const placed = placeKeyframes(p);
   const place = placeFixture(p, placed);
   const frames = keyframesOnly
-    ? p.keyframes.map((_, i) => keyframeAt(p, i, placed))
+    ? p.keyframes.map((_, i) => { const t = timeOfKeyframe(p, i); return frameAt(p, t, placed); })
     : Array.from({ length: n }, (_, i) => frameAt(p, i / n, placed));
   cols = Math.max(cols, frames.length);
   // One camera box for the whole strip (like the app's fixed frame).
-  const all = frames.flatMap((s) => figureShapes(s, { scheme, implement: p.implement, fixture: p.fixture, fixturePlace: place }).filter((sh) => sh.depth > -1e5).flatMap((sh) => sh.points));
+  const all = frames.flatMap((s) => figureShapes(s, { scheme, implement: p.implement, fixture: p.fixture, fixturePlace: place, ball: p.ball }).filter((sh) => sh.depth > -1e5).flatMap((sh) => sh.points));
   const xs = all.map((q) => q[0]), ys = all.map((q) => q[1]);
   const minX = Math.min(...xs) - 4, maxX = Math.max(...xs) + 4, minY = Math.min(...ys) - 4, maxY = Math.max(4, Math.max(...ys)) + 4;
   const k = Math.min((cellW - 8) / (maxX - minX), (cellH - 26) / (maxY - minY));
@@ -35,7 +43,7 @@ patterns.forEach((p, row) => {
     const tx = x0 + 4 - minX * k + ((cellW - 8) - (maxX - minX) * k) / 2;
     const ty = y0 + 20 - minY * k;
     body += `<g transform="translate(${tx},${ty}) scale(${k})">`;
-    for (const sh of figureShapes(s, { scheme, implement: p.implement, fixture: p.fixture, fixturePlace: place, glow: p.previewGlow ?? {} })) {
+    for (const sh of figureShapes(s, { scheme, implement: p.implement, fixture: p.fixture, fixturePlace: place, glow: p.previewGlow ?? {}, ball: p.ball })) {
       if (sh.points.length < 2) continue;
       const d = `M${sh.points.map((q) => `${q[0].toFixed(2)},${q[1].toFixed(2)}`).join(' L')} Z`;
       const fill = sh.fill === 'none' ? 'none' : sh.fill;

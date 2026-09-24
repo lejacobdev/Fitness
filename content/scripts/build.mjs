@@ -23,7 +23,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { buildAnatomy } from '../src/anatomy.js';
-import { CATALOGUE, BASE_ITEMS } from '../src/catalogue.js';
+import { CATALOGUE, BASE_ITEMS, INTERIM_BY_POSE } from '../src/catalogue.js';
 import { MUSCLE_MODEL_VERSION, MUSCLES } from '../src/muscles.js';
 import { JOINTS, POSE_MODEL_VERSION, POSE_PATTERNS } from '../src/poses.js';
 import { frameAt, placeKeyframes } from '../src/rig3d.js';
@@ -277,23 +277,32 @@ function genPosePatternsSwift() {
       flags: Object.entries(p.implement).filter(([, v]) => v === true).map(([k]) => k),
       numbers: Object.fromEntries(Object.entries(p.implement).filter(([, v]) => typeof v === 'number').map(([k, v]) => [k, r3(v)])),
     } : null,
+    ball: p.ball ? { r: r3(p.ball.r ?? 6), color: p.ball.color ?? 'red' } : null,
     keyframes: p.keyframes.map((k) => ({
       angles: JOINTS.map((j) => r3(k.pose[j])), contact: k.contact, hold: r3(k.hold ?? 0), move: r3(k.move ?? 0.6),
       surface: r3(k.surface ?? 0), travel: [r3(k.travel?.[0] ?? 0), r3(k.travel?.[1] ?? 0)], chain: k.chain ?? [0, 1],
+      ball: k.ball == null ? null
+        : typeof k.ball === 'string' ? { kind: k.ball }
+        : k.ball.floor ? { kind: 'floor', side: k.ball.floor, dx: r3(k.ball.dx ?? 0), dl: r3(k.ball.dl ?? 0) }
+        : { kind: 'at', at: k.ball.at.map(r3) },
+      ballArc: r3(k.ballArc ?? 0),
     })),
   }));
 
   // Golden samples: where rig3d.js puts key points, for the Swift parity test.
   const samples = [];
-  for (const p of POSE_PATTERNS.slice(0, 12)) {
+  for (const p of [...POSE_PATTERNS.slice(0, 12), ...POSE_PATTERNS.filter((x) => x.ball).slice(0, 6)]) {
     const placed = placeKeyframes(p);
     for (const t of [0, 0.37, 0.71]) {
       const s = frameAt(p, t, placed);
-      samples.push({ pattern: p.slug, t, points: [s.pelvis, s.head, s.L.ankle, s.R.toe, s.L.wrist, s.R.elbow, s.L.knee].flat().map(r3) });
+      samples.push({ pattern: p.slug, t, points: [s.pelvis, s.head, s.L.ankle, s.R.toe, s.L.wrist, s.R.elbow, s.L.knee].flat().map(r3), ball: s.ball ? s.ball.map(r3) : null });
     }
   }
   const json = (v) => JSON.stringify(v);
   if (json(patterns).includes('"#')) throw new Error('pose JSON would break the raw string literal');
+  // Every item's pattern, compiled into the app so packs downloaded before a
+  // pose change (which name older patterns) still animate correctly.
+  const itemPoses = Object.fromEntries(CATALOGUE.map((i) => [i.slug, i.startPose]));
 
   return `${generatedHeader('content/src/poses.js')}import Foundation
 
@@ -315,12 +324,32 @@ public struct PoseKeyframe: Sendable, Hashable, Codable {
     public let surface: Double
     public let travel: [Double]
     public let chain: [Int]
+    /// Where the ball is at this keyframe (nil → in both hands).
+    public let ball: PoseBall?
+    /// Height of the arc the ball flies on when it leaves this keyframe.
+    public let ballArc: Double
 
     public var pose: Pose {
         var out: Pose = [:]
         for (index, joint) in Joint.allCases.enumerated() { out[joint] = angles[index] }
         return out
     }
+}
+
+/// A keyframe's ball: kind is a hand/foot ('L', 'R', 'hands', 'Ldown', 'Rdown',
+/// 'footL', 'footR'), 'floor' (under a hand), 'at' (a point from the pelvis) or 'none'.
+public struct PoseBall: Sendable, Hashable, Codable {
+    public let kind: String
+    public let side: String?
+    public let dx: Double?
+    public let dl: Double?
+    public let at: [Double]?
+}
+
+/// The ball a pattern uses: radius and colour name.
+public struct RigBallSpec: Sendable, Hashable, Codable {
+    public let r: Double
+    public let color: String
 }
 
 /// A fixed object in the scene (bench, bar, box, bike…); numbers as in poses.js.
@@ -350,6 +379,7 @@ public struct PosePatternInfo: Sendable, Identifiable, Hashable, Codable {
     public let thumb: Int
     public let fixture: RigFixtureSpec?
     public let implement: RigImplementSpec?
+    public let ball: RigBallSpec?
     public let keyframes: [PoseKeyframe]
 
     public var start: Pose { keyframes[0].pose }
@@ -375,6 +405,8 @@ public struct RigGoldenSample: Sendable, Codable {
     public let t: Double
     /// pelvis, head, L ankle, R toe, L wrist, R elbow, L knee — x, y, z each.
     public let points: [Double]
+    /// The ball's centre, when the pattern has a ball in play at t.
+    public let ball: [Double]?
 }
 
 public let rigGoldenSamples: [RigGoldenSample] =
@@ -399,6 +431,18 @@ public func mirrorPose(_ pose: Pose) -> Pose {
 private let posePatternsJSON = #"${json(patterns)}"#
 
 private let rigGoldenSamplesJSON = #"${json(samples)}"#
+
+/// Item slug → its movement pattern, as of this build of the app.
+public let posePatternForItem: [String: String] =
+    (try? JSONDecoder().decode([String: String].self, from: Data(itemPosesJSON.utf8))) ?? [:]
+
+/// Older pattern names (from packs downloaded before the 3D rig) → today's.
+public let legacyPosePatterns: [String: String] =
+    (try? JSONDecoder().decode([String: String].self, from: Data(legacyPosesJSON.utf8))) ?? [:]
+
+private let itemPosesJSON = #"${json(itemPoses)}"#
+
+private let legacyPosesJSON = #"${json(INTERIM_BY_POSE)}"#
 `;
 }
 

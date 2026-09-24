@@ -114,6 +114,8 @@ struct RigSkeleton {
     var pelvis: V3, neckBase: V3, neckTop: V3, head: V3
     var L: RigLimb, R: RigLimb
     var twist: Double
+    /// The ball's centre, for patterns with a ball (nil when out of play).
+    var ball: V3? = nil
 
     func limb(_ side: String) -> RigLimb { side == "L" ? L : R }
 
@@ -174,6 +176,8 @@ enum RigKinematics3D {
             (s.pelvis + fwd * 8, 0), (s.pelvis - fwd * 9.5, 0), (s.pelvis + lat * 13, 0), (s.pelvis - lat * 13, 0),
             (chest + fwd * 10, 0), (chest - fwd * 9.2, 0), (chest + lat * 15, 0), (chest - lat * 15, 0),
             (s.head, RigBones.headR), (s.neckTop, 4),
+            // The sit bones, so a body sitting on the floor rests on them.
+            (s.pelvis - up * 9, 0),
         ]
         for l in [s.L, s.R] {
             pts += [(l.shoulder, 5), (l.elbow, 3.8), (l.wrist, 2.7), (l.handTip, 1.5), (l.knee, 5.2), (l.ankle, 0), (l.toe, 0), (l.heel, 0)]
@@ -397,9 +401,69 @@ final class RigPlayback {
         return (0, 0)
     }
 
-    /// The placed skeleton at cycle position `t` in [0, 1).
+    /// The placed skeleton at cycle position `t` in [0, 1), with the ball.
     func frame(at t: Double) -> RigSkeleton {
         let (segment, u) = timing(t)
+        var s = body(segment, u)
+        if info.ball != nil { s.ball = ballAt(segment, u, s) }
+        return s
+    }
+
+    // MARK: Ball (port of rig3d.js ballAt / ballPoint)
+
+    private var keyframeCache: [Int: RigSkeleton] = [:]
+    private func placedKeyframe(_ i: Int) -> RigSkeleton {
+        if let hit = keyframeCache[i] { return hit }
+        let k = keyframe(i)
+        keyframeCache[i] = k
+        return k
+    }
+
+    private func ballAt(_ segment: Int, _ u: Double, _ s: RigSkeleton) -> V3? {
+        let n = info.keyframes.count
+        let j = (segment + 1) % n
+        let e = ease(segment, u)
+        let b0 = ballPoint(segment, s), b1 = ballPoint(j, s)
+        switch (b0, b1) {
+        case (nil, nil): return nil
+        case (nil, let b?): return e > 0.5 ? b : nil
+        case (let a?, nil): return e < 0.5 ? a : nil
+        case (let a?, let b?):
+            let arc = info.keyframes[segment].ballArc
+            return a * (1 - e) + b * e + V3(0, arc * 4 * e * (1 - e), 0)
+        }
+    }
+
+    private func ballPoint(_ index: Int, _ current: RigSkeleton) -> V3? {
+        let spec = info.keyframes[index].ball ?? PoseBall(kind: "hands", side: nil, dx: nil, dl: nil, at: nil)
+        let r = info.ball?.r ?? 6
+        func grip(_ l: RigLimb) -> V3 { l.wrist + l.hand.apply(V3(0, -1, 0)) * 3.5 }
+        switch spec.kind {
+        case "none":
+            return nil
+        case "L", "R":
+            let l = current.limb(spec.kind)
+            return grip(l) + l.hand.apply(V3(1, 0, 0)) * (r * 0.9)
+        case "Ldown", "Rdown":
+            return grip(current.limb(String(spec.kind.prefix(1)))) + V3(0, -(r + 1.5), 0)
+        case "footL", "footR":
+            let l = current.limb(String(spec.kind.suffix(1)))
+            return l.toe + current.root.apply(V3(1, 0, 0)) * (r * 0.6) + V3(0, r, 0)
+        case "floor", "at":
+            let k = placedKeyframe(index)
+            let fw = M3.rotY(view).apply(V3(1, 0, 0)), lt = M3.rotY(view).apply(V3(0, 0, 1))
+            if spec.kind == "floor" {
+                let g = spec.side == "hands" ? (grip(k.L) + grip(k.R)) / 2 : grip(k.limb(spec.side ?? "R"))
+                return V3(g.x, r + info.keyframes[index].surface, g.z) + fw * (spec.dx ?? 0) + lt * (spec.dl ?? 0)
+            }
+            let a = spec.at ?? [0, 0, 0]
+            return k.pelvis + fw * a[0] + V3(0, a[1], 0) + lt * (a.count > 2 ? a[2] : 0)
+        default:
+            return (grip(current.L) + grip(current.R)) / 2 + current.chest.apply(V3(1, 0, 0)) * (r * 0.8)
+        }
+    }
+
+    private func body(_ segment: Int, _ u: Double) -> RigSkeleton {
         let n = info.keyframes.count
         let j = (segment + 1) % n
         var pose = RigAngles.lerp(angles[segment], angles[j], ease(segment, u))

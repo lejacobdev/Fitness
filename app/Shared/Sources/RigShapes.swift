@@ -80,6 +80,10 @@ enum RigShapes {
     }
     static func shade(_ far: String, _ near: String, _ depth: Double) -> Color { mix(far, near, (depth + 13) / 26) }
 
+    /// Ball colours by name (as content/src/rigDraw.js BALL_COLORS).
+    static let ballColors: [String: String] = ["orange": "#E8762B", "white": "#F4F4F2", "yellow": "#D8E83A", "red": "#E5383B",
+                                               "brown": "#8B4A2B", "blue": "#2F6FE0", "black": "#1E1E22"]
+
     static let torso: [(t: Double, w: Double, f: Double, b: Double)] = [
         (0, 13.5, 8, 9.5), (0.18, 12.8, 9, 8.6), (0.45, 12.2, 8, 7.6), (0.72, 15, 10.2, 9), (0.9, 16, 8.8, 9.4), (1, 9, 5, 5.5),
     ]
@@ -229,6 +233,9 @@ enum RigShapes {
 
         if let spec = playback.info.implement {
             shapes += implementShapes(s, spec, pal)
+        }
+        if let ball = s.ball, let spec = playback.info.ball {
+            push(sphere(ball, spec.r), Color(hex: ballColors[spec.color] ?? pal.red), D(ball) + spec.r * 0.5)
         }
 
         // Far to near (stable), each glow straight after its base shape.

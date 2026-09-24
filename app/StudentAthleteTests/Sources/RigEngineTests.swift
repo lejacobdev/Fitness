@@ -17,6 +17,12 @@ final class RigEngineTests: XCTestCase {
             for (index, (swift, js)) in zip(points, sample.points).enumerated() {
                 XCTAssertEqual(swift, js, accuracy: 0.05, "\(sample.pattern) t=\(sample.t) value \(index)")
             }
+            if let jsBall = sample.ball {
+                guard let ball = s.ball else { XCTFail("\(sample.pattern) t=\(sample.t): Swift lost the ball"); continue }
+                for (swift, js) in zip([ball.x, ball.y, ball.z], jsBall) { XCTAssertEqual(swift, js, accuracy: 0.05, "\(sample.pattern) ball") }
+            } else {
+                XCTAssertNil(s.ball, "\(sample.pattern) t=\(sample.t): ball should be out of play")
+            }
         }
     }
 
@@ -25,6 +31,12 @@ final class RigEngineTests: XCTestCase {
         for item in catalogue.itemsBySlug.values {
             XCTAssertNotNil(item.posePattern, "\(item.slug) → \(item.startPose)")
         }
+    }
+
+    func testTheAppKnowsEveryItemsPatternEvenFromOldPacks() {
+        XCTAssertGreaterThan(posePatternForItem.count, 900)
+        for (item, name) in posePatternForItem { XCTAssertNotNil(posePatternsBySlug[name], "\(item) → \(name)") }
+        for (old, name) in legacyPosePatterns { XCTAssertNotNil(posePatternsBySlug[name], "\(old) → \(name)") }
     }
 
     func testEveryPatternDrawsWithoutDegenerateShapes() {

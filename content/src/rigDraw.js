@@ -99,7 +99,10 @@ const facing = (v) => project(norm(v)).depth;
  * Shapes for one frame. `glow`: region → opacity. `implement`: resolved
  * implement spec or null. `fixture`: resolved fixture spec or null.
  */
-export function figureShapes(s, { scheme = 'light', glow = {}, implement = null, fixture = null, fixturePlace = null } = {}) {
+/** Ball colours by sport. */
+export const BALL_COLORS = { orange: '#E8762B', white: '#F4F4F2', yellow: '#D8E83A', red: '#E5383B', brown: '#8B4A2B', blue: '#2F6FE0', black: '#1E1E22' };
+
+export function figureShapes(s, { scheme = 'light', glow = {}, implement = null, fixture = null, fixturePlace = null, ball = null } = {}) {
   const pal = PALETTE[scheme];
   const shapes = [];
   const push = (points, fill, depth, extra = {}) => shapes.push({ points, fill, depth, ...extra });
@@ -226,6 +229,7 @@ export function figureShapes(s, { scheme = 'light', glow = {}, implement = null,
   }
 
   if (implement) for (const f of implementShapes(s, implement, pal)) shapes.push(f);
+  if (s.ball && ball) push(sphere(s.ball, ball.r ?? 6), BALL_COLORS[ball.color ?? 'red'] ?? pal.implementRed, D(s.ball) + (ball.r ?? 6) * 0.5);
 
   // Expand per-shape glow into overlay shapes right after their base.
   const out = [];

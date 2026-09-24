@@ -83,6 +83,14 @@ public struct MainTabView: View {
             let sync = SyncQueue(apiClient: apiClient, tokenStore: KeychainTokenStore(), modelContext: modelContext)
             await sync.drainPendingSessions()
             await sync.drainPendingCheckIns()
+            // Keep the offline packs current: newer exercises, cues and
+            // animations arrive without re-running setup.
+            if !DemoData.isEnabled {
+                for sport in athlete.sports {
+                    await SportPackInstaller.install(slug: sport.sportSlug, context: modelContext)
+                }
+                regenerate()
+            }
         }
     }
 
