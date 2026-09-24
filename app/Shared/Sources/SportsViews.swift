@@ -163,12 +163,13 @@ struct SportsManagerSheet: View {
                         }
                         .buttonStyle(.primary)
                     }
-                    Button {
-                        if canAdd { showingAdd = true } else { showingPaywall = true }
-                    } label: {
-                        Label(canAdd ? "Add a sport" : "Add another sport with Pro", systemImage: canAdd ? "plus" : "crown.fill")
+                    if canAdd {
+                        Button { showingAdd = true } label: { Label("Add a sport", systemImage: "plus") }
+                            .buttonStyle(.primary)
+                    } else {
+                        Button { showingPaywall = true } label: { Label("Add another sport with Pro", systemImage: "crown.fill") }
+                            .buttonStyle(.secondary)
                     }
-                    .buttonStyle(canAdd ? .primary : .secondary)
                     if !canAdd {
                         Text("Free covers one sport, and you can change it \(ProLimits.freeSportSwitchesPerMonth) times a month\(SportSwitchLedger.remaining.map { " (\($0) left)" } ?? ""). Pro lets you add every sport you play and switch between them any time.")
                             .font(.caption)
