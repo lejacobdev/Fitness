@@ -72,4 +72,15 @@ final class ProGateTests: XCTestCase {
         XCTAssertEqual(ProGate.remainingMuscleWorkouts(isPro: false, startDates: [now], now: now, calendar: calendar), 0)
         XCTAssertNil(ProGate.remainingMuscleWorkouts(isPro: true, startDates: [now, now], now: now, calendar: calendar))
     }
+
+    func testFreeAthletesCanChangeSportThreeTimesAMonth() {
+        let calendar = Calendar(identifier: .gregorian)
+        let now = calendar.date(from: DateComponents(year: 2026, month: 9, day: 20))!
+        let thisMonth = [calendar.date(from: DateComponents(year: 2026, month: 9, day: 2))!, calendar.date(from: DateComponents(year: 2026, month: 9, day: 10))!]
+        let lastMonth = [calendar.date(from: DateComponents(year: 2026, month: 8, day: 28))!]
+        XCTAssertEqual(ProGate.remainingSportSwitches(isPro: false, switchDates: [], now: now, calendar: calendar), 3)
+        XCTAssertEqual(ProGate.remainingSportSwitches(isPro: false, switchDates: thisMonth + lastMonth, now: now, calendar: calendar), 1)
+        XCTAssertEqual(ProGate.remainingSportSwitches(isPro: false, switchDates: thisMonth + thisMonth, now: now, calendar: calendar), 0)
+        XCTAssertNil(ProGate.remainingSportSwitches(isPro: true, switchDates: thisMonth, now: now, calendar: calendar))
+    }
 }

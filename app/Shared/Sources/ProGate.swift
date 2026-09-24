@@ -57,6 +57,8 @@ public enum ProLimits {
     public static let freeSports = 1
     /// Muscle-group workouts a free athlete can start per calendar week.
     public static let freeMuscleWorkoutsPerWeek = 1
+    /// Times a free athlete can change their sport per calendar month.
+    public static let freeSportSwitchesPerMonth = 3
 }
 
 public enum ProGate {
@@ -113,6 +115,15 @@ public enum ProGate {
 
     public static func canAddSport(isPro: Bool, currentSportCount: Int) -> Bool {
         isPro || currentSportCount < ProLimits.freeSports
+    }
+
+    /// Sport changes left this calendar month on free. `nil` means unlimited.
+    public static func remainingSportSwitches(
+        isPro: Bool, switchDates: [Date], now: Date = .now, calendar: Calendar = .current
+    ) -> Int? {
+        guard !isPro else { return nil }
+        let thisMonth = switchDates.filter { calendar.isDate($0, equalTo: now, toGranularity: .month) }.count
+        return max(0, ProLimits.freeSportSwitchesPerMonth - thisMonth)
     }
 
     /// Muscle workouts started this calendar week count toward the free

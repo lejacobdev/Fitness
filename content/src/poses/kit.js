@@ -311,5 +311,10 @@ export function library() {
     def(slug, name, spec) {
       patterns.push({ slug, name, view: 'side', loop: false, thumb: 1, ...spec });
     },
+    /** A defined pattern's spec, to build a variant (e.g. the same drill with a partner). */
+    get(slug) {
+      const { slug: _s, name: _n, ...spec } = patterns.find((p) => p.slug === slug);
+      return spec;
+    },
   };
 }

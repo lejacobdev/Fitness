@@ -5,6 +5,32 @@ import SwiftUI
 /// the app is set to and switches in one tap. Plan, skills, drills and
 /// suggestions all follow the active sport; games from every sport still
 /// count, so the week never loads you up before any game.
+/// When a free athlete changed sport (device-local), for the monthly allowance.
+@MainActor
+enum SportSwitchLedger {
+    private static let key = "freeSportSwitchDates"
+
+    static var dates: [Date] {
+        (UserDefaults.standard.array(forKey: key) as? [Double] ?? []).map { Date(timeIntervalSince1970: $0) }
+    }
+
+    static var remaining: Int? { ProGate.remainingSportSwitches(isPro: ProAccess.isPro, switchDates: dates) }
+
+    /// False when a free athlete has used this month's changes.
+    static var canSwitch: Bool { (remaining ?? 1) > 0 }
+
+    static func record() {
+        guard !ProAccess.isPro else { return }
+        let recent = dates.filter { $0 > .now.addingTimeInterval(-40 * 86_400) }.map(\.timeIntervalSince1970)
+        UserDefaults.standard.set(recent + [Date.now.timeIntervalSince1970], forKey: key)
+    }
+
+    /// "2 of 3 sport changes left this month" (free only).
+    static var summary: String? {
+        remaining.map { "\($0) of \(ProLimits.freeSportSwitchesPerMonth) sport changes left this month" }
+    }
+}
+
 struct SportSwitcher: View {
     let athlete: Athlete
     let onChanged: () -> Void
@@ -13,6 +39,7 @@ struct SportSwitcher: View {
     @State private var showingAdd = false
     @State private var showingManage = false
     @State private var showingPaywall = false
+    @State private var showingChange = false
 
     private var canAdd: Bool { ProGate.canAddSport(isPro: ProAccess.isPro, currentSportCount: athlete.sports.count) }
 
@@ -37,6 +64,14 @@ struct SportSwitcher: View {
                         }
                     }
                 }
+                if !ProAccess.isPro {
+                    Button {
+                        if SportSwitchLedger.canSwitch { showingChange = true } else { showingPaywall = true }
+                    } label: {
+                        Label("Change sport", systemImage: "arrow.left.arrow.right")
+                        if let summary = SportSwitchLedger.summary { Text(summary) }
+                    }
+                }
                 Button {
                     if canAdd { showingAdd = true } else { showingPaywall = true }
                 } label: {
@@ -54,6 +89,9 @@ struct SportSwitcher: View {
         .accessibilityLabel("Sport: \(activeName). Double tap to switch or add a sport.")
         .sheet(isPresented: $showingAdd) {
             AddSportSheet(athlete: athlete, onSaved: onChanged)
+        }
+        .sheet(isPresented: $showingChange) {
+            AddSportSheet(athlete: athlete, replacing: true, onSaved: onChanged)
         }
         .sheet(isPresented: $showingManage) {
             SportsManagerSheet(athlete: athlete, onChanged: onChanged)
@@ -85,6 +123,8 @@ struct SportSwitcher: View {
 
     private func switchTo(_ sport: AthleteSport) {
         guard sport.id != athlete.activeSport?.id else { return }
+        guard SportSwitchLedger.canSwitch else { showingPaywall = true; return }
+        SportSwitchLedger.record()
         athlete.switchSport(to: sport)
         try? modelContext.save()
         onChanged()
@@ -103,6 +143,7 @@ struct SportsManagerSheet: View {
     @State private var editing: AthleteSport?
     @State private var pendingRemoval: AthleteSport?
     @State private var showingPaywall = false
+    @State private var showingChange = false
 
     private var canAdd: Bool { ProGate.canAddSport(isPro: ProAccess.isPro, currentSportCount: athlete.sports.count) }
 
@@ -114,14 +155,22 @@ struct SportsManagerSheet: View {
                     ForEach(athlete.sortedSports) { sport in
                         sportCard(sport)
                     }
+                    if !ProAccess.isPro {
+                        Button {
+                            if SportSwitchLedger.canSwitch { showingChange = true } else { showingPaywall = true }
+                        } label: {
+                            Label("Change sport", systemImage: "arrow.left.arrow.right")
+                        }
+                        .buttonStyle(.primary)
+                    }
                     Button {
                         if canAdd { showingAdd = true } else { showingPaywall = true }
                     } label: {
                         Label(canAdd ? "Add a sport" : "Add another sport with Pro", systemImage: canAdd ? "plus" : "crown.fill")
                     }
-                    .buttonStyle(.primary)
+                    .buttonStyle(canAdd ? .primary : .secondary)
                     if !canAdd {
-                        Text("Free covers one sport. Pro lets you add every sport you play and switch between them.")
+                        Text("Free covers one sport, and you can change it \(ProLimits.freeSportSwitchesPerMonth) times a month\(SportSwitchLedger.remaining.map { " (\($0) left)" } ?? ""). Pro lets you add every sport you play and switch between them any time.")
                             .font(.caption)
                             .foregroundStyle(AppTheme.secondaryText)
                             .frame(maxWidth: .infinity)
@@ -140,6 +189,9 @@ struct SportsManagerSheet: View {
             }
             .sheet(isPresented: $showingAdd) {
                 AddSportSheet(athlete: athlete, onSaved: onChanged)
+            }
+            .sheet(isPresented: $showingChange) {
+                AddSportSheet(athlete: athlete, replacing: true, onSaved: onChanged)
             }
             .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .multipleSports)
             .sheet(item: $editing) { sport in
@@ -190,6 +242,8 @@ struct SportsManagerSheet: View {
             HStack(spacing: 8) {
                 if !isActive {
                     Button("Switch to it") {
+                        guard SportSwitchLedger.canSwitch else { showingPaywall = true; return }
+                        SportSwitchLedger.record()
                         athlete.switchSport(to: sport)
                         try? modelContext.save()
                         onChanged()
@@ -236,6 +290,8 @@ struct SportsManagerSheet: View {
 /// the active sport straight away.
 struct AddSportSheet: View {
     let athlete: Athlete
+    /// Free: the new sport replaces the current one (one of the month's changes).
+    var replacing = false
     let onSaved: () -> Void
 
     @Environment(\.modelContext) private var modelContext
@@ -253,7 +309,8 @@ struct AddSportSheet: View {
         switch step {
         case 0:
             StepScaffold(
-                progress: 0.33, title: "Add a sport", subtitle: alreadyPlays ? "You already have this sport." : "Which other sport do you play?",
+                progress: 0.33, title: replacing ? "Change sport" : "Add a sport",
+                subtitle: alreadyPlays ? "You already have this sport." : (replacing ? (SportSwitchLedger.summary.map { "Your plan switches to the new sport. \($0)." } ?? "Your plan switches to the new sport.") : "Which other sport do you play?"),
                 buttonTitle: "Next", buttonEnabled: sport != nil && !alreadyPlays, onBack: { dismiss() }, onContinue: {
                     guard let sport else { return }
                     let defaults = SeasonDefaults.dates(for: sport)
@@ -274,7 +331,7 @@ struct AddSportSheet: View {
             }
         default:
             StepScaffold(progress: 1, title: "Season dates", subtitle: "When does your \(sport?.name.lowercased() ?? "") season run? Your plan's phases hang off these.",
-                         buttonTitle: "Add sport", onBack: { step = sport?.positions.isEmpty == false ? 1 : 0 }, onContinue: save) {
+                         buttonTitle: replacing ? "Change sport" : "Add sport", onBack: { step = sport?.positions.isEmpty == false ? 1 : 0 }, onContinue: save) {
                 SeasonEditor(start: $seasonStart, end: $seasonEnd)
             }
         }
@@ -287,6 +344,10 @@ struct AddSportSheet: View {
             seasonStart: seasonStart, seasonEnd: max(seasonStart, seasonEnd), isPrimary: true, athlete: athlete
         )
         modelContext.insert(added)
+        if replacing {
+            SportSwitchLedger.record()
+            for old in athlete.sports where old.id != added.id { modelContext.delete(old) }
+        }
         athlete.switchSport(to: added)
         try? modelContext.save()
         let slug = sport.slug

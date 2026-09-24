@@ -2,7 +2,7 @@
 export const COURT_SPORT_POSES = {
   'basketball-first-step-attack': 'bb-first-step',
   'basketball-approach-and-finish': 'bb-layup',
-  'basketball-box-out-drill': 'bb-box-out',
+  'basketball-box-out-drill': 'bb-box-out-vs',
   'basketball-form-shooting-ladder': 'bb-set-shot',
   'basketball-free-throw-routine': 'bb-set-shot',
   'basketball-two-ball-dribbling': 'bb-crossover',
@@ -13,7 +13,7 @@ export const COURT_SPORT_POSES = {
   'netball-drive-and-land': 'netball-drive-catch',
   'netball-rebound-jumps': 'bb-rebound',
   'netball-chest-pass-accuracy': 'bb-chest-pass',
-  'netball-shadow-marking': 'bb-defensive-slide',
+  'netball-shadow-marking': 'netball-shadow-mark',
   'netball-three-foot-defending': 'netball-defend',
   'netball-dodge-and-lead': 'cut-45',
   'netball-goal-shooting-routine': 'netball-shot',

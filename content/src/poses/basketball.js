@@ -145,6 +145,20 @@ def('bb-box-out', 'Box-out and rebound', {
     kf(hold(P(both({ hip: 60, knee: 70, ankle: 28, hipAbd: 24 }), { spine: 24 }), 14, 44), 'feet', { hold: 0.3, ball: at(14, 44) }),
   ],
 });
+// The opponent the box-out holds off: sets behind, leans in, reaches late.
+def('bb-box-out-opponent', 'Box-out opponent', {
+  view: 'three-quarter', thumb: 1,
+  keyframes: [
+    kf(P(both({ hip: 24, knee: 28, ankle: 12, hipAbd: 10, shoulder: 30, elbow: 50 }), { spine: 8 }), 'feet', { hold: 0.2, move: 0.4 }),
+    kf(P(both({ hip: 40, knee: 44, ankle: 20, hipAbd: 14, shoulder: 80, elbow: 40 }), { spine: 30, neck: -24 }), 'feet', { hold: 0.8, move: 0.2 }),
+    kf(P(both({ hip: 30, knee: 34, ankle: 16, hipAbd: 12 }), reachUp, { spine: 14, neck: -30 }), 'feet', { move: 0.2 }),
+    kf(P(both({ hip: 30, knee: 34, ankle: 16, hipAbd: 12 }), reachUp, { spine: 14, neck: -30 }), 'feet', { hold: 0.1, move: 0.3 }),
+    kf(P(both({ hip: 24, knee: 28, ankle: 12, hipAbd: 10, shoulder: 30, elbow: 50 }), { spine: 8 }), 'feet', { hold: 0.3 }),
+  ],
+});
+def('bb-box-out-vs', 'Box-out and rebound (with opponent)', {
+  ...lib.get('bb-box-out'), cast: [{ pattern: 'bb-box-out-opponent', at: [-42, 22], facing: 0 }],
+});
 
 // Defence ----------------------------------------------------------------------
 const defStance = both({ hip: 52, knee: 62, ankle: 28, hipAbd: 24, shoulderAbd: 60, elbow: 20, shoulder: 30 });
@@ -275,6 +289,10 @@ def('wc-dribble-push', 'Push and dribble', {
     kf(reach(P(seatedAt(20), { shoulderL: 10, elbowL: 40 }), 'R', (sk) => [sk.pelvis[0] + 30, sk.pelvis[1] - 4, -24]), 'seat', { move: 0.25, ball: 'Rdown' }),
     kf(reach(P(seatedAt(20), { shoulderL: 10, elbowL: 40 }), 'R', (sk) => [sk.pelvis[0] + 30, sk.pelvis[1] - 12, -24]), 'seat', { move: 0.25, ball: { floor: 'R', dx: 2 } }),
   ],
+});
+
+def('netball-shadow-mark', 'Shadow marking (attacker and defender)', {
+  ...lib.get('bb-defensive-slide'), view: 'three-quarter', cast: [{ pattern: 'bb-defensive-slide', at: [60, 0], facing: 180, follow: true, phase: 0.5 }],
 });
 
 export const BASKETBALL = lib.patterns;
