@@ -149,14 +149,24 @@ enum RigShapes {
         if let ball = s.ball, let spec = playback.info.ball {
             let depth = D(ball) + spec.r * 0.5
             var balls: [RigShape] = []
-            if spec.shape == "baton" {
+            if spec.shape == "flag" {
+                // A tossed color-guard flag: pole upright and turning, silk at the top.
+                let up = normed(V3(0, 1, 0) + s.root.apply(V3(1, 0, 0)) * 0.25)
+                // The silk angles between forward and sideways so it reads from any camera.
+                let fw = normed(V3(s.root.apply(V3(1, 0, 0)).x, 0, s.root.apply(V3(1, 0, 0)).z) + s.root.apply(V3(0, 0, 1)))
+                let lo = ball - up * 20, top = ball + up * 150
+                // A tossed flag stays in the camera framing (unlike a thrown ball).
+                balls.append(RigShape(points: capsule(P(lo), P(top), 1.1, 1.1), color: Color(hex: pal.steel), depth: depth))
+                balls.append(RigShape(points: hull([P(top), P(top - up * 56), P(top - up * 56 + fw * 44), P(top + fw * 44)]),
+                                      color: Color(hex: pal.red), opacity: 0.9, depth: depth + 0.01))
+            } else if spec.shape == "baton" {
                 // A relay baton: a short tube standing up in the hand.
                 let up = normed(V3(0, 1, 0) + s.root.apply(V3(1, 0, 0)) * 0.35)
                 balls.append(RigShape(points: capsule(P(ball - up * 14), P(ball + up * 14), 1.9, 1.9), color: Color(hex: ballColors[spec.color] ?? pal.red), depth: depth, isBall: true))
             } else if spec.color == "white" {
                 balls.append(RigShape(points: sphere(ball, spec.r + 0.5), color: Color(hex: "#8A8A90"), depth: depth - 0.001, isBall: true))
             }
-            if spec.shape != "baton" {
+            if spec.shape == nil {
                 balls.append(RigShape(points: sphere(ball, spec.r), color: Color(hex: ballColors[spec.color] ?? pal.red), depth: depth, isBall: true))
             }
             func dist(_ p: V3) -> Double { hypot(p.x - ball.x, p.z - ball.z) }
@@ -524,6 +534,22 @@ enum RigShapes {
             let c = implementPoint(s, "hands") + V3(0, -3, 0)
             push(hull(disc(c, lateral, 7, 18)), pal.plate, D(c) + 0.6)
             push(capsule(P(c + lateral * 11), P(c - lateral * 11), 1.2, 1.2), pal.steel, D(c) + 0.61)
+        case "flag":
+            // Color-guard flag: the pole runs from the bottom hand (L) through the top hand (R), the silk near its top.
+            let lo = implementPoint(s, "L"), hi = implementPoint(s, "R")
+            let dir = normed(hi - lo)
+            let top = lo + dir * 150
+            out += segmented(lo - dir * 24, top, 1.1, 1.1, Color(hex: pal.steel), n: 12)
+            let across = normed(fwFlat - dir * fwFlat.dot(dir))
+            out.append(RigShape(points: hull([P(top), P(top - dir * 56), P(top - dir * 56 + across * 44), P(top + across * 44)]),
+                                color: Color(hex: pal.red), opacity: 0.9, depth: D(top) + 0.5))
+        case "horn":
+            // A brass instrument held up at the mouth, bell forward.
+            let hf = s.headFrame.apply(V3(1, 0, 0)), hu = s.headFrame.apply(V3(0, 1, 0))
+            let mouth = s.head + hf * 9 - hu * 3
+            let bell = mouth + hf * 42
+            push(capsule(P(mouth), P(bell), 1.4, 2.4), "#C9A227", D(mouth) + 1)
+            push(hull(disc(bell, hf, 7, 16)), "#C9A227", D(bell) + 1.01)
         case "towels":
             // A towel (or gi fabric) in each hand, hanging from the bar above.
             for side in ["L", "R"] {

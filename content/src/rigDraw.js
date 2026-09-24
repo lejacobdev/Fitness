@@ -319,7 +319,15 @@ export function sceneShapes(s, { scheme = 'light', glow = {}, implement = null, 
   if (s.ball && ball) {
     const r = ball.r ?? 6, depth = D(s.ball) + r * 0.5;
     const balls = [];
-    if (ball.shape === 'baton') {
+    if (ball.shape === 'flag') {
+      // A tossed color-guard flag: pole upright and turning, silk at the top.
+      const up = norm(add([0, 1, 0], apply(s.root, [1, 0, 0]), 0.25));
+      // The silk angles between forward and sideways so it reads from any camera.
+      const fw = norm(add([apply(s.root, [1, 0, 0])[0], 0, apply(s.root, [1, 0, 0])[2]], apply(s.root, [0, 0, 1]), 1));
+      const lo = add(s.ball, up, -20), top = add(s.ball, up, 150);
+      balls.push({ points: capsule2(P(lo), P(top), 1.1, 1.1), fill: pal.steel, depth });
+      balls.push({ points: hull([P(top), P(add(top, up, -56)), P(add(add(top, up, -56), fw, 44)), P(add(top, fw, 44))]), fill: pal.implementRed, depth: depth + 0.01, opacity: 0.9 });
+    } else if (ball.shape === 'baton') {
       // A relay baton: a short tube standing up in the hand.
       const up = norm(add([0, 1, 0], apply(s.root, [1, 0, 0]), 0.35));
       balls.push({ points: capsule2(P(add(s.ball, up, -14)), P(add(s.ball, up, 14)), 1.9, 1.9), fill: BALL_COLORS[ball.color ?? 'red'] ?? pal.implementRed, depth, isBall: true });
@@ -590,6 +598,26 @@ export function implementShapes(s, spec, pal) {
       const lat3 = apply(s.chest, [0, 0, 1]);
       push(hull(discPoly(c, lat3, 7, 18)), pal.plate, D(c) + 0.6);
       push(capsule2(P(add(c, lat3, 11)), P(add(c, lat3, -11)), 1.2, 1.2), pal.steel, D(c) + 0.61);
+      break;
+    }
+    case 'flag': {
+      // Color-guard flag: the pole runs from the bottom hand (L) through the top hand (R), the silk near its top.
+      const lo = implementPoint(s, 'L'), hi = implementPoint(s, 'R');
+      const dir = norm(sub(hi, lo));
+      const top = add(lo, dir, 150);
+      out.push(...segmented(add(lo, dir, -24), top, 1.1, 1.1, pal.steel, 0, 12));
+      const fw = norm([apply(s.root, [1, 0, 0])[0], 0, apply(s.root, [1, 0, 0])[2]]);
+      const across = norm(sub(fw, scale(dir, dot(fw, dir))));
+      push(hull([P(top), P(add(top, dir, -56)), P(add(add(top, dir, -56), across, 44)), P(add(top, across, 44))]), pal.implementRed, D(top) + 0.5, { opacity: 0.9 });
+      break;
+    }
+    case 'horn': {
+      // A brass instrument held up at the mouth, bell forward.
+      const hf = apply(s.headFrame, [1, 0, 0]), hu = apply(s.headFrame, [0, 1, 0]);
+      const mouth = add(add(s.head, hf, 9), hu, -3);
+      const bell = add(mouth, hf, 42);
+      push(capsule2(P(mouth), P(bell), 1.4, 2.4), '#C9A227', D(mouth) + 1);
+      push(hull(discPoly(bell, hf, 7, 16)), '#C9A227', D(bell) + 1.01);
       break;
     }
     case 'towels': {

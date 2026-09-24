@@ -10,7 +10,7 @@ const RANGES = {
   hip: [-95, 170], hipAbd: [-30, 90], hipRot: [-60, 60], knee: [0, 160], ankle: [-95, 45],
 };
 const range = (j) => RANGES[j] ?? RANGES[j.slice(0, -1)];
-const IMPLEMENTS = new Set(['towels', 'sword', 'map', 'lacrosse2', 'barbell', 'dumbbell', 'dumbbells', 'goblet', 'kettlebell', 'medball', 'plate', 'ball', 'football', 'puck',
+const IMPLEMENTS = new Set(['flag', 'horn', 'towels', 'sword', 'map', 'lacrosse2', 'barbell', 'dumbbell', 'dumbbells', 'goblet', 'kettlebell', 'medball', 'plate', 'ball', 'football', 'puck',
   'bat', 'club', 'stick', 'racket', 'paddle', 'javelin', 'pole', 'lacrosse', 'bow', 'oar', 'band', 'cable', 'rope', 'prop', 'disc', 'shot', 'rifle', 'sword', 'glove', 'board', 'landmine', 'wristroller', 'jumprope', 'wheel', 'kickboard', 'hockeystick', 'bat2']);
 const FIXTURES = new Set(['control', 'blocks', 'racingchair', 'bench', 'box', 'wall', 'bar', 'water', 'bike', 'rower', 'mat', 'hurdle', 'cone', 'ladder', 'net', 'wheelchair', 'sled', 'roller', 'ball', 'incline', 'kickball']);
 const SAMPLES = 16;
@@ -31,7 +31,8 @@ for (const p of POSE_PATTERNS) {
       for (const j of JOINTS) {
         const v = k.pose[j];
         assert.equal(typeof v, 'number', `keyframe ${i} missing ${j}`);
-        const [lo, hi] = range(j);
+        // Acrobatic patterns (handstands, flips) turn the whole body over.
+        const [lo, hi] = p.acrobatic && j === 'spine' ? [-380, 380] : range(j);
         assert.ok(v >= lo && v <= hi, `keyframe ${i} ${j} = ${v.toFixed(1)} outside ${lo}…${hi}`);
       }
     }
