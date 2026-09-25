@@ -57,7 +57,8 @@ struct HomeView: View {
         WorkoutModeContext(
             catalogue: catalogue, sport: sportInfo, positionSlug: athlete.activeSport?.positionSlug,
             formatSlug: athlete.activeSport?.formatSlug, equipment: Set(athlete.equipmentAvailable),
-            trainsUnderCoach: athlete.trainsUnderCoach, age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now)
+            trainsUnderCoach: athlete.trainsUnderCoach, age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now),
+            struggles: Struggles.selected
         )
     }
 
@@ -180,7 +181,7 @@ struct HomeView: View {
             .sheet(item: $preview) { box in
                 SessionPreviewSheet(session: box.session, catalogue: catalogue) {
                     preview = nil
-                    liveLaunch = LiveSessionLaunch(planned: box.session)
+                    liveLaunch = LiveSessionLaunch(planned: box.session, kind: box.kind)
                 }
             }
             .fullScreenCover(item: $routine, onDismiss: { mindsetRevision += 1 }) { routine in
@@ -190,7 +191,7 @@ struct HomeView: View {
                 }
             }
             .fullScreenCover(item: $liveLaunch) { launch in
-                LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned)
+                LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind)
             }
         }
     }
@@ -202,7 +203,7 @@ struct HomeView: View {
         case .logWorkout: liveLaunch = LiveSessionLaunch(planned: nil)
         case .checkIn: activeSheet = .checkIn
         case .addGame: activeSheet = .addGame
-        case .improve: selectedTab = .improve
+        case .improve: selectedTab = .workout
         case .history: activeSheet = .history
         case .fuel: activeSheet = .fuel
         }
@@ -417,62 +418,60 @@ struct HomeView: View {
         return nil
     }
 
+    /// Home keeps it short: what's on today, how long, Start. The full
+    /// choice of workouts is one tap away on the Workout tab.
     private func workoutCard(_ mode: WorkoutMode, _ session: GeneratedSession) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(status == .active ? "TODAY" : "OPTIONAL TODAY")
                     .font(.caption.weight(.heavy))
                     .tracking(0.8)
-                    .foregroundStyle(AppTheme.accent)
+                    .foregroundStyle(AppTheme.brand)
                 Spacer()
                 if loggedToday { Tag("Done", color: AppTheme.green) }
             }
             Text(mode.title)
                 .font(.title.bold())
                 .foregroundStyle(AppTheme.ink)
-            Text(mode.explanation)
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 16) {
                 Label("About \(session.estimatedMinutes) min", systemImage: "clock")
                 Label("\(session.items.count) exercises", systemImage: "list.bullet")
             }
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(AppTheme.ink)
-            if readinessResult != nil || (readinessOverridden && todaysCheckIn?.readinessBand != nil) {
-                Button(readinessOverridden ? "Use the lighter version from my check-in" : "Lighter because of your check-in — I feel fine, give me the full one") {
-                    readinessOverridden.toggle()
-                }
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.accent)
-            }
             if let practiceLine, mode == .afterPractice || mode == .gymDay {
                 Label(practiceLine.text, systemImage: practiceLine.icon)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.ink)
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+            } else if readinessResult != nil {
+                Label("Lighter today because of your check-in", systemImage: "leaf.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+            } else if examWeek, mode == .gymDay || mode == .afterPractice {
+                Label("Exam week: a shorter workout", systemImage: "book.closed.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
             }
-            if examWeek, mode == .gymDay || mode == .afterPractice {
-                Label("Exam week: shorter workouts, so you have time to study and sleep.", systemImage: "book.closed.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.purple)
-            }
-            thumbnails(session)
-            if mode == .afterPractice || mode == .gymDay {
-                Button { activeSheet = .schedule } label: {
-                    Label(ScheduleStore.feeds.isEmpty ? "Practice days: \(practiceDayNames)" : "Your schedule", systemImage: "calendar")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(AppTheme.secondaryText)
+            HStack(spacing: 12) {
+                Button { selectedTab = .workout } label: { Label("All workouts", systemImage: "square.grid.2x2") }
+                    .buttonStyle(.secondary)
+                Button { liveLaunch = LiveSessionLaunch(planned: session, kind: workoutKind(mode)) } label: {
+                    Label(loggedToday ? "Again" : "Start", systemImage: "play.fill")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.primary)
             }
-            Button { liveLaunch = LiveSessionLaunch(planned: session) } label: {
-                Label(loggedToday ? "Do it again" : "Start", systemImage: "play.fill")
-            }
-            .buttonStyle(.primary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle(padding: 20)
+    }
+
+    private func workoutKind(_ mode: WorkoutMode) -> WorkoutKind {
+        switch mode {
+        case .afterPractice: .afterPractice
+        case .gymDay: .gym
+        case .mobility: .mobility
+        case .travel: .travel
+        }
     }
 
     private var practiceDayNames: String {
@@ -482,7 +481,7 @@ struct HomeView: View {
     }
 
     private func mobilityCard(_ session: GeneratedSession) -> some View {
-        Button { preview = PreviewBox(session: session) } label: {
+        Button { preview = PreviewBox(session: session, kind: .mobility) } label: {
             HStack(spacing: 14) {
                 Image(systemName: "figure.flexibility")
                     .font(.system(size: 26, weight: .semibold))
@@ -748,7 +747,7 @@ struct HomeView: View {
         case .body:
             let planned = max(week?.sessions.count ?? 0, 1) + practiceDays.count
             let gain = BenchmarkMath.headline(BenchmarkStore.results, tests: BenchmarkCatalog.body)
-            Button { selectedTab = .plan } label: {
+            Button { selectedTab = .progress } label: {
                 WidgetTile(value: "\(loggedThisWeek) of \(planned)", label: "Body", progress: Double(loggedThisWeek) / Double(planned),
                            color: AppTheme.accent, systemImage: "figure.strengthtraining.traditional", caption: gain ?? "Workouts done this week")
             }
@@ -756,7 +755,7 @@ struct HomeView: View {
         case .sport:
             let skillPlans = athlete.skillBlocks.filter { $0.targetDate >= calendar.startOfDay(for: .now) }.count
             let gain = athlete.activeSport.flatMap { BenchmarkMath.headline(BenchmarkStore.results, tests: [BenchmarkCatalog.sportTest(for: $0.sportSlug)]) }
-            Button { selectedTab = .improve } label: {
+            Button { selectedTab = .workout } label: {
                 WidgetTile(value: skillPlans == 0 ? "Pick a skill" : "\(skillPlans) active", label: "Sport",
                            progress: skillPlans == 0 ? 0 : 1, color: AppTheme.brand, systemImage: "sportscourt.fill",
                            caption: gain ?? (skillPlans == 0 ? "A plan for one skill of your sport" : "Skill plans in progress"))
@@ -780,7 +779,7 @@ struct HomeView: View {
         case .nextGame:
             let nextGame = AthleteStats.upcomingCompetitions(athlete).first
             let days = nextGame.map { AthleteStats.daysUntil($0.date) }
-            Button { if nextGame == nil { activeSheet = .addGame } else { selectedTab = .plan } } label: {
+            Button { if nextGame == nil { activeSheet = .addGame } else { selectedTab = .progress } } label: {
                 WidgetTile(value: days.map { $0 == 0 ? "Today" : ($0 == 1 ? "Tomorrow" : "In \($0) days") } ?? "None yet",
                            label: "Next game", progress: days.map { max(0.05, 1 - Double($0) / 14) } ?? 0,
                            color: AppTheme.brand, systemImage: "sportscourt.fill",
@@ -795,7 +794,7 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
         case .streak:
-            Button { activeSheet = .history } label: {
+            Button { selectedTab = .progress } label: {
                 WidgetTile(value: "\(streak) \(streak == 1 ? "day" : "days")", label: "Streak", progress: min(1, Double(streak) / 7),
                            color: AppTheme.orange, systemImage: "flame.fill", caption: "Days in a row you checked in or trained")
             }
@@ -849,7 +848,7 @@ struct HomeView: View {
             Label("\(assignment.items.count) exercises", systemImage: "list.bullet")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.ink)
-            Button { liveLaunch = LiveSessionLaunch(planned: CoachAssignments.session(assignment, catalogue: catalogue)) } label: {
+            Button { liveLaunch = LiveSessionLaunch(planned: CoachAssignments.session(assignment, catalogue: catalogue), kind: .coach) } label: {
                 Label("Start", systemImage: "play.fill")
             }
             .buttonStyle(.primary)
@@ -984,9 +983,10 @@ struct HomeView: View {
 }
 
 /// `GeneratedSession` isn't Identifiable; this wraps one for `.sheet(item:)`.
-private struct PreviewBox: Identifiable {
+struct PreviewBox: Identifiable {
     let id = UUID()
     let session: GeneratedSession
+    var kind: WorkoutKind? = nil
 }
 
 /// Today's quote, big and simple.

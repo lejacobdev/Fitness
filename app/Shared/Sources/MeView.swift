@@ -46,7 +46,7 @@ struct MeView: View {
     private var apiClient: APIClient { APIClient(baseURL: AppConfig.backendBaseURL) }
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, concussion
+        case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, concussion, struggles
         var id: String { rawValue }
     }
 
@@ -116,6 +116,9 @@ struct MeView: View {
 
                     SectionHeader("Your training setup", subtitle: "Change any of these and your plan updates to match.")
                     menuCard {
+                        menuRow("What you want to fix", icon: "target", tint: AppTheme.brand,
+                                detail: Struggles.selected.isEmpty ? "Not set" : Struggles.selected.map(\.title).joined(separator: ", ")) { activeSheet = .struggles }
+                        menuDivider
                         menuRow(athlete.sports.count > 1 ? "Sports" : "Sport & position", icon: sportInfo.map { SportIcon.name(for: $0.slug) } ?? "sportscourt.fill", tint: AppTheme.brand,
                                 detail: athlete.sports.count > 1
                                     ? "\(athlete.sports.count) sports"
@@ -247,6 +250,7 @@ struct MeView: View {
                 case .coach: CoachView()
                 case .parent: ParentSummaryView()
                 case .concussion: ConcussionGuideView()
+                case .struggles: StrugglesSheet(onSaved: onPlanInputsChanged)
                 }
             }
             .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .exerciseProgress)
@@ -760,7 +764,7 @@ struct CheckInHistoryView: View {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     ScreenTitle("Check-ins", subtitle: "\(checkIns.count) mornings logged")
                     if sorted.isEmpty {
-                        Text("No check-ins yet. Your first one is four taps on the Today tab.")
+                        Text("No check-ins yet. Your first one takes a few taps on Home.")
                             .font(.subheadline)
                             .foregroundStyle(AppTheme.secondaryText)
                             .cardStyle()

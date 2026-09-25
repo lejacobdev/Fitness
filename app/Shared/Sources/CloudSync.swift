@@ -31,7 +31,7 @@ public enum CloudSync {
         "freeSportSwitchDates", "muscleWorkoutStarts",
     ]
     /// Whole families of athlete keys, including ones later features add.
-    static let settingsPrefixes = ["campus.", "schedule.", "plans.", "tip.", "mindset.", "benchmark.", "calendar.", "safety.", "league."]
+    static let settingsPrefixes = ["campus.", "schedule.", "plans.", "progress.", "profile.", "tip.", "mindset.", "benchmark.", "calendar.", "safety.", "league."]
 
     static func isSettingKey(_ key: String) -> Bool {
         settingGroup(of: key) != nil

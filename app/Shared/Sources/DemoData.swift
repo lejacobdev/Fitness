@@ -16,13 +16,13 @@ public enum DemoData {
         isEnabled && ProcessInfo.processInfo.arguments.contains("-paywall")
     }
 
-    /// `-tab plan|improve|library|me` picks the starting tab for a screenshot.
+    /// `-tab workout|progress|campus|me` picks the starting tab for a screenshot.
     static var initialTab: AppTab {
         let args = ProcessInfo.processInfo.arguments
         guard let index = args.firstIndex(of: "-tab"), args.indices.contains(index + 1) else { return .today }
         switch args[index + 1] {
-        case "plan": return .plan
-        case "improve": return .improve
+        case "workout", "improve": return .workout
+        case "progress", "plan": return .progress
         case "campus", "library": return .campus
         case "me": return .me
         default: return .today
@@ -105,6 +105,11 @@ public enum DemoData {
         }
         try? context.save()
         seedProgress(now: now, calendar: calendar)
+        // Colours on the Progress calendar: gym, after-practice and mobility sessions.
+        let logged = (try? context.fetch(FetchDescriptor<Session>(sortBy: [SortDescriptor(\.startedAt)]))) ?? []
+        for (index, session) in logged.enumerated() {
+            SessionKinds.record(session.clientId, index % 3 == 1 ? .afterPractice : (index % 3 == 2 ? .mobility : .gym))
+        }
     }
 
     /// Campus, Mindset, tests and the schedule, so every screen looks lived-in.
@@ -114,6 +119,18 @@ public enum DemoData {
         defaults.set(true, forKey: "appTourSeen")
         defaults.set(true, forKey: "healthPermissionAsked")
         PracticeSchedule.weekdays = [2, 4, 5]
+        PracticeTimes.all = [2: PracticeTime(start: 16 * 60, end: 18 * 60), 4: PracticeTime(start: 16 * 60, end: 18 * 60),
+                             5: PracticeTime(start: 15 * 60 + 30, end: 17 * 60 + 30)]
+        Struggles.selected = [.speed, .strength]
+        let types = SportPractice.types(for: "soccer")
+        for back in 1...35 {
+            guard let day = calendar.date(byAdding: .day, value: -back, to: now),
+                  [2, 4, 5].contains(calendar.component(.weekday, from: day)) else { continue }
+            let picked = [types[back % types.count], types[(back * 3 + 1) % types.count]]
+            PracticeLogStore.save(PracticeLog(day: DayKey.of(day, calendar: calendar), sportSlug: "soccer", types: Array(Set(picked)).sorted(),
+                                              hard: 2 + back % 3, went: 3 + back % 2, mood: 3 + back % 3, minutes: 120,
+                                              ratings: back % 2 == 0 ? ["Passing": 3, "First touch": 4, "Shooting": 2] : [:]))
+        }
 
         let lessons = campusTopics.prefix(2).flatMap(\.lessons).prefix(5).map(\.id)
         defaults.set(lessons.sorted().joined(separator: ","), forKey: CampusProgress.learnedKey)

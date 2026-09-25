@@ -23,8 +23,15 @@ public enum PracticeSchedule {
     /// A connected team calendar decides first (a cancelled practice is no
     /// practice); weeks it says nothing about use the practice days.
     public static func hasPractice(on date: Date, calendar: Calendar = .current) -> Bool {
-        ScheduleStore.imported.practiceStatus(on: date, calendar: calendar)
+        if !ExtraPractices.on(DayKey.of(date, calendar: calendar)).isEmpty { return true }
+        return ScheduleStore.imported.practiceStatus(on: date, calendar: calendar)
             ?? weekdays.contains(calendar.component(.weekday, from: date))
+    }
+
+    /// When practice is on that day, if the athlete told us.
+    public static func time(on date: Date, calendar: Calendar = .current) -> PracticeTime? {
+        if let extra = ExtraPractices.on(DayKey.of(date, calendar: calendar)).first?.time { return extra }
+        return PracticeTimes.all[calendar.component(.weekday, from: date)]
     }
 }
 
@@ -69,9 +76,12 @@ public struct WorkoutModeContext {
     public var trainsUnderCoach: Bool
     public var age: Int
     public var date: Date
+    /// What the athlete wants to fix (Me → struggles).
+    public var struggles: [Struggle]
 
     public init(catalogue: Catalogue, sport: SportInfo?, positionSlug: String?, formatSlug: String?,
-                equipment: Set<String>, trainsUnderCoach: Bool, age: Int, date: Date = .now) {
+                equipment: Set<String>, trainsUnderCoach: Bool, age: Int, date: Date = .now, struggles: [Struggle] = []) {
+        self.struggles = struggles
         self.catalogue = catalogue
         self.sport = sport
         self.positionSlug = positionSlug
@@ -153,10 +163,21 @@ public enum WorkoutModeBuilder {
             }
             if picks.count < 4 { pick(preventionByArea["hamstrings"] ?? [], why: "Hamstring strength is one of the best-proven injury protections.", rotate: false) }
             pick(core, why: "A trunk that resists twisting passes force from legs to arms.")
+            // One exercise for what the athlete wants to fix.
+            if let quality = Struggles.topQuality(context.struggles), let struggle = context.struggles.first(where: { $0.boosts[quality] != nil }) {
+                let matches = context.catalogue.itemsBySlug.values
+                    .filter { ($0.qualities[quality] ?? 0) >= 0.6 && $0.kind == "exercise" }
+                    .sorted { ($0.qualities[quality] ?? 0) != ($1.qualities[quality] ?? 0) ? ($0.qualities[quality] ?? 0) > ($1.qualities[quality] ?? 0) : $0.slug < $1.slug }
+                    .map(\.slug)
+                pick(Array(matches.prefix(8)), why: "For what you want to fix: \(struggle.title.lowercased()).")
+            }
         case .mobility:
             for slug in mobilityBase { pick([slug], why: "Keeps hips, spine and ankles moving freely.") }
             for area in areas.prefix(2) {
                 if let slug = mobilityByArea[area] { pick([slug], why: "Loosens your \(area.replacingOccurrences(of: "-", with: " ")).") }
+            }
+            if context.struggles.contains(.mobility) || context.struggles.contains(.injuryComeback) {
+                pick(["couch-stretch", "pigeon-stretch", "hamstring-floss", "cossack-squat"], why: "Extra range, because you want more flexibility.")
             }
             pick(["breathing-90-90"], why: "Slow breathing switches your body into recovery mode.")
         case .travel:

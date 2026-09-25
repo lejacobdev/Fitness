@@ -4,6 +4,7 @@ import SwiftUI
 struct LiveSessionLaunch: Identifiable {
     let id = UUID()
     let planned: GeneratedSession?
+    var kind: WorkoutKind? = nil
 }
 
 enum QuickAction: String, Identifiable, CaseIterable {

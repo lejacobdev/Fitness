@@ -514,7 +514,7 @@ public enum CoachTemplates {
             "You got {done} of {planned} sessions in last week. No stress — pick the two that matter most this week and nail those.",
             "Last week was {done} out of {planned}. Busy weeks happen; aim for one more session this week than last.",
             "{done} of {planned} sessions last week. Short on time? Even a 20-minute version keeps the habit alive.",
-            "Only {done} of {planned} last week. Check the Plan tab and lock in the days that actually work for you.",
+            "Only {done} of {planned} last week. Check the Workout tab and lock in the days that actually work for you.",
         ]],
         "full-week": [[
             "Every planned session done last week. That consistency is exactly how you get better.",

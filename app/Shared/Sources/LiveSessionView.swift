@@ -17,6 +17,8 @@ public struct LiveSessionView: View {
     let athlete: Athlete
     let apiClient: APIClient
     let planned: GeneratedSession?
+    /// Which kind of workout this is, for the Progress calendar's colours.
+    let kind: WorkoutKind?
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -51,10 +53,11 @@ public struct LiveSessionView: View {
         !queue.isEmpty && queue.allSatisfy { setsLogged[$0.itemSlug, default: 0] >= $0.dose.sets }
     }
 
-    public init(athlete: Athlete, apiClient: APIClient, planned: GeneratedSession? = nil) {
+    public init(athlete: Athlete, apiClient: APIClient, planned: GeneratedSession? = nil, kind: WorkoutKind? = nil) {
         self.athlete = athlete
         self.apiClient = apiClient
         self.planned = planned
+        self.kind = kind
     }
 
     private var current: GeneratedPlannedItem? {
@@ -415,6 +418,7 @@ public struct LiveSessionView: View {
         catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
         if session == nil {
             session = try? SessionLogger(modelContext: modelContext).startSession(athlete: athlete)
+            if let session { SessionKinds.record(session.clientId, kind ?? (planned == nil ? nil : .gym)) }
             startedAt = session?.startedAt ?? .now
             queue = planned?.items ?? []
             prefill()

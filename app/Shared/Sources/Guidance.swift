@@ -85,7 +85,7 @@ struct StartWorkoutButton: View {
                 }
             }
             .fullScreenCover(item: $launch) { launch in
-                LiveSessionView(athlete: context.athlete, apiClient: context.apiClient, planned: launch.planned)
+                LiveSessionView(athlete: context.athlete, apiClient: context.apiClient, planned: launch.planned, kind: launch.kind)
             }
         }
     }
@@ -109,26 +109,26 @@ struct AppTourView: View {
     }
 
     static let pages: [Page] = [
-        Page(icon: "house.fill", color: AppTheme.ink, tab: "Today",
-             title: "Start here every day",
-             body: "Today shows what to do right now: your session, your readiness and your next game.",
-             steps: ["Answer the 10-second sleep check-in", "Tap an exercise to see how it's done", "Press Start session and follow along"]),
-        Page(icon: "calendar", color: AppTheme.blue, tab: "Plan",
-             title: "Your week, built around games",
-             body: "Every week is generated for your sport and season. Add a game and the week rearranges so you're fresh on game day.",
-             steps: ["Tap any day to preview it", "Press Start to do that session now", "Add a game with the black button"]),
-        Page(icon: "chart.line.uptrend.xyaxis", color: AppTheme.orange, tab: "Improve",
-             title: "Get better at one thing",
-             body: "Pick a skill like shooting power, set your game date, and get a day-by-day plan of the best drills for it.",
-             steps: ["Skills: pick a skill → game date → plan", "Muscles: tap body areas → a full workout", "Start any day of the plan straight away"]),
-        Page(icon: "books.vertical.fill", color: AppTheme.purple, tab: "Library",
-             title: "Every exercise and drill",
-             body: "Hundreds of exercises and sport drills, each with an animation, the muscles it works, cues and common mistakes. All offline.",
-             steps: ["Search or filter by muscle, sport or equipment", "Open one to watch how it's done", "Press Try it now to do it on its own"]),
-        Page(icon: "person.fill", color: AppTheme.green, tab: "Me",
-             title: "Progress and settings",
-             body: "See your streak, trends and muscle balance. Add more sports, change seasons, equipment and reminders here.",
-             steps: ["Play several sports? Add them in Me → Sports", "Switch sport from the pill at the top of Today", "Replay this tour any time in Me → Help"]),
+        Page(icon: "house.fill", color: AppTheme.ink, tab: "Home",
+             title: "Your day at a glance",
+             body: "Home shows only the most important things as widgets: today's workout, your check-in, your levels and your next game. Tap any widget to open the full page.",
+             steps: ["Do the 10-second morning check-in", "Tap a widget to go deeper", "Edit Home to move or remove widgets"]),
+        Page(icon: "graduationcap.fill", color: AppTheme.green, tab: "Campus",
+             title: "Learn like Duolingo",
+             body: "Short lessons on training, food, sleep, injuries, mindset and more. Earn XP, keep a streak, collect badges and race your teammates in a league.",
+             steps: ["Tap the next lesson on the path", "Review lessons when they come back", "Trophy: leagues · Medal: badges"]),
+        Page(icon: "figure.strengthtraining.traditional", color: AppTheme.brand, tab: "Workout",
+             title: "Three kinds of workout",
+             body: "After practice: short and smart. Gym day: your full session on days without practice. Stretching & mobility: good every day. Each one is built for your sport, schedule and what you want to fix.",
+             steps: ["The one for today is marked", "See it, then press Start", "More: skill plans and muscle workouts"]),
+        Page(icon: "calendar", color: AppTheme.orange, tab: "Progress",
+             title: "See how far you've come",
+             body: "A calendar of everything you did and what's coming: red workouts, orange practices, yellow after-practice sessions, blue mobility. Zoom out to your whole season.",
+             steps: ["Tap a day to see or log it", "Log team practice — easy or exact", "Set practice times, games and trainings"]),
+        Page(icon: "person.fill", color: AppTheme.purple, tab: "Me",
+             title: "You, your goals and settings",
+             body: "Tell the app what you want to fix — speed, strength, stamina — and your workouts lean towards it. Sports, equipment, tests, team & family, reminders and your account live here too.",
+             steps: ["Me → What you want to fix", "Me → Tests every 6–8 weeks", "Replay this tour any time in Me → Help"]),
     ]
 
     var body: some View {
@@ -410,23 +410,27 @@ struct HelpCenterView: View {
 
     private let faqs: [(q: String, a: String)] = [
         ("How do I start a workout?",
-         "Today → Start session. You can also start any day from the Plan tab, any day of a skill plan, a muscle workout, or a single exercise from the Library (Try it now)."),
+         "Workout tab → pick After practice, Gym day or Stretching & mobility → Start. Home's Today widget starts the one recommended for today. You can also start any day of a skill plan, a muscle workout, or a single exercise from the Library (Try it now)."),
         ("What happens during a workout?",
          "You see one exercise at a time with its animation. Set the reps or weight with the big buttons, tap Log set, and a rest timer starts on its own. Swipe or tap Next when you're done with an exercise. Tap × to finish."),
-        ("Why did my session change?",
-         "If your morning check-in shows poor sleep or high soreness, Today makes the session lighter. You can always switch back to the original."),
+        ("Why did my workout change?",
+         "If your morning check-in shows poor sleep or high soreness, workouts get lighter. You can always switch back to the full ones."),
         ("How do games change my week?",
-         "Add a game (Plan tab or the + on Today). Heavy work moves to early in the week and the day before the game stays light, so you're fresh."),
+         "Add a game in Progress → Schedule & events (or the + on Home). Heavy work moves early in the week and the day before the game stays light, so you're fresh."),
+        ("What do the colours in the calendar mean?",
+         "Red: a workout. Orange: team practice. Yellow: the extra workout after practice. Blue: stretching and mobility. A day with several gets a split dot; outlined means planned; a ring marks a game."),
+        ("How do I log team practice?",
+         "Progress → Team practice → Log today's practice, or tap an earlier day in the calendar. Choose Easy (how hard, how it went, mood) or Exact (also tired muscles and how each part of your game went)."),
         ("How do I get better at one skill?",
-         "Improve → Skills → pick a skill → set your game date → Build my plan. Every day shows the best drills for that skill; press Start on a day to do it."),
-        ("How do I train specific muscles?",
-         "Improve → Muscles → tap the body areas you want → pick a length. A full workout builds itself; press Start workout."),
+         "Workout → Skill plans & muscle workouts → Skills → pick a skill → set your game date → Build my plan."),
+        ("How do I make workouts more personal?",
+         "Me → What you want to fix: pick up to three things like speed, strength or stamina. Your gym days and after-practice workouts lean towards them."),
         ("What do the red muscles mean?",
          "Solid red is what an exercise mainly works, lighter red is what helps. The same colours glow on the animated athlete."),
         ("Does it work without internet?",
          "Yes. Every exercise, drill and plan is on your phone. Internet is only used to back up your history."),
         ("How do I change my sport or equipment?",
-         "Me → Training setup. Your week rebuilds straight away."),
+         "Me → Your training setup. Your workouts rebuild straight away."),
     ]
 
     var body: some View {

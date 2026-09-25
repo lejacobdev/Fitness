@@ -7,8 +7,10 @@ import UIKit
 import WidgetKit
 #endif
 
+/// The five sections: Home (an overview), Campus (learning), Workout
+/// (the three kinds of workout), Progress (calendar, practice, events) and Me.
 enum AppTab: Hashable {
-    case today, plan, improve, campus, me
+    case today, campus, workout, progress, me
 }
 
 /// §15's five tabs. Owns the one generated week so Today and Plan can never
@@ -42,17 +44,17 @@ public struct MainTabView: View {
                 .tabItem { Label("Home", systemImage: "house.fill") }
                 .tag(AppTab.today)
 
-            PlanView(athlete: athlete, week: week, onPlanInputsChanged: regenerate)
-                .tabItem { Label("Plan", systemImage: "calendar") }
-                .tag(AppTab.plan)
-
-            ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: regenerate)
-                .tabItem { Label("Improve", systemImage: "chart.line.uptrend.xyaxis") }
-                .tag(AppTab.improve)
-
             CampusView(athlete: athlete)
                 .tabItem { Label("Campus", systemImage: "graduationcap.fill") }
                 .tag(AppTab.campus)
+
+            WorkoutTabView(athlete: athlete, apiClient: apiClient, week: week, onPlanInputsChanged: regenerate)
+                .tabItem { Label("Workout", systemImage: "figure.strengthtraining.traditional") }
+                .tag(AppTab.workout)
+
+            ProgressTabView(athlete: athlete, week: week, onPlanInputsChanged: regenerate)
+                .tabItem { Label("Progress", systemImage: "calendar") }
+                .tag(AppTab.progress)
 
             MeView(athlete: athlete, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Me", systemImage: "person.fill") }
@@ -179,9 +181,13 @@ enum WeeklyPlan {
             from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: .now)
         ) ?? .now
 
-        let positionProfile = athleteSport.positionSlug.flatMap { slug in
+        let basePosition = athleteSport.positionSlug.flatMap { slug in
             sportInfo.positions.first { $0.slug == slug }?.qualityProfile
         }
+        // What the athlete wants to fix (Me → struggles) leans the plan towards it.
+        let struggles = Struggles.selected
+        let positionProfile = struggles.isEmpty ? basePosition
+            : Struggles.profile(base: basePosition ?? sportInfo.qualityProfile, struggles: struggles)
 
         let input = PlanGeneratorInput(
             sportProfile: sportInfo.qualityProfile, positionProfile: positionProfile,
