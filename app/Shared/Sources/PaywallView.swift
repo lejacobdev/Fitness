@@ -48,10 +48,11 @@ public struct PaywallView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     header
-                    featureList
-                    freeForeverNote
+                    // Prices first: what it costs is never below the fold.
                     planCards
                     statusBanner
+                    featureList
+                    freeForeverNote
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)

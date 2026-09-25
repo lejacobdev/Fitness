@@ -233,14 +233,43 @@ struct CampusView: View {
     }
 
     private var statsBar: some View {
-        HStack(spacing: 18) {
+        // One row when it fits; on narrow phones or big text the buttons
+        // move under the numbers instead of squeezing them.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 16) {
+                stats
+                Spacer(minLength: 8)
+                statsButtons
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                stats
+                HStack {
+                    Spacer()
+                    statsButtons
+                }
+            }
+        }
+        .font(.headline.weight(.heavy))
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .overlay(alignment: .bottom) { Rectangle().fill(Duo.border).frame(height: 2) }
+    }
+
+    private var stats: some View {
+        HStack(spacing: 16) {
             Label("\(CampusProgress.currentStreak(streak: streak, lastDay: lastDay))", systemImage: "flame.fill")
                 .foregroundStyle(Duo.orange)
             Label("\(xp) XP", systemImage: "bolt.fill")
                 .foregroundStyle(Duo.goldLip)
             Label("\(learned.count)/\(totalLessons)", systemImage: "graduationcap.fill")
                 .foregroundStyle(AppTheme.accent)
-            Spacer()
+        }
+        .lineLimit(1)
+        .fixedSize()
+    }
+
+    private var statsButtons: some View {
+        HStack(spacing: 4) {
             Button { showingLeagues = true } label: {
                 Image(systemName: "trophy.fill")
                     .font(.title3.weight(.bold))
@@ -263,10 +292,7 @@ struct CampusView: View {
             }
             .accessibilityLabel("Exercise library")
         }
-        .font(.headline.weight(.heavy))
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
-        .overlay(alignment: .bottom) { Rectangle().fill(Duo.border).frame(height: 2) }
+        .fixedSize()
     }
 
     private func unit(_ topic: CampusTopic, index: Int) -> some View {
