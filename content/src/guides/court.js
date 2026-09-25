@@ -1,0 +1,172 @@
+/** Sport guides: court and racket sports. See guides/index.js for the shape. */
+export const COURT = [
+  {
+    slug: 'basketball',
+    headline: 'Basketball is jumps, cuts and short sprints over and over — the player who stays explosive in the fourth quarter wins.',
+    demands: [
+      { label: 'Jumps', value: '40–70 per game (more for bigs)' },
+      { label: 'Changes of direction', value: 'Every 2–3 seconds' },
+      { label: 'Key qualities', value: 'Vertical power, agility, repeated sprints' },
+      { label: 'Contact', value: 'Constant body contact' },
+    ],
+    succeed: [
+      { title: 'Land as well as you jump', body: 'Soft, stable landings with the knee over the toes protect your knees and ankles and get you into the next move faster.' },
+      { title: 'Get strong in the legs', body: 'Squats, split squats and hinges build the base for jumping higher and changing direction.' },
+      { title: 'Shoot a lot of shots, the right way', body: 'Game-speed shots from game spots, tracked. Make-counts matter more than time in the gym.' },
+      { title: 'Defend with your feet', body: 'Lateral quickness and a low stance keep you in front. Train shuffles and closeouts.' },
+      { title: 'Ankle insurance', body: 'Balance training roughly halved ankle sprains in high school basketball and soccer players.' },
+    ],
+    season: {
+      off: 'Strength and jump training, skill work (shooting, handles), aerobic base.',
+      pre: 'Repeated sprints, agility, game-speed skill work.',
+      in: 'Two short strength sessions, landing and balance drills in the warm-up, recovery after back-to-back games.',
+    },
+    gym: {
+      focus: ['Vertical jump and landing', 'Single-leg strength', 'Lateral quickness', 'Ankle and knee injury prevention'],
+      exercises: ['countermovement-jump', 'barbell-back-squat', 'bulgarian-split-squat', 'lateral-bound', 'drop-landing-stick', 'single-leg-balance-reach'],
+    },
+    injuries: [
+      { area: 'Ankles', body: 'The most common basketball injury, often landing on someone\'s foot. Balance training and good landings halve the risk.', exercises: ['single-leg-balance-reach', 'single-leg-balance-eyes-closed', 'single-leg-ankle-hop'] },
+      { area: 'Knees (ACL and patellar tendon)', body: 'Landing and cutting drills cut ACL injuries. Jumper\'s knee comes from too much jumping too soon — build up gradually.', exercises: ['drop-landing-stick', 'spanish-squat', 'eccentric-step-down'] },
+    ],
+    positions: {
+      guard: 'Handles, first-step quickness and on-ball defence for 30+ minutes.',
+      forward: 'Versatility: shoot, drive, rebound and guard several positions.',
+      center: 'Strength in the post, rebounding and repeated vertical jumps.',
+    },
+    mindset: ['Next play — a missed shot is just data.', 'Free throws: the same routine every time, breathe out before the shot.'],
+    fuel: 'A carb-rich meal 3–4 hours before, fluids at every break, and recovery food after — especially with games on back-to-back days.',
+    sources: ['balance', 'acl'],
+    quiz: [
+      { type: 'trueFalse', statement: 'Balance training can roughly halve ankle sprains.', answer: true, explain: 'Shown in high school basketball and soccer players.' },
+      { type: 'choice', prompt: 'What protects the knees most when jumping?', options: ['Soft, stable landings', 'Jumping higher', 'Wearing longer socks'], answer: 0, explain: 'Landing well protects the knee and ankle.' },
+      { type: 'choice', prompt: 'Jumper\'s knee usually comes from…', options: ['Adding too much jumping too fast', 'Too much stretching', 'Drinking water'], answer: 0, explain: 'Build jump volume gradually.' },
+      { type: 'trueFalse', statement: 'Good defence is mostly about hands, not feet.', answer: false, explain: 'Feet and a low stance keep you in front.' },
+    ],
+  },
+  {
+    slug: 'volleyball',
+    headline: 'Volleyball is a jumping sport: explosive legs, a healthy shoulder and quick reactions win points.',
+    demands: [
+      { label: 'Jumps', value: '50–100+ per match (hitters and middles)' },
+      { label: 'Rally length', value: 'About 5–10 seconds' },
+      { label: 'Key qualities', value: 'Vertical power, shoulder strength, reaction' },
+      { label: 'Contact', value: 'None with opponents; landing under the net' },
+    ],
+    succeed: [
+      { title: 'Jump higher, land safer', body: 'An approach jump is a skill. Train power (jumps, squats) and landing on two feet when you can.' },
+      { title: 'Arm swing from the ground up', body: 'Hitting power comes from the legs and trunk, not just the arm. Rotational and overhead power exercises help.' },
+      { title: 'Look after the shoulder', body: 'Hundreds of swings a week load the rotator cuff. Strengthen it and the upper back every week.' },
+      { title: 'Read the hitter', body: 'Blocking and digging are about anticipation: watch the setter, then the hitter\'s shoulder and arm.' },
+    ],
+    season: {
+      off: 'Strength, jump training, shoulder programme.',
+      pre: 'Jump volume builds gradually; serve and pass reps.',
+      in: 'Two short sessions: power, shoulder, knee care.',
+    },
+    gym: {
+      focus: ['Vertical jump', 'Shoulder (rotator cuff) strength', 'Landing mechanics', 'Trunk rotation'],
+      exercises: ['countermovement-jump', 'barbell-back-squat', 'band-external-rotation', 'face-pull', 'med-ball-overhead-throw', 'drop-landing-stick'],
+    },
+    injuries: [
+      { area: 'Ankles', body: 'Usually from landing on a player\'s foot under the net. Landing technique plus balance training halved ankle sprains in a volleyball study.', exercises: ['single-leg-balance-reach', 'drop-landing-stick', 'single-leg-ankle-hop'] },
+      { area: 'Knees (jumper\'s knee)', body: 'Patellar tendon pain from lots of jumping. Build jump volume gradually and keep the tendon strong.', exercises: ['spanish-squat', 'eccentric-step-down', 'wall-sit'] },
+      { area: 'Shoulder', body: 'Strengthen the cuff and shoulder blade muscles; cut swing volume if it starts to hurt.', exercises: ['band-external-rotation', 'prone-y-t-w-raise', 'scapular-wall-slide'] },
+    ],
+    positions: {
+      'outside-hitter': 'All-round: passing, attacking from the left and a big arm swing.',
+      setter: 'Hands, footwork to the ball and decision-making — the quarterback.',
+      libero: 'Reaction, reading hitters and passing — no jumping, lots of diving.',
+      'middle-blocker': 'The most jumps: quick lateral block moves and fast attacks.',
+    },
+    mindset: ['Point by point: reset after every rally with the team huddle.', 'Serving: one breath, one cue, same routine.'],
+    fuel: 'Tournaments are long: small, regular snacks (fruit, sandwiches) and water between matches.',
+    sources: ['volleyballAnkle', 'acl'],
+    quiz: [
+      { type: 'trueFalse', statement: 'Landing technique plus balance training halved ankle sprains in volleyball.', answer: true, explain: 'A twofold reduction in a study of volleyball players.' },
+      { type: 'choice', prompt: 'Where does hitting power come from?', options: ['Legs and trunk, then the arm', 'Only the wrist', 'Only the shoulder'], answer: 0, explain: 'Power travels from the ground up.' },
+      { type: 'choice', prompt: 'Which position jumps the most?', options: ['Middle blocker', 'Libero', 'Setter'], answer: 0, explain: 'Middles block and attack on almost every rally.' },
+      { type: 'trueFalse', statement: 'You should keep swinging through shoulder pain.', answer: false, explain: 'Cut volume and strengthen — pain is a signal.' },
+    ],
+  },
+  {
+    slug: 'tennis',
+    headline: 'Tennis asks for fast feet, a powerful rotation and the fitness to stay sharp through long matches.',
+    demands: [
+      { label: 'Point length', value: 'About 5–10 seconds, with 20–25 s between' },
+      { label: 'Direction changes', value: '4 or more per point' },
+      { label: 'Match length', value: '1–3+ hours' },
+      { label: 'Key qualities', value: 'Footwork, rotational power, shoulder health' },
+    ],
+    succeed: [
+      { title: 'Footwork first', body: 'Being on balance at the ball is what makes strokes consistent. Split-step, first step, recovery step.' },
+      { title: 'Rotate with the hips', body: 'Serve and groundstroke power comes from the legs and hips turning, then the trunk, then the arm.' },
+      { title: 'Keep the shoulder balanced', body: 'Serving strengthens the front of the shoulder; train the back of the shoulder and the shoulder blade to balance it.' },
+      { title: 'Between-point routines', body: 'Top players use the 20 seconds to recover, reset and plan. It\'s a trainable skill.' },
+    ],
+    season: {
+      off: 'Strength (legs, trunk, shoulder), aerobic base, technique changes.',
+      pre: 'Match play, agility, interval fitness.',
+      in: 'Short strength and shoulder sessions between tournaments.',
+    },
+    gym: {
+      focus: ['Lateral movement', 'Rotational power', 'Shoulder and elbow care', 'Single-leg strength'],
+      exercises: ['lateral-bound', 'med-ball-rotational-throw', 'band-external-rotation', 'band-wrist-extension', 'split-squat', 'pallof-press'],
+    },
+    injuries: [
+      { area: 'Shoulder', body: 'Serving is an overhead throw: strengthen the external rotators and shoulder blade.', exercises: ['band-external-rotation', 'sleeper-stretch', 'prone-y-t-w-raise'] },
+      { area: 'Elbow (tennis elbow)', body: 'Often grip and technique. Strengthen the wrist extensors and get a coach to check your backhand.', exercises: ['band-wrist-extension', 'wrist-roller'] },
+      { area: 'Ankles and knees', body: 'Lateral movement on hard courts; balance and landing drills.', exercises: ['single-leg-balance-reach', 'lateral-hop-to-stick'] },
+    ],
+    positions: {},
+    mindset: ['Play one point at a time — the score is out of your control, the next ball isn\'t.', 'Use a between-point routine: turn away, breathe, plan, go.'],
+    fuel: 'Sip fluids at every changeover and eat small carbs (banana) during long matches; add salt in the heat.',
+    sources: ['balance', 'heat'],
+    quiz: [
+      { type: 'choice', prompt: 'Where does serve power start?', options: ['Legs and hips', 'Fingers', 'Neck'], answer: 0, explain: 'The kinetic chain starts on the ground.' },
+      { type: 'trueFalse', statement: 'Tennis elbow can come from grip and technique.', answer: true, explain: 'Strengthen the wrist extensors and check technique.' },
+      { type: 'choice', prompt: 'What should you do in the 20 seconds between points?', options: ['Recover, reset and plan', 'Replay the last mistake', 'Rush to serve'], answer: 0, explain: 'A routine keeps you calm and focused.' },
+      { type: 'trueFalse', statement: 'Serving a lot only strengthens the shoulder — no extra work needed.', answer: false, explain: 'Balance it with the back of the shoulder and shoulder blade.' },
+    ],
+  },
+  {
+    slug: 'badminton',
+    headline: 'Badminton is one of the fastest racket sports: explosive lunges, jumps and quick recovery to the base.',
+    demands: [
+      { label: 'Rally length', value: 'About 5–10 seconds' },
+      { label: 'Movement', value: 'Lunges, jumps and split steps' },
+      { label: 'Key qualities', value: 'Speed, agility, wrist and shoulder power' },
+      { label: 'Energy', value: 'Repeated high-intensity rallies' },
+    ],
+    succeed: [
+      { title: 'The lunge', body: 'Deep, controlled lunges to the net and a fast push back to the base. Train lunges and single-leg strength.' },
+      { title: 'Jump smash', body: 'Vertical power plus a fast arm. Jump training and overhead power exercises help.' },
+      { title: 'Footwork patterns', body: 'Shadow badminton — moving to all six corners without the shuttle — builds speed and efficiency.' },
+      { title: 'Deception', body: 'Holding the shot until the last moment keeps opponents guessing; wrist and finger strength help.' },
+    ],
+    season: {
+      off: 'Leg strength, jump training, aerobic base.',
+      pre: 'Footwork speed, intervals and match play.',
+      in: 'Short strength sessions; shoulder and knee care.',
+    },
+    gym: {
+      focus: ['Lunge strength', 'Jump power', 'Agility', 'Shoulder and wrist'],
+      exercises: ['reverse-lunge', 'lateral-lunge', 'countermovement-jump', 'skater-hops', 'band-external-rotation', 'wrist-roller'],
+    },
+    injuries: [
+      { area: 'Knees and Achilles', body: 'Repeated lunges and jumps. Build load slowly and keep calves and quads strong.', exercises: ['standing-calf-raise', 'spanish-squat', 'eccentric-step-down'] },
+      { area: 'Ankles', body: 'Quick lateral steps; balance training helps.', exercises: ['single-leg-balance-reach', 'single-leg-ankle-hop'] },
+      { area: 'Shoulder', body: 'Overhead smashes and clears; strengthen the cuff.', exercises: ['band-external-rotation', 'face-pull'] },
+    ],
+    positions: {},
+    mindset: ['Reset after every rally: one breath, eyes on the shuttle.', 'Play your pattern, not the scoreboard.'],
+    fuel: 'Water between games, a small carb snack at tournaments.',
+    sources: ['balance'],
+    quiz: [
+      { type: 'choice', prompt: 'What is shadow badminton?', options: ['Footwork to all corners without the shuttle', 'Playing in the dark', 'Watching videos'], answer: 0, explain: 'It trains speed and efficient movement.' },
+      { type: 'trueFalse', statement: 'Lunge strength matters in badminton.', answer: true, explain: 'Deep lunges to the net and back happen in almost every rally.' },
+      { type: 'choice', prompt: 'Which body parts carry the most load from lunges and jumps?', options: ['Knees and Achilles', 'Ears', 'Fingers'], answer: 0, explain: 'Build load gradually and keep calves and quads strong.' },
+      { type: 'trueFalse', statement: 'Rallies usually last several minutes.', answer: false, explain: 'Most last 5–10 seconds.' },
+    ],
+  },
+];

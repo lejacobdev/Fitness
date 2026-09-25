@@ -31,6 +31,7 @@ import { PROPS } from '../src/props.js';
 import { QUALITIES, QUALITY_MODEL_VERSION } from '../src/qualities.js';
 import { EQUIPMENT, EQUIPMENT_LEVELS, PLYOMETRIC_DOSE_KIND } from '../src/schema.js';
 import { SPORT_CATALOGUE_VERSION, SPORTS } from '../src/sports.js';
+import { GUIDES, SOURCES, validateGuides } from '../src/guides/index.js';
 import {
   generatedHeader, swiftArray, swiftDict, swiftDoubleLiteral,
   swiftStringArrayLiteral, swiftStringLiteral,
@@ -158,6 +159,47 @@ public let allSports: [SportInfo] = (try? JSONDecoder().decode([SportInfo].self,
 
 public let allSportsBySlug: [String: SportInfo] =
     Dictionary(uniqueKeysWithValues: allSports.map { ($0.slug, $0) })
+`;
+}
+
+/**
+ * The sport knowledge library (content/src/guides), validated and embedded
+ * as JSON for SportGuide.swift: sources resolved to their title and link,
+ * quiz questions in one shape (`kind`, `prompt`, `answer` or `truth`).
+ */
+function genSportGuidesSwift() {
+  const problems = validateGuides();
+  if (problems.length) {
+    throw new Error(`sport guides are invalid:\n  ${problems.join('\n  ')}`);
+  }
+  const guides = GUIDES.map((g) => ({
+    slug: g.slug,
+    headline: g.headline,
+    demands: g.demands,
+    succeed: g.succeed,
+    season: g.season,
+    gym: g.gym,
+    injuries: g.injuries.map((i) => ({ area: i.area, body: i.body, exercises: i.exercises ?? [] })),
+    positions: g.positions ?? {},
+    mindset: g.mindset,
+    fuel: g.fuel,
+    sources: g.sources.map((key) => SOURCES[key]),
+    quiz: g.quiz.map((q) => q.type === 'choice'
+      ? { kind: 'choice', prompt: q.prompt, options: q.options, answer: q.answer, explain: q.explain }
+      : { kind: 'trueFalse', prompt: q.statement, truth: q.answer, explain: q.explain }),
+  }));
+  const json = JSON.stringify(guides);
+  if (json.includes('"#')) throw new Error('sport guides contain "#, which would end the raw Swift string');
+  return `${generatedHeader('content/src/guides')}import Foundation
+
+public let sportGuidesJSON = #"""
+${json}
+"""#
+
+public let sportGuides: [SportGuide] = (try? JSONDecoder().decode([SportGuide].self, from: Data(sportGuidesJSON.utf8))) ?? []
+
+public let sportGuidesBySlug: [String: SportGuide] =
+    Dictionary(uniqueKeysWithValues: sportGuides.map { ($0.slug, $0) })
 `;
 }
 
@@ -623,6 +665,7 @@ function main() {
   writeFile(path.join(SWIFT_OUT, 'Qualities.swift'), genQualitiesSwift());
   writeFile(path.join(SWIFT_OUT, 'Equipment.swift'), genEquipmentSwift());
   writeFile(path.join(SWIFT_OUT, 'AllSports.swift'), genAllSportsSwift());
+  writeFile(path.join(SWIFT_OUT, 'SportGuides.swift'), genSportGuidesSwift());
   writeFile(path.join(SWIFT_OUT, 'Muscles.swift'), genMusclesSwift());
   writeFile(path.join(SWIFT_OUT, 'MuscleMapPaths.swift'), genAnatomySwift(buildAnatomy()));
   writeFile(path.join(SWIFT_OUT, 'PosePatterns.swift'), genPosePatternsSwift());

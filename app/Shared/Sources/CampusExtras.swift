@@ -168,14 +168,18 @@ public struct CampusStats: Sendable, Equatable {
     public var reviews: Int
     /// First in a league this week (with at least one teammate who played).
     public var topOfLeague: Bool
+    /// Sport guides whose quiz was passed.
+    public var guidesPassed: Int
 
-    public init(learned: Set<String>, xp: Int, bestStreak: Int, perfectLessons: Int, reviews: Int, topOfLeague: Bool = false) {
+    public init(learned: Set<String>, xp: Int, bestStreak: Int, perfectLessons: Int, reviews: Int,
+                topOfLeague: Bool = false, guidesPassed: Int = 0) {
         self.learned = learned
         self.xp = xp
         self.bestStreak = bestStreak
         self.perfectLessons = perfectLessons
         self.reviews = reviews
         self.topOfLeague = topOfLeague
+        self.guidesPassed = guidesPassed
     }
 }
 
@@ -194,6 +198,7 @@ public enum CampusBadges {
             CampusBadge(id: "perfect-5", title: "Flawless", detail: "Finish 5 lessons without a single mistake.", systemImage: "checkmark.seal.fill"),
             CampusBadge(id: "review-10", title: "Memory master", detail: "Do 10 reviews.", systemImage: "arrow.triangle.2.circlepath"),
             CampusBadge(id: "league-top", title: "Top of the table", detail: "Be first in a league with your teammates.", systemImage: "trophy.fill"),
+            CampusBadge(id: "sport-guide", title: "Know your sport", detail: "Pass the quiz in your sport's guide.", systemImage: "book.closed.fill"),
         ]
         for topic in campusTopics {
             badges.append(CampusBadge(id: "unit-\(topic.id)", title: topic.title, detail: "Finish every lesson in \(topic.title).", systemImage: topic.systemImage))
@@ -215,6 +220,7 @@ public enum CampusBadges {
         if s.perfectLessons >= 5 { ids.insert("perfect-5") }
         if s.reviews >= 10 { ids.insert("review-10") }
         if s.topOfLeague { ids.insert("league-top") }
+        if s.guidesPassed >= 1 { ids.insert("sport-guide") }
         var allDone = true
         for topic in campusTopics {
             if topic.lessons.allSatisfy({ s.learned.contains($0.id) }) {

@@ -17,6 +17,7 @@ struct WorkoutTabView: View {
     @State private var preview: PreviewBox?
     @State private var detailItem: CatalogueItem?
     @State private var showingImprove = false
+    @State private var showingGuide = false
     @State private var confirmingNewPlan = false
     @State private var readinessOverridden = false
     @AppStorage(PlanVariant.key) private var planVariant = 0
@@ -113,6 +114,9 @@ struct WorkoutTabView: View {
             }
             .sheet(isPresented: $showingImprove) {
                 ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged)
+            }
+            .sheet(isPresented: $showingGuide) {
+                SportGuideView(athlete: athlete)
             }
             .fullScreenCover(item: $liveLaunch) { launch in
                 LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind)
@@ -294,7 +298,7 @@ struct WorkoutTabView: View {
 
     private var moreSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("More ways to train", subtitle: "Go after one skill before a game, or train the muscles you choose.")
+            SectionHeader("More ways to train", subtitle: "Go after one skill before a game, train the muscles you choose, or learn what your sport asks of you.")
             Button { showingImprove = true } label: {
                 HStack(spacing: 14) {
                     Image(systemName: "target")
@@ -312,6 +316,7 @@ struct WorkoutTabView: View {
                 .cardStyle(padding: 14)
             }
             .buttonStyle(.plain)
+            SportGuideCard(athlete: athlete) { showingGuide = true }
         }
     }
 

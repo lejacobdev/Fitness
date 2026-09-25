@@ -1,7 +1,17 @@
-/** Item slug → pose pattern slug: skiing, surfing, sailing, skateboarding, climbing, equestrian, esports, ultimate, crew rowing. */
+/** Item slug → pose pattern slug: skiing, snowboarding, surfing, sailing, skateboarding, climbing, equestrian, esports, ultimate, crew rowing. */
 export const OUTDOOR_POSES = {
   'rowing-catch-timing-drill': 'rowing-crew-catch',
   'skiing-lateral-skater-bounds': 'skater-bound',
+  'snowboarding-heel-toe-stance-holds': 'surf-stance-balance',
+  'snowboarding-lateral-carve-bounds': 'skater-bound',
+  'snowboarding-stance-180-jumps': 'jump-180',
+  'snowboarding-box-drop-stick-landings': 'jump-stick-landing',
+  'snowboarding-roller-pump-squats': 'squat-bodyweight',
+  'snowboarding-start-gate-pulls': 'start-gate-pull',
+  'snowboarding-safe-falling-practice': 'ultimate-layout-knees',
+  'snowboarding-balance-board-stance': 'surf-stance-balance-foam',
+  'snowboarding-run-length-wall-sits': 'wall-sit',
+  'snowboarding-garland-edge-traverses': 'surf-stance-balance',
   'skiing-wall-sit-tuck': 'wall-sit-tuck',
   'skiing-slider-lateral-lunge': 'lateral-lunge',
   'skiing-foam-balance-reaches': 'star-excursion-foam',

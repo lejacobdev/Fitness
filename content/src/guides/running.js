@@ -1,0 +1,135 @@
+/** Sport guides: track, indoor track and cross-country. See guides/index.js for the shape. */
+export const RUNNING = [
+  {
+    slug: 'track-and-field',
+    headline: 'Track and field is many sports in one — but every event rewards the same things: good technique, power and smart, gradual training.',
+    demands: [
+      { label: 'Sprints', value: '100–400 m: under a minute of all-out effort' },
+      { label: 'Distance', value: '800 m–3200 m: speed and a big aerobic engine' },
+      { label: 'Jumps', value: 'Fast approach, powerful take-off' },
+      { label: 'Throws', value: 'Rotational and full-body power' },
+    ],
+    succeed: [
+      { title: 'Technique is speed', body: 'Sprint drills (A-skips, B-skips, wickets) teach an efficient stride. Good mechanics are free speed.' },
+      { title: 'Strength makes you faster', body: 'Sprinters, jumpers and throwers all benefit from heavy lifting and jumps; distance runners from strength work for durability.' },
+      { title: 'Rest to sprint fast', body: 'Speed training needs full recovery between reps. Tired sprinting teaches slow sprinting.' },
+      { title: 'Build gradually', body: 'Most running injuries come from doing too much too soon. Increase mileage, spikes and jumps step by step.' },
+      { title: 'Eat enough', body: 'Under-fuelling (REDs) harms bones, hormones and performance — a real risk in distance and jump events.' },
+    ],
+    season: {
+      off: 'Aerobic base (all events), general strength, technique drills.',
+      pre: 'Event-specific speed and power, spikes introduced gradually.',
+      in: 'Quality over quantity: short, fast sessions; strength maintained; taper before big meets.',
+    },
+    gym: {
+      focus: ['Sprint mechanics', 'Lower-body power', 'Hamstring and calf strength', 'Event-specific power'],
+      exercises: ['a-skip', 'wicket-runs', 'barbell-back-squat', 'nordic-hamstring-curl', 'standing-calf-raise', 'box-jump'],
+    },
+    injuries: [
+      { area: 'Hamstrings', body: 'The top sprint injury. Eccentric strength (Nordics) and good warm-ups.', exercises: ['nordic-hamstring-curl', 'single-leg-rdl'] },
+      { area: 'Shins and feet (bone stress)', body: 'From too much running too soon and not eating enough. Build slowly, eat enough, and get pain that gets worse checked.', exercises: ['tibialis-raise', 'standing-calf-raise', 'short-foot-drill'] },
+      { area: 'Achilles and calves', body: 'Spikes and jumping load the Achilles. Strong calves protect it.', exercises: ['standing-calf-raise', 'bent-knee-calf-raise'] },
+    ],
+    positions: {
+      sprints: 'Acceleration, top speed and speed endurance; lift heavy and rest fully between sprints.',
+      distance: 'A big aerobic base, tempo runs and intervals; strength for durability; eat enough.',
+      jumps: 'Approach speed, take-off power and landing; jump volume builds gradually.',
+      throws: 'Full-body strength and rotational power; technique reps with the implement.',
+    },
+    mindset: ['Race your plan, not the person next to you.', 'Nerves are energy: use a pre-race routine and breathe out slowly.'],
+    fuel: 'Carbohydrate before and after hard sessions, protein daily, and enough total food — especially for distance runners.',
+    sources: ['nordic', 'reds', 'sleep', 'youthStrength'],
+    quiz: [
+      { type: 'trueFalse', statement: 'Tired sprinting makes you faster.', answer: false, explain: 'Speed work needs full recovery; tired reps train slow running.' },
+      { type: 'choice', prompt: 'What causes most running injuries?', options: ['Too much, too soon', 'Stretching', 'Eating breakfast'], answer: 0, explain: 'Build volume gradually.' },
+      { type: 'choice', prompt: 'What is REDs?', options: ['Not eating enough for your training', 'A sprint drill', 'A shoe brand'], answer: 0, explain: 'Under-fuelling harms bones, hormones and performance.' },
+      { type: 'trueFalse', statement: 'Strength training helps sprinters get faster.', answer: true, explain: 'Stronger legs push harder into the ground.' },
+    ],
+  },
+  {
+    slug: 'indoor-track-and-field',
+    headline: 'Indoor track is the same speed and power on a smaller stage — tight bends, banked tracks and a winter season.',
+    demands: [
+      { label: 'Track', value: '200 m oval, tight (often banked) bends' },
+      { label: 'Events', value: '55/60 m, hurdles, 200–3200 m, jumps, shot put, weight throw' },
+      { label: 'Key qualities', value: 'Acceleration (short sprints), bend running' },
+      { label: 'Season', value: 'Winter — often stacked right before outdoor' },
+    ],
+    succeed: [
+      { title: 'Short sprints = start and acceleration', body: 'The 55 m and 60 m are won in the first 30 m. Practise starts and acceleration drills.' },
+      { title: 'Run the bends', body: 'Lean in from the ankles, keep your arms driving, and stay tight to the line on tight indoor bends.' },
+      { title: 'Protect the lower legs', body: 'Tight bends and hard surfaces load the shins, calves and feet — especially on the inside leg.' },
+      { title: 'Plan the whole year', body: 'Indoor leads straight into outdoor. Rest a week between seasons so you don\'t start outdoor already tired.' },
+    ],
+    season: {
+      off: 'Autumn: aerobic base, strength and technique.',
+      pre: 'Starts, acceleration and bend running.',
+      in: 'Short, sharp sessions; keep strength up; recover between meets.',
+    },
+    gym: {
+      focus: ['Acceleration', 'Lower-leg strength', 'Power', 'Hurdle mobility'],
+      exercises: ['falling-start', 'sprint-from-push-up-start', 'hurdle-hops', 'standing-calf-raise', 'tibialis-raise', 'barbell-back-squat'],
+    },
+    injuries: [
+      { area: 'Shins, calves and feet', body: 'Tight bends and hard floors. Build volume slowly and strengthen the lower leg.', exercises: ['tibialis-raise', 'standing-calf-raise', 'short-foot-drill'] },
+      { area: 'Hamstrings', body: 'Explosive starts in the cold: warm up well and keep Nordics in the programme.', exercises: ['nordic-hamstring-curl', 'hamstring-slider-curl'] },
+    ],
+    positions: {
+      sprints: 'Starts and the first 30 m decide the 55/60 m; bend running decides the 200 and 400.',
+      hurdles: 'Rhythm between hurdles, hip mobility and aggressive attack of each barrier.',
+      distance: 'Pacing on a 200 m track — more laps and tighter bends than outdoors.',
+      jumps: 'Approach consistency on shorter runways and a powerful take-off.',
+      throws: 'Shot put and weight throw: full-body power and rotational technique.',
+    },
+    mindset: ['Indoor races are short and crowded — commit to your plan from the gun.', 'Treat indoor as preparation for outdoor, not the end of your year.'],
+    fuel: 'Eat enough through the winter; vitamin D matters when you train indoors — ask your doctor if you should test.',
+    sources: ['nordic', 'reds', 'sleep'],
+    quiz: [
+      { type: 'choice', prompt: 'Where are 55 m and 60 m races won?', options: ['Start and first 30 m', 'The last 5 m only', 'The warm-up'], answer: 0, explain: 'Short races reward starts and acceleration.' },
+      { type: 'trueFalse', statement: 'Tight indoor bends load the lower legs more.', answer: true, explain: 'Especially the inside leg on hard surfaces.' },
+      { type: 'choice', prompt: 'What should you do between indoor and outdoor seasons?', options: ['Rest about a week', 'Race every weekend', 'Stop running for 3 months'], answer: 0, explain: 'A short break helps you start outdoor fresh.' },
+      { type: 'trueFalse', statement: 'You don\'t need to warm up for a 60 m race.', answer: false, explain: 'Explosive starts in the cold risk hamstring strains.' },
+    ],
+  },
+  {
+    slug: 'cross-country',
+    headline: 'Cross-country rewards the runner with the biggest aerobic engine who stays healthy all season — consistency beats heroics.',
+    demands: [
+      { label: 'Race', value: '5 km (high school) to 8–10 km (college)' },
+      { label: 'Terrain', value: 'Grass, dirt, hills, mud' },
+      { label: 'Energy', value: 'Almost all aerobic' },
+      { label: 'Key qualities', value: 'Aerobic base, hill strength, pacing' },
+    ],
+    succeed: [
+      { title: 'Mostly easy running', body: 'Most miles should be easy — conversational pace. Easy days make the hard days possible.' },
+      { title: 'Build mileage gradually', body: 'Big jumps in weekly running cause most injuries. Increase steadily and take an easier week every few weeks.' },
+      { title: 'Strength for durability', body: 'Twice-weekly strength work — calves, hips, core — helps runners stay healthy.' },
+      { title: 'Eat enough', body: 'Distance runners are at the highest risk of under-fuelling (REDs), which leads to bone stress injuries in girls and boys.' },
+      { title: 'Race smart', body: 'Start controlled, move up through the race, and run the hills with effort, not pace.' },
+    ],
+    season: {
+      off: 'Summer base mileage, strides and strength.',
+      pre: 'Add tempo runs and hills; mileage peaks here.',
+      in: 'Workouts and races; keep easy days easy; taper for championships.',
+    },
+    gym: {
+      focus: ['Calf and foot strength', 'Hip stability', 'Single-leg strength', 'Running economy (strides, hills)'],
+      exercises: ['standing-calf-raise', 'single-leg-glute-bridge', 'lateral-band-walk', 'step-up', 'build-up-strides', 'hill-sprint-repeats'],
+    },
+    injuries: [
+      { area: 'Shins and feet (bone stress)', body: 'Pain that gets worse with running and is sore to touch on the bone needs a doctor. Eat enough and build slowly.', exercises: ['tibialis-raise', 'short-foot-drill', 'towel-toe-curls'] },
+      { area: 'Knees (runner\'s knee)', body: 'Often from weak hips or too much downhill. Strengthen the hips and quads.', exercises: ['lateral-band-walk', 'clamshell', 'eccentric-step-down'] },
+      { area: 'Achilles', body: 'Strong calves protect the Achilles tendon.', exercises: ['standing-calf-raise', 'bent-knee-calf-raise'] },
+    ],
+    positions: {},
+    mindset: ['Run the mile you\'re in.', 'You race as a team: the fifth runner matters as much as the first.'],
+    fuel: 'Enough carbohydrate for your mileage, iron-rich foods, and never skip meals on training days.',
+    sources: ['reds', 'sleep', 'specialization'],
+    quiz: [
+      { type: 'trueFalse', statement: 'Most cross-country training should be hard running.', answer: false, explain: 'Most miles should be easy — conversational pace.' },
+      { type: 'choice', prompt: 'What raises bone stress injury risk?', options: ['Not eating enough and too much mileage too soon', 'Easy runs', 'Sleeping 9 hours'], answer: 0, explain: 'Build slowly and eat enough.' },
+      { type: 'choice', prompt: 'How should you start a race?', options: ['Controlled, then move up', 'All-out sprint', 'Walking'], answer: 0, explain: 'Even pacing beats a fast start.' },
+      { type: 'trueFalse', statement: 'Strength training helps runners stay healthy.', answer: true, explain: 'Calves, hips and core make you more durable.' },
+    ],
+  },
+];

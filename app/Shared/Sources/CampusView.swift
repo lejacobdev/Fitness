@@ -125,6 +125,33 @@ struct CampusProgress {
         let today = dayString(), yesterday = dayString(Calendar.current.date(byAdding: .day, value: -1, to: .now) ?? .now)
         return lastDay == today || lastDay == yesterday ? streak : 0
     }
+
+    /// XP, the streak, the week's log for leagues, and any new badges —
+    /// after a lesson, a review or a sport-guide quiz.
+    @MainActor
+    static func earn(_ earned: Int, lesson: Bool, defaults: UserDefaults = .standard) -> [CampusBadge] {
+        defaults.set(defaults.integer(forKey: xpKey) + earned, forKey: xpKey)
+        var streak = defaults.integer(forKey: streakKey)
+        let lastDay = defaults.string(forKey: lastDayKey) ?? ""
+        let today = dayString()
+        if lastDay != today {
+            streak = currentStreak(streak: streak, lastDay: lastDay) + 1
+            defaults.set(streak, forKey: streakKey)
+            defaults.set(today, forKey: lastDayKey)
+        }
+        CampusLog.record(xp: earned, lesson: lesson, perfect: lesson && earned >= 15, review: !lesson, streak: streak, defaults: defaults)
+        let badges = CampusBadges.award(stats(defaults), defaults: defaults)
+        Task { await LeagueSync.report() }
+        return badges
+    }
+
+    static func stats(_ defaults: UserDefaults = .standard) -> CampusStats {
+        let streak = currentStreak(streak: defaults.integer(forKey: streakKey), lastDay: defaults.string(forKey: lastDayKey) ?? "")
+        return CampusStats(learned: learned(defaults.string(forKey: learnedKey) ?? ""), xp: defaults.integer(forKey: xpKey),
+                           bestStreak: max(CampusLog.bestStreak(defaults), streak),
+                           perfectLessons: CampusLog.perfectLessons(defaults), reviews: CampusLog.reviewsDone(defaults),
+                           guidesPassed: SportGuideProgress.passed(defaults).count)
+    }
 }
 
 /// A stable shuffle (the same order every time a question appears).
@@ -153,6 +180,7 @@ struct CampusView: View {
     @State private var reviewing: ReviewSession?
     @State private var showingLeagues = false
     @State private var showingBadges = false
+    @State private var showingGuide = false
     @State private var newBadges: BadgeCelebration?
     /// Bumped after a review so the due list redraws.
     @State private var revision = 0
@@ -190,6 +218,7 @@ struct CampusView: View {
                 statsBar
                 ScrollView {
                     VStack(spacing: 28) {
+                        SportGuideCard(athlete: athlete) { showingGuide = true }
                         if !dueForReview.isEmpty { reviewCard }
                         ForEach(Array(campusTopics.enumerated()), id: \.element.id) { unitIndex, topic in
                             unit(topic, index: unitIndex)
@@ -226,6 +255,9 @@ struct CampusView: View {
             }
             .sheet(isPresented: $showingBadges) {
                 BadgesView()
+            }
+            .sheet(isPresented: $showingGuide, onDismiss: { revision += 1 }) {
+                SportGuideView(athlete: athlete)
             }
             .sheet(item: $newBadges) { celebration in
                 BadgeCelebrationView(badges: celebration.badges)
@@ -347,24 +379,12 @@ struct CampusView: View {
         revision += 1
     }
 
-    /// XP, the streak, the week's log for leagues, and any new badges.
     private func earn(_ earned: Int, lesson: Bool) {
-        xp += earned
-        let today = CampusProgress.dayString()
-        if lastDay != today {
-            streak = CampusProgress.currentStreak(streak: streak, lastDay: lastDay) + 1
-            lastDay = today
-        }
-        CampusLog.record(xp: earned, lesson: lesson, perfect: lesson && earned >= 15, review: !lesson, streak: streak)
-        let badges = CampusBadges.award(stats)
+        let badges = CampusProgress.earn(earned, lesson: lesson)
         if !badges.isEmpty { newBadges = BadgeCelebration(badges: badges) }
-        Task { await LeagueSync.report() }
     }
 
-    private var stats: CampusStats {
-        CampusStats(learned: learned, xp: xp, bestStreak: max(CampusLog.bestStreak(), streak),
-                    perfectLessons: CampusLog.perfectLessons(), reviews: CampusLog.reviewsDone())
-    }
+    private var stats: CampusStats { CampusProgress.stats() }
 
     /// "Review: 3 lessons" — spaced repetition keeps what was learned.
     private var reviewCard: some View {
