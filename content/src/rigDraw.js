@@ -111,6 +111,8 @@ export function segmented(a, b, ra, rb, fill, bias = 0, n = 10) {
 /** Hands sit on top of whatever they grip. */
 const GRIP_BIAS = 0.6;
 const D = (p) => project(p).depth;
+/** Things set out on the ground (hurdles, cones, walls, stairs) stay put while the athlete travels; a bike, sled or board goes along. */
+const FIXTURE_TRAVELS = (kind) => !['hurdle', 'cone', 'ladder', 'climbwall', 'wall', 'stairs', 'line'].includes(kind);
 /** Screen-space direction of a world direction. */
 const dir2 = (v) => { const q = project(v); return [q.x, q.y]; };
 /** How much a world direction points at the camera (−1…1). */
@@ -598,6 +600,12 @@ export function implementShapes(s, spec, pal) {
     }
     case 'band': case 'cable': {
       const color = spec.kind === 'band' ? pal.implementRed : pal.steel;
+      if (spec.aroundKnees) {
+        // A mini band looped round both legs just above the knees.
+        const a = add(s.L.knee, scale(sub(s.L.hip, s.L.knee), 0.14)), b = add(s.R.knee, scale(sub(s.R.hip, s.R.knee), 0.14));
+        out.push(...segmented(a, b, 1.3, 1.3, color, 0, 6));
+        break;
+      }
       if (spec.toFootL || spec.toFootR) {
         // A band from the hands round one foot (hamstring floss, stretches).
         const l = s[spec.toFootL ? 'L' : 'R'];
@@ -857,7 +865,7 @@ export function fixtureShapes(s, fx, place, pal) {
       by = dx * Math.sin(pitch) + y * Math.cos(pitch);
     }
     const q = add(add(add([o[0], 0, o[2]], ax, bx + shift - o[0]), [0, by + lift, 0]), az, (z ?? o[2]) - o[2]);
-    return s.fxMove ? add(apply(rotY(s.fxMove.heading), q), s.fxMove.v) : q;
+    return s.fxMove && FIXTURE_TRAVELS(fx.kind) ? add(apply(rotY(s.fxMove.heading), q), s.fxMove.v) : q;
   };
   const box = (x0, x1, y0, y1, z0, z1, fill, dz = 0) => {
     const pts = [];
@@ -902,7 +910,11 @@ export function fixtureShapes(s, fx, place, pal) {
       push(sheet, pal.water, 1e5, { opacity: 0.3, isBall: true });
       push([[-4000, -level - 0.6], [4000, -level - 0.6], [4000, -level + 0.6], [-4000, -level + 0.6]], pal.water, 1e5 + 1, { opacity: 0.9, isBall: true });
       // The pool deck at the edge, to climb out onto.
-      if (place.deckX != null) push([[place.deckX, -place.deckTop], [4000, -place.deckTop], [4000, 600], [place.deckX, 600]], pal.ground, 1e5 + 2, { isBall: true });
+      // `deckBehind`: the deck is behind the athlete instead (a dive start off the edge).
+      if (place.deckX != null) {
+        const far = place.deckBehind ? -4000 : 4000;
+        push([[place.deckX, -place.deckTop], [far, -place.deckTop], [far, 600], [place.deckX, 600]], pal.ground, 1e5 + 2, { isBall: true });
+      }
       break;
     }
     case 'bike': {
@@ -1079,6 +1091,10 @@ export function fixtureShapes(s, fx, place, pal) {
       box(x - 1, x + 1, 0, 70, -1, 1, pal.steel, -2);
       push(hull([P(W(x - 7, 84, o[2])), P(W(x + 7, 84, o[2])), P(W(x + 7, 70, o[2]))]), '#E8762B', D(W(x, 77, o[2])));
       push(hull([P(W(x - 7, 84, o[2])), P(W(x - 7, 70, o[2])), P(W(x + 7, 70, o[2]))]), '#F4F4F2', D(W(x, 77, o[2])) + 0.01);
+      break;
+    }
+    case 'line': {
+      box(place.x - 40, place.x + 40, 0, 0.8, place.z - 1.4, place.z + 1.4, pal.implementRed, -1e5 + 2);
       break;
     }
     case 'stairs': {

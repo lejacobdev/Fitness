@@ -3,6 +3,7 @@
  * shoots while you sprawl, the one on top when you stand up, the one you
  * turn in on, the opponent you parry.
  */
+import { skeleton } from '../rig3d.js';
 import { STRENGTH } from './strength.js';
 import { P, air, both, ground, kf, levelFeet, library, mirror, reachBoth, side } from './kit.js';
 
@@ -25,11 +26,22 @@ const penStep = [
 ];
 def('wrestling-pen-step', 'Penetration step', { view: 'side', thumb: 2, keyframes: penStep });
 /** Sprawl: legs thrown back, hips driven down to the mat, chest up on the hands. */
-const sprawl = P({ spine: 80, neck: -30, ...both({ hip: -14, knee: 4, ankle: -30, hipAbd: 22, shoulder: 80, elbow: 10 }) });
+/**
+ * Sprawl: legs shot back flat on the mat, hips down, chest up about 35
+ * degrees, hands on the mat. The elbow bend is solved so the hands reach
+ * the floor with the hips resting on it.
+ */
+const sprawl = (() => {
+  const at = (e) => P({ spine: 55, neck: -30, ...both({ hip: -35, knee: 4, ankle: -30, hipAbd: 22, shoulder: 70, elbow: e }) });
+  const handsBelowHips = (e) => { const sk = skeleton(at(e)); return (sk.pelvis[1] - 8) - (Math.min(sk.L.wrist[1] - 2.7, sk.L.handTip[1] - 1.5)); };
+  let lo = 0, hi = 140;
+  for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (handsBelowHips(mid) > 0) lo = mid; else hi = mid; }
+  return at((lo + hi) / 2);
+})();
 const sprawlFrames = [
   kf(stance(), 'feet', { hold: 0.4, move: 0.16 }),
   kf(sprawl, 'hands+front', { hold: 0.4, move: 0.3, travel: [-30, 0] }),
-  kf(P(sprawl, { turn: 40, spine: 70 }), 'hands+front', { move: 0.3 }),
+  kf(P(sprawl, { turn: 40 }), 'hands+front', { move: 0.3 }),
   kf(stance(), 'feet', { hold: 0.2, travel: [20, 0] }),
 ];
 def('wrestling-sprawl', 'Sprawl', {

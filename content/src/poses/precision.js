@@ -156,9 +156,9 @@ def('rifle-prone', 'Prone position hold', {
 def('rifle-kneeling', 'Kneeling position hold', {
   view: 'three-quarter', implement: DOWEL, loop: true, thumb: 0,
   keyframes: [
-    kf(reachBoth(P({ turn: -40, spine: 20, neck: 10, hipL: 80, kneeL: 90, ankleL: 10, hipR: -10, kneeR: 150, ankleR: -40, shoulderL: 50, elbowL: 90 }),
+    kf(reachBoth(P({ turn: -40, spine: 20, neck: 10, hipL: 128, kneeL: 118, ankleL: 20, hipR: 80, kneeR: 150, ankleR: -60, shoulderL: 50, elbowL: 90 }),
       (sk) => add(add(sk.L.shoulder, apply(sk.root, [1, 0, 0]), 26), [0, -4, 0]), (sk) => add(add(sk.R.shoulder, apply(sk.chest, [1, 0, 0]), 8), [0, -6, 0])), 'L+Rknee', { hold: 2.5, move: 0.8 }),
-    kf(reachBoth(P({ turn: -40, spine: 21, neck: 10, hipL: 80, kneeL: 90, ankleL: 10, hipR: -10, kneeR: 150, ankleR: -40, shoulderL: 50, elbowL: 90 }),
+    kf(reachBoth(P({ turn: -40, spine: 21, neck: 10, hipL: 128, kneeL: 118, ankleL: 20, hipR: 80, kneeR: 150, ankleR: -60, shoulderL: 50, elbowL: 90 }),
       (sk) => add(add(sk.L.shoulder, apply(sk.root, [1, 0, 0]), 26), [0, -4, 0]), (sk) => add(add(sk.R.shoulder, apply(sk.chest, [1, 0, 0]), 8), [0, -6, 0])), 'L+Rknee', { hold: 2.5, move: 0.8 }),
   ],
 });

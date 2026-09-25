@@ -48,7 +48,7 @@ def('lax-overhand-shot', 'Overhand shot', {
     kf(holdLax(P(laxStance, splitL, { spine: 12, twist: -10 }), air(12, 30, 4), air(-40, 80, -28)), 'feet', { hold: 0.3, move: 0.3, ball: 'head' }),
     kf(holdLax(P(laxStance, splitL, { spine: 8, twist: -40, neck: -4 }), air(0, 44, -4), air(-66, 66, -30)), 'feet', { move: 0.14, ball: 'head' }),
     kf(holdLax(P({ spine: 20, twist: 20, hipL: 40, kneeL: 30, ankleL: 16, hipR: -20, kneeR: 30, ankleR: -24, hipAbdL: 8, hipAbdR: 8 }), air(34, 30, 4), air(70, 96, -6)), 'L+Rtoe', { move: 0.1, ball: 'head', travel: [22, 0] }),
-    kf(holdLax(P({ spine: 34, twist: 40, hipL: 46, kneeL: 34, ankleL: 18, hipR: -20, kneeR: 36, ankleR: -26, hipAbdL: 8, hipAbdR: 8 }), air(24, 0, 18), air(44, -50, 40)), 'L+Rtoe', { hold: 0.4, ball: at(420, 60, 0) }),
+    kf(holdLax(P({ spine: 34, twist: 40, hipL: 46, kneeL: 34, ankleL: 18, hipR: -20, kneeR: 36, ankleR: -26, hipAbdL: 8, hipAbdR: 8 }), air(24, 0, 18), air(44, -34, 40)), 'L+Rtoe', { hold: 0.4, ball: at(420, 60, 0) }),
   ],
 });
 
@@ -173,8 +173,8 @@ def('lax-passing-triangle', 'Passing triangle', {
 def('lax-run-pass', 'Pass on the run (fast break)', {
   view: 'three-quarter', ball: LAX_BALL, implement: LAX, thumb: 2,
   cast: [
-    { pattern: 'lax-catch-pass', at: [300, 160], facing: 220, phase: 0.1 },
-    { pattern: 'lax-defend-stance', at: [200, -70], facing: 180 },
+    { pattern: 'lax-catch-pass', at: [380, 220], facing: 220, phase: 0.1 },
+    { pattern: 'lax-defend-stance', at: [230, -170], facing: 180 },
   ],
   keyframes: [
     kf(carry(P(runL, { spine: 16 })), 'air', { move: 0.16, ball: 'head' }),
@@ -227,7 +227,7 @@ def('lax-inside-roll-shot', 'Inside roll and finish', {
     kf(carry(P({ spine: 20, hipL: 50, kneeL: 54, ankleL: 20, hipR: -10, kneeR: 40, ankleR: -20, hipAbdL: 12 })), 'L', { hold: 0.1, move: 0.2, ball: 'head', travel: [40, 0] }),
     kf(carry(P({ spine: 20, turn: 150, hipL: 44, kneeL: 50, ankleL: 20, hipR: 30, kneeR: 50, ankleR: -10, hipAbdR: 30 })), 'L', { move: 0.2, ball: 'head' }),
     kf(holdLax(P({ spine: 12, turn: 360, twist: -36, hipL: 40, kneeL: 30, ankleL: 14, hipR: -12, kneeR: 40, ankleR: -20 }), air(0, 44, -4), air(-60, 70, -30)), 'L', { move: 0.12, ball: 'head', travel: [10, 40] }),
-    kf(holdLax(P({ spine: 30, turn: 360, twist: 36, hipL: 46, kneeL: 34, ankleL: 18, hipR: -20, kneeR: 36, ankleR: -26 }), air(24, 0, 18), air(44, -50, 40)), 'L+Rtoe', { hold: 0.4, ball: at(400, 50, 0) }),
+    kf(holdLax(P({ spine: 30, turn: 360, twist: 36, hipL: 46, kneeL: 34, ankleL: 18, hipR: -20, kneeR: 36, ankleR: -26 }), air(24, 0, 18), air(44, -34, 40)), 'L+Rtoe', { hold: 0.4, ball: at(400, 50, 0) }),
   ],
 });
 def('lax-defend-shuffle', 'Defensive slide with the stick on the gloves', {
@@ -424,7 +424,7 @@ def('fh-gk-lateral-kick', 'Lateral shuffle and kick', {
   ],
 });
 /** The low block: down on the right side, pads stacked along the ground, hands up in front. */
-const blockDown = P({ bend: -80, spine: 10, neck: 16, ...both({ hip: 30, knee: 30 }), shoulderL: 90, elbowL: 40, shoulderAbdL: 20, shoulderR: 100, elbowR: 30 });
+const blockDown = P({ bend: -80, spine: 10, neck: 16, ...both({ hip: 30, knee: 30 }), shoulderL: 90, elbowL: 40, shoulderAbdL: 20, shoulderR: 100, shoulderAbdR: 0, elbowR: 0 });
 def('fh-gk-low-block', 'Low block slide', {
   view: 'three-quarter', implement: GK_STICK, ball: FH_BALL, thumb: 2,
   cast: [{ pattern: 'fh-push-pass-partner', at: [320, -40], facing: 180, phase: 0.05 }],

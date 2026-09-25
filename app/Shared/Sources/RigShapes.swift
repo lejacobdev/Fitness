@@ -519,7 +519,11 @@ enum RigShapes {
             push(capsule(P(mid + along * 38 + V3(0, -2, 0)), P(mid - along * 38 + V3(0, -2, 0)), 2.2, 2.2), pal.red, min(D(s.L.ankle), D(s.R.ankle)) - 0.5)
         case "band", "cable":
             let hex = spec.kind == "band" ? pal.red : pal.steel
-            if spec.flags.contains("toFootL") || spec.flags.contains("toFootR") {
+            if spec.flags.contains("aroundKnees") {
+                // A mini band looped round both legs just above the knees.
+                let a = s.L.knee + (s.L.hip - s.L.knee) * 0.14, b = s.R.knee + (s.R.hip - s.R.knee) * 0.14
+                out += segmented(a, b, 1.3, 1.3, Color(hex: hex), n: 6)
+            } else if spec.flags.contains("toFootL") || spec.flags.contains("toFootR") {
                 // A band from the hands round one foot (hamstring floss, stretches).
                 let l = s.limb(spec.flags.contains("toFootL") ? "L" : "R")
                 out += segmented(implementPoint(s, "hands"), (l.ankle + l.toe) * 0.5, 0.9, 0.9, Color(hex: hex), n: 10)
@@ -728,7 +732,8 @@ enum RigShapes {
         // whole fixture travels (turned and moved) with the athlete.
         let pitch = s.fxPitch * .pi / 180, lift = s.fxLift, shift = s.fxShift
         let pivot = fx.kind == "bike" ? (fx.points["crank"]?.x ?? o.x) - 38 : o.x
-        let move = s.fxMove
+        // Things set out on the ground (hurdles, cones, walls, stairs) stay put while the athlete travels; a bike, sled or board goes along.
+        let move = ["hurdle", "cone", "ladder", "climbwall", "wall", "stairs", "line"].contains(fx.kind) ? nil : s.fxMove
         func W(_ x: Double, _ y: Double, _ z: Double? = nil) -> V3 {
             var bx = x, by = y
             if pitch != 0 {
@@ -782,8 +787,10 @@ enum RigShapes {
             let line = [CGPoint(x: -4000, y: -level - 0.6), CGPoint(x: 4000, y: -level - 0.6), CGPoint(x: 4000, y: -level + 0.6), CGPoint(x: -4000, y: -level + 0.6)]
             out.append(RigShape(points: line, color: Color(hex: pal.water), opacity: 0.9, depth: 1e5 + 1, isBall: true))
             // The pool deck at the edge, to climb out onto.
+            // `deckBehind`: the deck is behind the athlete instead (a dive start off the edge).
             if let deckX = n["deckX"], let top = n["deckTop"] {
-                out.append(RigShape(points: [CGPoint(x: deckX, y: -top), CGPoint(x: 4000, y: -top), CGPoint(x: 4000, y: 600), CGPoint(x: deckX, y: 600)],
+                let far: Double = n["deckBehind"] != nil ? -4000 : 4000
+                out.append(RigShape(points: [CGPoint(x: deckX, y: -top), CGPoint(x: far, y: -top), CGPoint(x: far, y: 600), CGPoint(x: deckX, y: 600)],
                                     color: Color(hex: pal.ground), depth: 1e5 + 2, isBall: true))
             }
         case "bike":
@@ -920,6 +927,9 @@ enum RigShapes {
             box(x - 1, x + 1, 0, 70, -1, 1, pal.steel, -2)
             push(hull([P(W(x - 7, 84)), P(W(x + 7, 84)), P(W(x + 7, 70))]), "#E8762B", D(W(x, 77)))
             push(hull([P(W(x - 7, 84)), P(W(x - 7, 70)), P(W(x + 7, 70))]), "#F4F4F2", D(W(x, 77)) + 0.01)
+        case "line":
+            let x = n["x"] ?? 0, z = n["z"] ?? 0
+            box(x - 40, x + 40, 0, 0.8, z - 1.4, z + 1.4, pal.red, -1e5 + 2)
         case "stairs":
             let x = n["x"] ?? 0, run = n["run"] ?? 30, rise = n["rise"] ?? 17, count = Int(n["count"] ?? 6)
             for i in 0..<count {

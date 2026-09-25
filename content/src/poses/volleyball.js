@@ -29,7 +29,8 @@ const landing = P(both({ hip: 60, knee: 70, ankle: 28, hipAbd: 10, shoulder: 30,
 def('vb-spike', 'Approach and spike', {
   view: 'three-quarter', ball: VB, thumb: 5,
   keyframes: [
-    ...approach.map((k) => ({ ...k, ball: at(90, 220, -10) })),
+    // The set comes down out of its arc into the hitting zone as the approach arrives.
+    ...approach.map((k, i) => ({ ...k, ball: [at(260, 190, -10), at(200, 250, -10), at(140, 255, -12), at(80, 215, -14)][i] ?? at(80, 215, -14) })),
     kf(draw, 'air', { move: 0.14, ball: at(34, 160, -14) }),
     kf(contact, 'air', { move: 0.1, ball: at(36, 150, -14) }),
     kf(snap, 'air', { move: 0.26, ball: at(160, 40, -14) }),
@@ -129,7 +130,13 @@ def('vb-dive', 'Sprawl and dig', {
 });
 
 // Sitting volleyball: seated on the floor, legs forward. -----------------------
-const floorSit = (spine, extra = {}) => P({ spine, neck: -10, ...both({ hip: 80 + spine, knee: 70, ankle: 10, hipAbd: 14 }), ...extra });
+/**
+ * Sitting on the floor: thighs rising 20 degrees from the hips, shins falling
+ * back to the floor, so the seat and the heels both rest on it. Hip angles are
+ * relative to the trunk, so leaning forward needs that much more hip flexion
+ * to keep the thighs where they are.
+ */
+const floorSit = (spine, extra = {}) => P({ spine, neck: -10, ...both({ hip: 110 + spine, knee: 40, ankle: 10, hipAbd: 14 }), ...extra });
 def('sit-vb-spike', 'Seated attack', {
   ball: VB, thumb: 2,
   keyframes: [

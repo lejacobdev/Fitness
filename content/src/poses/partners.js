@@ -135,8 +135,8 @@ withPartners('side-fall-partner', 'side-fall', [{ pattern: 'stand-watch', at: [6
 
 // ── Football, rugby ───────────────────────────────────────────────────────
 withPartners('football-tackle-shield', 'football-tackle', [{ pattern: 'pad-holder', at: [150, 0] }]);
-withPartners('hand-strike-shield', 'hand-strike', [{ pattern: 'pad-holder', at: [66, 0] }]);
-withPartners('ruck-drive', 'sled-push', [{ pattern: 'pad-holder', at: [62, 0] }],
+withPartners('hand-strike-shield', 'hand-strike', [{ pattern: 'pad-holder', at: [104, 0] }]);
+withPartners('ruck-drive', 'sled-push', [{ pattern: 'pad-holder', at: [62, 0], follow: true }],
   { extra: { fixture: undefined, ball: { r: 5.2, color: 'white' } }, balls: { 0: { floor: 'L', dx: 30 }, 1: { floor: 'L', dx: 30 }, 2: { floor: 'L', dx: 30 }, 3: { floor: 'L', dx: 30 } } });
 withPartners('catch-high-thrown', 'catch-high', [{ pattern: 'throw-partner', at: [420, 60], facing: 190, sync: [0, 1] }], { balls: { 0: 'c0:hands' }, arcs: { 0: 40 } });
 withPartners('catch-high-traffic', 'catch-high', [{ pattern: 'throw-partner', at: [420, 60], facing: 190, sync: [0, 1] }, { pattern: 'pad-holder', at: [30, -48], facing: 90 }],
@@ -156,7 +156,7 @@ withPartners('bb-defensive-slide-attacker', 'bb-defensive-slide', [{ pattern: 'h
 withPartners('bb-defensive-slide-dribbler', 'bb-defensive-slide', [{ pattern: 'bb-dribble-run', at: [90, 0], follow: true }], { extra: { view: 'three-quarter', ball: { r: 9, color: 'orange' } }, balls: { 0: 'c0:Rdown', 1: 'c0:Rdown' } });
 withPartners('bb-set-shot-rebounder', 'bb-set-shot', [{ pattern: 'chest-pass-partner', at: [300, 80], facing: 195 }]);
 withPartners('bb-rebound-thrown', 'bb-rebound', [{ pattern: 'throw-partner', at: [210, 110], facing: 210 }]);
-withPartners('bb-first-step-defender', 'bb-first-step', [{ pattern: 'bb-defensive-slide', at: [100, 44], phase: 0.5 }]);
+withPartners('bb-first-step-defender', 'bb-first-step', [{ pattern: 'bb-defensive-slide', at: [140, 60], phase: 0.5 }]);
 withPartners('bb-chest-pass-partner', 'bb-chest-pass', [{ pattern: 'chest-pass-partner', at: [320, 0] }]);
 withPartners('netball-drive-catch-fed', 'netball-drive-catch', [{ pattern: 'chest-pass-partner', at: [440, 30], sync: [0, 1] }], { balls: { 0: 'c0:hands' } });
 withPartners('netball-defend-thrower', 'netball-defend', [{ pattern: 'overarm-pass', at: [95, 0] }],

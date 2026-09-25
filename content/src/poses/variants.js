@@ -104,7 +104,7 @@ const opposed = (slug, member) => def(`${slug}-opposed`, `${BY.get(slug).name} (
 opposed('soccer-instep-kick', { pattern: 'bb-defensive-slide', at: [210, 40], facing: 180, phase: 0.3 });
 opposed('soccer-dribble', { pattern: 'bb-defensive-slide', at: [120, 20], facing: 180, follow: true });
 opposed('ball-carry-run', { pattern: 'bb-defensive-slide', at: [130, 30], facing: 180, follow: true });
-opposed('bb-first-step', { pattern: 'bb-defensive-slide', at: [100, 44], facing: 180, phase: 0.5 });
+opposed('bb-first-step', { pattern: 'bb-defensive-slide', at: [140, 60], facing: 180, phase: 0.5 });
 opposed('bb-layup', { pattern: 'vb-block', at: [160, 40], facing: 180, phase: 0.3 });
 opposed('bb-mikan', { pattern: 'vb-block', at: [34, -60], facing: 120, phase: 0.2 });
 opposed('vb-approach-swing', { pattern: 'vb-block', at: [175, 0], facing: 180, phase: 0.2 });

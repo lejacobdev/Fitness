@@ -658,7 +658,7 @@ function placeFixtureRaw(fx, pel, k0, all) {
       // `above`: how far over the hands (towels or a gi hang between).
       return { at: add(grip, [0, fx.above ?? 3, 0]) };
     }
-    case 'water': return { level: pel[1] + (fx.level ?? 6), x0: pel[0] - 120, x1: pel[0] + 120, ...(fx.deck != null ? { deckX: pel[0] + fx.deck, deckTop: fx.deckTop ?? 30 } : {}) };
+    case 'water': return { level: pel[1] + (fx.level ?? 6), x0: pel[0] - 120, x1: pel[0] + 120, ...(fx.deck != null ? { deckX: pel[0] + fx.deck, deckTop: fx.deckTop ?? 30, ...(fx.deckBehind ? { deckBehind: 1 } : {}) } : {}) };
     case 'mat': {
       const xs = all.flatMap((s) => bodyPoints(s).map((p) => p[0]));
       return { x0: Math.min(...xs) - 8, x1: Math.max(...xs) + 8 };
@@ -677,6 +677,8 @@ function placeFixtureRaw(fx, pel, k0, all) {
     // Hurdles: `count` of them `gap` apart, `height` tall (mini hurdles for wickets and hops).
     case 'hurdle': return { x: pel[0] + (fx.at ?? 30), count: fx.count ?? 1, gap: fx.gap ?? 0, height: fx.height ?? 26 };
     case 'cone': case 'ladder': case 'sled': case 'control': return { x: pel[0] + (fx.at ?? 30) };
+    // A line marked on the floor, running forward, `at` to the left (+) or right (−): hopped over sideways.
+    case 'line': return { x: pel[0], z: pel[2] + (fx.at ?? 0) };
     // Stairs: `count` steps, each `run` deep and `rise` high, the first edge `from` ahead.
     case 'stairs': return { x: pel[0] + (fx.from ?? 20), run: fx.run ?? 30, rise: fx.rise ?? 17, count: fx.count ?? 6 };
     case 'surfboard': return { x0: pel[0] + (fx.from ?? -110), x1: pel[0] + (fx.to ?? 90), y: fx.y ?? 0, water: !!fx.water };

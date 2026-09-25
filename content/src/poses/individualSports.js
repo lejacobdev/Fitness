@@ -4,7 +4,7 @@
  * polo, track and field, cycling, rowing, combat sports, gymnastics, cheer,
  * dance, step, colour guard and marching band.
  */
-import { BONES, add, apply, len, skeleton, sub } from '../rig3d.js';
+import { BONES, add, apply, keyframeAt, len, placeKeyframes, skeleton, sub } from '../rig3d.js';
 import { ATHLETIC, P, STAND, both, kf, library, reach, reachBoth, side, solve, toeDown } from './kit.js';
 
 const lib = library();
@@ -123,6 +123,7 @@ def('swim-rhythmic-breathing', 'Rhythmic breathing', {
   ],
 });
 
+/** Track start: off the pool deck's edge (26 above the water) into the pool ahead. */
 def('swim-track-start', 'Track start dive', {
   fixture: { kind: 'box', from: -22, to: 26, top: 26 },
   keyframes: [
@@ -188,5 +189,13 @@ def('dive-hurdle', 'Springboard approach and hurdle', {
     kf(P(both({ hip: 0, knee: 0, ankle: -40, shoulder: 175, shoulderAbd: 8, elbow: 2 }), { lift: 26 }), 'air', { hold: 0.3 }),
   ],
 });
+
+// The deck and the water: the start stands on the deck edge where the block
+// was; the water surface sits at the floor the dive lands on.
+{
+  const p = lib.patterns.find((q) => q.slug === 'swim-track-start');
+  const pelY = keyframeAt(p, 0, placeKeyframes(p)).pelvis[1];
+  p.fixture = { kind: 'water', level: -pelY, deck: 26, deckTop: 26, deckBehind: 1 };
+}
 
 export const INDIVIDUAL_SPORTS = lib.patterns;

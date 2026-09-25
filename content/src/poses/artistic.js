@@ -125,11 +125,11 @@ def('cheer-routine-circuit', 'Routine run-through: motions, jumps, dance', {
 });
 /** Hollow on the back, roll to an arch on the front, roll back. */
 def('hollow-arch-roll', 'Hollow to arch rocks', {
-  thumb: 0,
+  view: 'three-quarter', thumb: 0,
   keyframes: [
     kf(P(both({ hip: 42, knee: 0, ankle: -30, shoulder: 176, shoulderAbd: 6, elbow: 0 }), { spine: -72, neck: 20 }), 'air', { hold: 1.5, move: 0.8 }),
     kf(P(both({ hip: 10, knee: 0, ankle: -30, shoulder: 176, elbow: 0 }), { bend: 88 }), 'air', { move: 0.6 }),
-    kf(P(both({ hip: -24, knee: 0, ankle: -40, shoulder: 170, elbow: 0 }), { spine: 110, neck: -30 }), 'air', { hold: 1.5, move: 0.8 }),
+    kf(P(both({ hip: -22, knee: 0, ankle: -40, shoulder: 170, elbow: 0 }), { spine: 78, neck: -20 }), 'front', { hold: 1.5, move: 0.8 }),
   ],
 });
 /** Lying on the back, kick the jump leg up to the herkie shape, then stand and jump it. */

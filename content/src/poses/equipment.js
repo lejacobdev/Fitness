@@ -119,7 +119,7 @@ def('single-leg-box-jump', 'Single-leg box jump', edit(base('box-jump'), (q) => 
 // ── Carries and loaded movements ──────────────────────────────────────────
 def('overhead-carry-single', 'Single-arm kettlebell overhead carry',
   edit({ ...base('overhead-carry'), implement: { kind: 'kettlebell', at: 'R' } }, () => ({ shoulderL: 0, shoulderAbdL: 12, elbowL: 6 })));
-def('farmers-march', 'Farmer\'s march', edit({ ...base('march'), implement: { kind: 'dumbbells', at: 'hands' } }, () => both({ shoulder: 0, shoulderAbd: 10, elbow: 2 })));
+def('farmers-march', 'Farmer\'s march', edit({ ...base('march'), path: undefined, implement: { kind: 'dumbbells', at: 'hands' } }, () => both({ shoulder: 0, shoulderAbd: 10, elbow: 2 })));
 def('goblet-lateral-squat', 'Goblet lateral squat', {
   ...base('lateral-lunge'), implement: { kind: 'goblet', at: 'chest' },
   keyframes: base('lateral-lunge').keyframes.map((k) => ({ ...k, pose: goblet(k.pose) })),

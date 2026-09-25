@@ -12,7 +12,7 @@ const RANGES = {
 const range = (j) => RANGES[j] ?? RANGES[j.slice(0, -1)];
 const IMPLEMENTS = new Set(['oar2', 'skateboard', 'skis', 'bowlingballs', 'bow2', 'rifle2', 'flag', 'horn', 'towels', 'sword', 'map', 'lacrosse2', 'barbell', 'dumbbell', 'dumbbells', 'goblet', 'kettlebell', 'medball', 'plate', 'ball', 'football', 'puck',
   'bat', 'club', 'stick', 'racket', 'paddle', 'javelin', 'pole', 'lacrosse', 'bow', 'oar', 'band', 'cable', 'rope', 'prop', 'disc', 'shot', 'rifle', 'sword', 'glove', 'board', 'landmine', 'wristroller', 'jumprope', 'wheel', 'kickboard', 'hockeystick', 'bat2', 'pad']);
-const FIXTURES = new Set(['horse', 'climbwall', 'boat', 'surfboard', 'ramp', 'control', 'blocks', 'racingchair', 'bench', 'box', 'wall', 'bar', 'water', 'bike', 'rower', 'mat', 'hurdle', 'cone', 'ladder', 'net', 'wheelchair', 'sled', 'roller', 'ball', 'incline', 'kickball', 'stairs']);
+const FIXTURES = new Set(['horse', 'climbwall', 'boat', 'surfboard', 'ramp', 'control', 'blocks', 'racingchair', 'bench', 'box', 'wall', 'bar', 'water', 'bike', 'rower', 'mat', 'hurdle', 'cone', 'ladder', 'net', 'wheelchair', 'sled', 'roller', 'ball', 'incline', 'kickball', 'stairs', 'line']);
 const SAMPLES = 16;
 
 test('pattern slugs are unique', () => {

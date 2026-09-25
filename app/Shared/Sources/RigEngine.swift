@@ -691,7 +691,10 @@ final class RigPlayback {
             out.points["at"] = (b0.L.wrist + b0.R.wrist) / 2 + V3(0, p["above"] ?? 3, 0)
         case "water":
             out.numbers = ["level": pel.y + (p["level"] ?? 6), "x0": pel.x - 120, "x1": pel.x + 120]
-            if let deck = p["deck"] { out.numbers["deckX"] = pel.x + deck; out.numbers["deckTop"] = p["deckTop"] ?? 30 }
+            if let deck = p["deck"] {
+                out.numbers["deckX"] = pel.x + deck; out.numbers["deckTop"] = p["deckTop"] ?? 30
+                if let behind = p["deckBehind"], behind != 0 { out.numbers["deckBehind"] = 1 }
+            }
         case "mat":
             let xs = all.flatMap { sk in RigKinematics3D.contactPoints(sk).map(\.0.x) }
             out.numbers = ["x0": (xs.min() ?? 0) - 8, "x1": (xs.max() ?? 0) + 8]
@@ -723,6 +726,9 @@ final class RigPlayback {
             out.numbers = ["x": pel.x + (p["at"] ?? 30), "count": p["count"] ?? 1, "gap": p["gap"] ?? 0, "height": p["height"] ?? 26]
         case "cone", "ladder", "sled", "control":
             out.numbers = ["x": pel.x + (p["at"] ?? 30)]
+        case "line":
+            // A line marked on the floor, running forward, `at` to the left (+) or right (−): hopped over sideways.
+            out.numbers = ["x": pel.x, "z": pel.z + (p["at"] ?? 0)]
         case "stairs":
             // Stairs: `count` steps, each `run` deep and `rise` high, the first edge `from` ahead.
             out.numbers = ["x": pel.x + (p["from"] ?? 20), "run": p["run"] ?? 30, "rise": p["rise"] ?? 17, "count": p["count"] ?? 6]

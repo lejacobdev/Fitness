@@ -6,7 +6,7 @@
  * and a rowing shell with a sweep oar.
  */
 import { add, apply } from '../rig3d.js';
-import { STRENGTH, rowAt } from './strength.js';
+import { STRENGTH, downToPlank, rowAt, upFromPlank } from './strength.js';
 import { MISC_SPORTS } from './miscSports.js';
 import { P, air, both, flatHands, ground, handsToFloor, kf, library, mirror, reach, reachBoth, side } from './kit.js';
 
@@ -189,8 +189,8 @@ def('skate-manual', 'Manual', {
   view: 'side', implement: SK8, loop: true, thumb: 0,
   path: { kind: 'line', length: 400, speed: 120 },
   keyframes: [
-    kf(skate({ hipL: 10, kneeL: 20, ankleL: 30, hipR: 30, kneeR: 50, ankleR: 20, spine: -4 }), 'R', { hold: 0.8, move: 0.4, surface: 9 }),
-    kf(skate({ hipL: 12, kneeL: 22, ankleL: 32, hipR: 32, kneeR: 52, ankleR: 20, spine: -6 }), 'R', { hold: 0.8, move: 0.4, surface: 9 }),
+    kf(skate({ hipL: 64, kneeL: 72, ankleL: 10, hipAbdL: 34, hipR: 30, kneeR: 50, ankleR: 20, spine: -4 }), 'R', { hold: 0.8, move: 0.4, surface: 9 }),
+    kf(skate({ hipL: 66, kneeL: 74, ankleL: 12, hipAbdL: 34, hipR: 32, kneeR: 52, ankleR: 20, spine: -6 }), 'R', { hold: 0.8, move: 0.4, surface: 9 }),
   ],
 });
 def('jump-180', '180 jump landings', {
@@ -206,11 +206,13 @@ def('jump-180', '180 jump landings', {
 const BAR = { kind: 'bar' };
 const hang = spec('dead-hang').keyframes[0].pose;
 def('hang-repeaters', 'Hang repeaters (7 on, 3 off)', {
-  view: 'three-quarter', fixture: BAR, thumb: 1,
+  // The bar is placed from keyframe 0, so the hang comes first: hang 7 s,
+  // drop down and shake the arms out for 3 s, reach back up to the bar.
+  view: 'three-quarter', fixture: BAR, thumb: 0, loop: true,
   keyframes: [
-    kf(P(both({ shoulder: 176, shoulderAbd: 14, elbow: 70, hip: 10, knee: 20 })), 'feet', { hold: 0.4, move: 0.4 }),
     kf(hang, 'grip', { hold: 7, move: 0.4, surface: 14 }),
-    kf(P(both({ shoulder: 176, shoulderAbd: 14, elbow: 70, hip: 10, knee: 20 })), 'feet', { hold: 3 }),
+    kf(P(both({ shoulder: 10, shoulderAbd: 16, elbow: 10, hip: 4, knee: 8 })), 'feet', { hold: 3, move: 0.5 }),
+    kf(P(both({ shoulder: 176, shoulderAbd: 14, elbow: 20, hip: 10, knee: 20 })), 'feet', { move: 0.4 }),
   ],
 });
 def('lock-off-holds', 'Lock-off holds', {
@@ -244,7 +246,7 @@ def('climb-traverse', 'Silent-feet traverse', {
   ],
 });
 def('climb-route-preview', 'Route preview and mime', {
-  view: 'three-quarter', fixture: { kind: 'climbwall', at: 90 }, thumb: 1,
+  view: 'side', fixture: { kind: 'climbwall', at: 110 }, thumb: 1,
   keyframes: [
     kf(P({ neck: -30 }), 'feet', { hold: 0.8, move: 0.5 }),
     kf(P({ neck: -30, shoulderL: 150, shoulderAbdL: 30, elbowL: 30 }), 'feet', { hold: 0.4, move: 0.4 }),
@@ -299,7 +301,7 @@ def('reaction-ball-drop', 'Reaction ball drops', {
 });
 def('bodyweight-circuit', 'Squats, push-ups, reverse lunges, plank', {
   view: 'three-quarter', thumb: 1,
-  keyframes: [...spec('squat-bodyweight').keyframes, ...spec('push-up').keyframes, ...spec('reverse-lunge').keyframes, ...spec('plank').keyframes],
+  keyframes: [...spec('squat-bodyweight').keyframes, ...downToPlank, ...spec('push-up').keyframes, ...upFromPlank, ...spec('reverse-lunge').keyframes, ...downToPlank, ...spec('plank').keyframes],
 });
 /** Half-kneeling hip-flexor stretch: squeeze the back glute and shift forward. */
 def('hip-flexor-stretch', 'Kneeling hip-flexor stretch', {
@@ -334,8 +336,8 @@ def('ultimate-skying-contest', 'Skying for the disc', {
 });
 /** A marker holding the force while the thrower pivots to break it. */
 def('ultimate-mark-thrower', 'Marking a thrower', {
-  ...spec('ultimate-mark'),
-  cast: [{ pattern: 'ultimate-pivot-break', at: [60, 10], facing: 180 }],
+  ...spec('ultimate-mark'), view: 'three-quarter',
+  cast: [{ pattern: 'ultimate-pivot-break', at: [115, 20], facing: 180 }],
 });
 
 // ── Crew rowing ────────────────────────────────────────────────────────────

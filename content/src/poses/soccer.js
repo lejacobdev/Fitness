@@ -1,4 +1,5 @@
 /** Soccer striking (a left-footed strike, so the kicking leg is the near one). */
+import { apply, keyframeAt, placeKeyframes, rotY } from '../rig3d.js';
 import { P, kf, library, mirror, solve } from './kit.js';
 
 /** Bends the kicking (L) knee so the toe skims `h` above the grass at contact. */
@@ -37,6 +38,33 @@ def('soccer-side-foot-pass', 'Side-foot pass', {
     kf(skim(P(plant, { hipL: -20, kneeL: 40, hipRotL: -50, ankleL: 10, shoulderAbdL: 30, shoulderAbdR: 30 }), 4), 'R', { hold: 0.1 }),
   ],
 });
+
+/**
+ * The ball is struck, not a prop: it rests where the kicking foot meets it
+ * (keyframe `frame` of the old kickball), and after contact flies off ahead.
+ */
+for (const p of lib.patterns) {
+  if (p.fixture?.kind !== 'kickball') continue;
+  const { frame, side } = p.fixture;
+  delete p.fixture;
+  const placed = placeKeyframes(p);
+  const toe = keyframeAt(p, frame, placed)[side].toe;
+  const r = 5.8;
+  const spot = [toe[0] + 5, r, toe[2]];
+  const fw = apply(rotY(placed.view), [1, 0, 0]), lt = apply(rotY(placed.view), [0, 0, 1]);
+  const rel = (i, pt) => {
+    const pel = keyframeAt(p, i, placed).pelvis;
+    const d = [pt[0] - pel[0], pt[1] - pel[1], pt[2] - pel[2]];
+    return { at: [d[0] * fw[0] + d[2] * fw[2], d[1], d[0] * lt[0] + d[2] * lt[2]] };
+  };
+  const away = [spot[0] + fw[0] * 360, 40, spot[2] + fw[2] * 360];
+  p.ball = { r, color: 'white' };
+  p.keyframes = p.keyframes.map((k, i) => ({
+    ...k,
+    ball: i <= frame ? rel(i, spot) : i === frame + 1 ? rel(i, away) : 'none',
+    ...(i === frame ? { ballArc: 30 } : {}),
+  }));
+}
 
 export const SOCCER = lib.patterns;
 export { mirror };

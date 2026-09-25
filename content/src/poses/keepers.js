@@ -73,7 +73,7 @@ def('gk-punt', 'Keeper punt', {
 
 // ── Ice-hockey goaltender (stick in the right hand, blocker side) ─────────
 const GOALIE_STICK = { kind: 'stick', at: 'R' };
-const gStance = P(both({ hip: 50, knee: 60, ankle: 26, hipAbd: 22, hipRot: 10 }), { spine: 30, neck: -16, shoulderL: 60, shoulderAbdL: 30, elbowL: 70, shoulderR: 30, shoulderAbdR: 20, elbowR: 30 });
+const gStance = P(both({ hip: 50, knee: 60, ankle: 26, hipAbd: 22, hipRot: 10 }), { spine: 30, neck: -16, shoulderL: 60, shoulderAbdL: 30, elbowL: 70, shoulderR: 36, shoulderAbdR: 20, elbowR: 30 });
 /** Butterfly: knees together on the ice, lower legs flared out flat, chest up, stick on the ice. */
 const butterfly = P({ spine: 12, neck: -10, ...both({ hip: 0, knee: 100, ankle: -30, hipAbd: -10, hipRot: -50 }), shoulderL: 60, shoulderAbdL: 30, elbowL: 70, shoulderR: 30, shoulderAbdR: 20, elbowR: 30 });
 def('goalie-butterfly-slide', 'Goaltender butterfly slides', {

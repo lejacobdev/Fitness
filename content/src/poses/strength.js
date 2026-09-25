@@ -1,5 +1,5 @@
 /** Strength, power and gym patterns. */
-import { BONES, add, apply, scale, skeleton, sub } from '../rig3d.js';
+import { BONES, add, apply, frameAt, keyframeAt, lerpPose, lowestY, placeKeyframes, scale, skeleton, sub } from '../rig3d.js';
 import { ATHLETIC, P, STAND, both, clear, mirror as mirrorKit, elbowsDown, flatHands, handsToFloor, kf, library, on, reach, reachBoth, reachLeg, side, solve, toeDown, levelFeet, tween } from './kit.js';
 
 const lib = library();
@@ -350,7 +350,8 @@ def('reverse-nordic', 'Reverse Nordic', {
 });
 const proneLegs = (knee) => P(both({ knee, ankle: 0, shoulder: 150, shoulderAbd: 30, elbow: 90 }), { spine: 90, neck: -20 });
 def('prone-leg-curl', 'Lying leg curl', {
-  fixture: { kind: 'bench', from: -2, to: 62, top: 34 },
+  // The pad runs from the chest to just above the knees; the lower legs curl free.
+  fixture: { kind: 'bench', from: -40, to: 62, top: 34 },
   keyframes: rep3(proneLegs(4), proneLegs(118), { contact: 'front', down: 0.9, upT: 1.1 }).map((k) => ({ ...k, surface: 34 })),
 });
 /** Supine bridge: heels and upper back on the floor, pelvis lifted to `lift`. */
@@ -566,14 +567,18 @@ def('band-external-rotation', 'Band external rotation', {
   keyframes: rep3(P({ shoulderL: 4, shoulderAbdL: 8, elbowL: 90, shoulderRotL: 30 }), P({ shoulderL: 4, shoulderAbdL: 8, elbowL: 90, shoulderRotL: -70 }), { down: 0.7, upT: 0.8 }),
 });
 const proneBase = { spine: 90, neck: -14, ...both({ ankle: -80 }) };
+const ROTW = 70;
 def('prone-ytw', 'Prone Y-T-W raise', {
   view: 'three-quarter', thumb: 1,
   keyframes: [
-    kf(P(proneBase, both({ shoulder: 160, shoulderAbd: 30, elbow: 0 })), 'front', { hold: 0.2, move: 0.6 }),
-    kf(P(proneBase, both({ shoulder: 172, shoulderAbd: 40, elbow: 0 }), { neck: -24 }), 'front', { hold: 0.3, move: 0.7 }),
-    kf(P(proneBase, both({ shoulder: 90, shoulderAbd: 90, elbow: 0 }), { neck: -24 }), 'front', { hold: 0.3, move: 0.7 }),
-    kf(P(proneBase, both({ shoulder: 46, shoulderAbd: 60, elbow: 92 }), { neck: -24 }), 'front', { hold: 0.3, move: 0.7 }),
-    kf(P(proneBase, both({ shoulder: 160, shoulderAbd: 30, elbow: 0 })), 'front', { hold: 0.1 }),
+    // Y: arms overhead in a Y, lifted off the floor (past 180 is above the body line).
+    kf(P(proneBase, both({ shoulder: 188, shoulderAbd: 30, elbow: 0 })), 'front', { hold: 0.2, move: 0.6 }),
+    kf(P(proneBase, both({ shoulder: 196, shoulderAbd: 40, elbow: 0 }), { neck: -24 }), 'front', { hold: 0.3, move: 0.7 }),
+    // T: arms straight out to the sides, lifted just off the floor.
+    kf(P(proneBase, both({ shoulder: -8, shoulderAbd: 90, elbow: 0 }), { neck: -24 }), 'front', { hold: 0.3, move: 0.7 }),
+    // W: elbows bent and pulled back, forearms lifted.
+    kf(P(proneBase, both({ shoulder: -14, shoulderAbd: 50, elbow: 92, shoulderRot: ROTW }), { neck: -24 }), 'front', { hold: 0.3, move: 0.7 }),
+    kf(P(proneBase, both({ shoulder: 188, shoulderAbd: 30, elbow: 0 })), 'front', { hold: 0.1 }),
   ],
 });
 def('biceps-curl', 'Dumbbell curl', {
@@ -727,7 +732,7 @@ def('cut-45', '45-degree cut', {
   view: 'three-quarter', thumb: 1,
   keyframes: [
     kf(P({ spine: 14, hipL: 40, kneeL: 30, ankleL: 10, hipR: -20, kneeR: 70, ankleR: -24, ...armsSwing(-30, 40, 88), lift: 3 }), 'air', { move: 0.16 }),
-    kf(clear(P({ spine: 24, neck: -12, hipR: 50, kneeR: 56, ankleR: 22, hipAbdR: 30, hipL: 34, kneeL: 70, ankleL: -10, hipAbdL: 4, bend: 16, ...armsSwing(20, 30, 80), twist: -18 }), 'R'), 'R', { hold: 0.12, move: 0.2, travel: [28, 0] }),
+    kf(clear(P({ spine: 24, neck: -12, hipR: 40, kneeR: 42, ankleR: 18, hipAbdR: 16, hipL: 0, kneeL: 30, ankleL: -10, hipAbdL: 4, bend: 8, ...armsSwing(20, 30, 80), twist: -18 }), 'R'), 'R', { hold: 0.12, move: 0.2, travel: [28, 0] }),
     kf(P({ spine: 30, neck: -10, turn: 45, hipR: -10, kneeR: 14, ankleR: -30, hipL: 90, kneeL: 100, ankleL: 8, ...armsSwing(50, -40, 88), lift: 2 }), 'Rtoe', { hold: 0.3 }),
   ],
 });
@@ -762,7 +767,7 @@ def('carioca', 'Carioca', {
 });
 def('lateral-band-walk', 'Lateral band walk', {
   path: { kind: 'line', length: 160, dir: 'left', speed: 32 },
-  view: 'front', loop: true, thumb: 1,
+  view: 'front', loop: true, thumb: 1, implement: { kind: 'band', at: 'hands', aroundKnees: true },
   keyframes: [
     kf(P(both({ hip: 36, knee: 42, ankle: 20, hipAbd: 12, shoulder: 30, elbow: 70 }), { spine: 22 }), 'feet', { hold: 0.1, move: 0.4 }),
     kf(P(both({ hip: 36, knee: 42, ankle: 20, shoulder: 30, elbow: 70 }), { spine: 22, hipAbdL: 26, hipAbdR: 12, kneeL: 36 }), 'R', { hold: 0.1, move: 0.4 }),
@@ -935,12 +940,21 @@ def('dumbbell-snatch', 'Single-arm dumbbell snatch', {
 });
 // Turkish get-up: lying → elbow → hand → bridge → kneel → stand (right arm up).
 const tguArm = { shoulderR: 90, shoulderAbdR: 6, elbowR: 0 };
+/** Leaning back until the supporting left hand is on the floor level with the planted right foot. */
+const tguPropped = (p) => {
+  const q = solve(p, 'spine', (sk) => (Math.min(sk.L.wrist[1] - 2.7, sk.L.handTip[1] - 1.5)) - sk.R.ankle[1], -85, 10);
+  // The bell stays stacked straight above the shoulder whatever the lean.
+  return { ...q, shoulderR: 180 + q.spine, shoulderAbdR: 6, elbowR: 0 };
+};
 def('turkish-get-up', 'Turkish get-up', {
   view: 'three-quarter', implement: { kind: 'kettlebell', at: 'R' }, thumb: 3,
   keyframes: [
     kf(lieFlat(P({ hipR: 50, kneeR: 100, ankleR: 10, hipL: 4, hipAbdL: 20, shoulderL: 20, shoulderAbdL: 40, ...tguArm, spine: -90 })), 'back', { hold: 0.4, move: 0.8 }),
-    kf(P({ spine: -45, twist: 20, hipR: 30, kneeR: 100, ankleR: 10, hipL: 4, hipAbdL: 20, shoulderL: -20, shoulderAbdL: 50, elbowL: 90, shoulderR: 140, elbowR: 0 }), 'back', { move: 0.8 }),
-    kf(P({ spine: -20, twist: 20, hipR: 70, kneeR: 100, ankleR: 10, hipL: 60, hipAbdL: 16, kneeL: 10, shoulderL: -40, shoulderAbdL: 40, elbowL: 0, shoulderR: 170, elbowR: 0 }), 'back', { move: 0.8 }),
+    kf(tguPropped(P({ spine: -45, twist: 20, hipR: 30, kneeR: 100, ankleR: 10, hipL: 4, hipAbdL: 20, shoulderL: -20, shoulderAbdL: 50, elbowL: 90, shoulderR: 140, elbowR: 0 })), 'Lhand+R', { move: 0.8 }),
+    kf(tguPropped(P({ spine: -20, twist: 20, hipR: 70, kneeR: 100, ankleR: 10, hipL: 60, hipAbdL: 16, kneeL: 10, shoulderL: -40, shoulderAbdL: 40, elbowL: 0, shoulderR: 170, elbowR: 0 })), 'Lhand+R', { move: 0.8 }),
+    // Bridge the hips up on the hand and foot, then sweep the straight leg back under to kneel.
+    kf(tguPropped(P({ spine: -60, twist: 20, hipR: 20, kneeR: 100, ankleR: 10, hipL: 15, kneeL: 4, shoulderL: -60, shoulderAbdL: 30, elbowL: 0, shoulderR: 170, elbowR: 0 })), 'Lhand+R', { hold: 0.2, move: 0.7 }),
+    kf(P({ spine: -30, twist: 10, hipR: 60, kneeR: 90, ankleR: 10, hipL: -30, kneeL: 100, ankleL: -86, shoulderL: -50, shoulderAbdL: 30, elbowL: 0, shoulderR: 175, elbowR: 0 }), 'Lhand+R+Lknee', { move: 0.7 }),
     kf(P({ spine: 0, hipL: -10, kneeL: 90, ankleL: -88, hipR: 90, kneeR: 90, ankleR: 0, shoulderR: 178, shoulderAbdR: 6, elbowR: 0, shoulderL: 10 }), 'R+Lknee', { hold: 0.3, move: 0.9 }),
     kf(P({ shoulderR: 178, shoulderAbdR: 6, elbowR: 0 }), 'feet', { hold: 0.4 }),
   ],
@@ -948,14 +962,37 @@ def('turkish-get-up', 'Turkish get-up', {
 // Burpee: stand → squat, hands down → kick back to plank → push-up → jump in → jump.
 const burpSquat = flatHands(reachBoth(P(both({ hip: 120, knee: 124, ankle: 36, hipAbd: 14 }), { spine: 54, neck: -20 }),
   (sk) => [sk.L.ankle[0] + 26, sk.L.ankle[1] + 2.8, 14], (sk) => [sk.L.ankle[0] + 26, sk.L.ankle[1] + 2.8, -14]));
+/**
+ * Halfway through the jump back: hands planted, feet off the floor. Chosen
+ * from a small grid so neither half of the jump (squat → hop → plank)
+ * swings a knee or foot through the floor.
+ */
+const burpHop = (() => {
+  let best = null;
+  for (const spine of [40, 50, 60, 70]) for (const hip of [70, 90, 110]) for (const knee of [40, 70, 100]) {
+    const pose = flatHands(P(pushTop, both({ hip, knee, ankle: 20 }), { spine }));
+    const probe = { slug: 'probe', keyframes: [kf(burpSquat, 'feet+hands', { move: 0.3 }), kf(pose, 'hands', { move: 0.3 }), kf(pushTop, 'hands+Ltoe+Rtoe')] };
+    const placed = placeKeyframes(probe);
+    let low = Infinity;
+    for (let t = 0; t <= 1; t += 0.02) low = Math.min(low, lowestY(frameAt(probe, t, placed)));
+    const hands = keyframeAt(probe, 1, placed);
+    const lift = Math.min(hands.L.ankle[1], hands.R.ankle[1]);
+    const score = Math.min(low, 0) * 10 + Math.min(lift, 12);
+    if (!best || score > best.score) best = { score, pose };
+  }
+  return best.pose;
+})();
 def('burpee', 'Burpee', {
-  thumb: 2,
+  thumb: 3,
   keyframes: [
     kf(P(), 'feet', { hold: 0.15, move: 0.35 }),
-    kf(burpSquat, 'feet+hands', { move: 0.25 }),
+    // The feet jump back and forward with the hands planted: mid-jump only the hands touch.
+    kf(burpSquat, 'feet+hands', { move: 0.14 }),
+    kf(burpHop, 'hands', { move: 0.14 }),
     kf(pushTop, 'hands+Ltoe+Rtoe', { move: 0.35 }),
     kf(pushBottom, 'hands+Ltoe+Rtoe', { move: 0.3 }),
-    kf(pushTop, 'hands+Ltoe+Rtoe', { move: 0.25 }),
+    kf(pushTop, 'hands+Ltoe+Rtoe', { move: 0.13 }),
+    kf(burpHop, 'hands', { move: 0.13 }),
     kf(burpSquat, 'feet+hands', { move: 0.25 }),
     kf(takeoff, 'Ltoe+Rtoe', { move: 0.2 }),
     kf(P(both({ ankle: -30, knee: 8 }), reachArms, { lift: 20 }), 'air', { move: 0.3 }),
@@ -979,14 +1016,14 @@ def('bear-crawl', 'Bear crawl', {
 });
 const sledArms = both({ shoulder: 110, elbow: 30, shoulderAbd: 10 });
 def('sled-push', 'Sled push', {
-  loop: true, thumb: 0, fixture: { kind: 'sled', at: 50 },
+  loop: true, thumb: 0, fixture: { kind: 'sled', at: 50 }, path: { kind: 'line', length: 260 },
   keyframes: gait([
     { hipL: 70, kneeL: 70, ankleL: 20, hipR: 0, kneeR: 16, ankleR: -24, ...sledArms },
     { hipL: 40, kneeL: 40, ankleL: 30, hipR: 30, kneeR: 90, ankleR: -10, ...sledArms },
   ], { lean: 55, neck: -20, move: 0.3 }),
 });
 def('sled-drag', 'Backward sled drag', {
-  loop: true, thumb: 0, implement: { kind: 'band', at: 'hands', to: [90, 20, 0] }, fixture: { kind: 'sled', at: 88 },
+  loop: true, thumb: 0, implement: { kind: 'band', at: 'hands', to: [90, 20, 0] }, fixture: { kind: 'sled', at: 88 }, path: { kind: 'line', length: 220, dir: 'back' },
   keyframes: gait([
     { hipL: 50, kneeL: 70, ankleL: 30, hipR: 70, kneeR: 90, ankleR: -10, ...both({ shoulder: 60, elbow: 10 }) },
     { hipL: 60, kneeL: 60, ankleL: 20, hipR: 30, kneeR: 70, ankleR: -10, ...both({ shoulder: 60, elbow: 10 }) },
@@ -1142,7 +1179,7 @@ def('woodchop', 'Band woodchop', {
     { down: 0.7, upT: 0.9 }),
 });
 def('landmine-rotation', 'Landmine rotation', {
-  view: 'front', implement: { kind: 'landmine', at: 'L' }, loop: true, thumb: 0,
+  view: 'three-quarter', implement: { kind: 'landmine', at: 'L' }, loop: true, thumb: 0,
   keyframes: [
     kf(P(both({ hip: 16, knee: 20, ankle: 10, hipAbd: 18 }), { twist: 0, shoulderL: 110, shoulderR: 110, shoulderAbdL: -20, shoulderAbdR: -20, elbowL: 4, elbowR: 4 }), 'feet', { hold: 0.1, move: 0.7 }),
     kf(P(both({ hip: 16, knee: 20, ankle: 10, hipAbd: 18 }), { twist: 40, bend: 0, shoulderL: 80, shoulderR: 80, shoulderAbdL: -30, shoulderAbdR: 10, elbowL: 4, elbowR: 4 }), 'feet', { hold: 0.2, move: 0.7 }),
@@ -1187,7 +1224,7 @@ def('sleeper-stretch', 'Sleeper stretch', {
   ],
 });
 def('clamshell', 'Clamshell', {
-  view: 'front', thumb: 1,
+  view: 'front', thumb: 1, implement: { kind: 'band', at: 'hands', aroundKnees: true },
   keyframes: rep3({ ...sideLie, hipL: 45, hipR: 45, shoulderR: 0, elbowR: 0 }, { ...sideLie, hipL: 45, hipR: 45, hipAbdR: 38, hipRotR: -30, shoulderR: 0, elbowR: 0 }, { contact: 'air', down: 0.7, upT: 0.8 }),
 });
 const wgsLunge = splitFit(92, 96, -14, { spine: 40, neck: -16 });
@@ -1232,8 +1269,8 @@ def('knee-to-wall', 'Knee-to-wall ankle mobility', {
 def('foam-roll', 'Foam rolling', {
   loop: true, thumb: 0, fixture: { kind: 'roller', under: 'calves' },
   keyframes: [
-    kf(flatHands(reachBoth(P(both({ hip: 80, knee: 6, ankle: 10 }), { spine: -40, neck: 10 }), (sk) => add(sk.pelvis, [-18, -12, 12]), (sk) => add(sk.pelvis, [-18, -12, -12]))), 'hands', { move: 1.1 }),
-    kf(flatHands(reachBoth(P(both({ hip: 80, knee: 6, ankle: 10 }), { spine: -46, neck: 10 }), (sk) => add(sk.pelvis, [-22, -12, 12]), (sk) => add(sk.pelvis, [-22, -12, -12]))), 'hands', { move: 1.1, travel: [-16, 0] }),
+    kf(flatHands(reachBoth(P(both({ hip: 54, knee: 6, ankle: 10 }), { spine: -40, neck: 10 }), (sk) => add(sk.pelvis, [-18, -12, 12]), (sk) => add(sk.pelvis, [-18, -12, -12]))), 'hands', { move: 1.1 }),
+    kf(flatHands(reachBoth(P(both({ hip: 54, knee: 6, ankle: 10 }), { spine: -46, neck: 10 }), (sk) => add(sk.pelvis, [-22, -12, 12]), (sk) => add(sk.pelvis, [-22, -12, -12]))), 'hands', { move: 1.1, travel: [-16, 0] }),
   ],
 });
 def('neck-isometric', 'Neck isometric', {
@@ -1483,12 +1520,12 @@ def('seated-arm-swing', 'Seated sprint arm drill', {
   ],
 });
 def('lateral-line-hops', 'Lateral line hops', {
-  view: 'front', loop: true, thumb: 1,
+  view: 'three-quarter', loop: true, thumb: 1, fixture: { kind: 'line', at: -18 },
   keyframes: [
     kf(P(both({ knee: 16, ankle: 16, shoulder: 20, elbow: 80 }), { spine: 10 }), 'feet', { move: 0.14 }),
-    kf(P(both({ knee: 8, ankle: -30, shoulder: 20, elbow: 80 }), { spine: 10, lift: 8 }), 'air', { move: 0.14, travel: [0, -24] }),
-    kf(P(both({ knee: 16, ankle: 16, shoulder: 20, elbow: 80 }), { spine: 10 }), 'feet', { move: 0.14, travel: [0, -12] }),
-    kf(P(both({ knee: 8, ankle: -30, shoulder: 20, elbow: 80 }), { spine: 10, lift: 8 }), 'air', { move: 0.14, travel: [0, 24] }),
+    kf(P(both({ knee: 8, ankle: -30, shoulder: 20, elbow: 80 }), { spine: 10, lift: 12 }), 'air', { move: 0.14, travel: [0, -18] }),
+    kf(P(both({ knee: 16, ankle: 16, shoulder: 20, elbow: 80 }), { spine: 10 }), 'feet', { move: 0.14, travel: [0, -18] }),
+    kf(P(both({ knee: 8, ankle: -30, shoulder: 20, elbow: 80 }), { spine: 10, lift: 12 }), 'air', { move: 0.14, travel: [0, 18] }),
   ],
 });
 def('backward-overhead-toss', 'Backward overhead toss', {
@@ -1561,11 +1598,31 @@ def('rdl-dumbbells', 'Dumbbell Romanian deadlift', {
   ],
 });
 /** Inchworm: fold, walk the hands out to a plank, walk the feet in, stand. */
+// Getting down to the floor and back up between exercises (circuits): squat,
+// hands down, jump the feet back to a plank; and the same in reverse.
+export const downToPlank = [kf(burpSquat, 'feet+hands', { move: 0.3 }), kf(burpHop, 'hands', { move: 0.25 })];
+export const upFromPlank = [kf(burpHop, 'hands', { move: 0.25 }), kf(burpSquat, 'feet+hands', { move: 0.35 })];
+/** From a plank onto the knees, then round to sitting (the start of a sit-up). */
+const kneelHands = handsToFloor(P(both({ hip: 90, knee: 96, ankle: -40, shoulder: 88, elbow: 0 }), { spine: 90, neck: -10 }));
+export const plankToSeat = [kf(kneelHands, 'hands+knees', { move: 0.5 })];
+
+/** Inchworm: fold, walk the hands out to a plank, walk the feet in, stand. */
+/** Standing forward fold, legs vertical (hips flex as far as the trunk tips), palms on the floor. */
+const worm = (() => {
+  const fold = (t) => P(both({ hip: t - 8, knee: 16, ankle: 4, shoulder: t, elbow: 0 }), { spine: t, neck: -14 });
+  const gap = (t) => { const sk = skeleton(fold(t)); return Math.min(sk.L.wrist[1] - 2.7, sk.L.handTip[1] - 1.5) - Math.min(sk.L.toe[1], sk.L.heel[1]); };
+  let lo = 80, hi = 175;
+  for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (gap(mid) > 0) lo = mid; else hi = mid; }
+  return fold((lo + hi) / 2);
+})();
+const wormPlank = handsToFloor(P(both({ shoulder: 90, elbow: 0, ankle: -30 }), { spine: 90, neck: -10 }));
 const inchworm = [
   kf(P(), 'feet', { hold: 0.2, move: 0.8 }),
-  kf(handsToFloor(P(both({ shoulder: 100, elbow: 0, knee: 30, hip: 20 }), { spine: 90, neck: -10 }), 40, 150), 'hands+Ltoe+Rtoe', { move: 0.8 }),
-  kf(P(both({ shoulder: 90, elbow: 0, ankle: -30 }), { spine: 90, neck: -10 }), 'hands+Ltoe+Rtoe', { hold: 0.3, move: 0.9, travel: [60, 0] }),
-  kf(handsToFloor(P(both({ shoulder: 100, elbow: 0, knee: 30, hip: 20 }), { spine: 90, neck: -10 }), 40, 150), 'hands+Ltoe+Rtoe', { move: 0.8, travel: [60, 0] }),
+  kf(worm, 'hands+Ltoe+Rtoe', { move: 0.4 }),
+  kf(lerpPose(worm, wormPlank, 0.5), 'Ltoe+Rtoe', { move: 0.4 }),
+  kf(wormPlank, 'hands+Ltoe+Rtoe', { hold: 0.3, move: 0.45 }),
+  kf(flatHands(lerpPose(wormPlank, worm, 0.5)), 'hands', { move: 0.45 }),
+  kf(worm, 'hands+Ltoe+Rtoe', { move: 0.8 }),
   kf(P(), 'feet', { hold: 0.2 }),
 ];
 def('movement-screen', 'Movement quality circuit', {
@@ -1574,12 +1631,14 @@ def('movement-screen', 'Movement quality circuit', {
     ...lib.get('squat-bodyweight').keyframes,
     ...inchworm,
     ...lib.get('walking-lunge').keyframes.slice(0, 4),
+    ...downToPlank,
     ...lib.get('bear-crawl').keyframes,
   ],
 });
 def('emom-squat-pushup-situp', 'Squats, push-ups, sit-ups', {
   view: 'three-quarter', thumb: 1,
-  keyframes: [...lib.get('squat-bodyweight').keyframes, ...lib.get('push-up').keyframes, ...lib.get('sit-up').keyframes],
+  keyframes: [...lib.get('squat-bodyweight').keyframes, ...downToPlank, ...lib.get('push-up').keyframes, ...plankToSeat,
+    lib.get('sit-up').keyframes[1], ...lib.get('sit-up').keyframes],
 });
 
 export const STRENGTH = lib.patterns;

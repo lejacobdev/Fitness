@@ -5,7 +5,7 @@
 import { CATALOGUE } from '../src/catalogue.js';
 import { POSE_ASSIGNMENTS } from '../src/poseAssignments/index.js';
 import { POSE_PATTERNS } from '../src/poses.js';
-import { castAt, frameAt, lowestY, placeKeyframes, timing } from '../src/rig3d.js';
+import { castAt, frameAt, implementHead, keyframeAt, lowestY, placeKeyframes, timing } from '../src/rig3d.js';
 
 const only = process.argv[2] ? new Set(process.argv[2].split(',')) : null;
 const BY = new Map(POSE_PATTERNS.map((p) => [p.slug, p]));
@@ -142,6 +142,35 @@ for (const p of POSE_PATTERNS) {
     prev = { segment, s };
   }
   if (nan) flag('NAN', '-', p.slug, 'non-finite joint position');
+  // A held stick, racket, bat or club head going through the floor.
+  if (['lacrosse2', 'hockeystick', 'racket', 'paddle', 'bat', 'bat2', 'club', 'stick', 'lacrosse'].includes(p.implement?.kind) && p.fixture?.kind !== 'water') {
+    let lowHead = 0;
+    for (let q = 0; q < S; q++) {
+      try { const h = implementHead(p.implement, frameAt(p, q / S, placed), 0); if (h) lowHead = Math.min(lowHead, h[1]); } catch { /* not every kind has a head */ }
+    }
+    if (lowHead < -4) flag('IMPL-FLOOR', '-', p.slug, `${p.implement.kind} head ${lowHead.toFixed(1)} below the floor`);
+  }
+  // Lying down (front/back) but the torso held off the floor by a limb pushed into it.
+  if (!p.fixture) for (let i = 0; i < n; i++) {
+    const c = tok(p.keyframes[i].contact);
+    if (!(c.has('front') || c.has('back'))) continue;
+    const k = keyframeAt(p, i, placed);
+    const chest = k.neckBase[1], hips = k.pelvis[1];
+    if (Math.min(chest, hips) > 24) flag('LIFTED', '-', p.slug, `keyframe ${i} (${p.keyframes[i].contact}): pelvis ${hips.toFixed(0)} / chest ${chest.toFixed(0)} above the floor`);
+  }
+  // Standing straight into a plank or onto the floor (or back) in one move: the body swings like a plank.
+  {
+    const standing = (c) => [...tok(c)].every((x) => /^(feet|L|R|Ltoe|Rtoe|Lheel|Rheel)$/.test(x));
+    const down = (c) => [...tok(c)].some((x) => /^(hands|Lhand|Rhand|back|front|knees|Lknee|Rknee)$/.test(x));
+    const segs = p.loop ? n : n - 1;
+    for (let i = 0; i < segs; i++) {
+      const a = p.keyframes[i], b = p.keyframes[(i + 1) % n];
+      if ((standing(a.contact) && down(b.contact)) || (down(a.contact) && standing(b.contact))) {
+        const pa = keyframeAt(p, i, placed).pelvis, pb = keyframeAt(p, (i + 1) % n, placed).pelvis;
+        if (Math.abs(pa[1] - pb[1]) > 45) flag('TRANSIT', '-', p.slug, `keyframe ${i}→${(i + 1) % n}: ${a.contact} → ${b.contact}, pelvis drops ${(pa[1] - pb[1]).toFixed(0)}`);
+      }
+    }
+  }
   if (floatMax > 5) flag('FLOAT', '-', p.slug, `body ${floatMax.toFixed(1)} above the floor between grounded keyframes`);
   for (const side of ['L', 'R', 'hands']) if (slideMax[side] > 4) flag('SLIDE', '-', p.slug, `${side} planted but moves ${slideMax[side].toFixed(1)} per step`);
   if (ballLow < -3) flag('BALL-FLOOR', '-', p.slug, `ball ${ballLow.toFixed(1)} below the floor`);
