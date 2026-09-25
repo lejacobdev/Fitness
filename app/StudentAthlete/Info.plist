@@ -56,6 +56,10 @@
 		<string>LaunchBackground</string>
 	</dict>
 
+	<!-- The jump test films at the camera's highest frame rate (no sound). -->
+	<key>NSCameraUsageDescription</key>
+	<string>Athlete OS uses the camera only when you film your vertical jump test, to measure how long you were in the air. The video stays on your phone.</string>
+
 	<!--
 	  §17: both strings are mandatory. An app with the HealthKit entitlement and
 	  only one of these is rejected at upload.

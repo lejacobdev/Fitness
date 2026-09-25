@@ -9,10 +9,10 @@ import UIKit
 /// accent in rings and highlights, slate gray for secondary text.
 /// Follows the system appearance; watchOS always gets the dark palette.
 public enum AppTheme {
-    public static let background = Color.dynamic(light: 0xFFFFFF, dark: 0x0B0F14)
-    public static let card = Color.dynamic(light: 0xF4F6FA, dark: 0x151B23)
+    public static let background = Color.dynamic(light: 0xFFFFFF, dark: 0x000000)
+    public static let card = Color.dynamic(light: 0xF5F5F5, dark: 0x141414)
     /// Unselected chips/options, ring tracks, thumbnail wells.
-    public static let fill = Color.dynamic(light: 0xE8EDF4, dark: 0x1F2733)
+    public static let fill = Color.dynamic(light: 0xEBEBEB, dark: 0x262626)
     /// Primary text.
     public static let ink = Color.dynamic(light: 0x0B0F14, dark: 0xF8FAFC)
     /// Every action and selection: buttons, selected chips, the "+".
@@ -22,14 +22,19 @@ public enum AppTheme {
     /// Secondary text — the brand's slate gray (#94A3B8), one shade deeper on
     /// white so small text stays readable.
     public static let secondaryText = Color.dynamic(light: 0x64748B, dark: 0x94A3B8)
-    public static let hairline = Color.dynamic(light: 0xE2E8F0, dark: 0x1F2733)
+    public static let hairline = Color.dynamic(light: 0xE5E5E5, dark: 0x262626)
 
     // Ring and highlight colours.
     public static let brand = Color(hex: "#E5383B")
     /// The second accent (rings, highlights): a lighter coral red.
     public static let coral = Color(hex: "#FF6B6B")
     public static let orange = Color(hex: "#FF8A3D")
-    public static let blue = Color(hex: "#2563EB")
+    /// Was the old cobalt blue; the palette is red, black and white, so
+    /// this is now the black accent (light grey in dark mode, so it shows).
+    public static let blue = Color.dynamic(light: 0x111111, dark: 0xE5E5E5)
+    /// A solid black surface with white on it (a dark grey in dark mode, so
+    /// it stands out from the black background).
+    public static let solid = Color.dynamic(light: 0x111111, dark: 0x2E2E2E)
     public static let purple = Color(hex: "#7C5CF2")
     public static let green = Color(hex: "#22C55E")
     public static let amber = Color(hex: "#F59E0B")

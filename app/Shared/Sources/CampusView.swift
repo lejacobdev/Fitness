@@ -11,24 +11,28 @@ enum Duo {
     static let greenLip = Color(hex: "#58A700")
     static let greenSoft = Color.dynamic(light: 0xD7FFB8, dark: 0x1F3A12)
     static let greenText = Color.dynamic(light: 0x58A700, dark: 0x79D634)
-    static let blue = Color(hex: "#1CB0F6")
-    static let blueLip = Color(hex: "#1899D6")
-    static let blueSoft = Color.dynamic(light: 0xDDF4FF, dark: 0x173446)
+    /// The selected answer and secondary buttons: black, not blue.
+    static let blue = Color.dynamic(light: 0x111111, dark: 0xF2F2F2)
+    static let blueLip = Color.dynamic(light: 0x000000, dark: 0xBDBDBD)
+    static let blueSoft = Color.dynamic(light: 0xEBEBEB, dark: 0x262626)
+    /// A black slab button with white text (dark grey in dark mode).
+    static let black = AppTheme.solid
+    static let blackLip = Color.dynamic(light: 0x000000, dark: 0x1A1A1A)
     static let red = Color(hex: "#FF4B4B")
     static let redLip = Color(hex: "#EA2B2B")
     static let redSoft = Color.dynamic(light: 0xFFDFE0, dark: 0x3F1E20)
     static let gold = Color(hex: "#FFC800")
     static let goldLip = Color(hex: "#E5A500")
     static let orange = Color(hex: "#FF9600")
-    static let border = Color.dynamic(light: 0xE5E5E5, dark: 0x37464F)
-    static let lockedFill = Color.dynamic(light: 0xE5E5E5, dark: 0x37464F)
-    static let lockedLip = Color.dynamic(light: 0xCECECE, dark: 0x27333A)
-    static let lockedGlyph = Color.dynamic(light: 0xAFAFAF, dark: 0x52656D)
+    static let border = Color.dynamic(light: 0xE5E5E5, dark: 0x333333)
+    static let lockedFill = Color.dynamic(light: 0xE5E5E5, dark: 0x333333)
+    static let lockedLip = Color.dynamic(light: 0xCECECE, dark: 0x1F1F1F)
+    static let lockedGlyph = Color.dynamic(light: 0xAFAFAF, dark: 0x6B6B6B)
 
     /// Unit colours along the path, starting with the app's red.
     static let units: [(Color, Color)] = [
-        (AppTheme.accent, Color(hex: "#B8272A")), (blue, blueLip), (green, greenLip), (Color(hex: "#CE82FF"), Color(hex: "#A568CC")),
-        (orange, Color(hex: "#CC7900")), (Color(hex: "#FF86D0"), Color(hex: "#CC6BA6")), (Color(hex: "#2B70C9"), Color(hex: "#1F5299")),
+        (AppTheme.accent, Color(hex: "#B8272A")), (black, blackLip), (green, greenLip), (Color(hex: "#CE82FF"), Color(hex: "#A568CC")),
+        (orange, Color(hex: "#CC7900")), (Color(hex: "#FF86D0"), Color(hex: "#CC6BA6")), (AppTheme.coral, Color(hex: "#D65454")),
     ]
 }
 
@@ -555,7 +559,7 @@ struct CampusLessonPlayer: View {
                 index = 0; completed = 0; hearts = 5; mistakes = 0; phase = .answering
                 choice = nil; fillWord = nil; match = MatchState(); startedAt = .now
             }
-            .buttonStyle(ChunkyButtonStyle(fill: Duo.blue, lip: Duo.blueLip))
+            .buttonStyle(ChunkyButtonStyle(fill: Duo.black, lip: Duo.blackLip))
             Button("Quit") { dismiss() }
                 .font(.headline.weight(.heavy))
                 .textCase(.uppercase)

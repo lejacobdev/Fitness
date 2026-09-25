@@ -20,6 +20,11 @@ struct CheckInCard: View {
     /// confirm" — shown as a hint under the sleep question and saved with
     /// the check-in, never an extra tap.
     @State private var healthSleepHours: Double?
+    /// Answers filled in from Apple Health (until the athlete changes them).
+    @State private var sleepFromHealth = false
+    @State private var energyFromHealth = false
+    @State private var heartRate: (today: Double, usual: Double?)?
+    @State private var canConnectHealth = false
 
     init(athlete: Athlete, existing: CheckIn? = nil, onSubmitted: @escaping () -> Void = {}) {
         self.athlete = athlete
@@ -41,7 +46,9 @@ struct CheckInCard: View {
                     Text("Morning check-in")
                         .font(.title3.bold())
                         .foregroundStyle(AppTheme.ink)
-                    Text("Four taps — it saves itself and tunes today's session to how you feel.")
+                    Text(sleepFromHealth || energyFromHealth
+                         ? "\(4 - answeredCount) taps left — Apple Health filled in the rest. It saves itself."
+                         : "Four taps — it saves itself and tunes today's session to how you feel.")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
@@ -54,20 +61,48 @@ struct CheckInCard: View {
                 .frame(width: 46, height: 46)
             }
 
-            scaleRow("How did you sleep?", systemImage: "moon.fill", color: AppTheme.purple, low: "Poorly", high: "Great", selection: $sleep)
+            scaleRow("How did you sleep?", systemImage: "moon.fill", color: AppTheme.purple, low: "Poorly", high: "Great",
+                     selection: Binding(get: { sleep }, set: { sleep = $0; sleepFromHealth = false }))
             if let healthSleepHours {
-                Label("Apple Health says \(SleepMath.label(healthSleepHours))", systemImage: "heart.fill")
+                Label(sleepFromHealth
+                      ? "Filled in from Apple Health: \(SleepMath.label(healthSleepHours)) — tap to change"
+                      : "Apple Health says \(SleepMath.label(healthSleepHours))", systemImage: "heart.fill")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.purple)
                     .padding(.top, -10)
             }
             scaleRow("How sore are you?", systemImage: "figure.walk", color: AppTheme.orange, low: "Not at all", high: "Very sore", selection: $soreness)
-            scaleRow("How is your energy?", systemImage: "bolt.fill", color: AppTheme.amber, low: "Drained", high: "Buzzing", selection: $energy)
+            scaleRow("How is your energy?", systemImage: "bolt.fill", color: AppTheme.amber, low: "Drained", high: "Buzzing",
+                     selection: Binding(get: { energy }, set: { energy = $0; energyFromHealth = false }))
+            if energyFromHealth, let heartRate, let usual = heartRate.usual {
+                Label("Filled in from your resting heart rate: \(Int(heartRate.today.rounded())) (usually \(Int(usual.rounded()))) — tap to change",
+                      systemImage: "heart.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.amber)
+                    .padding(.top, -10)
+            }
             scaleRow("How is stress / school?", systemImage: "book.fill", color: AppTheme.blue, low: "Calm", high: "Stressed", selection: $stress)
+            if canConnectHealth {
+                Button {
+                    Task {
+                        await HealthKitManager.shared.requestAuthorization()
+                        canConnectHealth = false
+                        await prefillFromHealth()
+                    }
+                } label: {
+                    Label("Let Apple Health fill in sleep and energy", systemImage: "heart.text.square.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.accent)
+                }
+                .buttonStyle(.plain)
+            }
         }
         .cardStyle()
         .sensoryFeedback(.success, trigger: saveCount)
-        .task { healthSleepHours = await HealthKitManager.shared.sleepHours() }
+        .task {
+            canConnectHealth = await HealthKitManager.shared.needsAuthorization()
+            await prefillFromHealth()
+        }
         .onChange(of: sleep) { saveIfComplete() }
         .onChange(of: soreness) { saveIfComplete() }
         .onChange(of: energy) { saveIfComplete() }
@@ -112,6 +147,21 @@ struct CheckInCard: View {
             }
             .font(.caption2)
             .foregroundStyle(AppTheme.secondaryText)
+        }
+    }
+
+    /// Sleep from the hours slept, energy from resting heart rate — only
+    /// for questions not answered yet.
+    private func prefillFromHealth() async {
+        healthSleepHours = await HealthKitManager.shared.sleepHours()
+        if sleep == nil, let hours = healthSleepHours {
+            sleep = CheckInPrefill.sleepRating(hours: hours)
+            sleepFromHealth = true
+        }
+        heartRate = await HealthKitManager.shared.restingHeartRate()
+        if energy == nil, let heartRate, let rating = CheckInPrefill.energyRating(restingHeartRate: heartRate.today, usual: heartRate.usual) {
+            energy = rating
+            energyFromHealth = true
         }
     }
 

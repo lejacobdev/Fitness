@@ -195,7 +195,7 @@ struct MindsetView: View {
     private var gameDaySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Before a game", subtitle: "Nerves are normal — they mean you care. These get you calm and sharp.")
-            routineButton("2-minute breathing", detail: "Calm your nerves or lock in", icon: "wind", color: AppTheme.blue) { routine = .breathing }
+            routineButton("2-minute breathing", detail: "Calm your nerves or lock in", icon: "wind", color: AppTheme.ink) { routine = .breathing }
             routineButton("Game-day visualization", detail: "5 minutes: play the game in your head first", icon: "eye.fill", color: AppTheme.purple) { routine = .visualization }
         }
     }
@@ -455,10 +455,10 @@ struct BreathingView: View {
                         Spacer()
                         ZStack {
                             Circle()
-                                .fill(AppTheme.blue.opacity(0.15))
+                                .fill(AppTheme.fill)
                                 .frame(width: 280, height: 280)
                             Circle()
-                                .fill(AppTheme.blue.gradient)
+                                .fill(AppTheme.solid)
                                 .frame(width: 280, height: 280)
                                 .scaleEffect(scale)
                             Text(phase.label)

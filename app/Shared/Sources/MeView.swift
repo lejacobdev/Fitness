@@ -46,7 +46,7 @@ struct MeView: View {
     private var apiClient: APIClient { APIClient(baseURL: AppConfig.backendBaseURL) }
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help
+        case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests
         var id: String { rawValue }
     }
 
@@ -98,6 +98,8 @@ struct MeView: View {
                                 detail: ProAccess.isPro ? "\(Set(sessions.flatMap { $0.sets.map(\.itemSlug) }).count) exercises" : "Pro") {
                             if ProAccess.isPro { activeSheet = .exercises } else { showingPaywall = true }
                         }
+                        menuDivider
+                        menuRow("Tests", icon: "stopwatch.fill", tint: AppTheme.accent, detail: "Every 6–8 weeks") { activeSheet = .tests }
                         menuDivider
                         menuRow("Past workouts", icon: "clock.arrow.circlepath", tint: AppTheme.blue, detail: "\(sessions.count)") { activeSheet = .history }
                         menuDivider
@@ -229,6 +231,7 @@ struct MeView: View {
                 case .health: HealthPermissionView()
                 case .sports: SportsManagerSheet(athlete: athlete, onChanged: onPlanInputsChanged)
                 case .help: HelpCenterView()
+                case .tests: BenchmarksView(sportSlug: athlete.activeSport?.sportSlug)
                 }
             }
             .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .exerciseProgress)

@@ -34,7 +34,7 @@ struct HomeView: View {
     @State private var mindsetRevision = 0
 
     enum HomeSheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, mindset, reflection
+        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, mindset, reflection, tests
         var id: String { rawValue }
     }
 
@@ -110,6 +110,7 @@ struct HomeView: View {
                         if showEveningReflection { eveningCard }
                         if let mobility { mobilityCard(mobility) }
                         levels
+                        if showTestsCard { testsCard }
                         upcoming
                     }
                     .padding(.horizontal, 20)
@@ -153,6 +154,8 @@ struct HomeView: View {
                         activeSheet = nil
                         onPlanInputsChanged()
                     }
+                case .tests:
+                    BenchmarksView(sportSlug: athlete.activeSport?.sportSlug)
                 case .mindset:
                     MindsetView(sportName: AthleteStats.sportName(athlete)) { selectedTab = .campus }
                 case .reflection:
@@ -558,6 +561,9 @@ struct HomeView: View {
         let totalLessons = campusTopics.reduce(0) { $0 + $1.lessons.count }
         _ = mindsetRevision
         let mindset = MindsetStore.weekProgress()
+        let results = BenchmarkStore.results
+        let bodyGain = BenchmarkMath.headline(results, tests: BenchmarkCatalog.body)
+        let sportGain = athlete.activeSport.flatMap { BenchmarkMath.headline(results, tests: [BenchmarkCatalog.sportTest(for: $0.sportSlug)]) }
         let planned = max(week?.sessions.count ?? 0, 1) + practiceDays.count
         let skillPlans = athlete.skillBlocks.filter { $0.targetDate >= calendar.startOfDay(for: .now) }.count
         return VStack(alignment: .leading, spacing: 12) {
@@ -565,13 +571,13 @@ struct HomeView: View {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 Button { selectedTab = .plan } label: {
                     WidgetTile(value: "\(loggedThisWeek) of \(planned)", label: "Body", progress: Double(loggedThisWeek) / Double(planned),
-                               color: AppTheme.accent, systemImage: "figure.strengthtraining.traditional", caption: "Workouts done this week")
+                               color: AppTheme.accent, systemImage: "figure.strengthtraining.traditional", caption: bodyGain ?? "Workouts done this week")
                 }
                 .buttonStyle(.plain)
                 Button { selectedTab = .improve } label: {
                     WidgetTile(value: skillPlans == 0 ? "Pick a skill" : "\(skillPlans) active", label: "Sport",
                                progress: skillPlans == 0 ? 0 : 1, color: AppTheme.blue, systemImage: "sportscourt.fill",
-                               caption: skillPlans == 0 ? "A plan for one skill of your sport" : "Skill plans in progress")
+                               caption: sportGain ?? (skillPlans == 0 ? "A plan for one skill of your sport" : "Skill plans in progress"))
                 }
                 .buttonStyle(.plain)
                 Button { selectedTab = .campus } label: {
@@ -586,6 +592,55 @@ struct HomeView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    // MARK: - Tests
+
+    private var testStatus: BenchmarkSchedule.Status {
+        _ = mindsetRevision
+        return BenchmarkSchedule.status(lastTest: BenchmarkStore.lastTestDate())
+    }
+
+    /// Every 6–8 weeks (and the very first time): time to test.
+    private var showTestsCard: Bool {
+        switch testStatus {
+        case .notYet: false
+        case .firstTime, .due, .overdue: status == .active
+        }
+    }
+
+    private var testsCard: some View {
+        let (title, text): (String, String) = {
+            switch testStatus {
+            case .firstTime: return ("Take your first tests", "Jump, sprint, plank, push-ups and one test for your sport — about 20 minutes. They're your starting point.")
+            case .overdue: return ("Tests are overdue", "It's been over 8 weeks. Test on a fresh day this week and see what changed.")
+            default: return ("Test week", "It's been 6 weeks. Do the same tests again and see how much you've improved.")
+            }
+        }()
+        return Button { activeSheet = .tests } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "stopwatch.fill")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(AppTheme.accent)
+                    .frame(width: 56, height: 56)
+                    .background(AppTheme.accent.opacity(0.12), in: Circle())
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.title3.bold())
+                        .foregroundStyle(AppTheme.ink)
+                    Text(text)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            .cardStyle(padding: 16)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Mindset
@@ -639,7 +694,7 @@ struct HomeView: View {
                         .font(.headline)
                         .foregroundStyle(AppTheme.ink)
                         .frame(maxWidth: .infinity, minHeight: 56)
-                        .background(AppTheme.blue.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 Button { routine = .visualization } label: {

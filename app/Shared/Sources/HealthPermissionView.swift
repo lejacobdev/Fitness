@@ -21,7 +21,9 @@ struct HealthPermissionView: View {
         ) {
             VStack(alignment: .leading, spacing: 18) {
                 reason("moon.zzz.fill", AppTheme.purple, "Sleep",
-                       "Reads how long you actually slept, so your morning check-in shows it instead of you guessing.")
+                       "Reads how long you actually slept, so your morning check-in fills itself in instead of you guessing.")
+                reason("heart.fill", AppTheme.red, "Resting heart rate",
+                       "A resting heart rate above your normal can mean you're tired or getting sick — it fills in your energy, so the check-in is two taps.")
                 reason("figure.run", AppTheme.orange, "Workouts",
                        "Saves each session you finish to Health, once, so it sits alongside your other activity.")
                 reason("lock.fill", AppTheme.green, "Stays private",

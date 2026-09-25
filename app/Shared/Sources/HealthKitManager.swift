@@ -32,7 +32,7 @@ public final class HealthKitManager: @unchecked Sendable {
     public func requestAuthorization() async -> Bool {
         #if canImport(HealthKit)
         guard isAvailable else { return false }
-        let read: Set<HKObjectType> = [HKCategoryType(.sleepAnalysis), HKObjectType.workoutType()]
+        let read = Self.readTypes
         let share: Set<HKSampleType> = [HKObjectType.workoutType()]
         do {
             try await store.requestAuthorization(toShare: share, read: read)
@@ -42,6 +42,51 @@ public final class HealthKitManager: @unchecked Sendable {
         }
         #else
         return false
+        #endif
+    }
+
+    #if canImport(HealthKit)
+    private static var readTypes: Set<HKObjectType> {
+        [HKCategoryType(.sleepAnalysis), HKObjectType.workoutType(), HKQuantityType(.restingHeartRate)]
+    }
+    #endif
+
+    /// Whether asking again would show Apple's sheet — true when something
+    /// new is needed (resting heart rate was added for the check-in).
+    public func needsAuthorization() async -> Bool {
+        #if canImport(HealthKit)
+        guard isAvailable else { return false }
+        let status = try? await store.statusForAuthorizationRequest(toShare: [HKObjectType.workoutType()], read: Self.readTypes)
+        return status == .shouldRequest
+        #else
+        return false
+        #endif
+    }
+
+    /// This morning's resting heart rate and the athlete's usual one (the
+    /// median of the 4 weeks before). nil without data or permission; no
+    /// baseline until there are at least 7 days of it.
+    public func restingHeartRate(on day: Date = .now, calendar: Calendar = .current) async -> (today: Double, usual: Double?)? {
+        #if canImport(HealthKit)
+        guard isAvailable else { return nil }
+        let today = calendar.startOfDay(for: day)
+        guard let start = calendar.date(byAdding: .day, value: -28, to: today),
+              let end = calendar.date(byAdding: .day, value: 1, to: today) else { return nil }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+        let unit = HKUnit.count().unitDivided(by: .minute())
+        let samples: [(date: Date, bpm: Double)] = await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: HKQuantityType(.restingHeartRate), predicate: predicate,
+                limit: HKObjectQueryNoLimit, sortDescriptors: nil
+            ) { _, samples, _ in
+                let values = (samples as? [HKQuantitySample] ?? []).map { ($0.startDate, $0.quantity.doubleValue(for: unit)) }
+                continuation.resume(returning: values.map { (date: $0.0, bpm: $0.1) })
+            }
+            store.execute(query)
+        }
+        return RestingHeartRate.summarize(samples, today: today, calendar: calendar)
+        #else
+        return nil
         #endif
     }
 
