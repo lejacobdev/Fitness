@@ -599,6 +599,8 @@ struct HomeView: View {
         }
     }
 
+    /// While arranging: tap the arrows to move a widget up or down (or hold
+    /// and drag it onto another), tap – to remove it.
     @ViewBuilder
     private func editableWidget(_ widget: HomeWidget) -> some View {
         if editingLayout {
@@ -610,21 +612,10 @@ struct HomeView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .overlay(alignment: .topLeading) {
-                Button {
-                    withAnimation { layout.hidden.insert(widget); layout.save() }
-                } label: {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.title)
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white, AppTheme.red)
-                        .background(Circle().fill(.white).padding(4))
-                }
-                .buttonStyle(.plain)
-                .offset(x: -8, y: -8)
-                .accessibilityLabel("Remove \(widget.title)")
-            }
-            .rotationEffect(.degrees(wiggle ? 0.8 : -0.8))
+            // The widget itself ignores taps while arranging; this layer
+            // catches the long-press for dragging.
+            .overlay { Color.clear.contentShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)) }
+            .rotationEffect(.degrees(wiggle ? 0.6 : -0.6))
             .animation(.easeInOut(duration: 0.14).repeatForever(autoreverses: true), value: wiggle)
             #if os(iOS)
             .draggable(widget.rawValue) {
@@ -639,10 +630,58 @@ struct HomeView: View {
                 return true
             }
             #endif
+            .overlay(alignment: .topLeading) {
+                Button {
+                    withAnimation { layout.hidden.insert(widget); layout.save() }
+                } label: {
+                    Image(systemName: "minus")
+                        .font(.headline.weight(.heavy))
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(AppTheme.red, in: Circle())
+                        .overlay(Circle().stroke(AppTheme.background, lineWidth: 3))
+                }
+                .buttonStyle(.plain)
+                .offset(x: -10, y: -10)
+                .accessibilityLabel("Remove \(widget.title)")
+            }
+            .overlay(alignment: .topTrailing) {
+                HStack(spacing: 6) {
+                    moveButton(widget, by: -1, systemImage: "arrow.up")
+                    moveButton(widget, by: 1, systemImage: "arrow.down")
+                }
+                .offset(x: 6, y: -12)
+            }
+            .padding(.top, 8)
         } else {
             widgetContent(widget)
                 .frame(maxWidth: .infinity)
         }
+    }
+
+    private func moveButton(_ widget: HomeWidget, by step: Int, systemImage: String) -> some View {
+        let visible = layout.visible
+        let index = visible.firstIndex(of: widget) ?? 0
+        let target = index + step
+        let possible = visible.indices.contains(target)
+        return Button {
+            guard possible else { return }
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                layout.swap(widget, with: visible[target])
+                layout.save()
+            }
+        } label: {
+            Image(systemName: systemImage)
+                .font(.headline.weight(.heavy))
+                .foregroundStyle(AppTheme.onAccent)
+                .frame(width: 34, height: 34)
+                .background(AppTheme.accent, in: Circle())
+                .overlay(Circle().stroke(AppTheme.background, lineWidth: 3))
+        }
+        .buttonStyle(.plain)
+        .opacity(possible ? 1 : 0.25)
+        .disabled(!possible)
+        .accessibilityLabel(step < 0 ? "Move \(widget.title) up" : "Move \(widget.title) down")
     }
 
     /// A widget that isn't showing right now, while arranging.
@@ -666,7 +705,7 @@ struct HomeView: View {
     private var layoutControls: some View {
         if editingLayout {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Hold and drag a widget to move it. Tap – to remove it.")
+                Text("Tap the arrows to move a widget up or down, or hold one and drag it onto another. Tap – to remove it.")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
                 let hidden = layout.order.filter { layout.hidden.contains($0) }

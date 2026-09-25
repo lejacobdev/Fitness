@@ -108,6 +108,11 @@ public extension APIClient {
         let _: Ignored = try await social("POST", "teams/join", body: ["code": code, "nickname": nickname], sessionToken: sessionToken)
     }
 
+    /// Leave a team as an athlete (never deletes it — not even for its coach).
+    func leaveTeam(id: String, sessionToken: String) async throws {
+        let _: Ignored = try await social("DELETE", "teams/\(id)/membership", sessionToken: sessionToken)
+    }
+
     /// The coach deletes the team; a member leaves it.
     func deleteOrLeaveTeam(id: String, sessionToken: String) async throws {
         let _: Ignored = try await social("DELETE", "teams/\(id)", sessionToken: sessionToken)

@@ -109,7 +109,7 @@ struct MyTeamView: View {
                 Button("Leave", role: .destructive) {
                     if let team = teamToLeave {
                         Task {
-                            if let token = try? KeychainTokenStore().read() { try? await apiClient.deleteOrLeaveTeam(id: team.id, sessionToken: token) }
+                            if let token = try? KeychainTokenStore().read() { try? await apiClient.leaveTeam(id: team.id, sessionToken: token) }
                             await load()
                         }
                     }
@@ -131,6 +131,22 @@ struct MyTeamView: View {
         if teams == nil { message = "Couldn't reach the server — check your connection." }
     }
 
+    /// What went wrong, and what to do about it.
+    static func joinMessage(for error: Error) -> String {
+        guard case APIClient.APIError.http(let status, let code) = error else {
+            return "Couldn't reach the server — check your connection and try again."
+        }
+        switch (status, code) {
+        case (_, "no_such_team"?): return "No team has that code. Check it with your coach — it's 6 letters and numbers."
+        case (_, "invalid_code"?): return "A team code is 6 letters and numbers, like QA5P5Y."
+        case (_, "invalid_nickname"?): return "Use 2–20 letters or numbers for your name on the team."
+        case (_, "team_full"?): return "That team is full (80 athletes). Ask your coach."
+        case (_, "you_coach_this_team"?): return "You're this team's coach on this account. Update the app to also join it as an athlete."
+        case (401, _): return "You're signed out on this phone. Log out and sign in with Apple again, then join."
+        default: return "Something went wrong on our side (error \(status)). Try again in a minute."
+        }
+    }
+
     private func join() async {
         guard let token = try? KeychainTokenStore().read() else { return }
         working = true
@@ -140,12 +156,8 @@ struct MyTeamView: View {
             message = nil
             await load()
             await CoachAssignments.refresh(apiClient: apiClient)
-        } catch APIClient.APIError.http(_, let code?) where code == "no_such_team" {
-            message = "No team has that code. Check it with your coach."
-        } catch APIClient.APIError.http(_, let code?) where code == "invalid_nickname" {
-            message = "Use 2–20 letters or numbers for your name."
         } catch {
-            message = "Couldn't join — check your connection and try again."
+            message = Self.joinMessage(for: error)
         }
         working = false
     }

@@ -131,8 +131,14 @@ test('teams: the coach sees readiness and training, never more; members get assi
   const { call, close } = await serve(prisma);
   try {
     const { team } = await (await call('coach', 'POST', '/teams', { name: 'Varsity Soccer' })).json();
+    assert.equal((await call('coach', 'POST', '/teams/join', { code: team.code, nickname: 'Coach' })).status, 201, 'a player-coach can join their own team');
+    assert.equal((await call('coach', 'DELETE', `/teams/${team.id}/membership`)).status, 204, 'the coach leaves as an athlete');
+    assert.equal(prisma._db.team.length, 1, 'leaving never deletes the team');
+    assert.equal((await call('coach', 'DELETE', `/teams/${team.id}`)).status, 204, 'as coach, deleting removes the team');
+    const again = await (await call('coach', 'POST', '/teams', { name: 'Varsity Soccer' })).json();
+    team.id = again.team.id;
+    team.code = again.team.code;
     assert.equal((await call('ath1', 'POST', '/teams/join', { code: team.code, nickname: 'Sam' })).status, 201);
-    assert.equal((await call('coach', 'POST', '/teams/join', { code: team.code, nickname: 'Coach' })).status, 409);
 
     prisma._db.checkIn.push({ athleteId: 'ath1', date: new Date('2026-09-25T00:00:00Z'), readinessBand: 'AMBER', energy: 2, sleepHours: 7 });
     prisma._db.session.push({ athleteId: 'ath1', startedAt: new Date('2026-09-23T16:00:00Z'), minutes: 45 });

@@ -15,6 +15,12 @@ final class HomeWidgetsTests: XCTestCase {
         XCTAssertEqual(layout.order, [.quote, .checkIn, .today])
     }
 
+    func testTheArrowsSwapNeighbours() {
+        var layout = HomeLayout(order: [.quote, .checkIn, .today], hidden: [])
+        layout.swap(.today, with: .checkIn)
+        XCTAssertEqual(layout.order, [.quote, .today, .checkIn])
+    }
+
     func testAnOldLayoutGetsNewWidgetsAndHiddenOnesStayHidden() throws {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: "HomeWidgetsTests"))
         defaults.removePersistentDomain(forName: "HomeWidgetsTests")

@@ -53,6 +53,7 @@ function assignmentJSON(a, teamName) {
  *   POST   /teams                         { name } → create (I'm the coach)
  *   POST   /teams/join                    { code, nickname }
  *   DELETE /teams/:id                     coach: delete the team; member: leave
+ *   DELETE /teams/:id/membership          leave the team as an athlete (a coach too)
  *   GET    /teams/:id/readiness?today=YYYY-MM-DD&weekStart=YYYY-MM-DD   coach only
  *   GET    /teams/:id/assignments?from=YYYY-MM-DD                       coach only
  *   POST   /teams/:id/assignments         { date, title, note?, items: [{ itemSlug, sets, reps?, seconds? }] }
@@ -116,10 +117,8 @@ export function teamsRouter({ prisma, sessionSecret }) {
       res.status(404).json({ error: 'no_such_team' });
       return;
     }
-    if (team.coachId === req.athleteId) {
-      res.status(409).json({ error: 'you_coach_this_team' });
-      return;
-    }
+    // A coach may also be on their own team as an athlete (a player-coach,
+    // or trying it out with one account).
     const where = { teamId_athleteId: { teamId: team.id, athleteId: req.athleteId } };
     if (await prisma.teamMember.findUnique({ where })) {
       res.json({ team: { id: team.id, name: team.name, nickname } });
@@ -151,6 +150,17 @@ export function teamsRouter({ prisma, sessionSecret }) {
       take: 100,
     });
     res.json({ assignments: rows.map((a) => assignmentJSON(a, names.get(a.teamId))) });
+  });
+
+  // Leave a team as an athlete (never deletes it, even for its coach).
+  router.delete('/:id/membership', async (req, res) => {
+    const where = { teamId_athleteId: { teamId: req.params.id, athleteId: req.athleteId } };
+    if (!(await prisma.teamMember.findUnique({ where }))) {
+      res.status(404).json({ error: 'not_a_member' });
+      return;
+    }
+    await prisma.teamMember.delete({ where });
+    res.status(204).end();
   });
 
   router.delete('/:id', async (req, res) => {

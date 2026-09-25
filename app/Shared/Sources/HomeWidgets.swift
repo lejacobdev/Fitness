@@ -118,6 +118,12 @@ public struct HomeLayout: Codable, Sendable, Equatable {
         order.insert(widget, at: from <= to ? to + 1 : to)
     }
 
+    /// Swaps two widgets' places (the up/down arrows while arranging).
+    public mutating func swap(_ widget: HomeWidget, with other: HomeWidget) {
+        guard let a = order.firstIndex(of: widget), let b = order.firstIndex(of: other) else { return }
+        order.swapAt(a, b)
+    }
+
     /// Rows of the board: two small widgets side by side, everything else
     /// full width, in the athlete's order.
     public static func rows(_ widgets: [HomeWidget]) -> [[HomeWidget]] {
