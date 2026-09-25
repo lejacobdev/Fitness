@@ -552,7 +552,7 @@ const commands = {
   /**
    * Uploads every PNG in <dir> (sorted by name) to the editable App Store
    * version's en-US screenshots, replacing what's there. The display type
-   * comes from the pixel size: 6.9"/6.7" iPhone and 13"/12.9" iPad.
+   * comes from the pixel size: 6.9"/6.7" iPhone, 13"/12.9" iPad and Apple Watch.
    */
   async 'upload-screenshots'(identifier, dir) {
     if (!identifier || !dir) throw new Error('usage: upload-screenshots <bundle-id> <dir>');
@@ -568,6 +568,9 @@ const commands = {
       const key = `${Math.min(width, height)}x${Math.max(width, height)}`;
       if (['1320x2868', '1290x2796'].includes(key)) return 'APP_IPHONE_67';
       if (['2064x2752', '2048x2732'].includes(key)) return 'APP_IPAD_PRO_3GEN_129';
+      if (['416x496', '374x446'].includes(key)) return 'APP_WATCH_SERIES_10';
+      if (['410x502', '422x514'].includes(key)) return 'APP_WATCH_ULTRA';
+      if (['396x484', '352x430'].includes(key)) return 'APP_WATCH_SERIES_7';
       return null;
     };
     const pngSize = (buffer) => ({ width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) });

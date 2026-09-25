@@ -92,7 +92,12 @@ struct WatchRootView: View {
                 setupView
             }
         }
-        .task { reload() }
+        .task {
+            // App Store screenshots: a seeded day, with no phone needed.
+            if DemoData.isEnabled { WatchDemo.seed() }
+            reload()
+            if DemoData.isEnabled, ProcessInfo.processInfo.arguments.contains("-checkIn") { showingCheckIn = true }
+        }
         .onReceive(NotificationCenter.default.publisher(for: PhoneWatchBridge.payloadDidChange)) { _ in reload() }
         .onChange(of: scenePhase) {
             if scenePhase == .active {
@@ -231,5 +236,29 @@ struct WatchRootView: View {
             try? KeychainTokenStore().save(token)
         }
         WatchSnapshotWriter.write(payload: payload, athlete: athlete)
+    }
+}
+
+/// A believable day for App Store screenshots (`-demoData`), written as if
+/// the phone had sent it.
+@MainActor
+enum WatchDemo {
+    static func seed(now: Date = .now) {
+        let items = [
+            WatchPlanItem(itemSlug: "split-squat", name: "Split squat", doseKind: "reps", sets: 3, reps: 8, seconds: nil,
+                          metres: nil, contacts: nil, restSec: 90, isDrill: false),
+            WatchPlanItem(itemSlug: "nordic-hamstring-curl", name: "Nordic hamstring curl", doseKind: "reps", sets: 3, reps: 5,
+                          seconds: nil, metres: nil, contacts: nil, restSec: 90, isDrill: false),
+            WatchPlanItem(itemSlug: "copenhagen-plank", name: "Copenhagen plank", doseKind: "time", sets: 2, reps: nil, seconds: 20,
+                          metres: nil, contacts: nil, restSec: 60, isDrill: false),
+            WatchPlanItem(itemSlug: "a-skip", name: "A-skip", doseKind: "distance", sets: 3, reps: nil, seconds: nil,
+                          metres: 20, contacts: nil, restSec: 60, isDrill: true),
+        ]
+        WatchTodayPayload(
+            athleteId: "demo-athlete", appleUserId: "demo", birthDate: Calendar.current.date(byAdding: .year, value: -16, to: now) ?? now,
+            sportSlug: "soccer", sportName: "Soccer", sessionToken: nil, day: now, sessionTitle: "Speed & strength",
+            sessionMinutes: 32, items: items, nextGameDate: Calendar.current.date(byAdding: .day, value: 3, to: now),
+            isGameDay: false, checkedInOnPhone: false
+        ).saveOnDevice()
     }
 }
