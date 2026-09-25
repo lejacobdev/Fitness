@@ -3,35 +3,39 @@ import SwiftUI
 import UIKit
 #endif
 
-/// The app's visual language, modelled on Cal AI: a pale gray canvas, white
-/// cards with a soft shadow, black ink for text and primary buttons, big
-/// bold numbers set inside progress rings, and colour used only for the
-/// rings themselves. Follows the system appearance the way Cal AI does —
-/// dark mode inverts the ink and swaps the canvas to black with charcoal
-/// cards. watchOS has no light mode, so it always gets the dark palette.
+/// Athlete OS's visual language: minimal, and big — made to be read and
+/// tapped quickly between sets. White (light) or near-black (dark) canvas,
+/// soft cards, cobalt blue for every action and selection, cyan as the
+/// second accent in rings and highlights, slate gray for secondary text.
+/// Follows the system appearance; watchOS always gets the dark palette.
 public enum AppTheme {
-    public static let background = Color.dynamic(light: 0xF4F4F6, dark: 0x000000)
-    public static let card = Color.dynamic(light: 0xFFFFFF, dark: 0x1C1C1E)
+    public static let background = Color.dynamic(light: 0xFFFFFF, dark: 0x0B0F14)
+    public static let card = Color.dynamic(light: 0xF4F6FA, dark: 0x151B23)
     /// Unselected chips/options, ring tracks, thumbnail wells.
-    public static let fill = Color.dynamic(light: 0xEFEFF2, dark: 0x2C2C2E)
-    /// Primary text and the primary (filled) button.
-    public static let ink = Color.dynamic(light: 0x111111, dark: 0xFFFFFF)
-    /// Text drawn on top of `ink`.
-    public static let inkInverse = Color.dynamic(light: 0xFFFFFF, dark: 0x111111)
-    public static let secondaryText = Color.dynamic(light: 0x8A8A8F, dark: 0x9A9AA0)
-    public static let hairline = Color.dynamic(light: 0xE6E6EA, dark: 0x2C2C2E)
+    public static let fill = Color.dynamic(light: 0xE8EDF4, dark: 0x1F2733)
+    /// Primary text.
+    public static let ink = Color.dynamic(light: 0x0B0F14, dark: 0xF8FAFC)
+    /// Every action and selection: buttons, selected chips, the "+".
+    public static let accent = Color(hex: "#2563EB")
+    /// Text and glyphs drawn on `accent`.
+    public static let onAccent = Color.white
+    /// Secondary text — the brand's slate gray (#94A3B8), one shade deeper on
+    /// white so small text stays readable.
+    public static let secondaryText = Color.dynamic(light: 0x64748B, dark: 0x94A3B8)
+    public static let hairline = Color.dynamic(light: 0xE2E8F0, dark: 0x1F2733)
 
-    // Ring colours — Cal AI's protein/carbs/fat trio, mapped onto this app's numbers.
-    public static let brand = Color(hex: "#E5383B")
+    // Ring and highlight colours.
+    public static let brand = Color(hex: "#2563EB")
+    public static let cyan = Color(hex: "#06B6D4")
     public static let orange = Color(hex: "#FF8A3D")
-    public static let blue = Color(hex: "#4C8DF6")
-    public static let purple = Color(hex: "#8C6CF2")
-    public static let green = Color(hex: "#34C759")
-    public static let amber = Color(hex: "#FFB020")
-    public static let red = Color(hex: "#FF4D4F")
+    public static let blue = Color(hex: "#2563EB")
+    public static let purple = Color(hex: "#7C5CF2")
+    public static let green = Color(hex: "#22C55E")
+    public static let amber = Color(hex: "#F59E0B")
+    public static let red = Color(hex: "#EF4444")
 
-    public static let cardCornerRadius: CGFloat = 24
-    public static let controlCornerRadius: CGFloat = 16
+    public static let cardCornerRadius: CGFloat = 26
+    public static let controlCornerRadius: CGFloat = 18
 
     public static func color(for band: ReadinessBand?) -> Color {
         switch band {
@@ -92,17 +96,17 @@ private struct CardBackground: ViewModifier {
         content
             .padding(padding)
             .background(AppTheme.card, in: RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
-            .shadow(color: .black.opacity(0.05), radius: 12, x: 0, y: 4)
+            .shadow(color: .black.opacity(0.04), radius: 10, x: 0, y: 3)
     }
 }
 
 public extension View {
-    /// Cal AI's white card: generous corner radius, soft drop shadow, no border.
+    /// A soft card: generous corner radius, a whisper of shadow, no border.
     func cardStyle(padding: CGFloat = 20) -> some View {
         modifier(CardBackground(padding: padding))
     }
 
-    /// The standard screen canvas: pale gray, full-bleed.
+    /// The standard screen canvas, full-bleed.
     func appScreen() -> some View {
         background(AppBackground())
     }
@@ -110,7 +114,7 @@ public extension View {
 
 // MARK: - Buttons
 
-/// Cal AI's primary action: a full-width black capsule with white text.
+/// The primary action: a full-width cobalt capsule, big and bold.
 public struct PrimaryButtonStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
@@ -123,10 +127,10 @@ public struct PrimaryButtonStyle: ButtonStyle {
 
         var body: some View {
             configuration.label
-                .font(.headline)
-                .foregroundStyle(AppTheme.inkInverse)
-                .frame(maxWidth: .infinity, minHeight: 56)
-                .background(AppTheme.ink, in: Capsule())
+                .font(.title3.weight(.bold))
+                .foregroundStyle(AppTheme.onAccent)
+                .frame(maxWidth: .infinity, minHeight: 62)
+                .background(AppTheme.accent, in: Capsule())
                 .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1) : 0.3)
                 .scaleEffect(configuration.isPressed ? 0.98 : 1)
                 .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
@@ -134,14 +138,14 @@ public struct PrimaryButtonStyle: ButtonStyle {
     }
 }
 
-/// The quieter secondary action: a gray capsule with black text.
+/// The quieter secondary action: a soft gray capsule.
 public struct SecondaryButtonStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .font(.title3.weight(.semibold))
             .foregroundStyle(AppTheme.ink)
-            .frame(maxWidth: .infinity, minHeight: 52)
+            .frame(maxWidth: .infinity, minHeight: 58)
             .background(AppTheme.fill, in: Capsule())
             .opacity(configuration.isPressed ? 0.7 : 1)
     }
@@ -155,14 +159,14 @@ public extension ButtonStyle where Self == SecondaryButtonStyle {
     static var secondary: SecondaryButtonStyle { SecondaryButtonStyle() }
 }
 
-/// The small black circle with a white glyph — Cal AI's floating "+".
+/// The floating cobalt "+" (or a labelled capsule).
 public struct FloatingActionButton: View {
     let systemImage: String
     let title: String?
     let accessibilityLabel: String
     let action: () -> Void
 
-    /// With a `title` it's a labelled black capsule, so what it does is never a guess.
+    /// With a `title` it's a labelled capsule, so what it does is never a guess.
     public init(systemImage: String = "plus", title: String? = nil, accessibilityLabel: String, action: @escaping () -> Void) {
         self.systemImage = systemImage
         self.title = title
@@ -175,18 +179,18 @@ public struct FloatingActionButton: View {
             if let title {
                 Label(title, systemImage: systemImage)
                     .font(.headline)
-                    .foregroundStyle(AppTheme.inkInverse)
+                    .foregroundStyle(AppTheme.onAccent)
                     .padding(.horizontal, 20)
-                    .frame(height: 54)
-                    .background(AppTheme.ink, in: Capsule())
-                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 6)
+                    .frame(height: 60)
+                    .background(AppTheme.accent, in: Capsule())
+                    .shadow(color: AppTheme.accent.opacity(0.35), radius: 12, x: 0, y: 6)
             } else {
                 Image(systemName: systemImage)
                     .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(AppTheme.inkInverse)
-                    .frame(width: 60, height: 60)
-                    .background(AppTheme.ink, in: Circle())
-                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 6)
+                    .foregroundStyle(AppTheme.onAccent)
+                    .frame(width: 66, height: 66)
+                    .background(AppTheme.accent, in: Circle())
+                    .shadow(color: AppTheme.accent.opacity(0.35), radius: 12, x: 0, y: 6)
             }
         }
         .buttonStyle(.plain)
@@ -194,7 +198,7 @@ public struct FloatingActionButton: View {
     }
 }
 
-/// A round gray icon button (Cal AI's back chevron and toolbar icons).
+/// A round gray icon button (back chevron and toolbar icons).
 public struct CircleIconButton: View {
     let systemImage: String
     let accessibilityLabel: String
@@ -211,7 +215,7 @@ public struct CircleIconButton: View {
             Image(systemName: systemImage)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(AppTheme.ink)
-                .frame(width: 40, height: 40)
+                .frame(width: 46, height: 46)
                 .background(AppTheme.fill, in: Circle())
         }
         .buttonStyle(.plain)
@@ -249,7 +253,7 @@ public struct RingView<Center: View>: View {
     }
 }
 
-/// Cal AI's small macro card: a bold value, a gray label, and a ring with an
+/// A small stat card: a bold value, a gray label, and a ring with an
 /// icon underneath.
 /// A home-screen widget: what it is (label and icon, with a small ring) on
 /// top, the big value, then one line saying what it means. `highlight`
@@ -371,7 +375,7 @@ public struct RingStatCard: View {
 
 // MARK: - Week strip
 
-/// Cal AI's row of seven day circles across the top of the home screen.
+/// The row of seven day circles across the top of the home screen.
 public struct WeekStrip: View {
     @Binding var selection: Date
     let marked: Set<Date>
@@ -415,11 +419,11 @@ public struct WeekStrip: View {
                     .foregroundStyle(AppTheme.secondaryText)
                 Text(day.formatted(.dateTime.day()))
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(isSelected ? AppTheme.inkInverse : AppTheme.ink)
+                    .foregroundStyle(isSelected ? AppTheme.onAccent : AppTheme.ink)
                     .frame(width: 36, height: 36)
                     .background {
                         if isSelected {
-                            Circle().fill(AppTheme.ink)
+                            Circle().fill(AppTheme.accent)
                         } else if isToday {
                             Circle().strokeBorder(AppTheme.ink, lineWidth: 1.5)
                         } else {
@@ -468,8 +472,7 @@ public struct WeekStripLegend: View {
 
 // MARK: - Choices
 
-/// A big rounded choice row — Cal AI's onboarding options. Black when
-/// selected, gray when not.
+/// A big rounded choice row: cobalt when selected, soft gray when not.
 public struct OptionRow: View {
     let title: String
     let subtitle: String?
@@ -487,26 +490,26 @@ public struct OptionRow: View {
         HStack(spacing: 14) {
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 36, height: 36)
-                    .background(isSelected ? AppTheme.inkInverse.opacity(0.15) : AppTheme.card, in: Circle())
+                    .font(.system(size: 20, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .background(isSelected ? AppTheme.onAccent.opacity(0.15) : AppTheme.card, in: Circle())
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.headline)
+                    .font(.title3.weight(.semibold))
                 if let subtitle {
                     Text(subtitle)
-                        .font(.caption)
-                        .opacity(0.7)
+                        .font(.subheadline)
+                        .opacity(0.75)
                 }
             }
             Spacer(minLength: 0)
         }
-        .foregroundStyle(isSelected ? AppTheme.inkInverse : AppTheme.ink)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
+        .foregroundStyle(isSelected ? AppTheme.onAccent : AppTheme.ink)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(isSelected ? AppTheme.ink : AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
+        .background(isSelected ? AppTheme.accent : AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
         .contentShape(Rectangle())
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
@@ -524,11 +527,11 @@ public struct Chip: View {
 
     public var body: some View {
         Text(title)
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(isSelected ? AppTheme.inkInverse : AppTheme.ink)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(isSelected ? AppTheme.ink : AppTheme.fill, in: Capsule())
+            .font(.headline)
+            .foregroundStyle(isSelected ? AppTheme.onAccent : AppTheme.ink)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .background(isSelected ? AppTheme.accent : AppTheme.fill, in: Capsule())
             .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
@@ -555,8 +558,8 @@ public struct Tag: View {
 
 // MARK: - Layout helpers
 
-/// A screen title set the way Cal AI sets it: large, bold, left-aligned,
-/// inside the scroll content rather than in a navigation bar.
+/// A screen title: very large, bold, left-aligned, inside the scroll
+/// content rather than in a navigation bar.
 public struct ScreenTitle: View {
     let title: String
     let subtitle: String?
@@ -569,11 +572,11 @@ public struct ScreenTitle: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.system(size: 32, weight: .bold))
+                .font(.system(size: 38, weight: .heavy))
                 .foregroundStyle(AppTheme.ink)
             if let subtitle {
                 Text(subtitle)
-                    .font(.subheadline)
+                    .font(.body)
                     .foregroundStyle(AppTheme.secondaryText)
             }
         }
@@ -599,12 +602,12 @@ public struct SectionHeader<Trailing: View>: View {
         HStack(alignment: .lastTextBaseline) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.title3.bold())
+                    .font(.title2.bold())
                     .foregroundStyle(AppTheme.ink)
                     .accessibilityAddTraits(.isHeader)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(AppTheme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -630,9 +633,9 @@ public struct StepLabel: View {
         HStack(spacing: 10) {
             Text("\(number)")
                 .font(.caption.bold())
-                .foregroundStyle(AppTheme.inkInverse)
+                .foregroundStyle(AppTheme.onAccent)
                 .frame(width: 22, height: 22)
-                .background(AppTheme.ink, in: Circle())
+                .background(AppTheme.accent, in: Circle())
             Text(text)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.ink)
@@ -656,7 +659,7 @@ public struct SectionTitle: View {
     }
 }
 
-/// A thin capsule progress bar, as at the top of every Cal AI onboarding step.
+/// A thin capsule progress bar, as at the top of every onboarding step.
 public struct StepProgressBar: View {
     let progress: Double
 
@@ -669,7 +672,7 @@ public struct StepProgressBar: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(AppTheme.fill)
                 Capsule()
-                    .fill(AppTheme.ink)
+                    .fill(AppTheme.accent)
                     .frame(width: proxy.size.width * max(0, min(1, progress)))
                     .animation(.easeOut(duration: 0.3), value: progress)
             }
@@ -745,7 +748,7 @@ public struct StepScaffold<Content: View>: View {
 }
 
 /// A thumbnail well: the item's pose on a gray rounded square, used in every
-/// exercise list row (Cal AI's food photo slot).
+/// exercise list row.
 public struct ItemThumbnail: View {
     let item: CatalogueItem?
     let size: CGFloat

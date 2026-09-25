@@ -143,15 +143,15 @@ struct ImproveView: View {
                             .font(.headline)
                         Text(value == .skill ? "Like shooting or first-step speed. You get a day-by-day plan up to your next game." : "Pick body areas. You get one workout to do right now.")
                             .font(.caption)
-                            .foregroundStyle(selected ? AppTheme.inkInverse.opacity(0.8) : AppTheme.secondaryText)
+                            .foregroundStyle(selected ? AppTheme.onAccent.opacity(0.8) : AppTheme.secondaryText)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 0)
                     }
-                    .foregroundStyle(selected ? AppTheme.inkInverse : AppTheme.ink)
+                    .foregroundStyle(selected ? AppTheme.onAccent : AppTheme.ink)
                     .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
                     .padding(16)
-                    .background(selected ? AppTheme.ink : AppTheme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .background(selected ? AppTheme.accent : AppTheme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                     .shadow(color: .black.opacity(selected ? 0.15 : 0.05), radius: 8, x: 0, y: 3)
                 }
                 .buttonStyle(.plain)
@@ -176,9 +176,9 @@ struct ImproveView: View {
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(AppTheme.inkInverse)
+                .foregroundStyle(AppTheme.onAccent)
                 .frame(width: 42, height: 42)
-                .background(AppTheme.ink, in: Circle())
+                .background(AppTheme.accent, in: Circle())
             Text(title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.ink)
@@ -342,7 +342,7 @@ struct SkillSetupView: View {
                 DatePicker("Game date", selection: $gameDate, in: Calendar.current.startOfDay(for: .now)..., displayedComponents: .date)
                     .labelsHidden()
                     .calendarDatePickerStyle()
-                    .tint(AppTheme.ink)
+                    .tint(AppTheme.accent)
                     .cardStyle(padding: 12)
             }
 
@@ -581,9 +581,9 @@ struct SkillBlockView: View {
                     }
                 }
                 .font(.subheadline.bold())
-                .foregroundStyle(isLast ? AppTheme.ink : AppTheme.inkInverse)
+                .foregroundStyle(isLast ? AppTheme.ink : AppTheme.onAccent)
                 .frame(width: 34, height: 34)
-                .background(isLast ? AppTheme.fill : AppTheme.ink, in: Circle())
+                .background(isLast ? AppTheme.fill : AppTheme.accent, in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text(day.date.formatted(.dateTime.weekday(.wide).month().day()))
                         .font(.caption.weight(.semibold))

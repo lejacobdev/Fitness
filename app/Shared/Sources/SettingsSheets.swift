@@ -25,7 +25,7 @@ struct RemindersSheet: View {
                             Divider().overlay(AppTheme.hairline)
                             DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
                                 .foregroundStyle(AppTheme.ink)
-                                .tint(AppTheme.ink)
+                                .tint(AppTheme.accent)
                                 .padding(.vertical, 10)
                         }
                         Divider().overlay(AppTheme.hairline)
@@ -41,7 +41,7 @@ struct RemindersSheet: View {
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: "bell.slash.fill")
                                 .foregroundStyle(AppTheme.secondaryText)
-                            Text("Notifications are turned off for Sportvisor. Turn them on in the Settings app → Notifications.")
+                            Text("Notifications are turned off for Athlete OS. Turn them on in the Settings app → Notifications.")
                                 .font(.footnote)
                                 .foregroundStyle(AppTheme.secondaryText)
                         }
@@ -200,7 +200,7 @@ struct DownloadsSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
             if let allProgress, allProgress.done < allProgress.total {
                 ProgressView(value: Double(allProgress.done), total: Double(max(allProgress.total, 1)))
-                    .tint(AppTheme.ink)
+                    .tint(AppTheme.accent)
                 Text("Downloading \(allProgress.done + 1) of \(allProgress.total)…")
                     .font(.caption)
                     .foregroundStyle(AppTheme.secondaryText)

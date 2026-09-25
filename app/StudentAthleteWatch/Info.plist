@@ -13,7 +13,7 @@
 	<string>APPL</string>
 
 	<key>CFBundleDisplayName</key>
-	<string>Sportvisor</string>
+	<string>Athlete OS</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
@@ -35,8 +35,8 @@
 	</array>
 
 	<key>NSHealthShareUsageDescription</key>
-	<string>Sportvisor reads your heart rate and workouts during a session so your training load is accurate. You can log sessions without granting this.</string>
+	<string>Athlete OS reads your heart rate and workouts during a session so your training load is accurate. You can log sessions without granting this.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>Sportvisor saves each session you log to Health so it appears alongside your other activity.</string>
+	<string>Athlete OS saves each session you log to Health so it appears alongside your other activity.</string>
 </dict>
 </plist>

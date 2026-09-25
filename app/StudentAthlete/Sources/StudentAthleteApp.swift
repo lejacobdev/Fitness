@@ -20,7 +20,10 @@ struct StudentAthleteApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .tint(AppTheme.ink)
+                .tint(AppTheme.accent)
+                // Big by default: one step above the system's standard text
+                // size (and everything larger the athlete chooses still works).
+                .dynamicTypeSize(.xLarge ... .accessibility3)
         }
         .modelContainer(container)
     }

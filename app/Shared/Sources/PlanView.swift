@@ -65,10 +65,10 @@ struct PlanView: View {
                         Button { showingAddGame = true } label: {
                             Label("Add game", systemImage: "plus")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(AppTheme.inkInverse)
+                                .foregroundStyle(AppTheme.onAccent)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 9)
-                                .background(AppTheme.ink, in: Capsule())
+                                .background(AppTheme.accent, in: Capsule())
                         }
                         .buttonStyle(.plain)
                         .padding(.top, 6)
@@ -354,7 +354,7 @@ struct AddGameSheet: View {
                     DatePicker("Date", selection: $date, in: Calendar.current.startOfDay(for: .now)..., displayedComponents: .date)
                         .labelsHidden()
                         .calendarDatePickerStyle()
-                        .tint(AppTheme.ink)
+                        .tint(AppTheme.accent)
                         .cardStyle(padding: 12)
 
                     VStack(alignment: .leading, spacing: 10) {

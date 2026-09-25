@@ -215,9 +215,9 @@ struct SportsManagerSheet: View {
             HStack(spacing: 14) {
                 Image(systemName: SportIcon.name(for: sport.sportSlug))
                     .font(.title3)
-                    .foregroundStyle(isActive ? AppTheme.inkInverse : AppTheme.ink)
+                    .foregroundStyle(isActive ? AppTheme.onAccent : AppTheme.ink)
                     .frame(width: 48, height: 48)
-                    .background(isActive ? AppTheme.ink : AppTheme.fill, in: Circle())
+                    .background(isActive ? AppTheme.accent : AppTheme.fill, in: Circle())
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
                         Text(info?.name ?? displayName(forSlug: sport.sportSlug))

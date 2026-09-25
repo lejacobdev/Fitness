@@ -142,9 +142,9 @@ public struct LibraryView: View {
             } label: {
                 Image(systemName: "figure.stand")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(region == nil ? AppTheme.ink : AppTheme.inkInverse)
+                    .foregroundStyle(region == nil ? AppTheme.ink : AppTheme.onAccent)
                     .frame(width: 50, height: 50)
-                    .background(region == nil ? AppTheme.card : AppTheme.ink, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
+                    .background(region == nil ? AppTheme.card : AppTheme.accent, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Filter by muscle")
@@ -155,9 +155,9 @@ public struct LibraryView: View {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: "slider.horizontal.3")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(activeFilterCount == 0 ? AppTheme.ink : AppTheme.inkInverse)
+                        .foregroundStyle(activeFilterCount == 0 ? AppTheme.ink : AppTheme.onAccent)
                         .frame(width: 50, height: 50)
-                        .background(activeFilterCount == 0 ? AppTheme.card : AppTheme.ink, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
+                        .background(activeFilterCount == 0 ? AppTheme.card : AppTheme.accent, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
                     if activeFilterCount > 0 {
                         Text("\(activeFilterCount)")
                             .font(.caption2.bold())
@@ -537,7 +537,7 @@ struct ItemDetailView: View {
                 ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                     HStack(alignment: .top, spacing: 10) {
                         Circle()
-                            .fill(AppTheme.ink)
+                            .fill(AppTheme.accent)
                             .frame(width: 5, height: 5)
                             .padding(.top, 7)
                         Text(line)

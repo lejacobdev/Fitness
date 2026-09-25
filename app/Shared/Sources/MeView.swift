@@ -159,7 +159,7 @@ struct MeView: View {
                     .buttonStyle(.plain)
                     .disabled(isDeleting)
 
-                    Text("Sportvisor \(BuildEvidence().version) (\(BuildEvidence().build))")
+                    Text("Athlete OS \(BuildEvidence().version) (\(BuildEvidence().build))")
                         .font(.caption)
                         .foregroundStyle(AppTheme.secondaryText)
                         .frame(maxWidth: .infinity)
@@ -209,9 +209,9 @@ struct MeView: View {
         HStack(spacing: 16) {
             Image(systemName: sportInfo.map { SportIcon.name(for: $0.slug) } ?? "person.fill")
                 .font(.system(size: 28, weight: .semibold))
-                .foregroundStyle(AppTheme.inkInverse)
+                .foregroundStyle(AppTheme.onAccent)
                 .frame(width: 72, height: 72)
-                .background(AppTheme.ink, in: Circle())
+                .background(AppTheme.accent, in: Circle())
             VStack(alignment: .leading, spacing: 4) {
                 Text(sportInfo?.name ?? "Athlete")
                     .font(.title2.bold())
@@ -355,7 +355,7 @@ struct MeView: View {
                 Text("Not a medical device")
                     .font(.subheadline.bold())
                     .foregroundStyle(AppTheme.ink)
-                Text("Sportvisor never predicts injury, diagnoses, or advises return to play. It supplements your coach and athletic trainer — it never replaces them. If something hurts, stop and tell an adult.")
+                Text("Athlete OS never predicts injury, diagnoses, or advises return to play. It supplements your coach and athletic trainer — it never replaces them. If something hurts, stop and tell an adult.")
                     .font(.caption)
                     .foregroundStyle(AppTheme.secondaryText)
             }
@@ -974,12 +974,12 @@ struct DataExportView: View {
                         exportStat("\(sessions.reduce(0) { $0 + $1.sets.count })", "sets")
                         exportStat("\(athlete.checkIns.count)", "check-ins")
                     }
-                    ShareLink(item: exportText, preview: SharePreview("Sportvisor export")) {
+                    ShareLink(item: exportText, preview: SharePreview("Athlete OS export")) {
                         Label("Share export", systemImage: "square.and.arrow.up")
                             .font(.headline)
-                            .foregroundStyle(AppTheme.inkInverse)
+                            .foregroundStyle(AppTheme.onAccent)
                             .frame(maxWidth: .infinity, minHeight: 56)
-                            .background(AppTheme.ink, in: Capsule())
+                            .background(AppTheme.accent, in: Capsule())
                     }
                 }
                 .padding(20)

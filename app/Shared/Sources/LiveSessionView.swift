@@ -571,9 +571,9 @@ struct BigStepper: View {
             Button(action: onPlus) {
                 Image(systemName: "plus")
                     .font(.title2.bold())
-                    .foregroundStyle(AppTheme.inkInverse)
+                    .foregroundStyle(AppTheme.onAccent)
                     .frame(width: 60, height: 60)
-                    .background(AppTheme.ink, in: Circle())
+                    .background(AppTheme.accent, in: Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Increase \(label.lowercased())")
@@ -681,9 +681,9 @@ struct RPEPromptView: View {
                         } label: {
                             Text("\(value)")
                                 .font(.headline)
-                                .foregroundStyle(rpe == value ? AppTheme.inkInverse : AppTheme.ink)
+                                .foregroundStyle(rpe == value ? AppTheme.onAccent : AppTheme.ink)
                                 .frame(maxWidth: .infinity, minHeight: 54)
-                                .background(rpe == value ? AppTheme.ink : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .background(rpe == value ? AppTheme.accent : AppTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Effort \(value) of 10: \(description(value))")

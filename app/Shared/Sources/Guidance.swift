@@ -155,7 +155,7 @@ struct AppTourView: View {
             HStack(spacing: 8) {
                 ForEach(0..<Self.pages.count, id: \.self) { index in
                     Capsule()
-                        .fill(index == page ? AppTheme.ink : AppTheme.hairline)
+                        .fill(index == page ? AppTheme.accent : AppTheme.hairline)
                         .frame(width: index == page ? 22 : 8, height: 8)
                 }
             }
@@ -207,9 +207,9 @@ struct AppTourView: View {
                         HStack(spacing: 14) {
                             Text("\(index + 1)")
                                 .font(.subheadline.bold())
-                                .foregroundStyle(AppTheme.inkInverse)
+                                .foregroundStyle(AppTheme.onAccent)
                                 .frame(width: 30, height: 30)
-                                .background(AppTheme.ink, in: Circle())
+                                .background(AppTheme.accent, in: Circle())
                             Text(step)
                                 .font(.subheadline.weight(.medium))
                                 .foregroundStyle(AppTheme.ink)
@@ -304,7 +304,7 @@ struct GettingStartedCard: View {
                         HStack(spacing: 12) {
                             Image(systemName: step.done ? "checkmark" : step.icon)
                                 .font(.footnote.weight(.bold))
-                                .foregroundStyle(step.done ? AppTheme.inkInverse : AppTheme.ink)
+                                .foregroundStyle(step.done ? AppTheme.onAccent : AppTheme.ink)
                                 .frame(width: 32, height: 32)
                                 .background(step.done ? AppTheme.green : AppTheme.fill, in: Circle())
                             VStack(alignment: .leading, spacing: 1) {
@@ -366,9 +366,9 @@ struct TipCard: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: icon)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(AppTheme.inkInverse)
+                    .foregroundStyle(AppTheme.onAccent)
                     .frame(width: 34, height: 34)
-                    .background(AppTheme.ink, in: Circle())
+                    .background(AppTheme.accent, in: Circle())
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(.subheadline.bold())
@@ -542,10 +542,10 @@ struct ProBadge: View {
             Text("PRO")
         }
         .font(.system(size: 10, weight: .heavy))
-        .foregroundStyle(AppTheme.inkInverse)
+        .foregroundStyle(AppTheme.onAccent)
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
-        .background(AppTheme.ink, in: Capsule())
+        .background(AppTheme.accent, in: Capsule())
         .accessibilityLabel("Pro feature")
     }
 }
@@ -565,9 +565,9 @@ struct ProLockCard: View {
             HStack(spacing: 10) {
                 Image(systemName: "lock.fill")
                     .font(.footnote.weight(.bold))
-                    .foregroundStyle(AppTheme.inkInverse)
+                    .foregroundStyle(AppTheme.onAccent)
                     .frame(width: 32, height: 32)
-                    .background(AppTheme.ink, in: Circle())
+                    .background(AppTheme.accent, in: Circle())
                 Text(title)
                     .font(.headline)
                     .foregroundStyle(AppTheme.ink)
@@ -648,9 +648,9 @@ struct SkillPlanTodayCard: View {
             HStack(spacing: 12) {
                 Image(systemName: "target")
                     .font(.headline)
-                    .foregroundStyle(AppTheme.inkInverse)
+                    .foregroundStyle(AppTheme.onAccent)
                     .frame(width: 40, height: 40)
-                    .background(AppTheme.ink, in: Circle())
+                    .background(AppTheme.accent, in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Skill plan · \(day.skillName)")
                         .font(.headline)

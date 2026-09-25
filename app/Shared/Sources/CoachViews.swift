@@ -14,9 +14,9 @@ struct CoachHeadlineCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
                         .font(.footnote.weight(.bold))
-                        .foregroundStyle(AppTheme.inkInverse)
+                        .foregroundStyle(AppTheme.onAccent)
                         .frame(width: 26, height: 26)
-                        .background(AppTheme.ink, in: Circle())
+                        .background(AppTheme.accent, in: Circle())
                     Text("Your coach")
                         .font(.subheadline.bold())
                         .foregroundStyle(AppTheme.ink)

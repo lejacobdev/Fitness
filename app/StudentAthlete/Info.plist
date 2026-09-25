@@ -19,7 +19,7 @@
 	<string>APPL</string>
 
 	<key>CFBundleDisplayName</key>
-	<string>Sportvisor</string>
+	<string>Athlete OS</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
@@ -61,9 +61,9 @@
 	  only one of these is rejected at upload.
 	-->
 	<key>NSHealthShareUsageDescription</key>
-	<string>Sportvisor reads your sleep, workouts and heart rate so your morning check-in and training load reflect what your body actually did. You can use the whole app without granting this.</string>
+	<string>Athlete OS reads your sleep, workouts and heart rate so your morning check-in and training load reflect what your body actually did. You can use the whole app without granting this.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>Sportvisor saves the sessions you log to Health so they appear alongside your other activity. You can use the whole app without granting this.</string>
+	<string>Athlete OS saves the sessions you log to Health so they appear alongside your other activity. You can use the whole app without granting this.</string>
 
 	<!--
 	  §17: healthkit must NOT appear in UIRequiredDeviceCapabilities. Declaring it

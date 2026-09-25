@@ -96,9 +96,9 @@ struct CheckInCard: View {
                     } label: {
                         Text("\(value)")
                             .font(.headline)
-                            .foregroundStyle(isSelected ? AppTheme.inkInverse : AppTheme.ink)
+                            .foregroundStyle(isSelected ? AppTheme.onAccent : AppTheme.ink)
                             .frame(maxWidth: .infinity, minHeight: 44)
-                            .background(isSelected ? AppTheme.ink : AppTheme.fill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .background(isSelected ? AppTheme.accent : AppTheme.fill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(title) \(value) of 5")

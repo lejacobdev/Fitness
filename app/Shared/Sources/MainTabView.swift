@@ -52,7 +52,7 @@ public struct MainTabView: View {
                 .tabItem { Label("Me", systemImage: "person.fill") }
                 .tag(AppTab.me)
         }
-        .tint(AppTheme.ink)
+        .tint(AppTheme.accent)
         .environment(\.workoutContext, workoutContext)
         .sheet(isPresented: $showingHealthPermission) {
             HealthPermissionView()

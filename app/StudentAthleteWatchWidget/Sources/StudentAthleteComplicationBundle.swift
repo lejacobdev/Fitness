@@ -153,7 +153,7 @@ struct TodayComplication: Widget {
             ComplicationView(entry: entry)
                 .containerBackground(.clear, for: .widget)
         }
-        .configurationDisplayName("Sportvisor")
+        .configurationDisplayName("Athlete OS")
         .description("Your check-in, today's session, or the countdown to your next game.")
         .supportedFamilies([.accessoryCircular, .accessoryCorner, .accessoryRectangular, .accessoryInline])
     }

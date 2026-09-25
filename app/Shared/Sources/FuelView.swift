@@ -141,10 +141,10 @@ struct FuelView: View {
                     Button { changeWater(1) } label: {
                         Label("Glass", systemImage: "drop.fill")
                             .font(.subheadline.bold())
-                            .foregroundStyle(AppTheme.inkInverse)
+                            .foregroundStyle(AppTheme.onAccent)
                             .padding(.horizontal, 16)
                             .frame(height: 44)
-                            .background(AppTheme.ink, in: Capsule())
+                            .background(AppTheme.accent, in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Add a glass of water")
@@ -183,11 +183,11 @@ struct FuelView: View {
             }
             if gameToday != nil {
                 DatePicker("Game starts", selection: minutesBinding($gameStartMinutes), displayedComponents: .hourAndMinute)
-                    .tint(AppTheme.ink)
+                    .tint(AppTheme.accent)
                     .cardStyle(padding: 14)
             } else if todaysSession != nil {
                 DatePicker("Training starts", selection: minutesBinding($trainingStartMinutes), displayedComponents: .hourAndMinute)
-                    .tint(AppTheme.ink)
+                    .tint(AppTheme.accent)
                     .cardStyle(padding: 14)
             }
             if timeline.isEmpty {
@@ -215,9 +215,9 @@ struct FuelView: View {
             VStack(spacing: 0) {
                 Image(systemName: tip.systemImage)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(AppTheme.inkInverse)
+                    .foregroundStyle(AppTheme.onAccent)
                     .frame(width: 34, height: 34)
-                    .background(AppTheme.ink, in: Circle())
+                    .background(AppTheme.accent, in: Circle())
                 if !isLast {
                     Rectangle()
                         .fill(AppTheme.hairline)

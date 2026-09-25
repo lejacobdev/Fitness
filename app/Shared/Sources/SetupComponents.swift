@@ -155,7 +155,7 @@ struct SeasonEditor: View {
                 }
                 .padding(.vertical, 10)
             }
-            .tint(AppTheme.ink)
+            .tint(AppTheme.accent)
             .cardStyle(padding: 16)
             HStack(spacing: 10) {
                 Image(systemName: "calendar")

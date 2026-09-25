@@ -75,9 +75,9 @@ public struct PaywallView: View {
         VStack(alignment: .leading, spacing: 10) {
             Image(systemName: "crown.fill")
                 .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(AppTheme.inkInverse)
+                .foregroundStyle(AppTheme.onAccent)
                 .frame(width: 52, height: 52)
-                .background(AppTheme.ink, in: Circle())
+                .background(AppTheme.accent, in: Circle())
             Text("Train smarter with Pro")
                 .font(.system(size: 32, weight: .bold))
                 .foregroundStyle(AppTheme.ink)
@@ -93,9 +93,9 @@ public struct PaywallView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .heavy))
-                        .foregroundStyle(AppTheme.inkInverse)
+                        .foregroundStyle(AppTheme.onAccent)
                         .frame(width: 24, height: 24)
-                        .background(AppTheme.ink, in: Circle())
+                        .background(AppTheme.accent, in: Circle())
                     Text(feature.proDescription)
                         .font(.subheadline.weight(feature == highlight ? .bold : .medium))
                         .foregroundStyle(AppTheme.ink)
@@ -149,7 +149,7 @@ public struct PaywallView: View {
             HStack(spacing: 14) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title2)
-                    .foregroundStyle(isSelected ? AppTheme.ink : AppTheme.hairline)
+                    .foregroundStyle(isSelected ? AppTheme.accent : AppTheme.hairline)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
                         Text(isYearly ? "Yearly" : "Monthly")
@@ -158,10 +158,10 @@ public struct PaywallView: View {
                         if isYearly, let saving = savingText {
                             Text(saving)
                                 .font(.caption2.bold())
-                                .foregroundStyle(AppTheme.inkInverse)
+                                .foregroundStyle(AppTheme.onAccent)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 3)
-                                .background(AppTheme.ink, in: Capsule())
+                                .background(AppTheme.accent, in: Capsule())
                         }
                     }
                     Text(isYearly
@@ -176,7 +176,7 @@ public struct PaywallView: View {
             .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .strokeBorder(isSelected ? AppTheme.ink : AppTheme.hairline, lineWidth: isSelected ? 2 : 1)
+                    .strokeBorder(isSelected ? AppTheme.accent : AppTheme.hairline, lineWidth: isSelected ? 2 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -217,7 +217,7 @@ public struct PaywallView: View {
                 .foregroundStyle(AppTheme.red)
                 .frame(maxWidth: .infinity, alignment: .leading)
         case .purchased:
-            Label("You're Pro. Thanks for supporting Sportvisor.", systemImage: "checkmark.seal.fill")
+            Label("You're Pro. Thanks for supporting Athlete OS.", systemImage: "checkmark.seal.fill")
                 .font(.headline)
                 .foregroundStyle(AppTheme.green)
         case .idle, .purchasing:
@@ -232,7 +232,7 @@ public struct PaywallView: View {
                 Task { await store.purchase(product, athleteId: athlete.id) }
             } label: {
                 if store.purchaseState == .purchasing {
-                    ProgressView().tint(AppTheme.inkInverse)
+                    ProgressView().tint(AppTheme.onAccent)
                 } else {
                     Text(store.purchaseState == .pending ? "Waiting for approval" : "Continue")
                 }
@@ -279,9 +279,9 @@ public struct ProUpsellCard: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: "crown.fill")
-                    .foregroundStyle(AppTheme.inkInverse)
+                    .foregroundStyle(AppTheme.onAccent)
                     .frame(width: 40, height: 40)
-                    .background(AppTheme.ink, in: Circle())
+                    .background(AppTheme.accent, in: Circle())
                 VStack(alignment: .leading, spacing: 3) {
                     Text(feature.proDescription)
                         .font(.headline)
@@ -325,12 +325,12 @@ public struct SubscriptionRow: View {
                 HStack(spacing: 14) {
                     Image(systemName: "crown.fill")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(store.isPro ? AppTheme.amber : AppTheme.inkInverse)
+                        .foregroundStyle(store.isPro ? AppTheme.amber : AppTheme.onAccent)
                         .frame(width: 34, height: 34)
                         .background(store.isPro ? AppTheme.amber.opacity(0.13) : AppTheme.ink,
                                     in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(store.isPro ? "Sportvisor Pro" : "Upgrade to Pro")
+                        Text(store.isPro ? "Athlete OS Pro" : "Upgrade to Pro")
                             .font(.body)
                             .foregroundStyle(AppTheme.ink)
                         Text(statusLine)

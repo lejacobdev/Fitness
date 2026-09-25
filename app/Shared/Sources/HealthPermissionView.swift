@@ -13,7 +13,7 @@ struct HealthPermissionView: View {
     var body: some View {
         StepScaffold(
             title: "Connect Apple Health",
-            subtitle: "Optional. Everything in Sportvisor works without it.",
+            subtitle: "Optional. Everything in Athlete OS works without it.",
             buttonTitle: isRequesting ? "Connecting…" : "Continue",
             buttonEnabled: !isRequesting,
             onBack: { finish() },

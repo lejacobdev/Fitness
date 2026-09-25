@@ -484,9 +484,9 @@ struct TodayView: View {
                     .overlay(alignment: .topLeading) {
                         Text("\(number)")
                             .font(.caption2.bold())
-                            .foregroundStyle(AppTheme.inkInverse)
+                            .foregroundStyle(AppTheme.onAccent)
                             .frame(width: 20, height: 20)
-                            .background(AppTheme.ink, in: Circle())
+                            .background(AppTheme.accent, in: Circle())
                             .offset(x: -6, y: -6)
                     }
                 VStack(alignment: .leading, spacing: 4) {
