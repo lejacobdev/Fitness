@@ -121,6 +121,12 @@ public struct PaywallView: View {
         if store.isLoadingProducts && store.products.isEmpty {
             ProgressView()
                 .frame(maxWidth: .infinity, minHeight: 120)
+        } else if store.products.isEmpty && DemoData.isEnabled {
+            // Screenshot runs have no StoreKit: show the real App Store prices.
+            VStack(spacing: 12) {
+                demoPlan("Yearly", "$39.99 per year · $3.33/month", badge: "Save 44%", selected: true)
+                demoPlan("Monthly", "$5.99 per month", badge: nil, selected: false)
+            }
         } else if store.products.isEmpty {
             VStack(spacing: 10) {
                 Text("Prices aren't available right now. Check your connection, then try again.")
@@ -138,6 +144,32 @@ public struct PaywallView: View {
                 }
             }
         }
+    }
+
+    private func demoPlan(_ title: String, _ price: String, badge: String?, selected: Bool) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                .font(.title2)
+                .foregroundStyle(selected ? AppTheme.accent : AppTheme.hairline)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
+                    Text(title).font(.headline).foregroundStyle(AppTheme.ink)
+                    if let badge {
+                        Text(badge)
+                            .font(.caption2.bold())
+                            .foregroundStyle(AppTheme.onAccent)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(AppTheme.accent, in: Capsule())
+                    }
+                }
+                Text(price).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
+            }
+            Spacer()
+        }
+        .cardStyle(padding: 16)
+        .overlay(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+            .stroke(selected ? AppTheme.accent : Color.clear, lineWidth: 2))
     }
 
     private func planCard(_ product: Product) -> some View {

@@ -35,6 +35,7 @@
  *   node tools/asc.mjs setup-subscriptions <bundle-id>    (§18: idempotent group + monthly/yearly Pro)
  *   node tools/asc.mjs set-notification-url <bundle-id> <url>   (App Store Server Notifications V2, prod + sandbox)
  *   node tools/asc.mjs upload-screenshots <bundle-id> <dir>   (replaces the editable version's en-US screenshots)
+ *   node tools/asc.mjs upload-review-screenshot <bundle-id> <png>   (the paywall, as every Pro product's review screenshot)
  *   node tools/asc.mjs app-store-profiles <cert-serial> <out-dir> <bundle-id>...
  *       (fresh "SA AppStore <bundle>" IOS_APP_STORE profiles for manual signing)
  */
@@ -606,6 +607,37 @@ const commands = {
         console.log(`  ok: ${type} ${file}`);
       }
     }
+  },
+
+  /** The paywall screenshot App Review needs for each subscription (else "Missing Metadata"). */
+  async 'upload-review-screenshot'(identifier, file) {
+    if (!identifier || !file) throw new Error('usage: upload-review-screenshot <bundle-id> <png>');
+    const app = await appFor(identifier);
+    const buffer = fs.readFileSync(file);
+    const groups = await api(`/v1/apps/${app.id}/subscriptionGroups?limit=50`);
+    for (const group of groups.data) {
+      const subs = await api(`/v1/subscriptionGroups/${group.id}/subscriptions?limit=50`);
+      for (const sub of subs.data) {
+        await tryStep(`${sub.attributes.productId} review screenshot`, async () => {
+          const existing = await api(`/v1/subscriptions/${sub.id}/appStoreReviewScreenshot`).catch(() => ({ data: null }));
+          if (existing.data) await api(`/v1/subscriptionAppStoreReviewScreenshots/${existing.data.id}`, { method: 'DELETE' });
+          const reserved = (await api('/v1/subscriptionAppStoreReviewScreenshots', { method: 'POST', body: { data: {
+            type: 'subscriptionAppStoreReviewScreenshots',
+            attributes: { fileName: path.basename(file), fileSize: buffer.length },
+            relationships: { subscription: { data: { type: 'subscriptions', id: sub.id } } } } } })).data;
+          for (const op of reserved.attributes.uploadOperations) {
+            const headers = Object.fromEntries((op.requestHeaders ?? []).map((h) => [h.name, h.value]));
+            const res = await fetch(op.url, { method: op.method, headers, body: buffer.subarray(op.offset, op.offset + op.length) });
+            if (!res.ok) throw new Error(`upload: ${res.status}`);
+          }
+          await api(`/v1/subscriptionAppStoreReviewScreenshots/${reserved.id}`, { method: 'PATCH', body: { data: {
+            type: 'subscriptionAppStoreReviewScreenshots', id: reserved.id,
+            attributes: { uploaded: true, sourceFileChecksum: crypto.createHash('md5').update(buffer).digest('hex') } } } });
+          return 'uploaded';
+        });
+      }
+    }
+    await commands.subscriptions(identifier);
   },
 
   /** §18: App Store Server Notifications V2 for production and sandbox. */

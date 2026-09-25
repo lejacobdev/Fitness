@@ -11,6 +11,11 @@ public enum DemoData {
         ProcessInfo.processInfo.arguments.contains("-demoData")
     }
 
+    /// `-paywall` opens the Pro paywall (the subscriptions' review screenshot).
+    static var showsPaywall: Bool {
+        isEnabled && ProcessInfo.processInfo.arguments.contains("-paywall")
+    }
+
     /// `-tab plan|improve|library|me` picks the starting tab for a screenshot.
     static var initialTab: AppTab {
         let args = ProcessInfo.processInfo.arguments

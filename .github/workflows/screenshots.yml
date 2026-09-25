@@ -80,6 +80,12 @@ jobs:
                 xcrun simctl terminate "$UDID" "$BUNDLE" || true
               done
             done
+            # The paywall, for the subscriptions' review screenshot.
+            xcrun simctl ui "$UDID" appearance light
+            xcrun simctl launch "$UDID" "$BUNDLE" -demoData -paywall >/dev/null
+            sleep 7
+            xcrun simctl io "$UDID" screenshot "screenshots/${NAME}-paywall.png"
+            xcrun simctl terminate "$UDID" "$BUNDLE" || true
             xcrun simctl shutdown "$UDID" || true
           done
           ls -la screenshots
@@ -108,3 +114,5 @@ jobs:
           done
           ls upload
           node tools/asc.mjs upload-screenshots com.studentathlete.app upload
+          PAYWALL=$(ls screenshots/iPhone*-paywall.png 2>/dev/null | head -1)
+          if [ -n "$PAYWALL" ]; then node tools/asc.mjs upload-review-screenshot com.studentathlete.app "$PAYWALL"; fi

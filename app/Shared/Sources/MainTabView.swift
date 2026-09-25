@@ -29,6 +29,7 @@ public struct MainTabView: View {
     @State private var showingTour = false
     @State private var workoutContext: WorkoutContext?
     @State private var backingUp = false
+    @State private var demoPaywall = false
 
     public init(athlete: Athlete, apiClient: APIClient) {
         self.athlete = athlete
@@ -72,6 +73,7 @@ public struct MainTabView: View {
         .onChange(of: athlete.activeSport?.id) { regenerate() }
         .onChange(of: athlete.sports.count) { regenerate() }
         .onChange(of: ProAccess.isPro) { regenerate() }
+        .proPaywall(isPresented: $demoPaywall, athlete: athlete, feature: .skillBlocks)
         // Back up when the athlete leaves the app, pick up other phones'
         // changes when they come back.
         .onChange(of: scenePhase) { _, phase in
@@ -86,6 +88,7 @@ public struct MainTabView: View {
             #endif
             // First run: a short tour of the five tabs, then (once) the
             // HealthKit ask, reason first — never two prompts stacked.
+            if DemoData.showsPaywall { demoPaywall = true }
             if !appTourSeen, !DemoData.isEnabled {
                 showingTour = true
             } else {

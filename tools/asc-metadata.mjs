@@ -17,8 +17,11 @@ const args = process.argv.slice(2);
 const NAME_ONLY = args.includes('--name-only');
 const BUNDLE_ID = args.find((a) => !a.startsWith('--')) ?? 'com.studentathlete.app';
 
+/** App Store names are unique across the store; the first free one is used. */
+export const NAMES = ['Athlete OS', 'Athlete OS – AOS', 'AOS – Athlete OS', 'Athlete OS: Train & Learn'];
+
 export const LISTING = {
-  name: 'Athlete OS',
+  name: NAMES[0],
   subtitle: 'Your sport, schedule & mindset',
   privacyPolicyUrl: 'https://api.lejacob.dev/fitness/privacy',
   supportUrl: 'https://api.lejacob.dev/fitness/support',
@@ -132,6 +135,24 @@ async function step(label, fn) {
   }
 }
 
+/** Tries each name until the App Store accepts one (a taken name is a 409). */
+async function setName(localizationId) {
+  for (const name of NAMES) {
+    try {
+      await api(`/v1/appInfoLocalizations/${localizationId}`, {
+        method: 'PATCH',
+        body: { data: { type: 'appInfoLocalizations', id: localizationId, attributes: { name } } },
+      });
+      console.log(`ok     display name "${name}"`);
+      return name;
+    } catch (err) {
+      console.log(`taken  display name "${name}" — ${err.message.slice(0, 120)}`);
+    }
+  }
+  console.log('FAILED no candidate name was free');
+  return null;
+}
+
 function checkLimits() {
   const limits = { name: 30, subtitle: 30, keywords: 100, promotionalText: 170, description: 4000, reviewNotes: 4000 };
   for (const [field, max] of Object.entries(limits)) {
@@ -151,10 +172,7 @@ async function main() {
   if (NAME_ONLY) {
     const locs = await api(`/v1/appInfos/${info.id}/appInfoLocalizations`);
     const loc = locs.data.find((l) => l.attributes.locale === 'en-US');
-    await step(`display name "${LISTING.name}"`, () => api(`/v1/appInfoLocalizations/${loc.id}`, {
-      method: 'PATCH',
-      body: { data: { type: 'appInfoLocalizations', id: loc.id, attributes: { name: LISTING.name } } },
-    }));
+    await setName(loc.id);
     return;
   }
 
@@ -174,10 +192,7 @@ async function main() {
       subtitle: LISTING.subtitle, privacyPolicyUrl: LISTING.privacyPolicyUrl,
     } } },
   }));
-  await step(`display name "${LISTING.name}"`, () => api(`/v1/appInfoLocalizations/${infoLoc.id}`, {
-    method: 'PATCH',
-    body: { data: { type: 'appInfoLocalizations', id: infoLoc.id, attributes: { name: LISTING.name } } },
-  }));
+  await setName(infoLoc.id);
 
   // Age rating: no objectionable content. The sport list includes rifle and
   // archery (dry-fire/holding drills only), hence mild weapons references;
