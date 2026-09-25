@@ -229,3 +229,17 @@ test("every drill's `skills` are real skills of that drill's own sport (§8)", a
   }
   assert.deepEqual(bad, []);
 });
+
+test('every drill belongs to a real sport, and its positions and formats are that sport\'s', async () => {
+  const { SPORTS } = await import('../src/sports.js');
+  const bySlug = new Map(SPORTS.map((s) => [s.slug, s]));
+  const bad = [];
+  for (const item of BASE_ITEMS) {
+    if (item.kind !== 'drill') continue;
+    const sport = bySlug.get(item.sport);
+    if (!sport) { bad.push(`${item.slug}: unknown sport ${item.sport}`); continue; }
+    for (const p of item.positions ?? []) if (!sport.positions.some((x) => x.slug === p)) bad.push(`${item.slug}: ${item.sport} has no position ${p}`);
+    for (const f of item.formats ?? []) if (!sport.formats.some((x) => x.slug === f)) bad.push(`${item.slug}: ${item.sport} has no format ${f}`);
+  }
+  assert.deepEqual(bad, []);
+});

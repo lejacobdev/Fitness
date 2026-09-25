@@ -122,11 +122,12 @@ public final class HealthKitManager: @unchecked Sendable {
         case "tennis": .tennis
         case "golf", "disc-golf": .golf
         case "swimming-diving", "adapted-swimming", "water-polo": .swimming
-        case "cross-country", "track-and-field", "unified-track", "para-track", "orienteering": .running
+        case "cross-country", "track-and-field", "indoor-track-and-field", "unified-track", "para-track", "orienteering": .running
         case "wrestling": .wrestling
         case "gymnastics": .gymnastics
         case "rowing": .rowing
         case "skiing": .downhillSkiing
+        case "snowboarding": .snowboarding
         case "fencing": .fencing
         case "badminton": .badminton
         case "table-tennis": .tableTennis

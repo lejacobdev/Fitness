@@ -31,13 +31,15 @@ public struct SkillMenuInput: Sendable {
     public let now: Date
     /// Drills written for other positions are never picked.
     public let positionSlug: String?
+    public let formatSlug: String?
 
     public init(
         sportSlug: String, skillSlug: String, skillName: String, qualityWeights: [String: Double],
         today: Date, gameDate: Date, birthDate: Date, trainsUnderCoach: Bool = false,
         equipmentAvailable: Set<String> = [], catalogue: Catalogue, seed: String, now: Date = .now,
-        positionSlug: String? = nil
+        positionSlug: String? = nil, formatSlug: String? = nil
     ) {
+        self.formatSlug = formatSlug
         self.positionSlug = positionSlug
         self.sportSlug = sportSlug
         self.skillSlug = skillSlug
@@ -216,7 +218,7 @@ public enum SkillMenuEngine {
             let tagged = input.catalogue.itemsBySlug.values
                 .filter { item in
                     item.itemSportSlug == input.sportSlug
-                        && item.fits(sport: input.sportSlug, position: input.positionSlug)
+                        && item.fits(sport: input.sportSlug, position: input.positionSlug, format: input.formatSlug)
                         && (item.skills ?? []).contains(input.skillSlug)
                         && PlanGenerator.isEligibleForEquipment(item, available: input.equipmentAvailable)
                         && (input.trainsUnderCoach || !item.isCoached)
@@ -246,7 +248,7 @@ public enum SkillMenuEngine {
                 input.catalogue.itemsBySlug.values
                     .filter { item in
                         (item.qualities[quality] ?? 0) >= 0.7
-                            && item.fits(sport: input.sportSlug, position: input.positionSlug)
+                            && item.fits(sport: input.sportSlug, position: input.positionSlug, format: input.formatSlug)
                             && PlanGenerator.isEligibleForEquipment(item, available: input.equipmentAvailable)
                             && (input.trainsUnderCoach || !item.isCoached)
                             && item.minAge <= age

@@ -32,6 +32,28 @@ export const DEEP_SKILL_SPORTS = new Set([
 ]);
 
 /**
+ * The sports Athlete OS features first (the user's list): researched in depth
+ * — how athletes succeed, what to train after practice, on a gym day and in
+ * daily mobility. Every other sport stays fully supported.
+ */
+export const FEATURED_SPORTS = new Set([
+  'football', 'track-and-field', 'basketball', 'soccer', 'volleyball', 'baseball', 'softball', 'cross-country',
+  'wrestling', 'tennis', 'swimming-diving', 'golf', 'lacrosse', 'competitive-spirit', 'flag-football',
+  'indoor-track-and-field', 'ice-hockey', 'field-hockey', 'gymnastics', 'bowling', 'water-polo', 'skiing',
+  'snowboarding', 'rowing', 'rugby', 'badminton', 'weightlifting', 'unified-sports', 'mountain-biking',
+]);
+
+/**
+ * A sport's formats are its variants, merged in rather than listed as
+ * separate sports (beach and sitting volleyball are Volleyball). An athlete
+ * picks one; drills written for a format (`formats` on the drill) only go to
+ * it. An `exclusive` format (wheelchair, sitting, para) also leaves out the
+ * sport's other drills, since they assume standing play. `aliases` maps the
+ * old variant sport slugs to their format ('' for none), so existing athletes migrate.
+ */
+const format = (slug, name, extra = {}) => ({ slug, name, ...extra });
+
+/**
  * §8: "each named skill in a sport's skills[] carries a weighted list of the
  * physical qualities that actually underpin it. This mapping is the
  * authored intelligence of the app." `qualityWeights` is hand-authored here
@@ -52,7 +74,7 @@ function sport(spec) {
   const {
     slug, name, governing, season, monthRange, qualityProfile,
     positions = [], skills, commonLoadAreas = [], contactLevel,
-    typicalSessionLength = 75, typicalWeeklyGames = 1,
+    typicalSessionLength = 75, typicalWeeklyGames = 1, formats = [], aliases = {},
   } = spec;
 
   if (!DEEP_SKILL_SPORTS.has(slug) && skills.length < 4) {
@@ -77,6 +99,7 @@ function sport(spec) {
     slug, name, governing, season, monthRange,
     qualityProfile, positions, skills: resolvedSkills, commonLoadAreas, contactLevel,
     typicalSessionLength, typicalWeeklyGames,
+    featured: FEATURED_SPORTS.has(slug), formats, aliases,
   };
 }
 
@@ -186,7 +209,7 @@ export const SPORTS = [
   }),
 
   sport({
-    slug: 'basketball',
+    slug: 'basketball', formats: [format('standard', 'Standing'), format('wheelchair', 'Wheelchair basketball', { exclusive: true })], aliases: { 'wheelchair-basketball': 'wheelchair' },
     name: 'Basketball',
     governing: ['NFHS', 'NCAA'],
     season: 'WINTER',
@@ -214,7 +237,7 @@ export const SPORTS = [
   }),
 
   sport({
-    slug: 'baseball',
+    slug: 'baseball', formats: [format('standard', 'Standard'), format('beep', 'Beep baseball', { exclusive: true })], aliases: { 'beep-baseball': 'beep' },
     name: 'Baseball',
     governing: ['NFHS', 'NCAA'],
     season: 'SPRING',
@@ -269,7 +292,7 @@ export const SPORTS = [
   }),
 
   sport({
-    slug: 'volleyball',
+    slug: 'volleyball', formats: [format('indoor', 'Indoor'), format('beach', 'Beach'), format('sitting', 'Sitting volleyball', { exclusive: true })], aliases: { 'boys-volleyball': 'indoor', 'sand-volleyball': 'beach', 'sitting-volleyball': 'sitting' },
     name: 'Volleyball',
     governing: ['NFHS', 'NCAA'],
     season: 'FALL',
@@ -318,8 +341,8 @@ export const SPORTS = [
   }),
 
   sport({
-    slug: 'track-and-field',
-    name: 'Track and Field',
+    slug: 'track-and-field', formats: [format('standard', 'Standard'), format('para', 'Para athletics', { exclusive: true })], aliases: { 'para-track': 'para' },
+    name: 'Track & Field',
     governing: ['NFHS', 'NCAA'],
     season: 'SPRING',
     monthRange: [3, 6],
@@ -412,8 +435,8 @@ export const SPORTS = [
   }),
 
   sport({
-    slug: 'swimming-diving',
-    name: 'Swimming and Diving',
+    slug: 'swimming-diving', formats: [format('standard', 'Standard'), format('adapted', 'Adapted swimming', { exclusive: true })], aliases: { 'adapted-swimming': 'adapted' },
+    name: 'Swimming',
     governing: ['NFHS', 'NCAA'],
     season: 'WINTER',
     monthRange: [11, 2],
@@ -438,7 +461,7 @@ export const SPORTS = [
   }),
 
   sport({
-    slug: 'ice-hockey',
+    slug: 'ice-hockey', formats: [format('ice', 'Ice'), format('inline', 'Inline'), format('floor', 'Adapted floor hockey', { exclusive: true })], aliases: { 'inline-hockey': 'inline', 'adapted-floor-hockey': 'floor' },
     name: 'Ice Hockey',
     governing: ['NFHS', 'NCAA'],
     season: 'WINTER',
@@ -465,7 +488,7 @@ export const SPORTS = [
   }),
 
   sport({
-    slug: 'field-hockey',
+    slug: 'field-hockey', aliases: { 'field-hockey-goalkeeping': '' },
     name: 'Field Hockey',
     governing: ['NFHS', 'NCAA'],
     season: 'FALL',
@@ -492,7 +515,7 @@ export const SPORTS = [
   }),
 
   sport({
-    slug: 'lacrosse',
+    slug: 'lacrosse', formats: [format('field', 'Field'), format('box', 'Box')], aliases: { 'lacrosse-box': 'box' },
     name: 'Lacrosse',
     governing: ['NFHS', 'NCAA'],
     season: 'SPRING',
@@ -519,8 +542,8 @@ export const SPORTS = [
   }),
 
   sport({
-    slug: 'competitive-spirit',
-    name: 'Competitive Spirit (Cheer)',
+    slug: 'competitive-spirit', formats: [format('competitive', 'Competitive'), format('sideline', 'Sideline')], aliases: { 'cheerleading-sideline': 'sideline' },
+    name: 'Competitive Cheer / Spirit',
     governing: ['NFHS'],
     season: 'WINTER',
     monthRange: [11, 2],
@@ -627,7 +650,7 @@ export const SPORTS = [
 
   sport({
     slug: 'rowing',
-    name: 'Rowing (Crew)',
+    name: 'Rowing / Crew',
     governing: ['NCAA'],
     season: 'SPRING',
     monthRange: [3, 6],
@@ -648,7 +671,7 @@ export const SPORTS = [
 
   sport({
     slug: 'skiing',
-    name: 'Skiing (Alpine / Nordic)',
+    name: 'Skiing',
     governing: ['NFHS'],
     season: 'WINTER',
     monthRange: [12, 2],
@@ -710,7 +733,7 @@ export const SPORTS = [
   }),
 
   sport({
-    slug: 'ultimate',
+    slug: 'ultimate', formats: [format('field', 'Field'), format('beach', 'Beach')], aliases: { 'ultimate-beach': 'beach' },
     name: 'Ultimate (Frisbee)',
     governing: ['NCAA'],
     season: 'SPRING',
@@ -819,7 +842,7 @@ export const SPORTS = [
     commonLoadAreas: ['lower-back', 'shoulders'], contactLevel: 'NONE', typicalSessionLength: 90,
   }),
   sport({
-    slug: 'triathlon', name: 'Triathlon', governing: ['NFHS'], season: 'SUMMER', monthRange: [6, 8],
+    slug: 'triathlon', formats: [format('triathlon', 'Triathlon'), format('duathlon', 'Duathlon')], aliases: { 'triathlon-duathlon': 'duathlon' }, name: 'Triathlon', governing: ['NFHS'], season: 'SUMMER', monthRange: [6, 8],
     qualityProfile: { 'aerobic-base': 1.0, 'anaerobic-capacity': 0.5, 'single-leg-stability': 0.4, 'shoulder-stability': 0.4 },
     skills: [skill('swim-to-bike-transition', 'Swim-to-bike transition speed', { 'aerobic-base': 0.8, 'anaerobic-capacity': 0.7, 'acceleration': 0.6, 'single-leg-stability': 0.5 }), skill('bike-to-run-transition', 'Bike-to-run transition legs', { 'aerobic-base': 0.9, 'reactive-strength': 0.6, 'ankle-stiffness': 0.6, 'anaerobic-capacity': 0.6, 'single-leg-stability': 0.5 }), skill('aerobic-pacing', 'Aerobic pacing across three disciplines', { 'aerobic-base': 1.0, 'anaerobic-capacity': 0.5, 'repeat-sprint': 0.3 }), skill('open-water-sighting', 'Open-water sighting', { 'shoulder-stability': 0.7, 'trunk-anti-rotation': 0.7, 'aerobic-base': 0.7, 'upper-body-pull': 0.5 })],
     commonLoadAreas: ['knees', 'lower-back'], contactLevel: 'NONE', typicalSessionLength: 100,
@@ -835,24 +858,6 @@ export const SPORTS = [
     qualityProfile: { 'grip': 1.0, 'upper-body-pull': 0.8, 'trunk-anti-rotation': 0.7, 'single-leg-stability': 0.6, 'hip-mobility': 0.6 },
     skills: [skill('grip-strength', 'Grip strength', { 'grip': 1.0, 'upper-body-pull': 0.8, 'shoulder-stability': 0.6 }), skill('pulling-power', 'Pulling power', { 'upper-body-pull': 1.0, 'grip': 0.7, 'shoulder-stability': 0.7, 'trunk-anti-rotation': 0.6 }), skill('footwork-precision', 'Footwork precision', { 'single-leg-stability': 0.8, 'ankle-stiffness': 0.7, 'hip-mobility': 0.7, 'trunk-anti-rotation': 0.5 }), skill('route-reading', 'Route reading', { 'aerobic-base': 0.6, 'trunk-anti-rotation': 0.5, 'grip': 0.5, 'single-leg-stability': 0.5 }), skill('core-tension', 'Core tension on overhangs', { 'trunk-anti-rotation': 1.0, 'upper-body-pull': 0.6, 'hip-mobility': 0.6, 'shoulder-stability': 0.5 })],
     commonLoadAreas: ['fingers', 'shoulders', 'elbows'], contactLevel: 'NONE', typicalSessionLength: 90,
-  }),
-  sport({
-    slug: 'boys-volleyball', name: "Boys' Volleyball", governing: ['NFHS'], season: 'SPRING', monthRange: [3, 6],
-    qualityProfile: { 'vertical-power': 0.9, 'overhead-power': 0.8, 'reactive-strength': 0.8, 'lateral-power': 0.6, 'landing-mechanics': 0.8 },
-    skills: [skill('approach-jump-height', 'Approach jump height', { 'vertical-power': 1.0, 'reactive-strength': 0.8, 'lower-body-strength': 0.7, 'horizontal-power': 0.6, 'ankle-stiffness': 0.6, 'landing-mechanics': 0.6 }), skill('spike-velocity', 'Spike velocity', { 'overhead-power': 1.0, 'rotational-power': 0.8, 'shoulder-stability': 0.8, 'trunk-anti-rotation': 0.7, 'vertical-power': 0.6 }), skill('blocking-timing', 'Blocking timing', { 'vertical-power': 0.8, 'reactive-strength': 0.8, 'lateral-power': 0.7, 'landing-mechanics': 0.7, 'shoulder-stability': 0.6 }), skill('serve-power', 'Serve power', { 'overhead-power': 0.9, 'rotational-power': 0.8, 'shoulder-stability': 0.7, 'trunk-anti-rotation': 0.6, 'horizontal-power': 0.4 })],
-    commonLoadAreas: ['shoulder', 'knees'], contactLevel: 'NONE', typicalSessionLength: 90,
-  }),
-  sport({
-    slug: 'sand-volleyball', name: 'Beach / Sand Volleyball', governing: ['NCAA'], season: 'SPRING', monthRange: [3, 6],
-    qualityProfile: { 'vertical-power': 0.8, 'aerobic-base': 0.6, 'lateral-power': 0.7, 'overhead-power': 0.7, 'single-leg-stability': 0.6 },
-    skills: [skill('sand-jump-power', 'Sand jump power', { 'vertical-power': 0.9, 'lower-body-strength': 0.8, 'horizontal-power': 0.6, 'ankle-stiffness': 0.6, 'landing-mechanics': 0.6, 'reactive-strength': 0.5 }), skill('lateral-movement-in-sand', 'Lateral movement in sand', { 'lateral-power': 0.9, 'lower-body-strength': 0.7, 'deceleration': 0.7, 'change-of-direction': 0.7, 'anaerobic-capacity': 0.6 }), skill('serve-power', 'Serve power', { 'overhead-power': 0.9, 'rotational-power': 0.8, 'shoulder-stability': 0.7, 'trunk-anti-rotation': 0.6 }), skill('defensive-range', 'Defensive range', { 'lateral-power': 0.8, 'horizontal-power': 0.7, 'landing-mechanics': 0.7, 'deceleration': 0.7, 'anaerobic-capacity': 0.5 })],
-    commonLoadAreas: ['ankles', 'shoulders'], contactLevel: 'NONE', typicalSessionLength: 90,
-  }),
-  sport({
-    slug: 'field-hockey-goalkeeping', name: 'Field Hockey Goalkeeping', governing: ['NFHS'], season: 'FALL', monthRange: [8, 11],
-    qualityProfile: { 'reactive-strength': 0.9, 'lateral-power': 0.9, 'landing-mechanics': 0.7, 'hip-mobility': 0.6 },
-    skills: [skill('reaction-save-speed', 'Reaction save speed', { 'reactive-strength': 1.0, 'lateral-power': 0.8, 'acceleration': 0.6, 'ankle-stiffness': 0.5 }), skill('lateral-explosiveness', 'Lateral explosiveness', { 'lateral-power': 1.0, 'reactive-strength': 0.7, 'horizontal-power': 0.6, 'deceleration': 0.6 }), skill('low-block-mobility', 'Low block mobility', { 'hip-mobility': 1.0, 'single-leg-stability': 0.7, 'lower-body-strength': 0.6, 'trunk-anti-rotation': 0.5 }), skill('recovery-to-feet', 'Recovery to feet', { 'acceleration': 0.8, 'trunk-anti-rotation': 0.7, 'hip-mobility': 0.7, 'lower-body-strength': 0.6, 'reactive-strength': 0.6 })],
-    commonLoadAreas: ['hips', 'knees'], contactLevel: 'LIMITED', typicalSessionLength: 80,
   }),
   sport({
     slug: 'esports-physical-conditioning', name: 'Esports (Physical Conditioning)', governing: ['NFHS'], season: 'YEAR_ROUND', monthRange: [1, 12],
@@ -885,42 +890,6 @@ export const SPORTS = [
     commonLoadAreas: ['shoulders', 'wrists'], contactLevel: 'NONE', typicalSessionLength: 75,
   }),
   sport({
-    slug: 'unified-basketball', name: 'Unified Basketball', governing: ['NFHS'], season: 'WINTER', monthRange: [11, 3],
-    qualityProfile: { 'vertical-power': 0.6, 'change-of-direction': 0.6, 'acceleration': 0.6, 'anaerobic-capacity': 0.5 },
-    skills: [skill('shooting-mechanics', 'Shooting mechanics', { 'shoulder-stability': 0.8, 'single-leg-stability': 0.6, 'vertical-power': 0.5, 'trunk-anti-rotation': 0.5 }), skill('ball-handling', 'Ball handling', { 'grip': 0.7, 'trunk-anti-rotation': 0.6, 'change-of-direction': 0.6, 'lateral-power': 0.5 }), skill('teamwork-positioning', 'Teamwork and positioning', { 'change-of-direction': 0.7, 'lateral-power': 0.7, 'deceleration': 0.6, 'aerobic-base': 0.5 }), skill('conditioning', 'General conditioning', { 'aerobic-base': 0.9, 'repeat-sprint': 0.7, 'anaerobic-capacity': 0.6 })],
-    commonLoadAreas: ['knees', 'ankles'], contactLevel: 'CONTACT', typicalSessionLength: 75,
-  }),
-  sport({
-    slug: 'unified-track', name: 'Unified Track and Field', governing: ['NFHS'], season: 'SPRING', monthRange: [3, 6],
-    qualityProfile: { 'acceleration': 0.6, 'max-velocity': 0.6, 'aerobic-base': 0.5, 'horizontal-power': 0.5 },
-    skills: [skill('sprint-technique', 'Sprint technique', { 'acceleration': 0.9, 'max-velocity': 0.8, 'reactive-strength': 0.7, 'ankle-stiffness': 0.6 }), skill('jump-technique', 'Jump technique', { 'vertical-power': 0.8, 'horizontal-power': 0.8, 'reactive-strength': 0.7, 'landing-mechanics': 0.7 }), skill('throw-technique', 'Throw technique', { 'rotational-power': 0.8, 'overhead-power': 0.7, 'trunk-anti-rotation': 0.7, 'shoulder-stability': 0.6 }), skill('pacing', 'Pacing', { 'aerobic-base': 0.9, 'anaerobic-capacity': 0.6, 'repeat-sprint': 0.4 })],
-    commonLoadAreas: ['hamstrings', 'shins'], contactLevel: 'NONE', typicalSessionLength: 60,
-  }),
-  sport({
-    slug: 'adapted-floor-hockey', name: 'Adapted Floor Hockey', governing: ['NFHS'], season: 'WINTER', monthRange: [11, 3],
-    qualityProfile: { 'upper-body-push': 0.5, 'trunk-anti-rotation': 0.5, 'aerobic-base': 0.5, 'grip': 0.5 },
-    skills: [skill('stick-handling', 'Stick handling', { 'grip': 0.8, 'trunk-anti-rotation': 0.7, 'change-of-direction': 0.6, 'shoulder-stability': 0.5 }), skill('shot-accuracy', 'Shot accuracy', { 'rotational-power': 0.7, 'shoulder-stability': 0.7, 'trunk-anti-rotation': 0.7, 'grip': 0.6 }), skill('positional-awareness', 'Positional awareness', { 'change-of-direction': 0.7, 'lateral-power': 0.7, 'deceleration': 0.6, 'aerobic-base': 0.5 }), skill('endurance', 'Game endurance', { 'aerobic-base': 0.9, 'repeat-sprint': 0.7, 'anaerobic-capacity': 0.6 })],
-    commonLoadAreas: ['shoulders', 'wrists'], contactLevel: 'LIMITED', typicalSessionLength: 60,
-  }),
-  sport({
-    slug: 'adapted-swimming', name: 'Adapted Swimming', governing: ['NFHS'], season: 'WINTER', monthRange: [11, 2],
-    qualityProfile: { 'aerobic-base': 0.7, 'upper-body-pull': 0.6, 'shoulder-stability': 0.6 },
-    skills: [skill('stroke-technique', 'Stroke technique', { 'shoulder-stability': 0.8, 'trunk-anti-rotation': 0.8, 'upper-body-pull': 0.7, 'hip-mobility': 0.5 }), skill('breathing-rhythm', 'Breathing rhythm', { 'aerobic-base': 0.9, 'trunk-anti-rotation': 0.6, 'shoulder-stability': 0.4 }), skill('endurance', 'Endurance', { 'aerobic-base': 1.0, 'upper-body-pull': 0.5, 'shoulder-stability': 0.5 }), skill('start-technique', 'Start technique', { 'horizontal-power': 0.7, 'trunk-anti-rotation': 0.7, 'upper-body-push': 0.6, 'shoulder-stability': 0.6 })],
-    commonLoadAreas: ['shoulders'], contactLevel: 'NONE', typicalSessionLength: 60,
-  }),
-  sport({
-    slug: 'wheelchair-basketball', name: 'Wheelchair Basketball', governing: ['NFHS'], season: 'WINTER', monthRange: [11, 3],
-    qualityProfile: { 'upper-body-push': 0.8, 'upper-body-pull': 0.7, 'trunk-anti-rotation': 0.7, 'anaerobic-capacity': 0.7, 'grip': 0.6 },
-    skills: [skill('push-speed', 'Chair push speed', { 'upper-body-push': 0.9, 'acceleration': 0.8, 'shoulder-stability': 0.7, 'trunk-anti-rotation': 0.6, 'grip': 0.6 }), skill('shooting-mechanics', 'Shooting mechanics', { 'shoulder-stability': 0.9, 'trunk-anti-rotation': 0.8, 'upper-body-push': 0.6, 'grip': 0.4 }), skill('pivoting-control', 'Pivoting control', { 'trunk-anti-rotation': 0.9, 'rotational-power': 0.7, 'shoulder-stability': 0.7, 'grip': 0.6 }), skill('upper-body-endurance', 'Upper-body endurance', { 'anaerobic-capacity': 0.8, 'aerobic-base': 0.8, 'shoulder-stability': 0.7, 'upper-body-push': 0.6, 'upper-body-pull': 0.6 })],
-    commonLoadAreas: ['shoulders', 'wrists'], contactLevel: 'CONTACT', typicalSessionLength: 75,
-  }),
-  sport({
-    slug: 'para-track', name: 'Para Track and Field', governing: ['NFHS'], season: 'SPRING', monthRange: [3, 6],
-    qualityProfile: { 'acceleration': 0.6, 'upper-body-push': 0.5, 'trunk-anti-rotation': 0.5, 'aerobic-base': 0.5 },
-    skills: [skill('start-technique', 'Start technique', { 'acceleration': 0.9, 'upper-body-push': 0.8, 'trunk-anti-rotation': 0.7, 'shoulder-stability': 0.6 }), skill('technique-efficiency', 'Movement-specific technique efficiency', { 'aerobic-base': 0.8, 'shoulder-stability': 0.7, 'trunk-anti-rotation': 0.7, 'upper-body-push': 0.6 }), skill('pacing', 'Pacing', { 'aerobic-base': 0.9, 'anaerobic-capacity': 0.7, 'repeat-sprint': 0.4 }), skill('upper-body-power', 'Upper-body power', { 'upper-body-push': 0.9, 'shoulder-stability': 0.8, 'upper-body-pull': 0.7, 'trunk-anti-rotation': 0.6 })],
-    commonLoadAreas: ['shoulders', 'lower-back'], contactLevel: 'NONE', typicalSessionLength: 60,
-  }),
-  sport({
     slug: 'goalball', name: 'Goalball', governing: ['NFHS'], season: 'WINTER', monthRange: [11, 3],
     qualityProfile: { 'reactive-strength': 0.7, 'lateral-power': 0.7, 'trunk-anti-rotation': 0.6, 'single-leg-stability': 0.5 },
     skills: [skill('throwing-power', 'Throwing power', { 'rotational-power': 0.9, 'overhead-power': 0.7, 'shoulder-stability': 0.7, 'trunk-anti-rotation': 0.7, 'lower-body-strength': 0.5 }), skill('blocking-reaction', 'Blocking reaction', { 'reactive-strength': 0.9, 'lateral-power': 0.9, 'landing-mechanics': 0.7, 'trunk-anti-rotation': 0.6 }), skill('spatial-tracking-by-sound', 'Spatial tracking by sound', { 'reactive-strength': 0.7, 'lateral-power': 0.6, 'single-leg-stability': 0.6, 'trunk-anti-rotation': 0.5 }), skill('lateral-coverage', 'Lateral coverage', { 'lateral-power': 0.9, 'landing-mechanics': 0.7, 'trunk-anti-rotation': 0.7, 'hip-mobility': 0.5 })],
@@ -931,18 +900,6 @@ export const SPORTS = [
     qualityProfile: { 'grip': 0.5, 'trunk-anti-rotation': 0.5, 'shoulder-stability': 0.4 },
     skills: [skill('release-consistency', 'Release consistency', { 'shoulder-stability': 0.8, 'trunk-anti-rotation': 0.7, 'grip': 0.6 }), skill('touch-control', 'Touch and distance control', { 'shoulder-stability': 0.7, 'grip': 0.7, 'trunk-anti-rotation': 0.6 }), skill('focus-under-fatigue', 'Focus under fatigue', { 'aerobic-base': 0.7, 'trunk-anti-rotation': 0.6, 'shoulder-stability': 0.4 }), skill('postural-endurance', 'Postural endurance', { 'trunk-anti-rotation': 0.9, 'shoulder-stability': 0.7, 'hip-mobility': 0.5 })],
     commonLoadAreas: ['shoulder', 'wrist'], contactLevel: 'NONE', typicalSessionLength: 45,
-  }),
-  sport({
-    slug: 'beep-baseball', name: 'Beep Baseball', governing: ['NFHS'], season: 'SUMMER', monthRange: [6, 8],
-    qualityProfile: { 'rotational-power': 0.7, 'acceleration': 0.6, 'reactive-strength': 0.5, 'grip': 0.4 },
-    skills: [skill('bat-speed', 'Bat speed', { 'rotational-power': 1.0, 'grip': 0.6, 'trunk-anti-rotation': 0.6, 'hip-mobility': 0.6 }), skill('sprint-to-base', 'Sprint to base', { 'acceleration': 1.0, 'max-velocity': 0.7, 'horizontal-power': 0.6 }), skill('auditory-tracking', 'Auditory tracking', { 'reactive-strength': 0.8, 'single-leg-stability': 0.6, 'trunk-anti-rotation': 0.5, 'lateral-power': 0.5 }), skill('diving-safety', 'Safe diving technique', { 'landing-mechanics': 0.9, 'trunk-anti-rotation': 0.7, 'shoulder-stability': 0.7, 'horizontal-power': 0.5 })],
-    commonLoadAreas: ['shoulders', 'knees'], contactLevel: 'CONTACT', typicalSessionLength: 75,
-  }),
-  sport({
-    slug: 'sitting-volleyball', name: 'Sitting Volleyball', governing: ['NFHS'], season: 'WINTER', monthRange: [11, 3],
-    qualityProfile: { 'upper-body-push': 0.7, 'trunk-anti-rotation': 0.7, 'overhead-power': 0.6, 'grip': 0.5 },
-    skills: [skill('seated-mobility', 'Seated mobility', { 'upper-body-push': 0.8, 'trunk-anti-rotation': 0.8, 'shoulder-stability': 0.7, 'hip-mobility': 0.6, 'lateral-power': 0.5 }), skill('spike-power', 'Spike power from seated', { 'overhead-power': 0.9, 'rotational-power': 0.8, 'shoulder-stability': 0.8, 'trunk-anti-rotation': 0.7 }), skill('blocking-reach', 'Blocking reach', { 'shoulder-stability': 0.9, 'trunk-anti-rotation': 0.8, 'upper-body-push': 0.6, 'reactive-strength': 0.6 }), skill('serve-power', 'Serve power', { 'overhead-power': 0.9, 'rotational-power': 0.8, 'shoulder-stability': 0.7, 'trunk-anti-rotation': 0.6 })],
-    commonLoadAreas: ['shoulders', 'lower-back'], contactLevel: 'NONE', typicalSessionLength: 75,
   }),
   sport({
     slug: 'racquetball', name: 'Racquetball', governing: ['NFHS'], season: 'YEAR_ROUND', monthRange: [1, 12],
@@ -981,46 +938,82 @@ export const SPORTS = [
     commonLoadAreas: ['wrists', 'shoulders'], contactLevel: 'CONTACT', typicalSessionLength: 60,
   }),
   sport({
-    slug: 'inline-hockey', name: 'Inline Hockey', governing: ['NFHS'], season: 'SPRING', monthRange: [3, 6],
-    qualityProfile: { 'acceleration': 0.8, 'change-of-direction': 0.8, 'anaerobic-capacity': 0.8, 'single-leg-stability': 0.7 },
-    skills: [skill('skating-speed', 'Skating speed', { 'lateral-power': 0.9, 'max-velocity': 0.8, 'acceleration': 0.8, 'lower-body-strength': 0.8, 'single-leg-stability': 0.7 }), skill('stick-handling', 'Stick handling', { 'grip': 0.8, 'trunk-anti-rotation': 0.6, 'change-of-direction': 0.6, 'single-leg-stability': 0.5 }), skill('shooting-power', 'Shooting power', { 'rotational-power': 1.0, 'trunk-anti-rotation': 0.8, 'grip': 0.7, 'shoulder-stability': 0.6, 'lower-body-strength': 0.5 }), skill('edge-work', 'Edge work', { 'single-leg-stability': 0.9, 'lateral-power': 0.8, 'change-of-direction': 0.8, 'ankle-stiffness': 0.7, 'hip-mobility': 0.6 })],
-    commonLoadAreas: ['hips', 'knees'], contactLevel: 'CONTACT', typicalSessionLength: 75,
-  }),
-  sport({
-    slug: 'ultimate-beach', name: 'Beach Ultimate', governing: ['NCAA'], season: 'SUMMER', monthRange: [6, 8],
-    qualityProfile: { 'max-velocity': 0.7, 'aerobic-base': 0.7, 'change-of-direction': 0.7, 'vertical-power': 0.5 },
-    skills: [skill('sprint-speed-in-sand', 'Sprint speed in sand', { 'acceleration': 0.9, 'lower-body-strength': 0.8, 'max-velocity': 0.7, 'ankle-stiffness': 0.7, 'horizontal-power': 0.6 }), skill('throwing-power', 'Throwing power', { 'rotational-power': 1.0, 'shoulder-stability': 0.7, 'trunk-anti-rotation': 0.7, 'single-leg-stability': 0.6, 'grip': 0.5 }), skill('layout-explosiveness', 'Layout explosiveness', { 'horizontal-power': 1.0, 'landing-mechanics': 0.8, 'acceleration': 0.7, 'trunk-anti-rotation': 0.6 }), skill('endurance-in-heat', 'Endurance in heat', { 'aerobic-base': 1.0, 'repeat-sprint': 0.8, 'anaerobic-capacity': 0.7 })],
-    commonLoadAreas: ['calves', 'hamstrings'], contactLevel: 'LIMITED', typicalSessionLength: 90,
-  }),
-  sport({
-    slug: 'triathlon-duathlon', name: 'Duathlon', governing: ['NFHS'], season: 'SUMMER', monthRange: [6, 8],
-    qualityProfile: { 'aerobic-base': 1.0, 'anaerobic-capacity': 0.5, 'single-leg-stability': 0.4 },
-    skills: [skill('run-to-bike-transition', 'Run-to-bike transition', { 'aerobic-base': 0.8, 'anaerobic-capacity': 0.7, 'acceleration': 0.5, 'hip-mobility': 0.5 }), skill('bike-to-run-transition', 'Bike-to-run transition legs', { 'aerobic-base': 0.9, 'reactive-strength': 0.6, 'ankle-stiffness': 0.6, 'anaerobic-capacity': 0.6, 'single-leg-stability': 0.5 }), skill('pacing', 'Two-discipline pacing', { 'aerobic-base': 1.0, 'anaerobic-capacity': 0.6, 'repeat-sprint': 0.4 }), skill('running-economy', 'Running economy', { 'aerobic-base': 0.9, 'ankle-stiffness': 0.8, 'reactive-strength': 0.7, 'single-leg-stability': 0.6, 'hip-mobility': 0.5 })],
-    commonLoadAreas: ['knees', 'lower-back'], contactLevel: 'NONE', typicalSessionLength: 90,
-  }),
-  sport({
     slug: 'crossfit-style-conditioning', name: 'Strength & Conditioning Team', governing: ['NFHS'], season: 'YEAR_ROUND', monthRange: [1, 12],
     qualityProfile: { 'lower-body-strength': 0.7, 'upper-body-push': 0.6, 'upper-body-pull': 0.6, 'aerobic-base': 0.6, 'anaerobic-capacity': 0.6, 'trunk-anti-rotation': 0.6 },
     skills: [skill('general-strength', 'General strength', { 'lower-body-strength': 0.9, 'upper-body-push': 0.7, 'upper-body-pull': 0.7, 'trunk-anti-rotation': 0.7, 'grip': 0.6 }), skill('work-capacity', 'Work capacity', { 'anaerobic-capacity': 1.0, 'aerobic-base': 0.8, 'repeat-sprint': 0.7, 'grip': 0.5 }), skill('movement-quality', 'Movement quality under fatigue', { 'hip-mobility': 0.8, 'shoulder-stability': 0.8, 'trunk-anti-rotation': 0.8, 'single-leg-stability': 0.6, 'ankle-stiffness': 0.5 }), skill('mixed-modal-conditioning', 'Mixed-modal conditioning', { 'aerobic-base': 0.9, 'anaerobic-capacity': 0.9, 'lower-body-strength': 0.6, 'upper-body-pull': 0.5, 'upper-body-push': 0.5 })],
     commonLoadAreas: ['lower-back', 'shoulders'], contactLevel: 'NONE', typicalSessionLength: 60,
   }),
   sport({
-    slug: 'cheerleading-sideline', name: 'Sideline Cheerleading', governing: ['NFHS'], season: 'FALL', monthRange: [8, 11],
-    qualityProfile: { 'vertical-power': 0.6, 'trunk-anti-rotation': 0.6, 'shoulder-stability': 0.6, 'aerobic-base': 0.5 },
-    skills: [skill('jump-height', 'Jump height', { 'vertical-power': 1.0, 'reactive-strength': 0.8, 'landing-mechanics': 0.7, 'lower-body-strength': 0.6, 'ankle-stiffness': 0.5 }), skill('stunt-stability', 'Stunt stability', { 'trunk-anti-rotation': 0.9, 'shoulder-stability': 0.8, 'single-leg-stability': 0.7, 'upper-body-push': 0.6, 'lower-body-strength': 0.6 }), skill('projection-and-voice-endurance', 'Projection and voice endurance', { 'aerobic-base': 0.9, 'trunk-anti-rotation': 0.6, 'shoulder-stability': 0.4 }), skill('routine-stamina', 'Routine stamina', { 'aerobic-base': 0.9, 'anaerobic-capacity': 0.8, 'single-leg-stability': 0.4 })],
-    commonLoadAreas: ['shoulders', 'wrists'], contactLevel: 'CONTACT', typicalSessionLength: 75,
-  }),
-  sport({
-    slug: 'lacrosse-box', name: 'Box Lacrosse', governing: ['NCAA'], season: 'WINTER', monthRange: [11, 2],
-    qualityProfile: { 'acceleration': 0.8, 'rotational-power': 0.8, 'anaerobic-capacity': 0.8, 'grip': 0.6 },
-    skills: [skill('shot-velocity', 'Shot velocity', { 'rotational-power': 1.0, 'overhead-power': 0.7, 'shoulder-stability': 0.7, 'trunk-anti-rotation': 0.7, 'grip': 0.5 }), skill('dodging-quickness', 'Dodging quickness', { 'change-of-direction': 1.0, 'deceleration': 0.8, 'acceleration': 0.8, 'lateral-power': 0.7, 'ankle-stiffness': 0.5 }), skill('checking-strength', 'Checking strength', { 'upper-body-push': 0.8, 'trunk-anti-rotation': 0.8, 'lower-body-strength': 0.7, 'shoulder-stability': 0.7, 'grip': 0.6 }), skill('transition-speed', 'Transition speed', { 'acceleration': 0.9, 'max-velocity': 0.8, 'repeat-sprint': 0.8, 'aerobic-base': 0.5 })],
-    commonLoadAreas: ['shoulders', 'wrists'], contactLevel: 'COLLISION', typicalSessionLength: 75,
-  }),
-  sport({
     slug: 'netball', name: 'Netball', governing: ['NFHS'], season: 'SPRING', monthRange: [3, 6],
     qualityProfile: { 'vertical-power': 0.7, 'acceleration': 0.7, 'change-of-direction': 0.7, 'landing-mechanics': 0.6 },
     skills: [skill('vertical-jump', 'Vertical jump', { 'vertical-power': 1.0, 'reactive-strength': 0.8, 'landing-mechanics': 0.8, 'lower-body-strength': 0.6, 'ankle-stiffness': 0.6 }), skill('first-step', 'First step', { 'acceleration': 1.0, 'horizontal-power': 0.7, 'deceleration': 0.7, 'reactive-strength': 0.6, 'change-of-direction': 0.6 }), skill('passing-accuracy', 'Passing accuracy', { 'shoulder-stability': 0.8, 'overhead-power': 0.6, 'trunk-anti-rotation': 0.6, 'single-leg-stability': 0.6, 'grip': 0.5 }), skill('marking-positioning', 'Marking and positioning', { 'lateral-power': 0.9, 'deceleration': 0.8, 'change-of-direction': 0.8, 'single-leg-stability': 0.6, 'trunk-anti-rotation': 0.5 })],
     commonLoadAreas: ['knees', 'ankles'], contactLevel: 'CONTACT', typicalSessionLength: 75,
+  }),
+  sport({
+    slug: 'snowboarding', name: 'Snowboarding', governing: ['NFHS'], season: 'WINTER', monthRange: [12, 3],
+    qualityProfile: {
+      'lower-body-strength': 0.8, 'single-leg-stability': 0.8, 'landing-mechanics': 0.8, 'trunk-anti-rotation': 0.7,
+      'reactive-strength': 0.6, 'ankle-stiffness': 0.6, 'hip-mobility': 0.5, 'anaerobic-capacity': 0.5,
+    },
+    positions: [
+      { slug: 'freestyle', name: 'Freestyle (slopestyle, halfpipe, big air)', qualityProfile: { 'landing-mechanics': 1.0, 'vertical-power': 0.8, 'rotational-power': 0.8, 'reactive-strength': 0.8 } },
+      { slug: 'alpine', name: 'Alpine racing', qualityProfile: { 'lower-body-strength': 1.0, 'single-leg-stability': 0.8, 'anaerobic-capacity': 0.8, 'lateral-power': 0.7 } },
+      { slug: 'boardercross', name: 'Snowboard cross', qualityProfile: { 'lower-body-strength': 0.9, 'landing-mechanics': 0.8, 'anaerobic-capacity': 0.8, 'upper-body-push': 0.5 } },
+    ],
+    skills: [
+      skill('edge-control', 'Edge control', { 'ankle-stiffness': 0.9, 'single-leg-stability': 0.8, 'lower-body-strength': 0.7, 'trunk-anti-rotation': 0.6 }),
+      skill('carving', 'Carving turns', { 'lower-body-strength': 0.9, 'single-leg-stability': 0.8, 'hip-mobility': 0.7, 'lateral-power': 0.6 }),
+      skill('jump-landings', 'Jump takeoffs and landings', { 'landing-mechanics': 1.0, 'reactive-strength': 0.8, 'vertical-power': 0.7, 'lower-body-strength': 0.7 }),
+      skill('spins', 'Spins and rotations', { 'rotational-power': 0.9, 'trunk-anti-rotation': 0.8, 'vertical-power': 0.6, 'landing-mechanics': 0.7 }),
+      skill('terrain-absorption', 'Absorbing bumps and terrain', { 'lower-body-strength': 0.9, 'reactive-strength': 0.7, 'ankle-stiffness': 0.6, 'hip-mobility': 0.6 }),
+      skill('run-endurance', 'Leg endurance for long runs', { 'lower-body-strength': 0.8, 'anaerobic-capacity': 0.9, 'aerobic-base': 0.6 }),
+      skill('start-gate', 'Start gate power (boardercross)', { 'upper-body-pull': 0.8, 'upper-body-push': 0.7, 'trunk-anti-rotation': 0.6, 'acceleration': 0.5 }),
+      skill('fall-safely', 'Falling safely', { 'shoulder-stability': 0.8, 'trunk-anti-rotation': 0.7, 'landing-mechanics': 0.7, 'grip': 0.4 }),
+    ],
+    commonLoadAreas: ['wrists', 'knees', 'ankles', 'shoulders'], contactLevel: 'LIMITED', typicalSessionLength: 120,
+  }),
+  sport({
+    slug: 'indoor-track-and-field', name: 'Indoor Track & Field', governing: ['NFHS', 'NCAA'], season: 'WINTER', monthRange: [12, 3],
+    qualityProfile: {
+      'acceleration': 0.9, 'max-velocity': 0.7, 'reactive-strength': 0.7, 'horizontal-power': 0.7,
+      'vertical-power': 0.6, 'aerobic-base': 0.5, 'ankle-stiffness': 0.6, 'lower-body-strength': 0.6,
+    },
+    positions: [
+      { slug: 'sprints', name: 'Sprints (55/60, 200, 400)', qualityProfile: { 'acceleration': 1.0, 'max-velocity': 0.9, 'reactive-strength': 0.8 } },
+      { slug: 'hurdles', name: 'Hurdles (55/60 H)', qualityProfile: { 'acceleration': 0.9, 'hip-mobility': 0.9, 'reactive-strength': 0.8, 'max-velocity': 0.7 } },
+      { slug: 'distance', name: 'Middle and distance (800 – 3200)', qualityProfile: { 'aerobic-base': 1.0, 'anaerobic-capacity': 0.7, 'ankle-stiffness': 0.5 } },
+      { slug: 'jumps', name: 'Jumps', qualityProfile: { 'horizontal-power': 0.9, 'vertical-power': 0.9, 'reactive-strength': 0.9 } },
+      { slug: 'throws', name: 'Throws (shot put, weight throw)', qualityProfile: { 'rotational-power': 1.0, 'lower-body-strength': 0.9, 'overhead-power': 0.6 } },
+    ],
+    skills: [
+      skill('block-start', 'Block start', { 'acceleration': 1.0, 'horizontal-power': 0.9, 'lower-body-strength': 0.7, 'reactive-strength': 0.6 }),
+      skill('first-30', 'First 30 metres', { 'acceleration': 1.0, 'horizontal-power': 0.8, 'reactive-strength': 0.7, 'ankle-stiffness': 0.6 }),
+      skill('banked-turns', 'Running the banked turns', { 'max-velocity': 0.8, 'lateral-power': 0.7, 'ankle-stiffness': 0.7, 'single-leg-stability': 0.7 }),
+      skill('hurdle-rhythm', 'Hurdle rhythm', { 'reactive-strength': 0.9, 'hip-mobility': 0.9, 'acceleration': 0.7 }),
+      skill('jump-takeoff', 'Jump takeoff', { 'vertical-power': 0.9, 'reactive-strength': 0.9, 'horizontal-power': 0.8, 'ankle-stiffness': 0.7 }),
+      skill('shot-put', 'Shot put power', { 'rotational-power': 0.9, 'lower-body-strength': 0.9, 'upper-body-push': 0.8, 'trunk-anti-rotation': 0.6 }),
+      skill('weight-throw', 'Weight throw', { 'rotational-power': 1.0, 'lower-body-strength': 0.8, 'grip': 0.7, 'trunk-anti-rotation': 0.7 }),
+      skill('tight-track-pacing', 'Pacing on a 200 m track', { 'aerobic-base': 0.9, 'anaerobic-capacity': 0.7, 'lateral-power': 0.4 }),
+    ],
+    commonLoadAreas: ['hamstrings', 'achilles', 'shins'], contactLevel: 'NONE', typicalSessionLength: 90,
+  }),
+  sport({
+    slug: 'unified-sports', name: 'Unified Sports', governing: ['NFHS'], season: 'YEAR_ROUND', monthRange: [1, 12],
+    qualityProfile: {
+      'aerobic-base': 0.6, 'acceleration': 0.6, 'change-of-direction': 0.6, 'single-leg-stability': 0.6,
+      'landing-mechanics': 0.5, 'upper-body-push': 0.4, 'trunk-anti-rotation': 0.5,
+    },
+    formats: [format('basketball', 'Unified basketball'), format('track', 'Unified track & field'), format('soccer', 'Unified soccer'), format('bowling', 'Unified bowling')],
+    aliases: { 'unified-basketball': 'basketball', 'unified-track': 'track' },
+    skills: [
+      skill('passing-catching', 'Passing and catching', { 'upper-body-push': 0.7, 'shoulder-stability': 0.6, 'single-leg-stability': 0.5 }),
+      skill('shooting', 'Shooting', { 'vertical-power': 0.6, 'shoulder-stability': 0.6, 'single-leg-stability': 0.6 }),
+      skill('starts', 'Starts and first steps', { 'acceleration': 0.9, 'horizontal-power': 0.7, 'reactive-strength': 0.5 }),
+      skill('moving-with-teammates', 'Moving with teammates', { 'change-of-direction': 0.8, 'deceleration': 0.7, 'aerobic-base': 0.6 }),
+      skill('balance', 'Balance and body control', { 'single-leg-stability': 0.9, 'landing-mechanics': 0.7, 'trunk-anti-rotation': 0.6 }),
+      skill('stamina', 'Stamina for a whole game', { 'aerobic-base': 1.0, 'repeat-sprint': 0.6, 'anaerobic-capacity': 0.5 }),
+    ],
+    commonLoadAreas: ['knees', 'ankles'], contactLevel: 'LIMITED', typicalSessionLength: 60,
   }),
 ];
 
@@ -1052,6 +1045,11 @@ export function validateSport(s, errors = []) {
     bad(`skill.${sk.slug}`, sk.qualityWeights ?? {});
     const count = Object.keys(sk.qualityWeights ?? {}).length;
     if (count < 3) errors.push(`${s.slug} skill.${sk.slug}: maps to only ${count} qualities, need >= 3`);
+  }
+  const formatSlugs = new Set((s.formats ?? []).map((f) => f.slug));
+  if (formatSlugs.size !== (s.formats ?? []).length) errors.push(`${s.slug}: duplicate format slugs`);
+  for (const [old, fmt] of Object.entries(s.aliases ?? {})) {
+    if (fmt !== '' && !formatSlugs.has(fmt)) errors.push(`${s.slug}: alias ${old} → unknown format ${fmt}`);
   }
   if (!SEASONS.includes(s.season)) errors.push(`${s.slug}: unknown season ${JSON.stringify(s.season)}`);
   if (!CONTACT_LEVELS.includes(s.contactLevel)) errors.push(`${s.slug}: unknown contactLevel ${JSON.stringify(s.contactLevel)}`);

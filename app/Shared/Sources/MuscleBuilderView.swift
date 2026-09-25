@@ -230,7 +230,7 @@ struct MuscleBuilderView: View {
                 regions: regions, minutes: minutes, birthDate: athlete.birthDate,
                 trainsUnderCoach: athlete.trainsUnderCoach, equipmentAvailable: Set(athlete.equipmentAvailable),
                 catalogue: catalogue, seed: "\(athlete.id)-muscles-\(regions.map(\.rawValue).sorted().joined())-\(minutes)-\(variation)",
-                sportSlug: athlete.activeSport?.sportSlug, positionSlug: athlete.activeSport?.positionSlug
+                sportSlug: athlete.activeSport?.sportSlug, positionSlug: athlete.activeSport?.positionSlug, formatSlug: athlete.activeSport?.formatSlug
             ))
         }
     }

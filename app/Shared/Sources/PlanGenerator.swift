@@ -23,16 +23,18 @@ public struct PlanGeneratorInput: Sendable {
     /// written for other positions (a goalkeeper's saves), are never picked.
     public let sportSlug: String?
     public let positionSlug: String?
+    public let formatSlug: String?
 
     public init(
         sportProfile: [String: Double], positionProfile: [String: Double]? = nil,
         seasonStart: Date, seasonEnd: Date, weekStart: Date, birthDate: Date,
         trainsUnderCoach: Bool = false, equipmentAvailable: Set<String> = [],
         catalogue: Catalogue, seed: String, timeBudgetMinutesPerSession: Int = 60,
-        now: Date = .now, sportSlug: String? = nil, positionSlug: String? = nil
+        now: Date = .now, sportSlug: String? = nil, positionSlug: String? = nil, formatSlug: String? = nil
     ) {
         self.sportSlug = sportSlug
         self.positionSlug = positionSlug
+        self.formatSlug = formatSlug
         self.sportProfile = sportProfile
         self.positionProfile = positionProfile
         self.seasonStart = seasonStart
@@ -132,7 +134,7 @@ public enum PlanGenerator {
     /// A general exercise, or a drill of the athlete's own sport — and, when
     /// the drill is written for particular positions, one of the athlete's.
     static func fitsAthlete(_ item: CatalogueItem, input: PlanGeneratorInput) -> Bool {
-        item.fits(sport: input.sportSlug, position: input.positionSlug)
+        item.fits(sport: input.sportSlug, position: input.positionSlug, format: input.formatSlug)
     }
 
     static func isForPosition(_ item: CatalogueItem, input: PlanGeneratorInput) -> Bool {

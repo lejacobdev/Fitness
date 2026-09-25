@@ -286,6 +286,16 @@ export function validateItem(item, errors = []) {
     }
   }
 
+  // `formats` (drills only, optional): the formats of the drill's sport it is
+  // written for (beach, sitting); athletes in other formats never get it.
+  if (item?.formats !== undefined) {
+    if (!Array.isArray(item.formats) || item.formats.length === 0 || item.formats.some((s) => typeof s !== 'string' || s.length === 0)) {
+      fail(errors, slug, 'formats must be a non-empty array of format slugs');
+    } else if (item.kind !== 'drill') {
+      fail(errors, slug, 'only drills are written for formats');
+    }
+  }
+
   return errors;
 }
 

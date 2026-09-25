@@ -6,7 +6,7 @@
  * mistake that ruins it.
  */
 
-import { contacts, dist, reps, sportDrills, time } from '../drillKit.js';
+import { contacts, dist, reps, formatDrills, sportDrills, time } from '../drillKit.js';
 
 const ICE_HOCKEY = sportDrills('ice-hockey', [
   {
@@ -143,7 +143,7 @@ const ICE_HOCKEY = sportDrills('ice-hockey', [
   },
 ]);
 
-const INLINE_HOCKEY = sportDrills('inline-hockey', [
+const INLINE_HOCKEY = formatDrills('ice-hockey', 'inline-hockey', 'inline', [
   {
     slug: 'wrist-shot-release', name: 'Wrist-Shot Release on Wheels', skills: ['shooting-power'],
     qualities: { 'rotational-power': 0.8, 'grip': 0.5, 'single-leg-stability': 0.5 },
@@ -358,7 +358,7 @@ const FIELD_HOCKEY = sportDrills('field-hockey', [
   },
 ]);
 
-const FIELD_HOCKEY_GK = sportDrills('field-hockey-goalkeeping', [
+const FIELD_HOCKEY_GK = formatDrills('field-hockey', 'field-hockey-goalkeeping', null, [
   {
     slug: 'reaction-ball-saves', name: 'Reaction Saves off a Rebounder', skills: ['reaction-save-speed'],
     qualities: { 'reactive-strength': 0.8, 'lateral-power': 0.6 },
@@ -436,7 +436,7 @@ const FIELD_HOCKEY_GK = sportDrills('field-hockey-goalkeeping', [
     mistakes: ['Clearing straight back to the middle of the circle.'],
     defaultDose: reps(3, 8), restSeconds: 45, startPose: 'instep-strike', endPose: 'instep-strike',
   },
-]);
+], { positions: ['goalkeeper'] });
 
 const LACROSSE = sportDrills('lacrosse', [
   {
@@ -573,7 +573,7 @@ const LACROSSE = sportDrills('lacrosse', [
   },
 ]);
 
-const LACROSSE_BOX = sportDrills('lacrosse-box', [
+const LACROSSE_BOX = formatDrills('lacrosse', 'lacrosse-box', 'box', [
   {
     slug: 'tight-space-shooting', name: 'Tight-Space Shooting', skills: ['shot-velocity'],
     qualities: { 'rotational-power': 0.8, 'reactive-strength': 0.5, 'grip': 0.5 },
@@ -653,7 +653,7 @@ const LACROSSE_BOX = sportDrills('lacrosse-box', [
   },
 ]);
 
-const ADAPTED_FLOOR_HOCKEY = sportDrills('adapted-floor-hockey', [
+const ADAPTED_FLOOR_HOCKEY = formatDrills('ice-hockey', 'adapted-floor-hockey', 'floor', [
   {
     slug: 'stick-handling-lane', name: 'Stick-Handling Lane', skills: ['stick-handling'],
     qualities: { 'grip': 0.6, 'change-of-direction': 0.5 },

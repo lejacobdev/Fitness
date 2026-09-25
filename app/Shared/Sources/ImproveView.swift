@@ -514,7 +514,7 @@ struct SkillBlockView: View {
                 today: athlete.skillBlocks.first { $0.seed == seed }?.generatedAt ?? .now, gameDate: gameDate,
                 birthDate: athlete.birthDate, trainsUnderCoach: athlete.trainsUnderCoach,
                 equipmentAvailable: Set(athlete.equipmentAvailable), catalogue: catalogue, seed: seed,
-                positionSlug: athlete.activeSport?.positionSlug
+                positionSlug: athlete.activeSport?.positionSlug, formatSlug: athlete.activeSport?.formatSlug
             ))
         }
     }

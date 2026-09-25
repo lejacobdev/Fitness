@@ -55,15 +55,17 @@ public struct CoachInput: Sendable {
     /// Recommendations come only from general exercises and this sport's drills.
     public let sportSlug: String?
     public let positionSlug: String?
+    public let formatSlug: String?
 
     public init(
         athleteId: String, now: Date = .now, positionName: String? = nil, sportQualityProfile: [String: Double],
         sessions: [CoachSession], checkIns: [CheckInAnswers], plannedSessionsLastWeek: Int,
         catalogue: Catalogue, previousTemplateIndexes: [String: Int] = [:], weightUnit: WeightUnit = .kg,
-        sportSlug: String? = nil, positionSlug: String? = nil
+        sportSlug: String? = nil, positionSlug: String? = nil, formatSlug: String? = nil
     ) {
         self.sportSlug = sportSlug
         self.positionSlug = positionSlug
+        self.formatSlug = formatSlug
         self.weightUnit = weightUnit
         self.athleteId = athleteId
         self.now = now
@@ -188,7 +190,7 @@ public enum CoachEngine {
             // Prefer a skipped region the library can actually do something
             // about, so the headline always comes with a recommendation.
             let neglected = majorRegions.filter { (balance[$0] ?? 0) == 0 }
-            let libraryItems = input.catalogue.itemsBySlug.values.filter { $0.fits(sport: input.sportSlug, position: input.positionSlug) }
+            let libraryItems = input.catalogue.itemsBySlug.values.filter { $0.fits(sport: input.sportSlug, position: input.positionSlug, format: input.formatSlug) }
             let actionable = neglected.first { region in libraryItems.contains { regions(of: $0).contains(region) } }
             if let first = actionable ?? neglected.first {
                 let weeks = weeksUntrained(region: first, input: input, calendar: calendar)
@@ -401,7 +403,7 @@ public enum CoachEngine {
         var result: [CoachRecommendation] = []
         var used = Set<String>()
         let items = input.catalogue.itemsBySlug.values
-            .filter { $0.fits(sport: input.sportSlug, position: input.positionSlug) }
+            .filter { $0.fits(sport: input.sportSlug, position: input.positionSlug, format: input.formatSlug) }
             .sorted { $0.slug < $1.slug }
         for finding in findings {
             if let region = finding.recommendationRegion {
@@ -624,7 +626,7 @@ enum CoachStore {
             catalogue: catalogue,
             previousTemplateIndexes: previousIndexes,
             weightUnit: .current,
-            sportSlug: athleteSport?.sportSlug, positionSlug: athleteSport?.positionSlug
+            sportSlug: athleteSport?.sportSlug, positionSlug: athleteSport?.positionSlug, formatSlug: athleteSport?.formatSlug
         )
         let content = CoachEngine.report(input)
 

@@ -91,8 +91,17 @@ test('every prop attaches to a real joint', () => {
 
 // ── Sport catalogue (§5, §21) ────────────────────────────────────────────
 
-test('sport count meets §5\'s "70+" target', () => {
-  assert.ok(SPORTS.length >= 70, `only ${SPORTS.length} sports`);
+test('sport count meets §5\'s "70+" target — variants count as formats of their main sport', () => {
+  // Nothing was removed when variants merged (beach volleyball is a format
+  // of Volleyball): every old variant sport slug is still an alias.
+  const variants = SPORTS.reduce((n, s) => n + Object.keys(s.aliases ?? {}).length, 0);
+  assert.ok(SPORTS.length + variants >= 70, `only ${SPORTS.length} sports + ${variants} merged variants`);
+});
+
+test('the 29 featured sports are all present', async () => {
+  const { FEATURED_SPORTS } = await import('../src/sports.js');
+  assert.equal(FEATURED_SPORTS.size, 29);
+  for (const slug of FEATURED_SPORTS) assert.ok(SPORTS.some((s) => s.slug === slug), `missing featured sport ${slug}`);
 });
 
 test('sport slugs are unique', () => {

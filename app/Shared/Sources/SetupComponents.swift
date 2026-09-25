@@ -16,6 +16,7 @@ enum SportIcon {
             "cross-country": "figure.run", "track-and-field": "figure.run", "unified-track": "figure.run", "para-track": "figure.run", "orienteering": "figure.run",
             "golf": "figure.golf", "disc-golf": "figure.golf", "wrestling": "figure.wrestling", "judo": "figure.wrestling",
             "skiing": "figure.skiing.downhill", "rowing": "figure.rower", "fencing": "figure.fencing",
+            "snowboarding": "figure.snowboarding", "indoor-track-and-field": "figure.run", "unified-sports": "figure.2.arms.open",
             "gymnastics": "figure.gymnastics", "bowling": "figure.bowling", "lacrosse": "figure.lacrosse", "lacrosse-box": "figure.lacrosse",
             "badminton": "figure.badminton", "table-tennis": "figure.table.tennis", "cycling": "bicycle", "mountain-biking": "bicycle", "bmx": "bicycle",
             "weightlifting": "dumbbell.fill", "powerlifting": "dumbbell.fill", "crossfit-style-conditioning": "dumbbell.fill",
@@ -81,18 +82,17 @@ struct SportChooser: View {
             .padding(14)
             .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
 
-            LazyVStack(spacing: 10) {
-                ForEach(sports, id: \.slug) { sport in
-                    Button {
-                        selection = sport.slug
-                    } label: {
-                        OptionRow(
-                            title: sport.name, subtitle: SeasonDefaults.label(sport.season) + " season",
-                            systemImage: SportIcon.name(for: sport.slug), isSelected: selection == sport.slug
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
+            // The featured sports first; everything else under "More sports".
+            // While searching, one ranked list.
+            if searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+                sportList(sports.filter { $0.featured == true })
+                Text("More sports")
+                    .font(.title3.bold())
+                    .foregroundStyle(AppTheme.ink)
+                    .padding(.top, 8)
+                sportList(sports.filter { $0.featured != true })
+            } else {
+                sportList(sports)
             }
             if sports.isEmpty {
                 Text("No sport matches \"\(searchText)\".")
@@ -101,13 +101,60 @@ struct SportChooser: View {
             }
         }
     }
+
+    private func sportList(_ list: [SportInfo]) -> some View {
+        LazyVStack(spacing: 10) {
+            ForEach(list, id: \.slug) { sport in
+                Button {
+                    selection = sport.slug
+                } label: {
+                    OptionRow(
+                        title: sport.name, subtitle: SeasonDefaults.label(sport.season) + " season",
+                        systemImage: SportIcon.name(for: sport.slug), isSelected: selection == sport.slug
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
 }
 
 struct PositionChooser: View {
     let sport: SportInfo
     @Binding var selection: String?
+    /// The sport's format (beach, sitting…), when it has more than one; nil is the first, standard one.
+    var format: Binding<String?>? = nil
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if let format, !sport.formatList.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("How you play")
+                        .font(.title3.bold())
+                        .foregroundStyle(AppTheme.ink)
+                    ForEach(Array(sport.formatList.enumerated()), id: \.element.slug) { index, option in
+                        let isSelected = format.wrappedValue == option.slug || (format.wrappedValue == nil && index == 0)
+                        Button {
+                            format.wrappedValue = index == 0 ? nil : option.slug
+                        } label: {
+                            OptionRow(title: option.name, systemImage: SportIcon.name(for: sport.slug), isSelected: isSelected)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            if !sport.positions.isEmpty {
+                if format != nil, !sport.formatList.isEmpty {
+                    Text("Position")
+                        .font(.title3.bold())
+                        .foregroundStyle(AppTheme.ink)
+                }
+                positions
+            }
+        }
+    }
+
+    private var positions: some View {
         VStack(spacing: 10) {
             Button {
                 selection = nil

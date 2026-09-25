@@ -296,6 +296,7 @@ struct AddSportSheet: View {
     @State private var step = 0
     @State private var sportSlug: String?
     @State private var positionSlug: String?
+    @State private var formatSlug: String?
     @State private var seasonStart = Date.now
     @State private var seasonEnd = Date.now
 
@@ -314,21 +315,22 @@ struct AddSportSheet: View {
                     seasonStart = defaults.start
                     seasonEnd = defaults.end
                     positionSlug = nil
-                    step = sport.positions.isEmpty ? 2 : 1
+                    formatSlug = nil
+                    step = sport.hasRoleChoice ? 1 : 2
                 }
             ) {
                 SportChooser(selection: $sportSlug)
             }
         case 1:
             if let sport {
-                StepScaffold(progress: 0.66, title: "Position", subtitle: sport.name, buttonTitle: "Next",
+                StepScaffold(progress: 0.66, title: sport.positions.isEmpty ? "How you play" : "Position", subtitle: sport.name, buttonTitle: "Next",
                              onBack: { step = 0 }, onContinue: { step = 2 }) {
-                    PositionChooser(sport: sport, selection: $positionSlug)
+                    PositionChooser(sport: sport, selection: $positionSlug, format: $formatSlug)
                 }
             }
         default:
             StepScaffold(progress: 1, title: "Season dates", subtitle: "When does your \(sport?.name.lowercased() ?? "") season run? Your plan's phases hang off these.",
-                         buttonTitle: replacing ? "Change sport" : "Add sport", onBack: { step = sport?.positions.isEmpty == false ? 1 : 0 }, onContinue: save) {
+                         buttonTitle: replacing ? "Change sport" : "Add sport", onBack: { step = sport?.hasRoleChoice == true ? 1 : 0 }, onContinue: save) {
                 SeasonEditor(start: $seasonStart, end: $seasonEnd)
             }
         }
@@ -337,7 +339,7 @@ struct AddSportSheet: View {
     private func save() {
         guard let sport, !alreadyPlays else { return }
         let added = AthleteSport(
-            sportSlug: sport.slug, positionSlug: positionSlug,
+            sportSlug: sport.slug, positionSlug: positionSlug, formatSlug: formatSlug,
             seasonStart: seasonStart, seasonEnd: max(seasonStart, seasonEnd), isPrimary: true, athlete: athlete
         )
         modelContext.insert(added)
@@ -362,6 +364,7 @@ struct SportSettingsSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var positionSlug: String?
+    @State private var formatSlug: String?
     @State private var start = Date.now
     @State private var end = Date.now
 
@@ -370,12 +373,14 @@ struct SportSettingsSheet: View {
     var body: some View {
         StepScaffold(title: info?.name ?? displayName(forSlug: sport.sportSlug), subtitle: "Position and season for this sport.",
                      buttonTitle: "Save", onBack: { dismiss() }, onContinue: save) {
-            if let info, !info.positions.isEmpty {
+            if let info, info.hasRoleChoice {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Position")
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.ink)
-                    PositionChooser(sport: info, selection: $positionSlug)
+                    if info.formatList.isEmpty {
+                        Text("Position")
+                            .font(.headline)
+                            .foregroundStyle(AppTheme.ink)
+                    }
+                    PositionChooser(sport: info, selection: $positionSlug, format: $formatSlug)
                 }
             }
             VStack(alignment: .leading, spacing: 10) {
@@ -387,6 +392,7 @@ struct SportSettingsSheet: View {
         }
         .onAppear {
             positionSlug = sport.positionSlug
+            formatSlug = sport.formatSlug
             start = sport.seasonStart
             end = sport.seasonEnd
         }
@@ -394,6 +400,7 @@ struct SportSettingsSheet: View {
 
     private func save() {
         sport.positionSlug = positionSlug
+        sport.formatSlug = formatSlug
         sport.seasonStart = start
         sport.seasonEnd = max(start, end)
         try? modelContext.save()

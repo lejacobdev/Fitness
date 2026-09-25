@@ -9,6 +9,8 @@
  * drills written for exactly that, before falling back to quality matching.
  */
 
+import { sportBySlug } from '../sports.js';
+
 export function drill(sport, spec) {
   return {
     kind: 'drill',
@@ -23,6 +25,26 @@ export function drill(sport, spec) {
     ...spec,
     slug: `${sport}-${spec.slug}`,
   };
+}
+
+/**
+ * Drills of a variant merged into its main sport (beach volleyball into
+ * Volleyball): they belong to `sport`, go only to athletes in `format`, and
+ * keep their original slugs (`prefix-…`) so history and animations stay put.
+ * A null format (a position group, e.g. field-hockey goalkeeping) gives the
+ * drills to the whole sport; pass `positions` to gate them instead.
+ */
+export function formatDrills(sport, prefix, format, specs, { positions } = {}) {
+  // Skills named after the old variant sport's menu carry over where the main
+  // sport has a skill of the same name; the rest are dropped.
+  const own = new Set(sportBySlug(sport).skills.map((s) => s.slug));
+  return specs.map((spec) => ({
+    ...drill(sport, spec),
+    skills: (spec.skills ?? []).filter((s) => own.has(s)),
+    slug: `${prefix}-${spec.slug}`,
+    ...(format ? { formats: [format] } : {}),
+    ...(positions ? { positions } : {}),
+  }));
 }
 
 /** Build a group of drills for one sport: `sportDrills('tennis', [...])`. */

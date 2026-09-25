@@ -94,18 +94,21 @@ public final class AthleteSport {
     @Attribute(.unique) public var id: String
     public var sportSlug: String
     public var positionSlug: String?
+    /// The sport's format (beach, sitting, wheelchair…); nil for the standard one.
+    public var formatSlug: String?
     public var seasonStart: Date
     public var seasonEnd: Date
     public var isPrimary: Bool
     public var athlete: Athlete?
 
     public init(
-        id: String = UUID().uuidString, sportSlug: String, positionSlug: String? = nil,
+        id: String = UUID().uuidString, sportSlug: String, positionSlug: String? = nil, formatSlug: String? = nil,
         seasonStart: Date, seasonEnd: Date, isPrimary: Bool = false, athlete: Athlete? = nil
     ) {
         self.id = id
         self.sportSlug = sportSlug
         self.positionSlug = positionSlug
+        self.formatSlug = formatSlug
         self.seasonStart = seasonStart
         self.seasonEnd = seasonEnd
         self.isPrimary = isPrimary

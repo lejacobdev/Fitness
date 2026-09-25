@@ -8,7 +8,7 @@
  * loads and youth-envelope doses (§2).
  */
 
-import { contacts, dist, reps, sportDrills, time } from '../drillKit.js';
+import { contacts, dist, reps, formatDrills, sportDrills, time } from '../drillKit.js';
 
 const WRESTLING = sportDrills('wrestling', [
   {
@@ -870,7 +870,7 @@ const SPIRIT = sportDrills('competitive-spirit', [
   },
 ]);
 
-const SIDELINE = sportDrills('cheerleading-sideline', [
+const SIDELINE = formatDrills('competitive-spirit', 'cheerleading-sideline', 'sideline', [
   {
     slug: 'jump-series', name: 'Sideline Jump Series', skills: ['jump-height'],
     qualities: { 'vertical-power': 0.9, 'hip-mobility': 0.5 },

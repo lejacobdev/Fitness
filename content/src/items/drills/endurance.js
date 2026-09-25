@@ -11,7 +11,7 @@
  * those drills list only the extra kit they need (often `none`).
  */
 
-import { contacts, dist, reps, sportDrills, time } from '../drillKit.js';
+import { contacts, dist, reps, formatDrills, sportDrills, time } from '../drillKit.js';
 
 const RUN_LEGS = { 'gluteus-maximus': 0.6, 'biceps-femoris': 0.6, 'gastrocnemius': 0.5, 'soleus': 0.5 };
 const SWIM = { 'latissimus-dorsi': 0.7, 'triceps-brachii': 0.5, 'deltoid-posterior': 0.5, 'rectus-abdominis': 0.4 };
@@ -287,7 +287,7 @@ const XC = sportDrills('cross-country', [
   },
 ]);
 
-const UNIFIED_TRACK = sportDrills('unified-track', [
+const UNIFIED_TRACK = formatDrills('unified-sports', 'unified-track', 'track', [
   {
     slug: 'partner-sprint-starts', name: 'Partner Sprint Starts', skills: ['sprint-technique'],
     qualities: { 'acceleration': 0.8, 'horizontal-power': 0.5 },
@@ -364,7 +364,7 @@ const UNIFIED_TRACK = sportDrills('unified-track', [
   },
 ]);
 
-const PARA_TRACK = sportDrills('para-track', [
+const PARA_TRACK = formatDrills('track-and-field', 'para-track', 'para', [
   {
     slug: 'racing-chair-push-starts', name: 'Racing-Chair Push Starts', skills: ['start-technique', 'upper-body-power'],
     qualities: { 'acceleration': 0.8, 'upper-body-push': 0.7, 'overhead-power': 0.4 },
@@ -594,7 +594,7 @@ const TRIATHLON = sportDrills('triathlon', [
   },
 ]);
 
-const DUATHLON = sportDrills('triathlon-duathlon', [
+const DUATHLON = formatDrills('triathlon', 'triathlon-duathlon', 'duathlon', [
   {
     slug: 'run-bike-brick', name: 'Run-to-Bike Brick', skills: ['run-to-bike-transition'],
     qualities: { 'aerobic-base': 0.9, 'anaerobic-capacity': 0.4 },
@@ -1158,7 +1158,7 @@ const SWIMMING = sportDrills('swimming-diving', [
   },
 ]);
 
-const ADAPTED_SWIMMING = sportDrills('adapted-swimming', [
+const ADAPTED_SWIMMING = formatDrills('swimming-diving', 'adapted-swimming', 'adapted', [
   {
     slug: 'supported-body-position', name: 'Supported Floating Body Position', skills: ['stroke-technique'],
     qualities: { 'trunk-anti-rotation': 0.6, 'shoulder-stability': 0.4 },

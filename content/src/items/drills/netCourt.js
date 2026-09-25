@@ -7,7 +7,7 @@
  * uses, and the mistake that ruins the rep.
  */
 
-import { contacts, reps, sportDrills, time } from '../drillKit.js';
+import { contacts, reps, formatDrills, sportDrills, time } from '../drillKit.js';
 
 const VOLLEYBALL = sportDrills('volleyball', [
   {
@@ -144,7 +144,7 @@ const VOLLEYBALL = sportDrills('volleyball', [
   },
 ]);
 
-const BOYS_VOLLEYBALL = sportDrills('boys-volleyball', [
+const BOYS_VOLLEYBALL = formatDrills('volleyball', 'boys-volleyball', null, [
   {
     slug: 'approach-jump-test', name: 'Approach Jump Reach Test', skills: ['approach-jump-height'],
     qualities: { 'vertical-power': 0.9, 'reactive-strength': 0.6 },
@@ -224,7 +224,7 @@ const BOYS_VOLLEYBALL = sportDrills('boys-volleyball', [
   },
 ]);
 
-const SAND_VOLLEYBALL = sportDrills('sand-volleyball', [
+const SAND_VOLLEYBALL = formatDrills('volleyball', 'sand-volleyball', 'beach', [
   {
     slug: 'sand-approach-jumps', name: 'Sand Approach Jumps', skills: ['sand-jump-power'],
     qualities: { 'vertical-power': 0.9, 'lower-body-strength': 0.5, 'ankle-stiffness': 0.5 },
@@ -304,7 +304,7 @@ const SAND_VOLLEYBALL = sportDrills('sand-volleyball', [
   },
 ]);
 
-const SITTING_VOLLEYBALL = sportDrills('sitting-volleyball', [
+const SITTING_VOLLEYBALL = formatDrills('volleyball', 'sitting-volleyball', 'sitting', [
   {
     slug: 'seated-scoot-shuffle', name: 'Seated Scoot Shuffle', skills: ['seated-mobility'],
     qualities: { 'upper-body-push': 0.6, 'lateral-power': 0.6, 'trunk-anti-rotation': 0.5 },
@@ -1159,7 +1159,7 @@ const TEAM_HANDBALL = sportDrills('team-handball', [
   },
 ]);
 
-const UNIFIED_BASKETBALL = sportDrills('unified-basketball', [
+const UNIFIED_BASKETBALL = formatDrills('unified-sports', 'unified-basketball', 'basketball', [
   {
     slug: 'partner-form-shooting', name: 'Partner Form Shooting', skills: ['shooting-mechanics', 'teamwork-positioning'],
     qualities: { 'shoulder-stability': 0.5, 'single-leg-stability': 0.5 },
@@ -1239,7 +1239,7 @@ const UNIFIED_BASKETBALL = sportDrills('unified-basketball', [
   },
 ]);
 
-const WHEELCHAIR_BASKETBALL = sportDrills('wheelchair-basketball', [
+const WHEELCHAIR_BASKETBALL = formatDrills('basketball', 'wheelchair-basketball', 'wheelchair', [
   {
     slug: 'push-sprints', name: 'Chair Push Sprints', skills: ['push-speed'],
     qualities: { 'acceleration': 0.8, 'upper-body-push': 0.7, 'anaerobic-capacity': 0.5 },

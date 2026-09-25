@@ -138,7 +138,7 @@ enum WeeklyPlan {
             equipmentAvailable: Set(athlete.equipmentAvailable),
             catalogue: CatalogueLoader.load(from: AppConfig.packsDirectory()),
             seed: "\(athlete.id)-\(Int(weekStart.timeIntervalSince1970))",
-            sportSlug: athleteSport.sportSlug, positionSlug: athleteSport.positionSlug
+            sportSlug: athleteSport.sportSlug, positionSlug: athleteSport.positionSlug, formatSlug: athleteSport.formatSlug
         )
         let generated = PlanGenerator.generate(input)
         // Every game counts, whatever sport it's for: the body that plays a

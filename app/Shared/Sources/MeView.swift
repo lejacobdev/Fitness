@@ -521,6 +521,7 @@ struct SportEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var sportSlug: String?
     @State private var positionSlug: String?
+    @State private var formatSlug: String?
     @State private var choosingPosition = false
 
     private var sport: SportInfo? { sportSlug.flatMap { allSportsBySlug[$0] } }
@@ -528,17 +529,18 @@ struct SportEditorSheet: View {
     var body: some View {
         Group {
             if choosingPosition, let sport {
-                StepScaffold(title: "Position", subtitle: sport.name, buttonTitle: "Save", onBack: { choosingPosition = false }, onContinue: save) {
-                    PositionChooser(sport: sport, selection: $positionSlug)
+                StepScaffold(title: sport.positions.isEmpty ? "How you play" : "Position", subtitle: sport.name, buttonTitle: "Save", onBack: { choosingPosition = false }, onContinue: save) {
+                    PositionChooser(sport: sport, selection: $positionSlug, format: $formatSlug)
                 }
             } else {
-                StepScaffold(title: "Your sport", buttonTitle: sport?.positions.isEmpty == false ? "Next" : "Save", buttonEnabled: sportSlug != nil,
+                StepScaffold(title: "Your sport", buttonTitle: sport?.hasRoleChoice == true ? "Next" : "Save", buttonEnabled: sportSlug != nil,
                              onBack: { dismiss() }, onContinue: {
-                    if sport?.positions.isEmpty == false {
-                        if sportSlug != athlete.activeSport?.sportSlug { positionSlug = nil }
+                    if sport?.hasRoleChoice == true {
+                        if sportSlug != athlete.activeSport?.sportSlug { positionSlug = nil; formatSlug = nil }
                         choosingPosition = true
                     } else {
                         positionSlug = nil
+                        formatSlug = nil
                         save()
                     }
                 }) {
@@ -549,6 +551,7 @@ struct SportEditorSheet: View {
         .onAppear {
             sportSlug = athlete.activeSport?.sportSlug
             positionSlug = athlete.activeSport?.positionSlug
+            formatSlug = athlete.activeSport?.formatSlug
         }
     }
 
@@ -562,9 +565,10 @@ struct SportEditorSheet: View {
             }
             existing.sportSlug = sport.slug
             existing.positionSlug = positionSlug
+            existing.formatSlug = formatSlug
         } else {
             let defaults = SeasonDefaults.dates(for: sport)
-            modelContext.insert(AthleteSport(sportSlug: sport.slug, positionSlug: positionSlug, seasonStart: defaults.start, seasonEnd: defaults.end, isPrimary: true, athlete: athlete))
+            modelContext.insert(AthleteSport(sportSlug: sport.slug, positionSlug: positionSlug, formatSlug: formatSlug, seasonStart: defaults.start, seasonEnd: defaults.end, isPrimary: true, athlete: athlete))
         }
         try? modelContext.save()
         let slug = sport.slug

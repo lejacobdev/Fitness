@@ -12,7 +12,7 @@
  * shooting happens on a supervised range under a coach, never from an app.
  */
 
-import { contacts, dist, reps, sportDrills, time } from '../drillKit.js';
+import { contacts, dist, reps, formatDrills, sportDrills, time } from '../drillKit.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Golf
@@ -1675,7 +1675,7 @@ const ULTIMATE = sportDrills('ultimate', [
 // Beach ultimate (sand; surface: anywhere)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const ULTIMATE_BEACH = sportDrills('ultimate-beach', [
+const ULTIMATE_BEACH = formatDrills('ultimate', 'ultimate-beach', 'beach', [
   {
     slug: 'sand-sprints', name: 'Sand Sprints', skills: ['sprint-speed-in-sand'],
     qualities: { 'acceleration': 0.8, 'ankle-stiffness': 0.5, 'anaerobic-capacity': 0.5 },
@@ -1761,7 +1761,7 @@ const ULTIMATE_BEACH = sportDrills('ultimate-beach', [
 // runs blindfolded (or with the athlete's own vision) with a sighted guide.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const BEEP_BASEBALL = sportDrills('beep-baseball', [
+const BEEP_BASEBALL = formatDrills('baseball', 'beep-baseball', 'beep', [
   {
     slug: 'blindfolded-tee-swings', name: 'Blindfolded Tee Swings With Coach Cues', skills: ['bat-speed'],
     qualities: { 'rotational-power': 0.8, 'grip': 0.4 },

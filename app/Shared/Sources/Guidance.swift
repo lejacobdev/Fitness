@@ -629,7 +629,7 @@ enum SavedSkillPlans {
                     qualityWeights: skill.qualityWeights, today: block.generatedAt, gameDate: block.targetDate,
                     birthDate: athlete.birthDate, trainsUnderCoach: athlete.trainsUnderCoach,
                     equipmentAvailable: Set(athlete.equipmentAvailable), catalogue: catalogue, seed: block.seed,
-                    positionSlug: athlete.activeSport?.positionSlug
+                    positionSlug: athlete.activeSport?.positionSlug, formatSlug: athlete.activeSport?.formatSlug
                 ))
                 guard let day = generated.days.first(where: { calendar.isDate($0.date, inSameDayAs: date) }), !day.items.isEmpty else { return nil }
                 return SkillPlanDay(block: block, skillName: skill.name, session: day)

@@ -71,6 +71,8 @@ public struct CatalogueItem: Codable, Sendable, Hashable {
     /// Positions of the drill's sport it is written for (a goalkeeper's
     /// saves); plans for other positions never pick it. Nil: everyone.
     public var positions: [String]? = nil
+    /// Formats of the drill's sport it is written for (beach, sitting). Nil: every format.
+    public var formats: [String]? = nil
 
     private enum CodingKeys: String, CodingKey {
         case slug, name, kind, qualities, muscles, equipment, surface, minAge, supervisionLevel
@@ -79,7 +81,7 @@ public struct CatalogueItem: Codable, Sendable, Hashable {
         case unilateralEligible, tempoEligible, prop, variant, baseSlug
         case constraintAxes, equipmentChain, unilateralPosePattern, unilateralStabilityQuality
         case itemSportSlug = "sport"
-        case skills, positions
+        case skills, positions, formats
     }
 
     public var isUnilateralEligible: Bool { unilateralEligible ?? false }
@@ -105,6 +107,15 @@ public struct SportPosition: Codable, Sendable, Hashable {
     public let qualityProfile: [String: Double]
 }
 
+/// A variant of a sport merged into it (beach volleyball is a format of
+/// Volleyball). `exclusive` formats (wheelchair, sitting, para) get only
+/// general exercises plus the drills written for that format.
+public struct SportFormat: Codable, Sendable, Hashable {
+    public let slug: String
+    public let name: String
+    public let exclusive: Bool?
+}
+
 public struct SportInfo: Codable, Sendable, Hashable {
     public let slug: String
     public let name: String
@@ -118,6 +129,19 @@ public struct SportInfo: Codable, Sendable, Hashable {
     public let contactLevel: String
     public let typicalSessionLength: Int
     public let typicalWeeklyGames: Int
+    /// One of the sports Athlete OS features first.
+    public let featured: Bool?
+    public let formats: [SportFormat]?
+    /// Old variant sport slugs → their format here ("" for none).
+    public let aliases: [String: String]?
+
+    public var formatList: [SportFormat] { formats ?? [] }
+    /// Whether setup asks for a position and/or format.
+    public var hasRoleChoice: Bool { !positions.isEmpty || !formatList.isEmpty }
+    public func isExclusive(format: String?) -> Bool {
+        guard let format else { return false }
+        return formatList.first { $0.slug == format }?.exclusive == true
+    }
 }
 
 /// The whole decoded shape of one downloaded pack file — the core pack (no
@@ -138,9 +162,13 @@ extension CatalogueItem {
     /// `position`: general exercises fit everyone; a sport's drill fits only
     /// that sport's athletes — never anyone else's plan — and a drill written
     /// for positions (a goalkeeper's saves) only those positions.
-    public func fits(sport: String?, position: String?) -> Bool {
+    public func fits(sport: String?, position: String?, format: String? = nil) -> Bool {
         if let own = itemSportSlug, own != sport { return false }
-        if let positions { return position.map(positions.contains) ?? false }
+        if let positions, !(position.map(positions.contains) ?? false) { return false }
+        // A drill written for a format (beach, sitting) goes only to it; an
+        // exclusive format gets no other drills of the sport.
+        if let formats { return format.map(formats.contains) ?? false }
+        if itemSportSlug != nil, let sport, allSportsBySlug[sport]?.isExclusive(format: format) == true { return false }
         return true
     }
 }

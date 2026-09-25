@@ -50,7 +50,10 @@ struct RootView: View {
 
     var body: some View {
         content
-            .task { DemoData.seedIfNeeded(context: modelContext) }
+            .task {
+                DemoData.seedIfNeeded(context: modelContext)
+                SportAliasMigration.migrate(modelContext)
+            }
     }
 
     @ViewBuilder

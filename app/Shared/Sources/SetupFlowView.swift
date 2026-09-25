@@ -18,6 +18,7 @@ public struct SetupFlowView: View {
     @State private var step: Step = .sport
     @State private var sportSlug: String?
     @State private var positionSlug: String?
+    @State private var formatSlug: String?
     @State private var seasonStart = Date.now
     @State private var seasonEnd = Date.now
     @State private var equipment: Set<String> = []
@@ -46,17 +47,18 @@ public struct SetupFlowView: View {
                 }
             case .position:
                 StepScaffold(
-                    progress: progress, title: "What position do you play?", subtitle: "Each position needs different things — a goalkeeper trains differently from a midfielder.",
+                    progress: progress, title: sport?.positions.isEmpty == false ? "What position do you play?" : "How do you play?",
+                    subtitle: sport?.positions.isEmpty == false ? "Each position needs different things — a goalkeeper trains differently from a midfielder." : "Your plan uses the drills for the way you play.",
                     onBack: { go(.sport) }, onContinue: { go(.season) }
                 ) {
                     if let sport {
-                        PositionChooser(sport: sport, selection: $positionSlug)
+                        PositionChooser(sport: sport, selection: $positionSlug, format: $formatSlug)
                     }
                 }
             case .season:
                 StepScaffold(
                     progress: progress, title: "When's your season?", subtitle: "We filled in the usual dates for \(sport?.name ?? "your sport"). Adjust them to your team's.",
-                    onBack: { go(sport?.positions.isEmpty == false ? .position : .sport) }, onContinue: { go(.equipment) }
+                    onBack: { go(sport?.hasRoleChoice == true ? .position : .sport) }, onContinue: { go(.equipment) }
                 ) {
                     SeasonEditor(start: $seasonStart, end: $seasonEnd)
                 }
@@ -116,7 +118,8 @@ public struct SetupFlowView: View {
         seasonStart = defaults.start
         seasonEnd = defaults.end
         positionSlug = nil
-        go(sport.positions.isEmpty ? .season : .position)
+        formatSlug = nil
+        go(sport.hasRoleChoice ? .position : .season)
     }
 
     private func finish() {
@@ -127,7 +130,7 @@ public struct SetupFlowView: View {
             athlete.equipmentAvailable = Array(equipment).sorted()
             athlete.trainsUnderCoach = trainsUnderCoach ?? false
             modelContext.insert(AthleteSport(
-                sportSlug: sport.slug, positionSlug: positionSlug,
+                sportSlug: sport.slug, positionSlug: positionSlug, formatSlug: formatSlug,
                 seasonStart: seasonStart, seasonEnd: seasonEnd, isPrimary: true, athlete: athlete
             ))
             try? modelContext.save()
