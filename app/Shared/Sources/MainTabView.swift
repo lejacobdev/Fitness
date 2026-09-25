@@ -140,7 +140,7 @@ public struct MainTabView: View {
         week = WeeklyPlan.generate(for: athlete)
         WidgetSnapshotWriter.write(for: athlete, week: week)
         let settings = ReminderScheduler.settings
-        if settings.checkInEnabled || settings.gameRemindersEnabled {
+        if settings.anyEnabled {
             let games = AthleteStats.upcomingCompetitions(athlete).map { (date: $0.date, kind: $0.kind.rawValue.capitalized) }
             Task { await ReminderScheduler.reschedule(games: games) }
         }
@@ -238,7 +238,12 @@ enum WeeklyPlan {
         }
         return GeneratedWeek(phase: week.phase, weekStart: week.weekStart, sessions: Array(sessions))
     }
+}
 
+/// Small, pure helpers over the athlete's own data that more than one tab
+/// shows.
+@MainActor
+enum AthleteStats {
     static func todaysCheckIn(_ athlete: Athlete) -> CheckIn? {
         athlete.checkIns.first { Calendar.current.isDateInToday($0.date) }
     }
