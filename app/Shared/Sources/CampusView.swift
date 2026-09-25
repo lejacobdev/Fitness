@@ -237,12 +237,12 @@ struct CampusView: View {
         // move under the numbers instead of squeezing them.
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 16) {
-                stats
+                statNumbers
                 Spacer(minLength: 8)
                 statsButtons
             }
             VStack(alignment: .leading, spacing: 4) {
-                stats
+                statNumbers
                 HStack {
                     Spacer()
                     statsButtons
@@ -255,7 +255,7 @@ struct CampusView: View {
         .overlay(alignment: .bottom) { Rectangle().fill(Duo.border).frame(height: 2) }
     }
 
-    private var stats: some View {
+    private var statNumbers: some View {
         HStack(spacing: 16) {
             Label("\(CampusProgress.currentStreak(streak: streak, lastDay: lastDay))", systemImage: "flame.fill")
                 .foregroundStyle(Duo.orange)
