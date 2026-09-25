@@ -264,18 +264,35 @@ const commands = {
     const body = await api(
       `/v1/builds?filter[app]=${app.id}&limit=${encodeURIComponent(limit)}`
       + '&sort=-uploadedDate'
-      + '&fields[builds]=version,uploadedDate,processingState,expired,minOsVersion',
+      + '&fields[builds]=version,uploadedDate,processingState,expired,minOsVersion,usesNonExemptEncryption,preReleaseVersion,buildBetaDetail'
+      + '&include=preReleaseVersion,buildBetaDetail'
+      + '&fields[preReleaseVersions]=version,platform'
+      + '&fields[buildBetaDetails]=internalBuildState,externalBuildState,autoNotifyEnabled',
     );
     if (!body.data.length) {
       console.log('no builds uploaded yet');
       return;
     }
+    const included = new Map((body.included ?? []).map((r) => [`${r.type}/${r.id}`, r.attributes ?? {}]));
+    const related = (b, name) => {
+      const ref = b.relationships?.[name]?.data;
+      return ref ? included.get(`${ref.type}/${ref.id}`) ?? {} : {};
+    };
     for (const b of body.data) {
       const a = b.attributes;
+      const pre = related(b, 'preReleaseVersion');
+      const beta = related(b, 'buildBetaDetail');
       console.log(
-        `${b.id}  build ${a.version}  ${a.processingState}  `
-        + `minOS ${a.minOsVersion ?? '?'}  ${a.uploadedDate}${a.expired ? '  EXPIRED' : ''}`,
+        `${b.id}  version ${pre.version ?? '?'} (${a.version})  ${a.processingState}  `
+        + `internal=${beta.internalBuildState ?? '?'} external=${beta.externalBuildState ?? '?'}  `
+        + `encryption=${a.usesNonExemptEncryption ?? 'unanswered'}  ${a.uploadedDate}${a.expired ? '  EXPIRED' : ''}`,
       );
+    }
+    // Which tester groups exist, and whether they get new builds on their own.
+    const groups = await api(`/v1/betaGroups?filter[app]=${app.id}&fields[betaGroups]=name,isInternalGroup,hasAccessToAllBuilds`);
+    for (const g of groups.data ?? []) {
+      const a = g.attributes;
+      console.log(`group "${a.name}"  ${a.isInternalGroup ? 'internal' : 'external'}  allBuilds=${a.hasAccessToAllBuilds ?? '?'}`);
     }
   },
 
