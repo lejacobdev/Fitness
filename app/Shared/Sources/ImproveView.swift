@@ -60,6 +60,8 @@ struct ImproveView: View {
     }
 
     @Query(sort: \SkillBlock.generatedAt, order: .reverse) private var allSkillBlocks: [SkillBlock]
+    @Environment(\.modelContext) private var modelContext
+    @State private var blockPendingDelete: SkillBlock?
     @State private var path: [ImproveRoute] = []
     @State private var searchText = ""
     @State private var mode: Mode = .skill
@@ -256,29 +258,55 @@ struct ImproveView: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Your skill plans", subtitle: "Today's drills from these also show on your Today screen.")
             ForEach(savedBlocks) { saved in
-                NavigationLink(value: ImproveRoute.block(skillSlug: saved.skillSlug, gameDate: saved.targetDate, seed: saved.seed, isSaved: true)) {
-                    HStack(spacing: 14) {
-                        Image(systemName: "bookmark.fill")
-                            .foregroundStyle(AppTheme.ink)
-                            .frame(width: 48, height: 48)
-                            .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(sportInfo?.skills.first { $0.slug == saved.skillSlug }?.name ?? displayName(forSlug: saved.skillSlug))
-                                .font(.headline)
+                HStack(spacing: 10) {
+                    NavigationLink(value: ImproveRoute.block(skillSlug: saved.skillSlug, gameDate: saved.targetDate, seed: saved.seed, isSaved: true)) {
+                        HStack(spacing: 14) {
+                            Image(systemName: "bookmark.fill")
                                 .foregroundStyle(AppTheme.ink)
-                            Text("Game on \(saved.targetDate.formatted(.dateTime.weekday(.abbreviated).month().day()))")
-                                .font(.caption)
+                                .frame(width: 48, height: 48)
+                                .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(sportInfo?.skills.first { $0.slug == saved.skillSlug }?.name ?? displayName(forSlug: saved.skillSlug))
+                                    .font(.headline)
+                                    .foregroundStyle(AppTheme.ink)
+                                Text("Game on \(saved.targetDate.formatted(.dateTime.weekday(.abbreviated).month().day()))")
+                                    .font(.caption)
+                                    .foregroundStyle(AppTheme.secondaryText)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.footnote.weight(.semibold))
                                 .foregroundStyle(AppTheme.secondaryText)
                         }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(AppTheme.secondaryText)
                     }
-                    .cardStyle(padding: 12)
+                    .buttonStyle(.plain)
+                    Button {
+                        blockPendingDelete = saved
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(AppTheme.red)
+                            .frame(width: 44, height: 44)
+                            .background(AppTheme.red.opacity(0.1), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Delete this skill plan")
                 }
-                .buttonStyle(.plain)
+                .cardStyle(padding: 12)
             }
+        }
+        .confirmationDialog(
+            "Delete this skill plan?", isPresented: Binding(
+                get: { blockPendingDelete != nil }, set: { if !$0 { blockPendingDelete = nil } }
+            ), titleVisibility: .visible
+        ) {
+            Button("Delete plan", role: .destructive) {
+                if let block = blockPendingDelete { try? SkillBlockStore(modelContext: modelContext).delete(block) }
+                blockPendingDelete = nil
+            }
+            Button("Cancel", role: .cancel) { blockPendingDelete = nil }
+        } message: {
+            Text("Its drills stop showing on your Home screen. Your logged workouts stay.")
         }
     }
 }
@@ -445,7 +473,7 @@ struct SkillBlockView: View {
     @State private var showingPaywall = false
 
     private var saveHint: String {
-        let remaining = ProGate.remainingSkillBlocks(isPro: ProAccess.isPro, savedBlockDates: athlete.skillBlocks.map(\.generatedAt))
+        let remaining = ProGate.remainingSkillBlocks(isPro: ProAccess.isPro, savedBlockDates: SkillBlockStore.quotaDates(for: athlete))
         let base = "Saving puts each day's drills on your Today screen."
         guard let remaining else { return base }
         return base + " \(remaining) of \(ProLimits.freeSkillBlocksPerMonth) free plans left this month."
@@ -641,7 +669,7 @@ struct SkillBlockView: View {
         guard let sportSlug = athlete.activeSport?.sportSlug else { return }
         #if os(iOS) && !APP_EXTENSION
         // §4: three saved skill plans a month on free, unlimited on Pro.
-        guard ProGate.canSaveSkillBlock(isPro: ProStore.shared.isPro, savedBlockDates: athlete.skillBlocks.map(\.generatedAt)) else {
+        guard ProGate.canSaveSkillBlock(isPro: ProStore.shared.isPro, savedBlockDates: SkillBlockStore.quotaDates(for: athlete)) else {
             showingPaywall = true
             return
         }

@@ -17,7 +17,33 @@ struct MeView: View {
     @State private var catalogue = Catalogue()
     @State private var activeSheet: MeSheet?
     @State private var showingDeleteConfirmation = false
+    @State private var showingLogOutConfirmation = false
     @State private var isDeleting = false
+    @State private var isLoggingOut = false
+    @State private var accountProblem: AccountProblem?
+
+    /// Something went wrong logging out or deleting — said plainly, with
+    /// the one thing to do about it.
+    enum AccountProblem: String, Identifiable {
+        case notBackedUp, deleteFailed, notSignedIn
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .notBackedUp: "Not everything is backed up"
+            case .deleteFailed: "Your account was NOT deleted"
+            case .notSignedIn: "You're not signed in on this phone"
+            }
+        }
+        var message: String {
+            switch self {
+            case .notBackedUp: "We couldn't reach the server, so your latest workouts and progress are only on this phone. Connect to the internet and try again — or log out anyway and lose what isn't backed up."
+            case .deleteFailed: "We couldn't reach the server, so nothing was deleted. Connect to the internet and try again."
+            case .notSignedIn: "Log out, sign in with Apple again, then delete your account."
+            }
+        }
+    }
+
+    private var apiClient: APIClient { APIClient(baseURL: AppConfig.backendBaseURL) }
 
     enum MeSheet: String, Identifiable {
         case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help
@@ -128,7 +154,7 @@ struct MeView: View {
                                 .font(.body)
                                 .foregroundStyle(AppTheme.ink)
                             Spacer()
-                            let pending = sessions.filter { $0.syncedAt == nil }.count
+                            let pending = sessions.filter { $0.syncedAt == nil }.count + athlete.checkIns.filter { $0.syncedAt == nil }.count
                             Text(pending == 0 ? "All saved" : "\(pending) waiting to upload")
                                 .font(.subheadline)
                                 .foregroundStyle(AppTheme.secondaryText)
@@ -147,6 +173,19 @@ struct MeView: View {
 
                     disclaimerCard
 
+                    SectionHeader("Account", subtitle: "Logging out keeps your account, backed up online. Deleting removes it for good.")
+                    Button {
+                        showingLogOutConfirmation = true
+                    } label: {
+                        Text(isLoggingOut ? "Backing up and logging out…" : "Log out")
+                            .font(.headline)
+                            .foregroundStyle(AppTheme.ink)
+                            .frame(maxWidth: .infinity, minHeight: 52)
+                            .background(AppTheme.fill, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isLoggingOut || isDeleting)
+
                     Button(role: .destructive) {
                         showingDeleteConfirmation = true
                     } label: {
@@ -157,7 +196,7 @@ struct MeView: View {
                             .background(AppTheme.red.opacity(0.1), in: Capsule())
                     }
                     .buttonStyle(.plain)
-                    .disabled(isDeleting)
+                    .disabled(isLoggingOut || isDeleting)
 
                     Text("Athlete OS \(BuildEvidence().version) (\(BuildEvidence().build))")
                         .font(.caption)
@@ -193,7 +232,27 @@ struct MeView: View {
                 Button("Delete everything", role: .destructive) { deleteAccount() }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("This permanently deletes your account and everything stored on our server, and this device's copy. It can't be undone.")
+                Text("This permanently deletes your account, everything backed up on our server and everything on this phone, and removes Athlete OS from your Apple ID's Sign in with Apple list. It can't be undone.")
+            }
+            .confirmationDialog("Log out?", isPresented: $showingLogOutConfirmation, titleVisibility: .visible) {
+                Button("Log out") { logOut(force: false) }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("We back everything up first, then remove it from this phone. Sign in with Apple again — on this or any phone — to get it all back.")
+            }
+            .alert(
+                accountProblem?.title ?? "", isPresented: Binding(
+                    get: { accountProblem != nil }, set: { if !$0 { accountProblem = nil } }
+                ), presenting: accountProblem
+            ) { problem in
+                if problem == .notBackedUp {
+                    Button("Log out anyway", role: .destructive) { logOut(force: true) }
+                    Button("Stay logged in", role: .cancel) {}
+                } else {
+                    Button("OK", role: .cancel) {}
+                }
+            } message: { problem in
+                Text(problem.message)
             }
         }
     }
@@ -365,18 +424,54 @@ struct MeView: View {
 
     // MARK: - Delete
 
+    /// Backs everything up, then removes it from this phone. If the backup
+    /// can't finish, the athlete decides whether to lose what's only here.
+    private func logOut(force: Bool) {
+        isLoggingOut = true
+        let context = modelContext
+        let client = apiClient
+        Task {
+            if !force {
+                let queue = SyncQueue(apiClient: client, tokenStore: KeychainTokenStore(), modelContext: context)
+                let sessions = await queue.drainPendingSessions()
+                let checkIns = await queue.drainPendingCheckIns()
+                let backedUp = await CloudSync.sync(athlete: athlete, context: context, apiClient: client)
+                guard backedUp, sessions.failed == 0, checkIns.failed == 0 else {
+                    isLoggingOut = false
+                    accountProblem = .notBackedUp
+                    return
+                }
+            }
+            await LocalWipe.wipe(context: context)
+            isLoggingOut = false
+        }
+    }
+
+    /// Deletes the account on the server first — which also revokes Sign in
+    /// with Apple — and only then wipes this phone. If the server can't be
+    /// reached, nothing is deleted and the athlete is told so.
     private func deleteAccount() {
         isDeleting = true
+        let context = modelContext
+        let client = apiClient
         Task {
-            if let token = try? KeychainTokenStore().read() {
-                var request = URLRequest(url: AppConfig.backendBaseURL.appending(path: "athlete/me"))
-                request.httpMethod = "DELETE"
-                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                _ = try? await URLSession.shared.data(for: request)
+            guard let token = try? KeychainTokenStore().read() else {
+                isDeleting = false
+                accountProblem = .notSignedIn
+                return
             }
-            try? KeychainTokenStore().delete()
-            modelContext.delete(athlete)
-            try? modelContext.save()
+            do {
+                try await client.deleteAccount(sessionToken: token)
+            } catch APIClient.APIError.http(status: 401, _) {
+                isDeleting = false
+                accountProblem = .notSignedIn
+                return
+            } catch {
+                isDeleting = false
+                accountProblem = .deleteFailed
+                return
+            }
+            await LocalWipe.wipe(context: context)
             isDeleting = false
         }
     }

@@ -9,7 +9,9 @@ import { athleteRouter } from './routes/athlete.js';
 import { authRouter } from './routes/auth.js';
 import { billingRouter } from './routes/billing.js';
 import { legalRouter } from './routes/legal.js';
+import { stateRouter } from './routes/state.js';
 import { syncRouter } from './routes/sync.js';
+import { createAppleRevoker } from './lib/appleRevoke.js';
 
 // §19: this must run before any route is registered. Installing it here, at
 // module scope and above every import that registers routes, is deliberate.
@@ -22,6 +24,7 @@ export function createApp({
   appleKeyStore = createAppleKeyStore(),
   packsDir = process.env.PACKS_DIR,
   appStoreVerifier = createAppStoreVerifier(),
+  appleRevoker = createAppleRevoker(),
 } = {}) {
   const app = express();
 
@@ -48,7 +51,7 @@ export function createApp({
   app.use(legalRouter());
 
   if (prisma && appleBundleId && sessionSecret) {
-    app.use('/auth', authRouter({ prisma, keyStore: appleKeyStore, appleBundleId, sessionSecret }));
+    app.use('/auth', authRouter({ prisma, keyStore: appleKeyStore, appleBundleId, sessionSecret, appleRevoker }));
   }
 
   // §18: the only writer of proUntil. Mounted at the spec's path and at the
@@ -61,7 +64,8 @@ export function createApp({
 
   if (prisma && sessionSecret) {
     app.use('/sync', syncRouter({ prisma, sessionSecret }));
-    app.use('/athlete', athleteRouter({ prisma, sessionSecret }));
+    app.use('/sync', stateRouter({ prisma, sessionSecret }));
+    app.use('/athlete', athleteRouter({ prisma, sessionSecret, appleRevoker }));
   }
 
   // §3: "content packs, per-sport bundles, versioned and served over HTTPS

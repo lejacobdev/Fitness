@@ -53,6 +53,11 @@ model Athlete {
   proUntil              DateTime?
   originalTransactionId String?   @unique
 
+  /// Apple's refresh token for this account, kept only so account deletion
+  /// can revoke the Sign in with Apple grant (App Store guideline 5.1.1(v)).
+  /// Null when the server has no Sign in with Apple key configured.
+  appleRefreshToken String?
+
   createdAt DateTime @default(now())
 
   sports       AthleteSport[]
@@ -62,6 +67,22 @@ model Athlete {
   sessions     Session[]
   skillBlocks  SkillBlock[]
   coachReports CoachReport[]
+  states       SyncedState[]
+}
+
+/// Everything else the app keeps per athlete — sports, games, profile, skill
+/// plans, Campus progress, day status, schedule, mindset, benchmarks — as one
+/// JSON document per key, last write wins by `updatedAt`. Deleted with the
+/// athlete (account deletion is complete).
+model SyncedState {
+  athleteId String
+  key       String
+  value     Json
+  updatedAt DateTime
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@id([athleteId, key])
 }
 
 model AthleteSport {

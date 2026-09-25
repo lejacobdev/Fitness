@@ -119,9 +119,10 @@ public struct APIClient: Sendable {
     /// (§2's age gate happens client-side before this call, so the client
     /// already knows the athlete's birth date by the time it gets here) —
     /// omitted on every subsequent sign-in, when the server already has it.
-    public func signInWithApple(identityToken: String, rawNonce: String?, birthDate: Date?) async throws -> AuthResponse {
+    public func signInWithApple(identityToken: String, rawNonce: String?, birthDate: Date?, authorizationCode: String? = nil) async throws -> AuthResponse {
         var body: [String: Any] = ["identityToken": identityToken]
         if let rawNonce { body["rawNonce"] = rawNonce }
+        if let authorizationCode { body["authorizationCode"] = authorizationCode }
         if let birthDate {
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withFullDate]
@@ -310,6 +311,140 @@ public struct APIClient: Sendable {
             throw apiError(from: response, data: data)
         }
         return data
+    }
+
+    // MARK: - Account and backup
+
+    /// DELETE /athlete/me — deletes the account and everything stored for it
+    /// on the server (and revokes Sign in with Apple). Throws unless the
+    /// server confirms (204, or 404 when it was already gone).
+    public func deleteAccount(sessionToken: String) async throws {
+        var request = URLRequest(url: baseURL.appending(path: "athlete/me"))
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await perform(request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 204 || http.statusCode == 404 else {
+            throw apiError(from: response, data: data)
+        }
+    }
+
+    /// One backed-up document: its JSON value (raw bytes) and when it last changed.
+    public struct SyncedDoc: Sendable, Equatable {
+        public var json: Data
+        public var updatedAt: Date
+        public init(json: Data, updatedAt: Date) { self.json = json; self.updatedAt = updatedAt }
+    }
+
+    /// GET /sync/state — every backed-up document, keyed by name.
+    public func fetchState(sessionToken: String) async throws -> [String: SyncedDoc] {
+        var request = URLRequest(url: baseURL.appending(path: "sync/state"))
+        request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await perform(request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw apiError(from: response, data: data) }
+        return try Self.decodeStates(data)
+    }
+
+    /// PUT /sync/state — the server keeps whichever copy is newer and returns
+    /// its current copy of every key sent.
+    public func pushState(_ states: [String: SyncedDoc], sessionToken: String) async throws -> [String: SyncedDoc] {
+        var request = URLRequest(url: baseURL.appending(path: "sync/state"))
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization")
+        var body: [String: Any] = [:]
+        for (key, doc) in states {
+            let value = try JSONSerialization.jsonObject(with: doc.json, options: [.fragmentsAllowed])
+            body[key] = ["value": value, "updatedAt": Self.iso8601Fractional(doc.updatedAt)]
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["states": body])
+        let (data, response) = try await perform(request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw apiError(from: response, data: data) }
+        return try Self.decodeStates(data)
+    }
+
+    /// A check-in as the server stores it (restoring onto a new device).
+    public struct RemoteCheckIn: Decodable, Sendable {
+        public let clientId: String
+        public let date: String
+        public let sleepQuality: Int
+        public let sleepHours: Double?
+        public let soreness: Int
+        public let sorenessAreas: [String]?
+        public let energy: Int
+        public let stress: Int
+        public let readinessBand: String?
+        public let readinessZ: Double?
+    }
+
+    /// A logged session with its sets as the server stores it.
+    public struct RemoteSession: Decodable, Sendable {
+        public struct RemoteSet: Decodable, Sendable {
+            public let clientId: String
+            public let itemSlug: String
+            public let setIndex: Int
+            public let reps: Int?
+            public let weightKg: Double?
+            public let seconds: Int?
+            public let distanceM: Double?
+            public let contacts: Int?
+            public let side: String?
+        }
+        public let clientId: String
+        public let startedAt: String
+        public let endedAt: String?
+        public let sessionRPE: Int?
+        public let minutes: Int
+        public let source: String
+        public let healthKitWorkoutId: String?
+        public let notes: String?
+        public let sets: [RemoteSet]
+    }
+
+    /// Every check-in, or only those on or after `since` (a calendar day).
+    public func fetchCheckIns(since: Date? = nil, sessionToken: String) async throws -> [RemoteCheckIn] {
+        struct Wire: Decodable { let checkIns: [RemoteCheckIn] }
+        return try await getJSON("sync/checkins", since: since, as: Wire.self, sessionToken: sessionToken).checkIns
+    }
+
+    /// Every logged session with its sets, or only those started on or after `since`.
+    public func fetchSessions(since: Date? = nil, sessionToken: String) async throws -> [RemoteSession] {
+        struct Wire: Decodable { let sessions: [RemoteSession] }
+        return try await getJSON("sync/sessions", since: since, as: Wire.self, sessionToken: sessionToken).sessions
+    }
+
+    private func getJSON<T: Decodable>(_ path: String, since: Date?, as type: T.Type, sessionToken: String) async throws -> T {
+        var url = baseURL.appending(path: path)
+        if let since {
+            var utc = Calendar(identifier: .gregorian)
+            utc.timeZone = TimeZone(identifier: "UTC") ?? .current
+            url.append(queryItems: [URLQueryItem(name: "since", value: Self.dayString(since, calendar: utc))])
+        }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await perform(request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw apiError(from: response, data: data) }
+        return try JSONDecoder().decode(T.self, from: data)
+    }
+
+    static func decodeStates(_ data: Data) throws -> [String: SyncedDoc] {
+        guard let json = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) as? [String: Any],
+              let states = json["states"] as? [String: Any] else { return [:] }
+        var out: [String: SyncedDoc] = [:]
+        for (key, raw) in states {
+            guard let doc = raw as? [String: Any], let stamp = doc["updatedAt"] as? String, let date = parseISO8601(stamp) else { continue }
+            let value = try JSONSerialization.data(withJSONObject: doc["value"] ?? NSNull(), options: [.fragmentsAllowed, .sortedKeys])
+            out[key] = SyncedDoc(json: value, updatedAt: date)
+        }
+        return out
+    }
+
+    /// Public so the backup service can parse the server's timestamps the same way.
+    public static func parseTimestamp(_ string: String) -> Date? { parseISO8601(string) }
+
+    static func iso8601Fractional(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: date)
     }
 
     private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {

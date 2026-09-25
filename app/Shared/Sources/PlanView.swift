@@ -15,6 +15,8 @@ struct PlanView: View {
     @State private var showingAddGame = false
     @State private var detailItem: CatalogueItem?
     @State private var gamePendingDelete: Competition?
+    @State private var confirmingNewPlan = false
+    @AppStorage(PlanVariant.key) private var planVariant = 0
 
     private var calendar: Calendar { .current }
     private var athleteSport: AthleteSport? { athlete.activeSport }
@@ -88,6 +90,7 @@ struct PlanView: View {
                     SectionHeader("Your season", subtitle: "Your training changes as the season goes on.")
                     phaseCard
                     gamesSection
+                    planOptions
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
@@ -321,6 +324,43 @@ struct PlanView: View {
             .accessibilityLabel("Remove game")
         }
         .padding(.vertical, 8)
+    }
+
+    /// Delete this plan and get a different one, or go back to the first.
+    private var planOptions: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Don't like this plan?", subtitle: "Delete it and get a new one. Same rules for your sport and season, different exercises.")
+            Button { confirmingNewPlan = true } label: {
+                Label("Delete plan and build a new one", systemImage: "arrow.triangle.2.circlepath")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.red)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(AppTheme.red.opacity(0.1), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            if planVariant > 0 {
+                Button {
+                    PlanVariant.backToOriginal()
+                    onPlanInputsChanged()
+                } label: {
+                    Label("Back to my first plan", systemImage: "arrow.uturn.backward")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.ink)
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(AppTheme.fill, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .confirmationDialog("Delete this plan?", isPresented: $confirmingNewPlan, titleVisibility: .visible) {
+            Button("Delete and build a new one", role: .destructive) {
+                PlanVariant.buildNew()
+                onPlanInputsChanged()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your week gets new exercises. Workouts you already logged stay.")
+        }
     }
 
     private func deletePendingGame() {

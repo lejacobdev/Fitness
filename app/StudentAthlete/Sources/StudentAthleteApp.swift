@@ -39,6 +39,11 @@ struct RootView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var athletes: [Athlete]
     @State private var onboardingComplete = false
+    /// Log out / delete account in progress: nothing signed-in stays on
+    /// screen while its rows are removed.
+    @State private var wiping = false
+    /// A returning athlete's backup is coming back down after sign-in.
+    @State private var restoring = false
 
     private var apiClient: APIClient {
         APIClient(baseURL: AppConfig.backendBaseURL)
@@ -54,11 +59,29 @@ struct RootView: View {
                 DemoData.seedIfNeeded(context: modelContext)
                 SportAliasMigration.migrate(modelContext)
             }
+            .onReceive(NotificationCenter.default.publisher(for: LocalWipe.willWipe)) { _ in wiping = true }
+            .onReceive(NotificationCenter.default.publisher(for: LocalWipe.didWipe)) { _ in
+                onboardingComplete = false
+                wiping = false
+            }
     }
 
     @ViewBuilder
     private var content: some View {
-        if let athlete = athletes.first {
+        if wiping {
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .appScreen()
+        } else if restoring {
+            VStack(spacing: 16) {
+                ProgressView()
+                Text("Getting your account back…")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.ink)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .appScreen()
+        } else if let athlete = athletes.first {
             if athlete.sports.isEmpty {
                 SetupFlowView(athlete: athlete)
             } else {
@@ -73,7 +96,7 @@ struct RootView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .appScreen()
         } else {
-            OnboardingView(apiClient: apiClient, packDownloader: packDownloader) {
+            OnboardingView(apiClient: apiClient, packDownloader: packDownloader, onRestoring: { restoring = $0 }) {
                 onboardingComplete = true
             }
         }

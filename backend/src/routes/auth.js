@@ -9,11 +9,11 @@ import { signSessionToken } from '../lib/sessionToken.js';
  * (same Apple `sub`) is looked up, not re-created, so a reinstall or a new
  * phone restores the same account.
  */
-export function authRouter({ prisma, keyStore, appleBundleId, sessionSecret }) {
+export function authRouter({ prisma, keyStore, appleBundleId, sessionSecret, appleRevoker = null }) {
   const router = express.Router();
 
   router.post('/apple', async (req, res) => {
-    const { identityToken, rawNonce, birthDate } = req.body ?? {};
+    const { identityToken, rawNonce, birthDate, authorizationCode } = req.body ?? {};
     if (typeof identityToken !== 'string' || identityToken.length === 0) {
       res.status(400).json({ error: 'missing_identity_token' });
       return;
@@ -58,6 +58,19 @@ export function authRouter({ prisma, keyStore, appleBundleId, sessionSecret }) {
       athlete = await prisma.athlete.create({
         data: { appleUserId: sub, birthDate: parsedBirthDate },
       });
+    }
+
+    // Keep Apple's refresh token so deleting the account can revoke the
+    // Sign in with Apple grant. Best effort: sign-in never fails over it.
+    if (appleRevoker && typeof authorizationCode === 'string' && authorizationCode.length > 0) {
+      try {
+        const refreshToken = await appleRevoker.refreshTokenFor(authorizationCode);
+        if (refreshToken) {
+          athlete = await prisma.athlete.update({ where: { id: athlete.id }, data: { appleRefreshToken: refreshToken } });
+        }
+      } catch (err) {
+        console.error('[siwa] token exchange failed', err?.message ?? '');
+      }
     }
 
     const token = signSessionToken(athlete.id, { secret: sessionSecret });

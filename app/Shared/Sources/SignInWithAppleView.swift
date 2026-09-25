@@ -31,13 +31,16 @@ public enum SignInWithAppleError: Error, Sendable {
 /// backend re-derives the hash itself rather than trusting a client-supplied
 /// hash.
 public struct AppleSignInButton: View {
-    private let onSuccess: (_ identityToken: String, _ rawNonce: String) -> Void
+    /// The identity token, the raw nonce, and Apple's one-time authorization
+    /// code (the server exchanges it so deleting the account can revoke the
+    /// Sign in with Apple grant).
+    private let onSuccess: (_ identityToken: String, _ rawNonce: String, _ authorizationCode: String?) -> Void
     private let onFailure: (Error) -> Void
     @State private var currentNonce = SignInNonce.generate()
     @Environment(\.colorScheme) private var colorScheme
 
     public init(
-        onSuccess: @escaping (_ identityToken: String, _ rawNonce: String) -> Void,
+        onSuccess: @escaping (_ identityToken: String, _ rawNonce: String, _ authorizationCode: String?) -> Void,
         onFailure: @escaping (Error) -> Void
     ) {
         self.onSuccess = onSuccess
@@ -61,7 +64,8 @@ public struct AppleSignInButton: View {
                     onFailure(SignInWithAppleError.noIdentityToken)
                     return
                 }
-                onSuccess(token, currentNonce)
+                let code = credential.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
+                onSuccess(token, currentNonce, code)
             case .failure(let error):
                 onFailure(error)
             }

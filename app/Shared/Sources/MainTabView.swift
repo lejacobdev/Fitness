@@ -1,5 +1,8 @@
 import SwiftData
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 #if canImport(WidgetKit)
 import WidgetKit
 #endif
@@ -17,6 +20,7 @@ public struct MainTabView: View {
     let apiClient: APIClient
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @State private var week: GeneratedWeek?
     @State private var selectedTab: AppTab = DemoData.initialTab
     @AppStorage("healthPermissionAsked") private var healthPermissionAsked = false
@@ -24,6 +28,7 @@ public struct MainTabView: View {
     @AppStorage("appTourSeen") private var appTourSeen = false
     @State private var showingTour = false
     @State private var workoutContext: WorkoutContext?
+    @State private var backingUp = false
 
     public init(athlete: Athlete, apiClient: APIClient) {
         self.athlete = athlete
@@ -67,6 +72,13 @@ public struct MainTabView: View {
         .onChange(of: athlete.activeSport?.id) { regenerate() }
         .onChange(of: athlete.sports.count) { regenerate() }
         .onChange(of: ProAccess.isPro) { regenerate() }
+        // Back up when the athlete leaves the app, pick up other phones'
+        // changes when they come back.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background || phase == .active {
+                Task { await backUp() }
+            }
+        }
         .task {
             workoutContext = WorkoutContext(athlete: athlete, apiClient: apiClient)
             #if os(iOS) && !APP_EXTENSION
@@ -80,9 +92,7 @@ public struct MainTabView: View {
                 askForHealthIfNeeded()
             }
             regenerate()
-            let sync = SyncQueue(apiClient: apiClient, tokenStore: KeychainTokenStore(), modelContext: modelContext)
-            await sync.drainPendingSessions()
-            await sync.drainPendingCheckIns()
+            await backUp()
             // Keep the offline packs current: newer exercises, cues and
             // animations arrive without re-running setup.
             if !DemoData.isEnabled {
@@ -92,6 +102,28 @@ public struct MainTabView: View {
                 regenerate()
             }
         }
+    }
+
+    /// Pushes queued workouts and check-ins, syncs the backed-up documents
+    /// (sports, games, plans, meals, settings, Campus progress…) and pulls
+    /// in recent workouts logged on another phone.
+    private func backUp() async {
+        guard !DemoData.isEnabled, !athlete.isDeleted, !backingUp else { return }
+        backingUp = true
+        defer { backingUp = false }
+        #if os(iOS) && !APP_EXTENSION
+        // Leaving the app: ask iOS for the few seconds the upload needs.
+        let backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "backup")
+        defer { UIApplication.shared.endBackgroundTask(backgroundTask) }
+        #endif
+        let sync = SyncQueue(apiClient: apiClient, tokenStore: KeychainTokenStore(), modelContext: modelContext)
+        await sync.drainPendingSessions()
+        await sync.drainPendingCheckIns()
+        let reached = await CloudSync.sync(athlete: athlete, context: modelContext, apiClient: apiClient)
+        if reached {
+            await CloudSync.restoreRows(athlete: athlete, context: modelContext, apiClient: apiClient, full: false)
+        }
+        if !athlete.isDeleted, scenePhase != .background { regenerate() }
     }
 
     private func askForHealthIfNeeded() {
@@ -109,6 +141,17 @@ public struct MainTabView: View {
             Task { await ReminderScheduler.reschedule(games: games) }
         }
     }
+}
+
+/// "Delete my plan and give me a new one": the weekly plan is built from the
+/// athlete's inputs, so deleting it means building a different one — a new
+/// variant changes the generator's seed (different exercises, same rules).
+enum PlanVariant {
+    static let key = "plans.variant"
+    static var current: Int { UserDefaults.standard.integer(forKey: key) }
+    static func buildNew() { UserDefaults.standard.set(current + 1, forKey: key) }
+    static func backToOriginal() { UserDefaults.standard.removeObject(forKey: key) }
+    static func seed(_ base: String) -> String { current == 0 ? base : "\(base)-v\(current)" }
 }
 
 /// Shared by the Today and Plan tabs so the two can never disagree about
@@ -137,7 +180,7 @@ enum WeeklyPlan {
             trainsUnderCoach: athlete.trainsUnderCoach,
             equipmentAvailable: Set(athlete.equipmentAvailable),
             catalogue: CatalogueLoader.load(from: AppConfig.packsDirectory()),
-            seed: "\(athlete.id)-\(Int(weekStart.timeIntervalSince1970))",
+            seed: PlanVariant.seed("\(athlete.id)-\(Int(weekStart.timeIntervalSince1970))"),
             sportSlug: athleteSport.sportSlug, positionSlug: athleteSport.positionSlug, formatSlug: athleteSport.formatSlug
         )
         let generated = PlanGenerator.generate(input)

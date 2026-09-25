@@ -6,11 +6,11 @@ import { requireAuth } from '../lib/requireAuth.js';
  * §20/§4: "Account deletion must never sit behind the paywall" and must be
  * real, not cosmetic. A single authenticated delete of the athlete's own
  * row — every child table (AthleteSport, Competition, CheckIn, Plan,
- * Session, SkillBlock, CoachReport) is `onDelete: Cascade` in schema.prisma,
+ * Session, SkillBlock, CoachReport, SyncedState) is `onDelete: Cascade` in schema.prisma,
  * so this one query is a genuine, complete account deletion server-side,
  * not a partial one that leaves rows behind.
  */
-export function athleteRouter({ prisma, sessionSecret }) {
+export function athleteRouter({ prisma, sessionSecret, appleRevoker = null }) {
   const router = express.Router();
   router.use(requireAuth({ sessionSecret }));
 
@@ -32,6 +32,19 @@ export function athleteRouter({ prisma, sessionSecret }) {
   });
 
   router.delete('/me', async (req, res) => {
+    // Revoke the Sign in with Apple grant first (App Store 5.1.1(v)), while
+    // the refresh token still exists; a failure is logged, never blocks deletion.
+    if (appleRevoker) {
+      const athlete = await prisma.athlete.findUnique({ where: { id: req.athleteId } });
+      if (athlete?.appleRefreshToken) {
+        try {
+          const ok = await appleRevoker.revoke(athlete.appleRefreshToken);
+          if (!ok) console.error('[siwa] revoke was refused');
+        } catch (err) {
+          console.error('[siwa] revoke failed', err?.message ?? '');
+        }
+      }
+    }
     await prisma.athlete.delete({ where: { id: req.athleteId } }).catch((err) => {
       // Already gone (e.g. a retried request after the first succeeded) is
       // not an error from the client's point of view -- the athlete is

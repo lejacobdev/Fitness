@@ -72,6 +72,11 @@ public final class ProStore {
         }
     }
 
+    /// Logged out or account deleted: forget the server's word until the next sign-in.
+    public func signedOut() {
+        serverProUntil = nil
+    }
+
     public func loadProducts() async {
         isLoadingProducts = true
         productLoadFailed = false

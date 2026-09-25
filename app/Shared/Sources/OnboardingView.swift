@@ -22,6 +22,7 @@ public struct OnboardingView: View {
     private let apiClient: APIClient
     private let packDownloader: PackDownloader
     private let onComplete: () -> Void
+    private let onRestoring: (Bool) -> Void
 
     private enum Step {
         case ageGate
@@ -29,9 +30,14 @@ public struct OnboardingView: View {
         case downloadingCore
     }
 
-    public init(apiClient: APIClient, packDownloader: PackDownloader, onComplete: @escaping () -> Void) {
+    /// `onRestoring(true)` while a returning athlete's backup is brought
+    /// back after sign-in, so the root view can hold off deciding between
+    /// setup and the app until the restored sports are in.
+    public init(apiClient: APIClient, packDownloader: PackDownloader,
+                onRestoring: @escaping (Bool) -> Void = { _ in }, onComplete: @escaping () -> Void) {
         self.apiClient = apiClient
         self.packDownloader = packDownloader
+        self.onRestoring = onRestoring
         self.onComplete = onComplete
     }
 
@@ -88,8 +94,8 @@ public struct OnboardingView: View {
                         .multilineTextAlignment(.center)
                 }
                 AppleSignInButton(
-                    onSuccess: { identityToken, rawNonce in
-                        handleSignIn(identityToken: identityToken, rawNonce: rawNonce)
+                    onSuccess: { identityToken, rawNonce, authorizationCode in
+                        handleSignIn(identityToken: identityToken, rawNonce: rawNonce, authorizationCode: authorizationCode)
                     },
                     onFailure: { _ in
                         errorMessage = "Sign in didn't finish — try again."
@@ -160,38 +166,49 @@ public struct OnboardingView: View {
         .appScreen()
     }
 
-    private func handleSignIn(identityToken: String, rawNonce: String) {
+    private func handleSignIn(identityToken: String, rawNonce: String, authorizationCode: String?) {
         errorMessage = nil
+        // Captured while this view is on screen: the root view swaps it out
+        // as soon as the athlete exists, and the work below carries on.
+        let context = modelContext
         Task {
             do {
                 let response = try await apiClient.signInWithApple(
-                    identityToken: identityToken, rawNonce: rawNonce, birthDate: birthDate
+                    identityToken: identityToken, rawNonce: rawNonce, birthDate: birthDate,
+                    authorizationCode: authorizationCode
                 )
                 // Best-effort: a Keychain write failing here shouldn't block
                 // onboarding — it only means the very first sync drain after
                 // this session has nothing to authenticate with and quietly
                 // no-ops (SyncQueue) until the athlete signs in again.
                 try? KeychainTokenStore().save(response.sessionToken)
-                persistAthlete(from: response)
+                // A returning athlete (new phone, reinstall) gets everything
+                // back before choosing between setup and the app.
+                onRestoring(true)
+                let athlete = persistAthlete(from: response, in: context)
+                await CloudSync.sync(athlete: athlete, context: context, apiClient: apiClient)
+                await CloudSync.restoreRows(athlete: athlete, context: context, apiClient: apiClient, full: true)
+                onRestoring(false)
                 step = .downloadingCore
-                await downloadCorePack()
+                await downloadCorePack(into: context)
             } catch {
                 errorMessage = "Couldn't sign in — check your connection and try again."
             }
         }
     }
 
-    private func persistAthlete(from response: APIClient.AuthResponse) {
+    private func persistAthlete(from response: APIClient.AuthResponse, in context: ModelContext) -> Athlete {
         let athlete = Athlete(
             id: response.athlete.id,
             appleUserId: response.athlete.appleUserId,
             birthDate: response.athlete.birthDate
         )
-        modelContext.insert(athlete)
-        try? modelContext.save()
+        context.insert(athlete)
+        try? context.save()
+        return athlete
     }
 
-    private func downloadCorePack() async {
+    private func downloadCorePack(into context: ModelContext) async {
         do {
             let manifest = try await packDownloader.fetchManifest()
             guard let coreEntry = manifest.packs.first(where: { $0.slug == "core" }) else {
@@ -199,7 +216,7 @@ public struct OnboardingView: View {
                 return
             }
             try await packDownloader.download(slug: "core", manifest: manifest)
-            try DownloadedPackRecorder(context: modelContext).record(slug: "core", version: coreEntry.version)
+            try DownloadedPackRecorder(context: context).record(slug: "core", version: coreEntry.version)
             onComplete()
         } catch {
             // §3: "a free user always has at least one sport downloaded and
