@@ -194,7 +194,7 @@ struct WorkoutTabView: View {
                 Text(note)
                     .font(.caption)
                     .foregroundStyle(AppTheme.secondaryText)
-                HStack(spacing: 12) {
+                ButtonRow {
                     Button { preview = PreviewBox(session: session, kind: kind(mode)) } label: {
                         Label("See it", systemImage: "list.bullet")
                     }

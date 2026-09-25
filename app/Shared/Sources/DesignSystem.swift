@@ -136,6 +136,11 @@ public struct PrimaryButtonStyle: ButtonStyle {
         var body: some View {
             configuration.label
                 .font(.title3.weight(.bold))
+                // One line, never wrapped: shrink a little first; a row of
+                // buttons that still doesn't fit stacks instead (ButtonRow).
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 18)
                 .foregroundStyle(AppTheme.onAccent)
                 .frame(maxWidth: .infinity, minHeight: 62)
                 .background(AppTheme.accent, in: Capsule())
@@ -152,10 +157,32 @@ public struct SecondaryButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.title3.weight(.semibold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .padding(.horizontal, 18)
             .foregroundStyle(AppTheme.ink)
             .frame(maxWidth: .infinity, minHeight: 58)
             .background(AppTheme.fill, in: Capsule())
             .opacity(configuration.isPressed ? 0.7 : 1)
+    }
+}
+
+/// Buttons side by side when every label fits on one line, stacked
+/// otherwise — so big text never squeezes a label onto two lines.
+public struct ButtonRow<Content: View>: View {
+    let spacing: CGFloat
+    let content: Content
+
+    public init(spacing: CGFloat = 12, @ViewBuilder content: () -> Content) {
+        self.spacing = spacing
+        self.content = content()
+    }
+
+    public var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: spacing) { content }
+            VStack(spacing: 10) { content }
+        }
     }
 }
 
@@ -536,6 +563,7 @@ public struct Chip: View {
     public var body: some View {
         Text(title)
             .font(.headline)
+            .lineLimit(1)
             .foregroundStyle(isSelected ? AppTheme.onAccent : AppTheme.ink)
             .padding(.horizontal, 18)
             .padding(.vertical, 12)

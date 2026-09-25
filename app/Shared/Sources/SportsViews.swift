@@ -236,7 +236,7 @@ struct SportsManagerSheet: View {
                 }
                 Spacer(minLength: 0)
             }
-            HStack(spacing: 8) {
+            ButtonRow(spacing: 8) {
                 if !isActive {
                     Button("Switch to it") {
                         guard SportSwitchLedger.canSwitch else { showingPaywall = true; return }

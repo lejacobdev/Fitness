@@ -142,7 +142,7 @@ struct JumpFrameMarker: View {
                         .font(.footnote)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
-                HStack(spacing: 12) {
+                ButtonRow {
                     Button { takeoff = time } label: {
                         Label(takeoff.map { String(format: "Take-off %.3f", $0) } ?? "Take-off", systemImage: "arrow.up")
                     }

@@ -343,7 +343,7 @@ struct LibraryFilterSheet: View {
                                 .buttonStyle(.plain)
                         }
                     }
-                    HStack(spacing: 12) {
+                    ButtonRow {
                         Button("Reset") {
                             equipment = .any
                             kind = nil

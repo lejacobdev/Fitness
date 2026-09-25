@@ -601,7 +601,7 @@ struct VisualizationView: View {
                     advance()
                 }
                 Spacer()
-                HStack(spacing: 12) {
+                ButtonRow {
                     if step > 0 {
                         Button("Back") { self.step = step - 1 }
                             .buttonStyle(.secondary)
@@ -640,7 +640,7 @@ struct VisualizationView: View {
                                 .font(.title3.weight(.semibold))
                                 .padding(16)
                                 .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            HStack(spacing: 8) {
+                            WrapLayout(spacing: 8) {
                                 ForEach(["Next", "Reset", "Attack", "Smooth", "Breathe"], id: \.self) { word in
                                     Button(word) { cueWord = word }
                                         .font(.subheadline.weight(.semibold))

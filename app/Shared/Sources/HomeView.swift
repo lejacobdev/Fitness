@@ -458,7 +458,7 @@ struct HomeView: View {
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
             }
-            HStack(spacing: 12) {
+            ButtonRow {
                 Button { selectedTab = .workout } label: { Label("All workouts", systemImage: "square.grid.2x2") }
                     .buttonStyle(.secondary)
                 Button { liveLaunch = LiveSessionLaunch(planned: session, kind: workoutKind(mode)) } label: {
@@ -996,10 +996,13 @@ struct HomeView: View {
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 12) {
+            ButtonRow {
                 Button { routine = .breathing } label: {
                     Label("Breathing · 2 min", systemImage: "wind")
                         .font(.headline)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .padding(.horizontal, 12)
                         .foregroundStyle(AppTheme.ink)
                         .frame(maxWidth: .infinity, minHeight: 56)
                         .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -1008,6 +1011,9 @@ struct HomeView: View {
                 Button { routine = .visualization } label: {
                     Label("Visualize · 5 min", systemImage: "eye.fill")
                         .font(.headline)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .padding(.horizontal, 12)
                         .foregroundStyle(AppTheme.ink)
                         .frame(maxWidth: .infinity, minHeight: 56)
                         .background(AppTheme.purple.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))

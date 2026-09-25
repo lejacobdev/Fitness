@@ -138,7 +138,7 @@ struct LeaguesView: View {
     private var actions: some View {
         switch mode {
         case nil:
-            HStack(spacing: 12) {
+            ButtonRow {
                 Button { mode = .create } label: { Label("Start a league", systemImage: "plus") }
                     .buttonStyle(.primary)
                 Button { mode = .join } label: { Label("Join", systemImage: "person.badge.plus") }
@@ -169,7 +169,7 @@ struct LeaguesView: View {
                 .font(.title3)
                 .padding(16)
                 .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            HStack(spacing: 12) {
+            ButtonRow {
                 Button("Cancel") { mode = nil }
                     .buttonStyle(.secondary)
                 Button(working ? "…" : button) {

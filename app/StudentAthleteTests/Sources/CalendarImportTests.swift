@@ -92,6 +92,16 @@ final class CalendarImportTests: XCTestCase {
         XCTAssertTrue(ScheduleClassifier.isCancelled(title: "Practice", status: "CANCELLED"))
     }
 
+    func testATypedAMForPMIsFixed() {
+        // Blackbaud feeds: "Practice 2:45 AM – 4:45 PM" meant 2:45 PM.
+        let start = date(2026, 9, 25, 2).addingTimeInterval(45 * 60)
+        let end = date(2026, 9, 25, 16).addingTimeInterval(45 * 60)
+        let fixed = ICSParser.fixedAMPM(start: start, end: end, kind: .practice, calendar: calendar)
+        XCTAssertEqual(calendar.component(.hour, from: fixed), 14)
+        XCTAssertEqual(ICSParser.fixedAMPM(start: date(2026, 9, 25, 6), end: date(2026, 9, 25, 8), kind: .practice, calendar: calendar),
+                       date(2026, 9, 25, 6), "a real early practice stays")
+    }
+
     func testCalendarLinksBecomeHTTPS() {
         XCTAssertEqual(CalendarFeed.normalizedURL("webcal://p12-caldav.icloud.com/published/2/abc")?.absoluteString,
                        "https://p12-caldav.icloud.com/published/2/abc")

@@ -270,7 +270,7 @@ public struct LiveSessionView: View {
                     .contentTransition(.numericText())
             }
             .frame(width: 180, height: 180)
-            HStack(spacing: 12) {
+            ButtonRow {
                 Button("+15s") {
                     restRemaining += 15
                     restTotal += 15

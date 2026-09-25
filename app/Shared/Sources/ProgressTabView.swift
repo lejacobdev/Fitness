@@ -535,7 +535,7 @@ struct ProgressTabView: View {
         let insight = PracticeStats.insight(counts, allTypes: SportPractice.types(for: sportSlug))
         return VStack(alignment: .leading, spacing: 12) {
             SectionHeader("What you practised", subtitle: "From your practice logs. See where your time goes.")
-            HStack(spacing: 8) {
+            WrapLayout(spacing: 8) {
                 ForEach(StatsPeriod.allCases) { period in
                     Button { statsPeriod = period } label: {
                         Chip(period.rawValue, isSelected: statsPeriod == period)
@@ -606,7 +606,7 @@ struct ProgressTabView: View {
             SectionHeader("Schedule & events", subtitle: "Your practice times and your games — workouts are planned around them.")
             row("Practice days & times", PracticeSchedule.weekdays.isEmpty ? "Not set" : practiceSummary, icon: "clock.fill") { sheet = .schedule }
             row("Team & school calendars", ScheduleStore.feeds.isEmpty ? "Connect TeamSnap, Google or Apple" : "\(ScheduleStore.feeds.count) connected", icon: "link") { sheet = .calendars }
-            HStack(spacing: 12) {
+            ButtonRow {
                 Button { sheet = .addGame } label: { Label("Add a game", systemImage: "sportscourt.fill") }
                     .buttonStyle(.primary)
                 Button { sheet = .addTraining } label: { Label("Add a training", systemImage: "plus") }
@@ -693,7 +693,7 @@ struct ProgressTabView: View {
                 }
                 .cardStyle(padding: 12)
             }
-            HStack(spacing: 12) {
+            ButtonRow {
                 Button { sheet = .history } label: { Label("All workouts", systemImage: "clock.arrow.circlepath") }
                     .buttonStyle(.secondary)
                 Button { sheet = .tests } label: { Label("Tests", systemImage: "stopwatch.fill") }
@@ -860,7 +860,7 @@ struct PracticeLogSheet: View {
             onContinue: save
         ) {
             if athlete.sports.count > 1 {
-                HStack(spacing: 8) {
+                WrapLayout(spacing: 8) {
                     ForEach(athlete.sports, id: \.id) { sport in
                         Button { sportSlug = sport.sportSlug; types = [] } label: {
                             Chip(allSportsBySlug[sport.sportSlug]?.name ?? sport.sportSlug, isSelected: sportSlug == sport.sportSlug)

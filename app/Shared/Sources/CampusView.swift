@@ -59,6 +59,9 @@ struct ChunkyButtonStyle: ButtonStyle {
             configuration.label
                 .font(.headline.weight(.heavy))
                 .textCase(.uppercase)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 16)
                 .foregroundStyle(isEnabled ? foreground : Duo.lockedGlyph)
                 .frame(maxWidth: .infinity, minHeight: height)
                 .background(top, in: RoundedRectangle(cornerRadius: 16, style: .continuous))

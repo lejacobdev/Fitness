@@ -505,7 +505,7 @@ struct TestCounter: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Count: \(count). Tap to add one.")
-            HStack(spacing: 12) {
+            ButtonRow {
                 Button { count = max(0, count - 1) } label: { Label("One less", systemImage: "minus") }
                     .buttonStyle(.secondary)
                 Button("Save") { onDone(count) }

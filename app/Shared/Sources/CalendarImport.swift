@@ -178,14 +178,27 @@ public enum ICSParser {
         let title = unescape(event.first("SUMMARY")?.value ?? "")
         let categories = event.first("CATEGORIES").map { unescape($0.value) }
         let location = event.first("LOCATION").map { unescape($0.value) }.flatMap { $0.isEmpty ? nil : $0 }
+        let kind = ScheduleClassifier.kind(title: title, categories: categories, schoolCalendar: schoolCalendar)
+        let start = allDay ? start : fixedAMPM(start: start, end: end, kind: kind)
         return ScheduleEvent(
             id: "\(feedID)|\(uid)|\(Int(start.timeIntervalSince1970))",
             title: title, location: location, start: start, end: end, allDay: allDay,
-            kind: ScheduleClassifier.kind(title: title, categories: categories, schoolCalendar: schoolCalendar),
+            kind: kind,
             cancelled: ScheduleClassifier.isCancelled(title: title, status: event.first("STATUS")?.value),
             isAway: ScheduleClassifier.isAway(title: title),
             competitionKind: ScheduleClassifier.competitionKind(title: title)
         )
+    }
+
+    /// School calendars often have "2:45 AM" typed for 2:45 PM, which turns
+    /// a 2-hour practice into a 14-hour one. A practice or game that starts
+    /// before 6 AM and runs more than 8 hours is moved 12 hours later.
+    static func fixedAMPM(start: Date, end: Date?, kind: ScheduleEvent.Kind, calendar: Calendar = .current) -> Date {
+        guard kind == .practice || kind == .game, let end else { return start }
+        let hour = calendar.component(.hour, from: start)
+        let shifted = start.addingTimeInterval(12 * 3600)
+        guard hour < 6, end.timeIntervalSince(start) > 8 * 3600, shifted < end else { return start }
+        return shifted
     }
 
     // MARK: Lines
