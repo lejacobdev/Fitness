@@ -296,6 +296,32 @@ const commands = {
     }
   },
 
+  /**
+   * Every upload Apple received, including the ones that never became a
+   * build because processing rejected them — with Apple's error messages
+   * (the same ones it emails). An upload can say "UPLOAD SUCCEEDED" and
+   * still be rejected here minutes later.
+   */
+  async uploads(identifier, limit = '10') {
+    if (!identifier) throw new Error('usage: uploads <bundle-id> [limit]');
+    const apps = await api(`/v1/apps?filter[bundleId]=${encodeURIComponent(identifier)}`);
+    const app = apps.data.find((a) => a.attributes.bundleId === identifier);
+    if (!app) throw new Error(`no app with bundleId exactly "${identifier}"`);
+    const body = await api(`/v1/apps/${app.id}/buildUploads?limit=${encodeURIComponent(limit)}&sort=-uploadedDate`);
+    if (!body.data?.length) {
+      console.log('no uploads recorded');
+      return;
+    }
+    for (const u of body.data) {
+      const a = u.attributes ?? {};
+      const state = a.state ?? {};
+      console.log(`${u.id}  ${a.cfBundleShortVersionString ?? '?'} (${a.cfBundleVersion ?? '?'})  ${state.state ?? JSON.stringify(state)}  ${a.uploadedDate ?? a.createdDate ?? ''}`);
+      for (const kind of ['errors', 'warnings', 'infos']) {
+        for (const m of state[kind] ?? []) console.log(`    ${kind.slice(0, -1)}: ${m.code ?? ''} ${m.description ?? m.message ?? JSON.stringify(m)}`);
+      }
+    }
+  },
+
   async 'build-bundles'(buildId) {
     if (!buildId) throw new Error('usage: build-bundles <build-id>');
     // (3) The sub-resource path is forbidden for API keys; the include is not.

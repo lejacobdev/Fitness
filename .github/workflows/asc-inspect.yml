@@ -55,6 +55,10 @@ jobs:
         continue-on-error: true
         run: node tools/asc.mjs builds '${{ inputs.bundle_id }}' 10
 
+      - name: Recent uploads (with Apple's processing errors)
+        continue-on-error: true
+        run: node tools/asc.mjs uploads '${{ inputs.bundle_id }}' 10
+
       - name: Subscriptions (read-only)
         continue-on-error: true
         run: node tools/asc.mjs subscriptions '${{ inputs.bundle_id }}'
