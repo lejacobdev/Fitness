@@ -30,9 +30,16 @@ export const LISTING = {
   description: `Athlete OS is the operating system for student athletes: training built around your real schedule, plus the knowledge and mindset that take you to the next level.
 
 HOME: YOUR DAY AT A GLANCE
-• A quote to start the day and a two-tap morning check-in (Apple Health fills in sleep and energy)
-• Today's workout, explained: a short one after practice, a full gym session on free days, nothing heavy before games
+• Widgets you arrange: today's workout, a two-tap morning check-in (Apple Health fills in sleep and energy), your levels and your next game
 • Sick, travelling, on holiday or had a head knock? One tap and the plan backs off
+
+WORKOUT: THREE KINDS
+• After practice: short and smart. Gym day: the full session on days without practice. Stretching & mobility: every day
+• Built for your sport, your schedule and what you want to fix — speed, strength, stamina and more
+
+PROGRESS YOU CAN SEE
+• A calendar that zooms from a month to your whole season: workouts, practices and mobility as colored dots
+• Log team practice your way — quick, or exact down to how each club or skill went — and see what you practise most and least
 
 BUILT AROUND YOUR SCHEDULE
 • Connect your team or school calendar (TeamSnap, Google, Apple): games with times and away trips, practices and exams come in by themselves
@@ -83,10 +90,11 @@ Sign in with Apple is the only login, so any Apple ID works — no demo account 
 
 HOW TO REVIEW IN FIVE MINUTES
 1. Enter any birth date 13+ years ago, sign in with Apple, pick a sport (e.g. Soccer) and a position.
-2. Home: do the morning check-in, set practice days, open today's workout and tap Start.
-3. Campus tab: play a lesson (Duolingo-style), then open the trophy (leagues) and medal (badges).
-4. Home → Your levels → Mindset: evening reflection, season goals, breathing.
-5. Me → Tests (jump test uses the camera), Team & family, Head knocks & concussion, Log out and Delete account.
+2. Home (widgets): do the morning check-in; tap Start on today's workout. Edit Home rearranges the widgets.
+3. Campus: play a lesson (Duolingo-style); the trophy opens leagues, the medal badges.
+4. Workout: the three kinds (after practice, gym day, stretching & mobility) — See it / Start.
+5. Progress: the calendar (Month / Season / Year), log a team practice (Easy or Exact), add a game or training, set practice times.
+6. Me: What you want to fix, Tests (jump test uses the camera), Team & family, Head knocks & concussion, Log out and Delete account.
 
 AGE (1.3 / 5.1.1)
 A date-of-birth gate blocks anyone under 13. We store the Apple user identifier ("sub") and birth date; no name, email, location or contacts.
