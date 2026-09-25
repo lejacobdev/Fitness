@@ -163,7 +163,13 @@ jobs:
             -archivePath "$RUNNER_TEMP/StudentAthlete.xcarchive" \
             DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-            | tail -60
+            > "$RUNNER_TEMP/archive.log" 2>&1 || {
+              # The full log is huge; show the actual compiler errors.
+              grep -E "error:|Stack dump|signal|Assertion failed" "$RUNNER_TEMP/archive.log" | sort -u | head -80
+              tail -60 "$RUNNER_TEMP/archive.log"
+              exit 65
+            }
+          tail -30 "$RUNNER_TEMP/archive.log"
 
       - name: Export options
         run: |
