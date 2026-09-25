@@ -29,9 +29,9 @@ enum Duo {
     static let lockedLip = Color.dynamic(light: 0xCECECE, dark: 0x1F1F1F)
     static let lockedGlyph = Color.dynamic(light: 0xAFAFAF, dark: 0x6B6B6B)
 
-    /// Unit colours along the path, starting with the app's red.
+    /// Unit colours along the path, starting with the brand red.
     static let units: [(Color, Color)] = [
-        (AppTheme.accent, Color(hex: "#B8272A")), (black, blackLip), (green, greenLip), (Color(hex: "#CE82FF"), Color(hex: "#A568CC")),
+        (AppTheme.brand, Color(hex: "#B8272A")), (black, blackLip), (green, greenLip), (Color(hex: "#CE82FF"), Color(hex: "#A568CC")),
         (orange, Color(hex: "#CC7900")), (Color(hex: "#FF86D0"), Color(hex: "#CC6BA6")), (AppTheme.coral, Color(hex: "#D65454")),
     ]
 }
@@ -732,7 +732,7 @@ private struct TeachCard: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "figure.run")
                     .font(.system(size: 30, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppTheme.onAccent)
                     .frame(width: 60, height: 60)
                     .background(AppTheme.accent, in: Circle())
                 Text(section.body)

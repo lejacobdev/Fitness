@@ -4,9 +4,10 @@ import UIKit
 #endif
 
 /// Athlete OS's visual language: minimal, and big — made to be read and
-/// tapped quickly between sets. White (light) or near-black (dark) canvas,
-/// soft cards, red for every action and selection, coral as the second
-/// accent in rings and highlights, slate gray for secondary text.
+/// tapped quickly between sets. The two main colours are black and white:
+/// white canvas with black actions (light), black canvas with white actions
+/// (dark). Red, coral and the others are accents — rings, highlights, the
+/// logo, warnings. Neutral grey for secondary text; never blue.
 /// Follows the system appearance; watchOS always gets the dark palette.
 public enum AppTheme {
     public static let background = Color.dynamic(light: 0xFFFFFF, dark: 0x000000)
@@ -14,14 +15,15 @@ public enum AppTheme {
     /// Unselected chips/options, ring tracks, thumbnail wells.
     public static let fill = Color.dynamic(light: 0xEBEBEB, dark: 0x262626)
     /// Primary text.
-    public static let ink = Color.dynamic(light: 0x0B0F14, dark: 0xF8FAFC)
-    /// Every action and selection: buttons, selected chips, the "+".
-    public static let accent = Color(hex: "#E5383B")
+    public static let ink = Color.dynamic(light: 0x000000, dark: 0xFFFFFF)
+    /// Every action and selection: buttons, selected chips, the "+", the tab
+    /// bar — black on white, white on black.
+    public static let accent = Color.dynamic(light: 0x000000, dark: 0xFFFFFF)
     /// Text and glyphs drawn on `accent`.
-    public static let onAccent = Color.white
-    /// Secondary text — the brand's slate gray (#94A3B8), one shade deeper on
-    /// white so small text stays readable.
-    public static let secondaryText = Color.dynamic(light: 0x64748B, dark: 0x94A3B8)
+    public static let onAccent = Color.dynamic(light: 0xFFFFFF, dark: 0x000000)
+    /// Secondary text: a neutral grey, one shade deeper on white so small
+    /// text stays readable.
+    public static let secondaryText = Color.dynamic(light: 0x6E6E73, dark: 0x98989D)
     public static let hairline = Color.dynamic(light: 0xE5E5E5, dark: 0x262626)
 
     // Ring and highlight colours.
