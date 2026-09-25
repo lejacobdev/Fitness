@@ -244,7 +244,7 @@ public let campusTopics: [CampusTopic] = [
                 ("Keep it fun", "Enjoyment is one of the strongest reasons athletes keep playing. Protect it."),
             ], ["Multiple sports build better athletes.", "Take breaks from your main sport.", "Protect the fun."]),
             lesson("balance", "Balancing sport, school and life", 3, [
-                ("Plan your week", "Put training, games, school and exams in one plan. Heavy exam weeks can be lighter training weeks — tell the app with the day status and tell your coach."),
+                ("Plan your week", "Put training, games, school and exams in one plan. Heavy exam weeks can be lighter training weeks — tell your coach early."),
                 ("Life outside sport", "Friends, family, hobbies and rest make you a healthier person and, over time, a better athlete. Your identity is more than your sport."),
                 ("Ask for help", "If sport starts to feel like pressure you can't handle, talk to a parent, coach, school counsellor or someone you trust."),
             ], ["One plan for sport and school.", "You are more than your sport.", "Talk to someone when it gets heavy."]),

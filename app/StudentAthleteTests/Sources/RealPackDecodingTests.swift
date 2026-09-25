@@ -19,7 +19,7 @@ final class RealPackDecodingTests: XCTestCase {
     func testEveryBuiltPackDecodesCompletely() throws {
         let files = try FileManager.default.contentsOfDirectory(at: distDirectory, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "json" && $0.lastPathComponent != "manifest.json" }
-        XCTAssertGreaterThan(files.count, 70, "expected the core pack plus one per sport")
+        XCTAssertEqual(files.count, allSports.count + 1, "expected the core pack plus one per sport")
 
         var totalItems = 0
         for file in files {
@@ -37,7 +37,7 @@ final class RealPackDecodingTests: XCTestCase {
     func testTheLoaderSeesEveryItemFromTheRealPacks() throws {
         let catalogue = CatalogueLoader.load(from: distDirectory)
         XCTAssertGreaterThan(catalogue.itemsBySlug.count, 100)
-        XCTAssertGreaterThan(catalogue.sportsBySlug.count, 70)
+        XCTAssertEqual(catalogue.sportsBySlug.count, allSports.count)
         XCTAssertTrue(catalogue.itemsBySlug.values.contains { $0.variant != nil }, "expanded variants must decode too")
     }
 }
