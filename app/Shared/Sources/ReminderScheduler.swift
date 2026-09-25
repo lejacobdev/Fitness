@@ -52,20 +52,31 @@ public enum ReminderScheduler {
     public static func reschedule(games: [(date: Date, kind: String)]) async {
         let center = UNUserNotificationCenter.current()
         let pending = await center.pendingNotificationRequests()
-        let ours = pending.map(\.identifier).filter { $0 == checkInIdentifier || $0.hasPrefix(gamePrefix) }
+        let ours = pending.map(\.identifier).filter { $0.hasPrefix(checkInIdentifier) || $0.hasPrefix(gamePrefix) }
         center.removePendingNotificationRequests(withIdentifiers: ours)
 
         let current = settings
         if current.checkInEnabled {
-            let content = UNMutableNotificationContent()
-            content.title = "Morning check-in"
-            content.body = "Four taps: how did you sleep? Your plan adjusts to how you feel."
-            content.sound = .default
-            var components = DateComponents()
-            components.hour = current.checkInHour
-            components.minute = current.checkInMinute
-            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
-            try? await center.add(UNNotificationRequest(identifier: checkInIdentifier, content: content, trigger: trigger))
+            // One reminder per day for the next two weeks rather than a
+            // repeating one, so sick, travel and holiday days (Home's day
+            // status) stay quiet. Rescheduled every time the app opens.
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: .now)
+            for offset in 0..<14 {
+                guard let day = calendar.date(byAdding: .day, value: offset, to: today),
+                      DayStatusStore.status(on: day).trainsAsPlanned else { continue }
+                var components = calendar.dateComponents([.year, .month, .day], from: day)
+                components.hour = current.checkInHour
+                components.minute = current.checkInMinute
+                guard let when = calendar.date(from: components), when > .now else { continue }
+                let content = UNMutableNotificationContent()
+                content.title = "Morning check-in"
+                content.body = "Four taps: how did you sleep? Your plan adjusts to how you feel."
+                content.sound = .default
+                let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+                let id = "\(checkInIdentifier).\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
+                try? await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+            }
         }
 
         if current.gameRemindersEnabled {

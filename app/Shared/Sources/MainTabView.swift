@@ -32,8 +32,8 @@ public struct MainTabView: View {
 
     public var body: some View {
         TabView(selection: $selectedTab) {
-            TodayView(athlete: athlete, apiClient: apiClient, week: week, selectedTab: $selectedTab, onPlanInputsChanged: regenerate)
-                .tabItem { Label("Today", systemImage: "house.fill") }
+            HomeView(athlete: athlete, apiClient: apiClient, week: week, selectedTab: $selectedTab, onPlanInputsChanged: regenerate)
+                .tabItem { Label("Home", systemImage: "house.fill") }
                 .tag(AppTab.today)
 
             PlanView(athlete: athlete, week: week, onPlanInputsChanged: regenerate)
@@ -145,7 +145,27 @@ enum WeeklyPlan {
         // basketball game on Friday shouldn't squat heavy on Thursday.
         // Free tapers for the next game; Pro for every game in the week.
         let competitions = ProGate.competitionsForTaper(athlete.competitions.map(\.date), isPro: ProAccess.isPro)
-        return TaperApplier.apply(to: generated, competitions: competitions, contactLevel: sportInfo.contactLevel)
+        let tapered = TaperApplier.apply(to: generated, competitions: competitions, contactLevel: sportInfo.contactLevel)
+        return alignToSchedule(tapered, practiceWeekdays: PracticeSchedule.weekdays, gameDays: athlete.competitions.map(\.date))
+    }
+
+    /// Gym days go on days without team practice (practice days get the short
+    /// after-practice workout instead), spread across the week with a day
+    /// between them where possible, and never on a game day.
+    static func alignToSchedule(_ week: GeneratedWeek?, practiceWeekdays: Set<Int>, gameDays: [Date], calendar: Calendar = .current) -> GeneratedWeek? {
+        guard let week, !practiceWeekdays.isEmpty, !week.sessions.isEmpty else { return week }
+        let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: week.weekStart) }
+        let games = Set(gameDays.map { calendar.startOfDay(for: $0) })
+        let free = days.filter { !practiceWeekdays.contains(calendar.component(.weekday, from: $0)) && !games.contains(calendar.startOfDay(for: $0)) }
+        guard !free.isEmpty else { return week }
+        // Pick as many free days as there are sessions, spaced evenly through the free days.
+        let count = min(week.sessions.count, free.count)
+        let chosen = (0..<count).map { free[($0 * free.count) / count] }
+        let sessions = week.sessions.prefix(count).enumerated().map { index, session in
+            GeneratedSession(date: chosen[index], title: session.title, focusQualities: session.focusQualities,
+                             estimatedMinutes: session.estimatedMinutes, items: session.items)
+        }
+        return GeneratedWeek(phase: week.phase, weekStart: week.weekStart, sessions: Array(sessions))
     }
 }
 
