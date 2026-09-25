@@ -68,6 +68,12 @@ model Athlete {
   skillBlocks  SkillBlock[]
   coachReports CoachReport[]
   states       SyncedState[]
+
+  leagueMemberships LeagueMember[]
+  weeklyXP          WeeklyXP[]
+  coachedTeams      Team[]         @relation("TeamCoach")
+  teamMemberships   TeamMember[]
+  parentLink        ParentLink?
 }
 
 /// Everything else the app keeps per athlete — sports, games, profile, skill
@@ -258,4 +264,92 @@ model CoachReport {
 
   @@unique([athleteId, weekStart])
   @@index([athleteId])
+}
+
+/// Campus leagues: a private group of teammates, joined with a short code,
+/// ranked by Campus XP each week. Members only see nicknames.
+model League {
+  id        String         @id @default(uuid())
+  code      String         @unique
+  name      String
+  createdAt DateTime       @default(now())
+  members   LeagueMember[]
+}
+
+model LeagueMember {
+  leagueId  String
+  athleteId String
+  nickname  String
+  joinedAt  DateTime @default(now())
+
+  league  League  @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@id([leagueId, athleteId])
+  @@index([athleteId])
+}
+
+/// Campus XP per athlete per week (the week's Monday, YYYY-MM-DD).
+model WeeklyXP {
+  athleteId String
+  week      String
+  xp        Int
+  updatedAt DateTime @updatedAt
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@id([athleteId, week])
+}
+
+/// A coach's team: athletes join with a code and share their readiness
+/// (check-in band) and how much they trained — nothing they wrote.
+model Team {
+  id          String       @id @default(uuid())
+  name        String
+  code        String       @unique
+  coachId     String
+  createdAt   DateTime     @default(now())
+  coach       Athlete      @relation("TeamCoach", fields: [coachId], references: [id], onDelete: Cascade)
+  members     TeamMember[]
+  assignments Assignment[]
+
+  @@index([coachId])
+}
+
+model TeamMember {
+  teamId    String
+  athleteId String
+  nickname  String
+  joinedAt  DateTime @default(now())
+
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, athleteId])
+  @@index([athleteId])
+}
+
+/// A workout the coach assigned to the team for a day.
+model Assignment {
+  id        String   @id @default(uuid())
+  teamId    String
+  date      DateTime @db.Date
+  title     String
+  note      String?
+  /// [{ itemSlug, sets, reps?, seconds? }]
+  items     Json
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, date])
+}
+
+/// The private link to the weekly summary a parent can open.
+model ParentLink {
+  token     String   @id
+  athleteId String   @unique
+  createdAt DateTime @default(now())
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
 }

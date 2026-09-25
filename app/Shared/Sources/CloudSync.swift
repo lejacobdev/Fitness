@@ -297,7 +297,7 @@ public enum CloudSync {
     }
 
     static var documentKeys: [String] {
-        ["profile", "sports", "competitions", "skillBlocks", "meals"] + settingGroups.map { "settings.\($0)" }
+        ["profile", "sports", "competitions", "skillBlocks", "meals", "summary"] + settingGroups.map { "settings.\($0)" }
     }
 
     static func exportAll(athlete: Athlete, now: Date) -> [String: Data] {
@@ -331,9 +331,36 @@ public enum CloudSync {
                 MealDoc(id: $0.id, date: $0.date, slot: $0.slot.rawValue, protein: $0.proteinPortions, carbs: $0.carbPortions,
                         colour: $0.colourPortions, water: $0.hydrationGlasses, note: $0.note, clientId: $0.clientId)
             })
+        case "summary":
+            return encode(weekSummary(athlete: athlete, now: now))
         default:
             return encode(exportSettings(group: String(key.dropFirst("settings.".count))))
         }
+    }
+
+    /// This week in numbers, for the parent summary page (only numbers —
+    /// never anything the athlete wrote). Read by the server, never applied
+    /// back onto a phone.
+    struct WeekSummaryDoc: Codable, Equatable {
+        var week: String
+        var campusLessons: Int
+        var reflections: Int
+        var focusDone: Int
+        var focusTotal: Int
+        var testHeadline: String?
+    }
+
+    static func weekSummary(athlete: Athlete, now: Date) -> WeekSummaryDoc {
+        let focus = MindsetEngine.weeklyFocus(goals: MindsetStore.goals, weekStart: now)
+        let tests = BenchmarkCatalog.tests(for: athlete.activeSport?.sportSlug)
+        return WeekSummaryDoc(
+            week: CampusLog.weekKey(now),
+            campusLessons: CampusLog.lessons(inWeekOf: now),
+            reflections: MindsetStore.reflectionDays(inWeekOf: now),
+            focusDone: focus.filter { MindsetStore.isFocusDone($0.goal.id, week: now) }.count,
+            focusTotal: focus.count,
+            testHeadline: BenchmarkMath.headline(BenchmarkStore.results, tests: tests)
+        )
     }
 
     static func exportSettings(group: String, _ defaults: UserDefaults = .standard) -> [String: SettingValue] {
@@ -400,6 +427,8 @@ public enum CloudSync {
                 context.insert(SkillBlock(id: doc.id, sportSlug: doc.sportSlug, skillSlug: doc.skillSlug, targetDate: doc.targetDate,
                                           generatedAt: doc.generatedAt, seed: doc.seed, athlete: athlete))
             }
+        case "summary":
+            return
         case "meals":
             guard let docs = try? decoder.decode([MealDoc].self, from: json) else { return }
             let ids = Set(docs.map(\.id))

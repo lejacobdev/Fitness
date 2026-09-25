@@ -127,6 +127,9 @@ public struct MainTabView: View {
         if !athlete.isDeleted, scenePhase != .background {
             await CalendarSync.refresh(athlete: athlete, context: modelContext)
         }
+        // Workouts from the coach, and this week's Campus XP for the leagues.
+        await CoachAssignments.refresh(apiClient: apiClient)
+        await LeagueSync.report(apiClient: apiClient)
         if !athlete.isDeleted, scenePhase != .background { regenerate() }
     }
 

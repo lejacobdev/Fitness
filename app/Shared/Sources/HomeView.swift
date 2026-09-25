@@ -106,6 +106,7 @@ struct HomeView: View {
                         checkInCard
                         if !scheduleIsSet { scheduleCard }
                         todayCard
+                        ForEach(CoachAssignments.today()) { assignment in coachCard(assignment) }
                         if gameToday != nil, status == .active { gameRoutinesCard }
                         if showEveningReflection { eveningCard }
                         if let mobility { mobilityCard(mobility) }
@@ -592,6 +593,35 @@ struct HomeView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    // MARK: - From the coach
+
+    private func coachCard(_ assignment: APIClient.Assignment) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("FROM YOUR COACH\(assignment.teamName.map { " · \($0.uppercased())" } ?? "")")
+                .font(.caption.weight(.heavy))
+                .tracking(0.8)
+                .foregroundStyle(AppTheme.accent)
+            Text(assignment.title)
+                .font(.title2.bold())
+                .foregroundStyle(AppTheme.ink)
+            if let note = assignment.note {
+                Text(note)
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Label("\(assignment.items.count) exercises", systemImage: "list.bullet")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+            Button { liveLaunch = LiveSessionLaunch(planned: CoachAssignments.session(assignment, catalogue: catalogue)) } label: {
+                Label("Start", systemImage: "play.fill")
+            }
+            .buttonStyle(.primary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle(padding: 20)
     }
 
     // MARK: - Tests

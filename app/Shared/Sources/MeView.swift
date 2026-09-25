@@ -46,7 +46,7 @@ struct MeView: View {
     private var apiClient: APIClient { APIClient(baseURL: AppConfig.backendBaseURL) }
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests
+        case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent
         var id: String { rawValue }
     }
 
@@ -128,6 +128,15 @@ struct MeView: View {
                                 detail: athlete.equipmentAvailable.isEmpty ? "Bodyweight only" : "\(athlete.equipmentAvailable.count) items") { activeSheet = .equipment }
                         menuDivider
                         coachToggleRow
+                    }
+
+                    SectionHeader("Team & family", subtitle: "Share how you're doing with your coach and parents — only what you choose.")
+                    menuCard {
+                        menuRow("My team", icon: "person.3.fill", tint: AppTheme.brand, detail: "Join with a code") { activeSheet = .team }
+                        menuDivider
+                        menuRow("Parent summary", icon: "house.fill", tint: AppTheme.green, detail: "Weekly") { activeSheet = .parent }
+                        menuDivider
+                        menuRow("Coach mode", icon: "whistle.fill", tint: AppTheme.orange, detail: "For coaches") { activeSheet = .coach }
                     }
 
                     SectionHeader("Help & settings")
@@ -232,6 +241,9 @@ struct MeView: View {
                 case .sports: SportsManagerSheet(athlete: athlete, onChanged: onPlanInputsChanged)
                 case .help: HelpCenterView()
                 case .tests: BenchmarksView(sportSlug: athlete.activeSport?.sportSlug)
+                case .team: MyTeamView()
+                case .coach: CoachView()
+                case .parent: ParentSummaryView()
                 }
             }
             .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .exerciseProgress)

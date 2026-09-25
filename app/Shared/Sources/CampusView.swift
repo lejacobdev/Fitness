@@ -147,6 +147,24 @@ struct CampusView: View {
     @AppStorage(CampusProgress.lastDayKey) private var lastDay = ""
     @State private var showingLibrary = false
     @State private var playing: CampusLesson?
+    @State private var reviewing: ReviewSession?
+    @State private var showingLeagues = false
+    @State private var showingBadges = false
+    @State private var newBadges: BadgeCelebration?
+    /// Bumped after a review so the due list redraws.
+    @State private var revision = 0
+
+    /// A review: questions from the lessons that are due.
+    struct ReviewSession: Identifiable {
+        let id = UUID()
+        let lessonIDs: [String]
+        let steps: [CampusStep]
+    }
+
+    private var dueForReview: [String] {
+        _ = revision
+        return CampusReview.due(learned: learned)
+    }
 
     private var learned: Set<String> { CampusProgress.learned(learnedRaw) }
     private var totalLessons: Int { campusTopics.reduce(0) { $0 + $1.lessons.count } }
@@ -169,6 +187,7 @@ struct CampusView: View {
                 statsBar
                 ScrollView {
                     VStack(spacing: 28) {
+                        if !dueForReview.isEmpty { reviewCard }
                         ForEach(Array(campusTopics.enumerated()), id: \.element.id) { unitIndex, topic in
                             unit(topic, index: unitIndex)
                         }
@@ -189,6 +208,27 @@ struct CampusView: View {
             .fullScreenCover(item: $playing) { lesson in
                 CampusLessonPlayer(lesson: lesson) { earned in finish(lesson, xp: earned) }
             }
+            .fullScreenCover(item: $reviewing) { session in
+                CampusLessonPlayer(
+                    lesson: CampusLesson(id: "review", title: "Review", minutes: 3, sections: [], takeaways: []),
+                    customSteps: session.steps,
+                    onMistakes: { wrong in
+                        let wrongLessons = Set(wrong.compactMap { CampusReview.lesson(of: $0) })
+                        CampusReview.record(reviewed: session.lessonIDs, wrong: wrongLessons)
+                    }
+                ) { earned in finishReview(xp: earned) }
+            }
+            .sheet(isPresented: $showingLeagues, onDismiss: { revision += 1 }) {
+                LeaguesView(stats: stats)
+            }
+            .sheet(isPresented: $showingBadges) {
+                BadgesView()
+            }
+            .sheet(item: $newBadges) { celebration in
+                BadgeCelebrationView(badges: celebration.badges)
+                    .presentationDetents([.medium])
+            }
+            .task { await LeagueSync.report() }
         }
     }
 
@@ -201,6 +241,20 @@ struct CampusView: View {
             Label("\(learned.count)/\(totalLessons)", systemImage: "graduationcap.fill")
                 .foregroundStyle(AppTheme.accent)
             Spacer()
+            Button { showingLeagues = true } label: {
+                Image(systemName: "trophy.fill")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(Duo.goldLip)
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Leagues with your teammates")
+            Button { showingBadges = true } label: {
+                Image(systemName: "medal.fill")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(Duo.orange)
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Your badges")
             Button { showingLibrary = true } label: {
                 Image(systemName: "books.vertical.fill")
                     .font(.title3.weight(.bold))
@@ -252,14 +306,66 @@ struct CampusView: View {
 
     private func finish(_ lesson: CampusLesson, xp earned: Int) {
         var set = learned
+        let firstTime = !set.contains(lesson.id)
         set.insert(lesson.id)
         learnedRaw = set.sorted().joined(separator: ",")
+        if firstTime { CampusReview.schedule(lesson.id) }
+        earn(earned, lesson: true)
+    }
+
+    private func finishReview(xp earned: Int) {
+        earn(earned, lesson: false)
+        revision += 1
+    }
+
+    /// XP, the streak, the week's log for leagues, and any new badges.
+    private func earn(_ earned: Int, lesson: Bool) {
         xp += earned
         let today = CampusProgress.dayString()
         if lastDay != today {
             streak = CampusProgress.currentStreak(streak: streak, lastDay: lastDay) + 1
             lastDay = today
         }
+        CampusLog.record(xp: earned, lesson: lesson, perfect: lesson && earned >= 15, review: !lesson, streak: streak)
+        let badges = CampusBadges.award(stats)
+        if !badges.isEmpty { newBadges = BadgeCelebration(badges: badges) }
+        Task { await LeagueSync.report() }
+    }
+
+    private var stats: CampusStats {
+        CampusStats(learned: learned, xp: xp, bestStreak: max(CampusLog.bestStreak(), streak),
+                    perfectLessons: CampusLog.perfectLessons(), reviews: CampusLog.reviewsDone())
+    }
+
+    /// "Review: 3 lessons" — spaced repetition keeps what was learned.
+    private var reviewCard: some View {
+        let due = dueForReview
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.title2.weight(.heavy))
+                    .foregroundStyle(.white)
+                    .frame(width: 52, height: 52)
+                    .background(Duo.orange, in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Time to review")
+                        .font(.title3.weight(.heavy))
+                        .foregroundStyle(AppTheme.ink)
+                    Text("\(due.count) lesson\(due.count == 1 ? "" : "s") to refresh — 2 minutes keeps it in your head for good.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Button("Start review") {
+                let ids = Array(due.prefix(CampusReview.lessonsPerReview))
+                let steps = CampusReview.questions(for: ids).map { CampusStep.question($0) }
+                if !steps.isEmpty { reviewing = ReviewSession(lessonIDs: ids, steps: steps) }
+            }
+            .buttonStyle(ChunkyButtonStyle(fill: Duo.orange, lip: Color(hex: "#CC7900")))
+        }
+        .padding(18)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Duo.border, lineWidth: 2))
     }
 }
 
@@ -350,6 +456,10 @@ private struct PathNode: View {
 
 struct CampusLessonPlayer: View {
     let lesson: CampusLesson
+    /// A review plays questions from several lessons instead of one lesson's steps.
+    var customSteps: [CampusStep]? = nil
+    /// Called with the questions answered wrong at least once (for reviews).
+    var onMistakes: (Set<CampusQuestion>) -> Void = { _ in }
     /// Called with the XP earned when the lesson is finished.
     let onFinish: (Int) -> Void
 
@@ -367,10 +477,15 @@ struct CampusLessonPlayer: View {
     @State private var finishedAt: Date?
     @State private var feedbackTrigger = 0
     @State private var confirmQuit = false
+    @State private var wrong: Set<CampusQuestion> = []
 
     enum Phase { case answering, correct, wrong }
 
-    private var total: Int { lesson.steps.count }
+    private var allSteps: [CampusStep] { customSteps ?? lesson.steps }
+    private var questionCount: Int {
+        allSteps.filter { if case .question = $0 { return true } else { return false } }.count
+    }
+    private var total: Int { allSteps.count }
     private var step: CampusStep? { queue.indices.contains(index) ? queue[index] : nil }
     private var earnedXP: Int { 10 + (mistakes == 0 ? 5 : 0) }
 
@@ -378,6 +493,7 @@ struct CampusLessonPlayer: View {
         VStack(spacing: 0) {
             if finishedAt != nil {
                 CampusComplete(xp: earnedXP, accuracy: accuracy, seconds: Int((finishedAt ?? .now).timeIntervalSince(startedAt))) {
+                    onMistakes(wrong)
                     onFinish(earnedXP)
                     dismiss()
                 }
@@ -397,7 +513,7 @@ struct CampusLessonPlayer: View {
             }
         }
         .background(AppTheme.background.ignoresSafeArea())
-        .onAppear { if queue.isEmpty { queue = lesson.steps } }
+        .onAppear { if queue.isEmpty { queue = allSteps } }
         .sensoryFeedback(trigger: feedbackTrigger) { _, _ in phase == .wrong ? .error : .success }
         .confirmationDialog("Quit this lesson?", isPresented: $confirmQuit, titleVisibility: .visible) {
             Button("Quit", role: .destructive) { dismiss() }
@@ -408,8 +524,8 @@ struct CampusLessonPlayer: View {
     }
 
     private var accuracy: Int {
-        let answered = lesson.questions.count + mistakes
-        return answered == 0 ? 100 : Int((Double(lesson.questions.count) / Double(answered) * 100).rounded())
+        let answered = questionCount + mistakes
+        return answered == 0 ? 100 : Int((Double(questionCount) / Double(answered) * 100).rounded())
     }
 
     private var header: some View {
@@ -520,6 +636,7 @@ struct CampusLessonPlayer: View {
         if !right {
             hearts -= 1
             mistakes += 1
+            wrong.insert(q)
             // Duolingo brings a missed exercise back at the end of the lesson.
             queue.append(queue[index])
         }
@@ -555,7 +672,8 @@ struct CampusLessonPlayer: View {
                 .multilineTextAlignment(.center)
             Spacer()
             Button("Try again") {
-                queue = lesson.steps
+                queue = allSteps
+                wrong = []
                 index = 0; completed = 0; hearts = 5; mistakes = 0; phase = .answering
                 choice = nil; fillWord = nil; match = MatchState(); startedAt = .now
             }

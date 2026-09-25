@@ -447,7 +447,7 @@ public struct APIClient: Sendable {
         return formatter.string(from: date)
     }
 
-    private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
+    func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
             return try await session.data(for: request)
         } catch {
@@ -455,7 +455,7 @@ public struct APIClient: Sendable {
         }
     }
 
-    private func apiError(from response: URLResponse, data: Data) -> APIError {
+    func apiError(from response: URLResponse, data: Data) -> APIError {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         let code = (try? JSONDecoder().decode([String: String].self, from: data))?["error"]
         return .http(status: status, code: code)

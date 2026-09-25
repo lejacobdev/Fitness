@@ -8,9 +8,12 @@ import { installAsyncRejectionForwarding } from './lib/asyncRejection.js';
 import { athleteRouter } from './routes/athlete.js';
 import { authRouter } from './routes/auth.js';
 import { billingRouter } from './routes/billing.js';
+import { leaguesRouter } from './routes/leagues.js';
 import { legalRouter } from './routes/legal.js';
+import { parentRouter } from './routes/parent.js';
 import { stateRouter } from './routes/state.js';
 import { syncRouter } from './routes/sync.js';
+import { teamsRouter } from './routes/teams.js';
 import { createAppleRevoker } from './lib/appleRevoke.js';
 
 // §19: this must run before any route is registered. Installing it here, at
@@ -66,6 +69,9 @@ export function createApp({
     app.use('/sync', syncRouter({ prisma, sessionSecret }));
     app.use('/sync', stateRouter({ prisma, sessionSecret }));
     app.use('/athlete', athleteRouter({ prisma, sessionSecret, appleRevoker }));
+    app.use('/leagues', leaguesRouter({ prisma, sessionSecret }));
+    app.use('/teams', teamsRouter({ prisma, sessionSecret }));
+    app.use(parentRouter({ prisma, sessionSecret }));
   }
 
   // §3: "content packs, per-sport bundles, versioned and served over HTTPS
