@@ -133,7 +133,7 @@ struct TodayView: View {
                                     liveLaunch = LiveSessionLaunch(planned: gameOnSelectedDay == nil ? displayedSession : nil)
                                 },
                                 onImprove: { selectedTab = .improve },
-                                onLibrary: { selectedTab = .library }
+                                onLibrary: { selectedTab = .campus }
                             )
                         }
                     }

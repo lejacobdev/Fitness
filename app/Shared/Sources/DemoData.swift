@@ -18,7 +18,7 @@ public enum DemoData {
         switch args[index + 1] {
         case "plan": return .plan
         case "improve": return .improve
-        case "library": return .library
+        case "campus", "library": return .campus
         case "me": return .me
         default: return .today
         }

@@ -5,7 +5,7 @@ import WidgetKit
 #endif
 
 enum AppTab: Hashable {
-    case today, plan, improve, library, me
+    case today, plan, improve, campus, me
 }
 
 /// §15's five tabs. Owns the one generated week so Today and Plan can never
@@ -44,9 +44,9 @@ public struct MainTabView: View {
                 .tabItem { Label("Improve", systemImage: "chart.line.uptrend.xyaxis") }
                 .tag(AppTab.improve)
 
-            LibraryView(athlete: athlete)
-                .tabItem { Label("Library", systemImage: "books.vertical.fill") }
-                .tag(AppTab.library)
+            CampusView(athlete: athlete)
+                .tabItem { Label("Campus", systemImage: "graduationcap.fill") }
+                .tag(AppTab.campus)
 
             MeView(athlete: athlete, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Me", systemImage: "person.fill") }
