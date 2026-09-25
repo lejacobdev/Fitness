@@ -1,12 +1,14 @@
 import SwiftData
 import SwiftUI
 
-/// Me → Reminders: the morning check-in nudge and game-eve reminders.
+/// Me → Reminders: the morning check-in nudge, the evening reflection and
+/// game-eve reminders.
 struct RemindersSheet: View {
     let athlete: Athlete
     @Environment(\.dismiss) private var dismiss
     @State private var settings = ReminderScheduler.settings
     @State private var time = Date.now
+    @State private var reflectionTime = Date.now
     @State private var denied = false
 
     var body: some View {
@@ -24,6 +26,19 @@ struct RemindersSheet: View {
                         if settings.checkInEnabled {
                             Divider().overlay(AppTheme.hairline)
                             DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
+                                .foregroundStyle(AppTheme.ink)
+                                .tint(AppTheme.accent)
+                                .padding(.vertical, 10)
+                        }
+                        Divider().overlay(AppTheme.hairline)
+                        Toggle(isOn: $settings.reflectionEnabled) {
+                            row("Evening reflection", "Two minutes: one win, one lesson", "moon.stars.fill", AppTheme.purple)
+                        }
+                        .tint(AppTheme.green)
+                        .padding(.vertical, 8)
+                        if settings.reflectionEnabled {
+                            Divider().overlay(AppTheme.hairline)
+                            DatePicker("Time", selection: $reflectionTime, displayedComponents: .hourAndMinute)
                                 .foregroundStyle(AppTheme.ink)
                                 .tint(AppTheme.accent)
                                 .padding(.vertical, 10)
@@ -62,6 +77,7 @@ struct RemindersSheet: View {
             }
             .onAppear {
                 time = Calendar.current.date(bySettingHour: settings.checkInHour, minute: settings.checkInMinute, second: 0, of: .now) ?? .now
+                reflectionTime = Calendar.current.date(bySettingHour: settings.reflectionHour, minute: settings.reflectionMinute, second: 0, of: .now) ?? .now
             }
         }
     }
@@ -87,9 +103,12 @@ struct RemindersSheet: View {
         let parts = Calendar.current.dateComponents([.hour, .minute], from: time)
         settings.checkInHour = parts.hour ?? 7
         settings.checkInMinute = parts.minute ?? 15
+        let evening = Calendar.current.dateComponents([.hour, .minute], from: reflectionTime)
+        settings.reflectionHour = evening.hour ?? 20
+        settings.reflectionMinute = evening.minute ?? 30
         ReminderScheduler.settings = settings
         let games = AthleteStats.upcomingCompetitions(athlete).map { (date: $0.date, kind: $0.kind.rawValue.capitalized) }
-        let wantsAny = settings.checkInEnabled || settings.gameRemindersEnabled
+        let wantsAny = settings.anyEnabled
         Task {
             if wantsAny {
                 let granted = await ReminderScheduler.requestAuthorization()

@@ -747,7 +747,7 @@ private struct WrapRow<Content: View>: View {
     }
 }
 
-private struct WrapLayout: Layout {
+struct WrapLayout: Layout {
     var spacing: CGFloat
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

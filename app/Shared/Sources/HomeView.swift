@@ -29,9 +29,12 @@ struct HomeView: View {
     @State private var preview: PreviewBox?
     @State private var loaded = false
     @State private var checkInAppeared = false
+    @State private var routine: MindsetRoutine?
+    /// Bumped when a Mindset sheet closes, so the level redraws.
+    @State private var mindsetRevision = 0
 
     enum HomeSheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule
+        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, mindset, reflection
         var id: String { rawValue }
     }
 
@@ -103,6 +106,8 @@ struct HomeView: View {
                         checkInCard
                         if !scheduleIsSet { scheduleCard }
                         todayCard
+                        if gameToday != nil, status == .active { gameRoutinesCard }
+                        if showEveningReflection { eveningCard }
                         if let mobility { mobilityCard(mobility) }
                         levels
                         upcoming
@@ -125,7 +130,7 @@ struct HomeView: View {
                 status = DayStatusStore.status()
                 loaded = true
             }
-            .sheet(item: $activeSheet, onDismiss: runPendingAction) { sheet in
+            .sheet(item: $activeSheet, onDismiss: { mindsetRevision += 1; runPendingAction() }) { sheet in
                 switch sheet {
                 case .quickActions:
                     QuickActionsSheet { action in
@@ -148,6 +153,13 @@ struct HomeView: View {
                         activeSheet = nil
                         onPlanInputsChanged()
                     }
+                case .mindset:
+                    MindsetView(sportName: AthleteStats.sportName(athlete)) { selectedTab = .campus }
+                case .reflection:
+                    ReflectionSheet {
+                        mindsetRevision += 1
+                        activeSheet = nil
+                    }
                 case .schedule:
                     ScheduleSheet(athlete: athlete) {
                         practiceDays = PracticeSchedule.weekdays
@@ -163,6 +175,12 @@ struct HomeView: View {
                 SessionPreviewSheet(session: box.session, catalogue: catalogue) {
                     preview = nil
                     liveLaunch = LiveSessionLaunch(planned: box.session)
+                }
+            }
+            .fullScreenCover(item: $routine, onDismiss: { mindsetRevision += 1 }) { routine in
+                switch routine {
+                case .breathing: BreathingView()
+                case .visualization: VisualizationView(sportName: AthleteStats.sportName(athlete))
                 }
             }
             .fullScreenCover(item: $liveLaunch) { launch in
@@ -538,8 +556,8 @@ struct HomeView: View {
     private var levels: some View {
         let learned = CampusProgress.learned(campusLearnedRaw)
         let totalLessons = campusTopics.reduce(0) { $0 + $1.lessons.count }
-        let mindsetLessons = campusTopics.filter { ["psychology", "teamwork"].contains($0.id) }.flatMap(\.lessons)
-        let mindsetDone = mindsetLessons.filter { learned.contains($0.id) }.count
+        _ = mindsetRevision
+        let mindset = MindsetStore.weekProgress()
         let planned = max(week?.sessions.count ?? 0, 1) + practiceDays.count
         let skillPlans = athlete.skillBlocks.filter { $0.targetDate >= calendar.startOfDay(for: .now) }.count
         return VStack(alignment: .leading, spacing: 12) {
@@ -561,13 +579,80 @@ struct HomeView: View {
                                color: AppTheme.green, systemImage: "graduationcap.fill", caption: "Campus lessons learned")
                 }
                 .buttonStyle(.plain)
-                Button { selectedTab = .campus } label: {
-                    WidgetTile(value: "\(mindsetDone) of \(mindsetLessons.count)", label: "Mindset", progress: Double(mindsetDone) / Double(max(1, mindsetLessons.count)),
-                               color: AppTheme.purple, systemImage: "brain.head.profile", caption: "Confidence, focus, teamwork")
+                Button { activeSheet = .mindset } label: {
+                    WidgetTile(value: "\(mindset.done) of \(mindset.target)", label: "Mindset", progress: Double(mindset.done) / Double(max(1, mindset.target)),
+                               color: AppTheme.purple, systemImage: "brain.head.profile", caption: "Reflections, goals, game-day routines this week")
                 }
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    // MARK: - Mindset
+
+    /// After 6 pm, until tonight's reflection is written.
+    private var showEveningReflection: Bool {
+        _ = mindsetRevision
+        return calendar.component(.hour, from: .now) >= 18 && status != .sick && MindsetStore.reflection(on: .now) == nil
+    }
+
+    private var eveningCard: some View {
+        Button { activeSheet = .reflection } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "moon.stars.fill")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(AppTheme.purple)
+                    .frame(width: 56, height: 56)
+                    .background(AppTheme.purple.opacity(0.12), in: Circle())
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Evening reflection")
+                        .font(.title3.bold())
+                        .foregroundStyle(AppTheme.ink)
+                    Text("2 minutes: one win from today, one lesson for tomorrow.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            .cardStyle(padding: 16)
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Game day: get the head ready too.
+    private var gameRoutinesCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Get your head ready")
+                .font(.title3.bold())
+                .foregroundStyle(AppTheme.ink)
+            Text("Nerves are normal — they mean you care. Before you leave or in the locker room:")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 12) {
+                Button { routine = .breathing } label: {
+                    Label("Breathing · 2 min", systemImage: "wind")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.ink)
+                        .frame(maxWidth: .infinity, minHeight: 56)
+                        .background(AppTheme.blue.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                Button { routine = .visualization } label: {
+                    Label("Visualize · 5 min", systemImage: "eye.fill")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.ink)
+                        .frame(maxWidth: .infinity, minHeight: 56)
+                        .background(AppTheme.purple.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .cardStyle(padding: 20)
     }
 
     // MARK: - Coming up

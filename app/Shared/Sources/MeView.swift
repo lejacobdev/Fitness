@@ -133,7 +133,7 @@ struct MeView: View {
                         menuRow("Help & app tour", icon: "questionmark.circle.fill", tint: AppTheme.ink, detail: "") { activeSheet = .help }
                         menuDivider
                         menuRow("Reminders", icon: "bell.fill", tint: AppTheme.amber,
-                                detail: ReminderScheduler.settings.checkInEnabled ? "On" : "Off") { activeSheet = .reminders }
+                                detail: ReminderScheduler.settings.anyEnabled ? "On" : "Off") { activeSheet = .reminders }
                         menuDivider
                         menuRow("Downloads for offline use", icon: "arrow.down.circle.fill", tint: AppTheme.blue, detail: "") { activeSheet = .downloads }
                     }

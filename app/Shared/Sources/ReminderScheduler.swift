@@ -9,14 +9,44 @@ import UserNotifications
 public enum ReminderScheduler {
     static let checkInIdentifier = "reminder.check-in"
     static let gamePrefix = "reminder.game."
+    static let reflectionIdentifier = "reminder.reflection"
 
     public struct Settings: Codable, Equatable, Sendable {
         public var checkInEnabled: Bool
         public var checkInHour: Int
         public var checkInMinute: Int
         public var gameRemindersEnabled: Bool
+        /// The 2-minute evening reflection (Mindset).
+        public var reflectionEnabled: Bool
+        public var reflectionHour: Int
+        public var reflectionMinute: Int
+
+        public init(checkInEnabled: Bool, checkInHour: Int, checkInMinute: Int, gameRemindersEnabled: Bool,
+                    reflectionEnabled: Bool = false, reflectionHour: Int = 20, reflectionMinute: Int = 30) {
+            self.checkInEnabled = checkInEnabled
+            self.checkInHour = checkInHour
+            self.checkInMinute = checkInMinute
+            self.gameRemindersEnabled = gameRemindersEnabled
+            self.reflectionEnabled = reflectionEnabled
+            self.reflectionHour = reflectionHour
+            self.reflectionMinute = reflectionMinute
+        }
+
+        /// Settings saved before the evening reflection existed still load.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            checkInEnabled = try c.decode(Bool.self, forKey: .checkInEnabled)
+            checkInHour = try c.decode(Int.self, forKey: .checkInHour)
+            checkInMinute = try c.decode(Int.self, forKey: .checkInMinute)
+            gameRemindersEnabled = try c.decode(Bool.self, forKey: .gameRemindersEnabled)
+            reflectionEnabled = try c.decodeIfPresent(Bool.self, forKey: .reflectionEnabled) ?? false
+            reflectionHour = try c.decodeIfPresent(Int.self, forKey: .reflectionHour) ?? 20
+            reflectionMinute = try c.decodeIfPresent(Int.self, forKey: .reflectionMinute) ?? 30
+        }
 
         public static let `default` = Settings(checkInEnabled: false, checkInHour: 7, checkInMinute: 15, gameRemindersEnabled: false)
+
+        public var anyEnabled: Bool { checkInEnabled || gameRemindersEnabled || reflectionEnabled }
     }
 
     private static let settingsKey = "reminderSettings"
@@ -52,7 +82,9 @@ public enum ReminderScheduler {
     public static func reschedule(games: [(date: Date, kind: String)]) async {
         let center = UNUserNotificationCenter.current()
         let pending = await center.pendingNotificationRequests()
-        let ours = pending.map(\.identifier).filter { $0.hasPrefix(checkInIdentifier) || $0.hasPrefix(gamePrefix) }
+        let ours = pending.map(\.identifier).filter {
+            $0.hasPrefix(checkInIdentifier) || $0.hasPrefix(gamePrefix) || $0.hasPrefix(reflectionIdentifier)
+        }
         center.removePendingNotificationRequests(withIdentifiers: ours)
 
         let current = settings
@@ -75,6 +107,27 @@ public enum ReminderScheduler {
                 content.sound = .default
                 let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
                 let id = "\(checkInIdentifier).\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
+                try? await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+            }
+        }
+
+        if current.reflectionEnabled {
+            // Same two-week, day-by-day scheme; not on sick days.
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: .now)
+            for offset in 0..<14 {
+                guard let day = calendar.date(byAdding: .day, value: offset, to: today),
+                      DayStatusStore.status(on: day) != .sick else { continue }
+                var components = calendar.dateComponents([.year, .month, .day], from: day)
+                components.hour = current.reflectionHour
+                components.minute = current.reflectionMinute
+                guard let when = calendar.date(from: components), when > .now else { continue }
+                let content = UNMutableNotificationContent()
+                content.title = "Evening reflection"
+                content.body = "Two minutes: one win from today, one lesson for tomorrow."
+                content.sound = .default
+                let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+                let id = "\(reflectionIdentifier).\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
                 try? await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
             }
         }
