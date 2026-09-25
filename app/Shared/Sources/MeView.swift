@@ -46,7 +46,7 @@ struct MeView: View {
     private var apiClient: APIClient { APIClient(baseURL: AppConfig.backendBaseURL) }
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent
+        case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, concussion
         var id: String { rawValue }
     }
 
@@ -142,6 +142,8 @@ struct MeView: View {
                     SectionHeader("Help & settings")
                     menuCard {
                         menuRow("Help & app tour", icon: "questionmark.circle.fill", tint: AppTheme.ink, detail: "") { activeSheet = .help }
+                        menuDivider
+                        menuRow("Head knocks & concussion", icon: "bandage.fill", tint: AppTheme.red, detail: "Safety") { activeSheet = .concussion }
                         menuDivider
                         menuRow("Reminders", icon: "bell.fill", tint: AppTheme.amber,
                                 detail: ReminderScheduler.settings.anyEnabled ? "On" : "Off") { activeSheet = .reminders }
@@ -244,6 +246,7 @@ struct MeView: View {
                 case .team: MyTeamView()
                 case .coach: CoachView()
                 case .parent: ParentSummaryView()
+                case .concussion: ConcussionGuideView()
                 }
             }
             .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .exerciseProgress)
@@ -433,7 +436,7 @@ struct MeView: View {
                 Text("Not a medical device")
                     .font(.subheadline.bold())
                     .foregroundStyle(AppTheme.ink)
-                Text("Athlete OS never predicts injury, diagnoses, or advises return to play. It supplements your coach and athletic trainer — it never replaces them. If something hurts, stop and tell an adult.")
+                Text("Athlete OS never predicts injury, diagnoses, or clears anyone to return to play. It supplements your coach and athletic trainer — it never replaces them. If something hurts, stop and tell an adult.")
                     .font(.caption)
                     .foregroundStyle(AppTheme.secondaryText)
             }

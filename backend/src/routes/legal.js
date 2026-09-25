@@ -7,7 +7,7 @@ import express from 'express';
  * "no third parties" rule.
  */
 
-const UPDATED = '23 September 2026';
+const UPDATED = '25 September 2026';
 
 function page(title, body) {
   return `<!doctype html>
@@ -49,19 +49,23 @@ const PRIVACY = page('Privacy Policy', `
 <li><strong>Your date of birth</strong> — only to keep training age-appropriate and to confirm you are 13 or older.</li>
 <li><strong>Your training data</strong> — your sport, position, season dates, equipment, games, logged sessions and sets, and effort ratings.</li>
 <li><strong>Your daily check-ins</strong> — sleep, soreness, energy and stress scores, and the readiness result calculated from them.</li>
+<li><strong>Your app progress and settings</strong> — Campus lessons, XP and badges, test results, season goals, evening reflections, day status, practice days, meals you logged and reminder times — so they come back on a new phone.</li>
+<li><strong>Calendar links you connect</strong> — the link to a team or school calendar, so your phone can read games, practices and exams from it.</li>
+<li><strong>Leagues and teams you join</strong> — the nickname you choose and which league or team you're in. League members see your nickname and weekly Campus XP; a coach whose team you join sees your nickname, whether you checked in, your readiness band and how many workouts and minutes you logged that week. Never anything you wrote.</li>
+<li><strong>A parent summary link</strong>, if you make one — a private link to a page with this week's numbers (training, sleep, check-ins, upcoming games, Campus and Mindset counts). You can switch it off at any time.</li>
 </ul></section>
 <section><h2>What we never collect</h2>
-<ul><li>Your name, email address, phone number, contacts or photos.</li>
+<ul><li>Your name, email address, phone number, contacts or photos. Jump-test videos are filmed and measured on your phone and never uploaded.</li>
 <li>Your location.</li>
 <li>Advertising identifiers, or any data for advertising or marketing.</li></ul></section>
 <section><h2>Apple Health</h2>
-<p>If you allow it, the app reads your sleep from Apple Health to pre-fill your check-in, and writes your finished workouts back to Apple Health. Health data is used only inside the app to support your training. It is never used for advertising, never shared with third parties, and never sold.</p></section>
+<p>If you allow it, the app reads your sleep and resting heart rate from Apple Health to pre-fill your check-in, and writes your finished workouts back to Apple Health. Hours slept are stored with your check-in; heart rate is only used on your phone. Health data is used only inside the app to support your training. It is never used for advertising, never shared with third parties, and never sold.</p></section>
 <section><h2>Where your data lives</h2>
 <p>Everything is stored on your device first and works offline. When you are online it is backed up to our own server so it survives a new phone. The server is operated by the developer; no third-party processors are used.</p></section>
 <section><h2>Deleting your data</h2>
-<p>You can delete your account at any time in the app: <strong>Me → Delete account</strong>. This permanently deletes your account and every check-in, session, set, plan and game stored on our server, and removes the copy on your device. It is free and never behind a subscription.</p></section>
+<p>You can delete your account at any time in the app: <strong>Me → Delete account</strong>. This permanently deletes your account and every check-in, session, set, plan, game, backup, league and team membership and parent link stored on our server, revokes Sign in with Apple, and removes the copy on your device. It is free and never behind a subscription. <strong>Me → Log out</strong> backs everything up and removes it from the device without deleting your account.</p></section>
 <section><h2>Not medical advice</h2>
-<p>Athlete OS provides general training information. It never predicts injury, diagnoses anything, or advises on returning to play. Always follow your coach, athletic trainer or doctor.</p></section>
+<p>Athlete OS provides general training information. It never predicts injury, diagnoses anything, or clears anyone to return to play — its concussion page explains the usual steps and says a doctor decides. Always follow your coach, athletic trainer or doctor.</p></section>
 <section><h2>Changes</h2><p>If this policy changes, the new version will be posted here with a new date.</p></section>
 `);
 

@@ -30,11 +30,12 @@ struct HomeView: View {
     @State private var loaded = false
     @State private var checkInAppeared = false
     @State private var routine: MindsetRoutine?
+    @State private var lowEnergySnoozed = LowEnergyCheck.isSnoozed
     /// Bumped when a Mindset sheet closes, so the level redraws.
     @State private var mindsetRevision = 0
 
     enum HomeSheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, mindset, reflection, tests
+        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, mindset, reflection, tests, concussion
         var id: String { rawValue }
     }
 
@@ -60,7 +61,7 @@ struct HomeView: View {
     /// Today's workout and why: the heart of Home.
     private var todaysWorkout: (mode: WorkoutMode, session: GeneratedSession)? {
         switch status {
-        case .sick: return nil
+        case .sick, .concussion: return nil
         case .travel, .holiday:
             return WorkoutModeBuilder.build(.travel, modeContext).map { (mode: WorkoutMode.travel, session: $0) }
         case .active:
@@ -88,7 +89,7 @@ struct HomeView: View {
     }
 
     private var mobility: GeneratedSession? {
-        status == .sick ? nil : WorkoutModeBuilder.build(.mobility, modeContext)
+        status == .sick || status == .concussion ? nil : WorkoutModeBuilder.build(.mobility, modeContext)
     }
 
     private var streak: Int {
@@ -106,9 +107,17 @@ struct HomeView: View {
                         checkInCard
                         if !scheduleIsSet { scheduleCard }
                         todayCard
-                        ForEach(CoachAssignments.today()) { assignment in coachCard(assignment) }
+                        if status != .sick, status != .concussion {
+                            ForEach(CoachAssignments.today()) { assignment in coachCard(assignment) }
+                        }
                         if gameToday != nil, status == .active { gameRoutinesCard }
                         if showEveningReflection { eveningCard }
+                        if let lowEnergy, !lowEnergySnoozed {
+                            LowEnergyCard(warning: lowEnergy) {
+                                LowEnergyCheck.snoozeForAWeek()
+                                lowEnergySnoozed = true
+                            }
+                        }
                         if let mobility { mobilityCard(mobility) }
                         levels
                         if showTestsCard { testsCard }
@@ -155,6 +164,8 @@ struct HomeView: View {
                         activeSheet = nil
                         onPlanInputsChanged()
                     }
+                case .concussion:
+                    ConcussionGuideView()
                 case .tests:
                     BenchmarksView(sportSlug: athlete.activeSport?.sportSlug)
                 case .mindset:
@@ -374,6 +385,10 @@ struct HomeView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, minHeight: 160)
                 .cardStyle(padding: 20)
+        } else if status == .concussion {
+            infoCard(icon: "bandage.fill", color: AppTheme.accent, title: "Head knock: no training",
+                     text: "Every workout is paused. Follow your doctor's or athletic trainer's return-to-play steps — at least a day each — and switch back to Active once a doctor has cleared you.",
+                     action: ("See the return-to-play steps", { activeSheet = .concussion }))
         } else if status == .sick {
             infoCard(icon: "bed.double.fill", color: AppTheme.purple, title: "Rest and recover",
                      text: "No training while you're sick. Drink plenty, eat normally and sleep. When you feel better, ease back in with a lighter day. See a doctor if it's getting worse.")
@@ -595,6 +610,11 @@ struct HomeView: View {
         }
     }
 
+    /// Constant fatigue while training hard (see Safety.swift).
+    private var lowEnergy: LowEnergyWarning? {
+        status == .active ? LowEnergyCheck.current(for: athlete) : nil
+    }
+
     // MARK: - From the coach
 
     private func coachCard(_ assignment: APIClient.Assignment) -> some View {
@@ -813,7 +833,7 @@ struct DayStatusSheet: View {
 
     var body: some View {
         StepScaffold(title: "What kind of day is it?", subtitle: "Your plan and reminders follow this, so the app never nags you when you're ill, travelling or on holiday.",
-                     buttonTitle: "Save", onBack: { dismiss() }, onContinue: { onSave(choice, choice == .active ? nil : days) }) {
+                     buttonTitle: "Save", onBack: { dismiss() }, onContinue: { onSave(choice, choice == .active || choice == .concussion ? nil : days) }) {
             VStack(spacing: 10) {
                 ForEach(DayStatus.allCases) { status in
                     Button { choice = status } label: {
@@ -822,7 +842,11 @@ struct DayStatusSheet: View {
                     .buttonStyle(.plain)
                 }
             }
-            if choice != .active {
+            if choice == .concussion {
+                Text("This stays on until you switch back to Active — only after a doctor has cleared you to play.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+            } else if choice != .active {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("For how long?")
                         .font(.title3.bold())

@@ -8,6 +8,11 @@ name: screenshots
 # thumbnails are the real catalogue.
 on:
   workflow_dispatch:
+    inputs:
+      upload:
+        description: 'Also upload the light-mode screenshots to App Store Connect'
+        type: boolean
+        default: true
 
 jobs:
   capture:
@@ -68,7 +73,7 @@ jobs:
             xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
             for appearance in light dark; do
               xcrun simctl ui "$UDID" appearance "$appearance"
-              for tab in today plan improve library me; do
+              for tab in today plan improve campus me; do
                 xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab "$tab" >/dev/null
                 sleep 7
                 xcrun simctl io "$UDID" screenshot "screenshots/${NAME}-${appearance}-${tab}.png"
@@ -84,3 +89,22 @@ jobs:
         with:
           name: app-store-screenshots
           path: screenshots/
+
+      - name: Upload to App Store Connect
+        if: ${{ inputs.upload }}
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          # Light mode only, in tab order: Home, Plan, Improve, Campus, Me.
+          mkdir -p upload
+          i=1
+          for tab in today plan improve campus me; do
+            for f in screenshots/*-light-$tab.png; do
+              [ -e "$f" ] && cp "$f" "upload/$(basename "$f" .png | sed 's/-light-.*//')-$i-$tab.png"
+            done
+            i=$((i+1))
+          done
+          ls upload
+          node tools/asc.mjs upload-screenshots com.studentathlete.app upload

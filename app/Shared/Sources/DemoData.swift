@@ -99,6 +99,51 @@ public enum DemoData {
             }
         }
         try? context.save()
+        seedProgress(now: now, calendar: calendar)
+    }
+
+    /// Campus, Mindset, tests and the schedule, so every screen looks lived-in.
+    private static func seedProgress(now: Date, calendar: Calendar) {
+        let defaults = UserDefaults.standard
+        defaults.set(true, forKey: "home.introSeen")
+        defaults.set(true, forKey: "appTourSeen")
+        defaults.set(true, forKey: "healthPermissionAsked")
+        PracticeSchedule.weekdays = [2, 4, 5]
+
+        let lessons = campusTopics.prefix(2).flatMap(\.lessons).prefix(5).map(\.id)
+        defaults.set(lessons.sorted().joined(separator: ","), forKey: CampusProgress.learnedKey)
+        defaults.set(85, forKey: CampusProgress.xpKey)
+        defaults.set(6, forKey: CampusProgress.streakKey)
+        defaults.set(CampusProgress.dayString(now), forKey: CampusProgress.lastDayKey)
+        CampusLog.record(xp: 40, lesson: true, perfect: true, review: false, streak: 6, on: now)
+        for id in lessons { CampusReview.schedule(id, today: calendar.date(byAdding: .day, value: -4, to: now) ?? now) }
+        CampusBadges.award(CampusStats(learned: Set(lessons), xp: 85, bestStreak: 6, perfectLessons: 1, reviews: 0), today: now)
+
+        MindsetStore.goals = [
+            SeasonGoal(text: "Make the starting line-up", area: .performance),
+            SeasonGoal(text: "Stay calm on big moments", area: .confidence),
+        ]
+        let wins = [("Won every header in the second half", "Scan before the ball arrives"),
+                    ("Stayed calm after missing the penalty", "Pick my spot early"),
+                    ("Finished all my sprints", "Eat something before practice")]
+        for (offset, entry) in wins.enumerated() {
+            if let day = calendar.date(byAdding: .day, value: -(offset + 1), to: now) {
+                MindsetStore.saveReflection(win: entry.0, lesson: entry.1, feeling: 4, on: day)
+            }
+        }
+        if let first = MindsetStore.goals.first { MindsetStore.setFocusDone(first.id, true) }
+        MindsetStore.logRoutine(.breathing, on: now)
+
+        let firstTest = calendar.date(byAdding: .day, value: -44, to: now) ?? now
+        let secondTest = calendar.date(byAdding: .day, value: -2, to: now) ?? now
+        let results: [(BenchmarkTest, Double, Double)] = [
+            (BenchmarkCatalog.jump, 38, 42), (BenchmarkCatalog.sprint10, 1.92, 1.86), (BenchmarkCatalog.sprint30, 4.61, 4.49),
+            (BenchmarkCatalog.plank, 75, 96), (BenchmarkCatalog.pushUps, 24, 29), (BenchmarkCatalog.sportTest(for: "soccer"), 41, 57),
+        ]
+        for (test, before, after) in results {
+            BenchmarkStore.record(before, for: test, on: firstTest)
+            BenchmarkStore.record(after, for: test, on: secondTest)
+        }
     }
 }
 

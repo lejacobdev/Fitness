@@ -123,7 +123,7 @@ struct LeaguesView: View {
                     .font(.headline.monospaced())
                     .foregroundStyle(AppTheme.ink)
                 Spacer()
-                #if os(iOS)
+                #if os(iOS) && !APP_EXTENSION
                 ShareLink(item: "Join my Athlete OS league \"\(league.name)\" — in Campus tap the trophy, then Join, and enter the code \(league.code).") {
                     Label("Invite", systemImage: "square.and.arrow.up")
                         .font(.subheadline.weight(.semibold))

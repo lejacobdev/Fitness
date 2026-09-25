@@ -34,11 +34,14 @@
  *   node tools/asc.mjs subscriptions <bundle-id>          (read-only: groups, products, prices)
  *   node tools/asc.mjs setup-subscriptions <bundle-id>    (§18: idempotent group + monthly/yearly Pro)
  *   node tools/asc.mjs set-notification-url <bundle-id> <url>   (App Store Server Notifications V2, prod + sandbox)
+ *   node tools/asc.mjs upload-screenshots <bundle-id> <dir>   (replaces the editable version's en-US screenshots)
  *   node tools/asc.mjs app-store-profiles <cert-serial> <out-dir> <bundle-id>...
  *       (fresh "SA AppStore <bundle>" IOS_APP_STORE profiles for manual signing)
  */
 
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const BASE = 'https://api.appstoreconnect.apple.com';
 
@@ -440,9 +443,9 @@ const commands = {
     const app = await appFor(identifier);
     const PLANS = [
       { productId: 'com.studentathlete.app.pro.yearly', name: 'Pro Yearly', period: 'ONE_YEAR', level: 1, usd: '39.99',
-        description: 'A full year of Sportvisor Pro.' },
+        description: 'A full year of Athlete OS Pro.' },
       { productId: 'com.studentathlete.app.pro.monthly', name: 'Pro Monthly', period: 'ONE_MONTH', level: 2, usd: '5.99',
-        description: 'One month of Sportvisor Pro.' },
+        description: 'One month of Athlete OS Pro.' },
     ];
 
     const groups = await api(`/v1/apps/${app.id}/subscriptionGroups?limit=50`);
@@ -462,11 +465,11 @@ const commands = {
       const en = locs.find((l) => l.attributes.locale === 'en-US');
       if (en) {
         return api(`/v1/subscriptionGroupLocalizations/${en.id}`, { method: 'PATCH',
-          body: { data: { type: 'subscriptionGroupLocalizations', id: en.id, attributes: { name: 'Sportvisor Pro' } } } });
+          body: { data: { type: 'subscriptionGroupLocalizations', id: en.id, attributes: { name: 'Athlete OS Pro' } } } });
       }
       return api('/v1/subscriptionGroupLocalizations', {
         method: 'POST',
-        body: { data: { type: 'subscriptionGroupLocalizations', attributes: { name: 'Sportvisor Pro', locale: 'en-US' },
+        body: { data: { type: 'subscriptionGroupLocalizations', attributes: { name: 'Athlete OS Pro', locale: 'en-US' },
           relationships: { subscriptionGroup: { data: { type: 'subscriptionGroups', id: group.id } } } } },
       });
     });
@@ -543,6 +546,66 @@ const commands = {
     }
     console.log('');
     await commands.subscriptions(identifier);
+  },
+
+  /**
+   * Uploads every PNG in <dir> (sorted by name) to the editable App Store
+   * version's en-US screenshots, replacing what's there. The display type
+   * comes from the pixel size: 6.9"/6.7" iPhone and 13"/12.9" iPad.
+   */
+  async 'upload-screenshots'(identifier, dir) {
+    if (!identifier || !dir) throw new Error('usage: upload-screenshots <bundle-id> <dir>');
+    const app = await appFor(identifier);
+    const versions = await api(`/v1/apps/${app.id}/appStoreVersions?filter[platform]=IOS`);
+    const version = versions.data.find((v) => ['PREPARE_FOR_SUBMISSION', 'DEVELOPER_REJECTED', 'REJECTED', 'METADATA_REJECTED'].includes(v.attributes.appStoreState));
+    if (!version) throw new Error('no editable App Store version');
+    const locs = await api(`/v1/appStoreVersions/${version.id}/appStoreVersionLocalizations`);
+    const loc = locs.data.find((l) => l.attributes.locale === 'en-US');
+    if (!loc) throw new Error('no en-US localization');
+
+    const typeFor = (width, height) => {
+      const key = `${Math.min(width, height)}x${Math.max(width, height)}`;
+      if (['1320x2868', '1290x2796'].includes(key)) return 'APP_IPHONE_67';
+      if (['2064x2752', '2048x2732'].includes(key)) return 'APP_IPAD_PRO_3GEN_129';
+      return null;
+    };
+    const pngSize = (buffer) => ({ width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) });
+
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.png')).sort();
+    const byType = new Map();
+    for (const file of files) {
+      const buffer = fs.readFileSync(path.join(dir, file));
+      const { width, height } = pngSize(buffer);
+      const type = typeFor(width, height);
+      if (!type) { console.log(`  skip ${file} (${width}x${height})`); continue; }
+      if (!byType.has(type)) byType.set(type, []);
+      if (byType.get(type).length < 10) byType.get(type).push({ file, buffer });
+    }
+
+    const sets = await api(`/v1/appStoreVersionLocalizations/${loc.id}/appScreenshotSets?limit=50`);
+    for (const [type, shots] of byType) {
+      let set = sets.data.find((s) => s.attributes.screenshotDisplayType === type);
+      if (!set) {
+        set = (await api('/v1/appScreenshotSets', { method: 'POST', body: { data: { type: 'appScreenshotSets',
+          attributes: { screenshotDisplayType: type },
+          relationships: { appStoreVersionLocalization: { data: { type: 'appStoreVersionLocalizations', id: loc.id } } } } } })).data;
+      }
+      const old = await api(`/v1/appScreenshotSets/${set.id}/appScreenshots?limit=50`);
+      for (const shot of old.data) await api(`/v1/appScreenshots/${shot.id}`, { method: 'DELETE' });
+      for (const { file, buffer } of shots) {
+        const reserved = (await api('/v1/appScreenshots', { method: 'POST', body: { data: { type: 'appScreenshots',
+          attributes: { fileName: file, fileSize: buffer.length },
+          relationships: { appScreenshotSet: { data: { type: 'appScreenshotSets', id: set.id } } } } } })).data;
+        for (const op of reserved.attributes.uploadOperations) {
+          const headers = Object.fromEntries((op.requestHeaders ?? []).map((h) => [h.name, h.value]));
+          const res = await fetch(op.url, { method: op.method, headers, body: buffer.subarray(op.offset, op.offset + op.length) });
+          if (!res.ok) throw new Error(`upload ${file}: ${res.status}`);
+        }
+        await api(`/v1/appScreenshots/${reserved.id}`, { method: 'PATCH', body: { data: { type: 'appScreenshots', id: reserved.id,
+          attributes: { uploaded: true, sourceFileChecksum: crypto.createHash('md5').update(buffer).digest('hex') } } } });
+        console.log(`  ok: ${type} ${file}`);
+      }
+    }
   },
 
   /** §18: App Store Server Notifications V2 for production and sandbox. */

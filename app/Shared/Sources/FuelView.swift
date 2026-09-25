@@ -59,6 +59,9 @@ struct FuelView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     ScreenTitle("Fuel", subtitle: "Eat enough for what you're doing. That's the whole idea.")
+                    if let warning = LowEnergyCheck.current(for: athlete) {
+                        LowEnergyCard(warning: warning)
+                    }
                     hydrationCard
                     plateCards
                     Button {

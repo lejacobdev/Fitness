@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * §20/M14: App Store listing metadata, age rating, content rights and App
- * Review notes for Sportvisor, set through the App Store Connect API.
+ * Review notes for Athlete OS, set through the App Store Connect API.
  * Idempotent — safe to re-run after editing the copy below. Never submits
  * for review and never touches builds or in-app purchases.
  *
@@ -18,98 +18,93 @@ const NAME_ONLY = args.includes('--name-only');
 const BUNDLE_ID = args.find((a) => !a.startsWith('--')) ?? 'com.studentathlete.app';
 
 export const LISTING = {
-  name: 'Sportvisor',
-  subtitle: 'Train for your sport & season',
+  name: 'Athlete OS',
+  subtitle: 'Your sport, schedule & mindset',
   privacyPolicyUrl: 'https://api.lejacob.dev/fitness/privacy',
   supportUrl: 'https://api.lejacob.dev/fitness/support',
-  keywords: 'athlete,high school,college,sports,training,workout,drills,soccer,basketball,football,hockey,coach',
-  promotionalText: 'Pick your sport, add your games, and get a weekly plan that peaks on game day. Four-tap morning check-in, 700+ drills with animated how-tos. Works offline.',
-  description: `Sportvisor is the training companion for high school and college athletes. Pick your sport, tell it when your season starts and when your games are, and get a plan that's built around competing — not around a gym.
+  keywords: 'student athlete,high school,college,training,workout,sports,coach,team,mindset,soccer,basketball',
+  promotionalText: 'Workouts built around your practices, games and exams. Two-tap morning check-in, Duolingo-style Campus lessons, tests every 6 weeks, and a coach and parent view.',
+  description: `Athlete OS is the operating system for student athletes: training built around your real schedule, plus the knowledge and mindset that take you to the next level.
 
-BUILT FOR YOUR SPORT
-• 70+ high school and college sports, from soccer, football, basketball and ice hockey to wrestling, swimming, track, volleyball, lacrosse and more
-• Positions matter: a goalkeeper trains differently from a midfielder
-• Your plan knows your season — build in the off-season, sharpen in pre-season, maintain in-season
+HOME: YOUR DAY AT A GLANCE
+• A quote to start the day and a two-tap morning check-in (Apple Health fills in sleep and energy)
+• Today's workout, explained: a short one after practice, a full gym session on free days, nothing heavy before games
+• Sick, travelling, on holiday or had a head knock? One tap and the plan backs off
 
-PLANS THAT PEAK ON GAME DAY
-• Add a game and your week rearranges: heavy work early, sharp and fresh on the day
-• Two games in a week? It handles that too
+BUILT AROUND YOUR SCHEDULE
+• Connect your team or school calendar (TeamSnap, Google, Apple): games with times and away trips, practices and exams come in by themselves
+• A cancelled practice turns into a gym day; exam weeks get lighter training
+• 60 sports with their formats and positions — soccer, football, basketball, volleyball, track, swimming, hockey, wrestling, lacrosse and many more
 
-"I WANT TO GET BETTER AT…"
-• Pick a skill — shooting power, first step, serve speed, skating speed — and your next game date
-• Get a day-by-day plan of exercises and drills, each one explaining why it's there
-• Honest about what's achievable before the game, with no overpromising
-• Or pick the muscles you want stronger and get a complete workout
+GET BETTER AT YOUR SPORT
+• Pick a skill and your next game date for a day-by-day plan, or build a workout by muscle
+• 700+ exercises and drills with animated how-tos
+• Tests every 6–8 weeks: vertical jump filmed with your camera, 10 m and 30 m sprint, plank, push-ups and a test for your sport — see real improvement
 
-A DAILY CHECK-IN THAT ACTUALLY HELPS
-• Four taps each morning: sleep, soreness, energy, stress
-• Readiness is compared to your own normal — never someone else's
-• On a rough day your session is trimmed or swapped for mobility, and you can always override it
+CAMPUS: LEARN LIKE DUOLINGO
+• Short lessons on training, nutrition, sleep, injury prevention, psychology, tactics and more
+• Hearts, XP, streaks, badges and spaced review so it sticks
+• Leagues with your teammates
 
-700+ EXERCISES AND DRILLS
-• Animated how-tos with the muscles each one trains highlighted in red
-• Setup, execution, coaching cues and common mistakes for every item
-• Filters by skill, equipment, surface and body area, plus a body-map picker
-• Everything is downloaded once and works offline
+MINDSET
+• A 2-minute evening reflection: one win, one lesson
+• Season goals turned into one focus point a week
+• Guided breathing and a game-day visualization
 
-A COACH THAT NOTICES
-• Weekly feedback on what you've trained and what you've skipped — "all arms lately, time for legs"
-• Personal bests, streaks, sleep and training-load trends
-• Exercise progress charts for every lift and drill you log
+TEAM & FAMILY
+• Coach mode: your team's readiness at a glance, and workouts you send appear on their Home screen
+• A private weekly summary link for parents — numbers only, never anything you wrote
 
-LOG ANYWHERE
-• One-tap logging with prefilled targets, big steppers and an automatic rest timer
-• Apple Watch app for logging sets with your phone in your bag
-• Home-screen widgets for today's session and your streak
-• Optional Apple Health: sleep pre-fills your check-in, finished sessions are saved as workouts
-
-FUEL, DON'T DIET
-• Simple plate-and-timing guidance for training days and game days, plus hydration
-• No calorie counting, no weight-loss goals, ever
+SAFETY FIRST
+• Head knock? Training pauses, and the return-to-play steps are explained — your doctor decides
+• A kind warning when constant tiredness meets heavy training
+• Fuel, don't diet: no calorie counting, no weight-loss goals
 
 PRIVATE BY DESIGN
-• Sign in with Apple only — no email, no password
-• No ads, no tracking, no third parties
-• Export your data or delete your account at any time, for free
+• Sign in with Apple only. No ads, no tracking, no third parties
+• Everything is backed up and comes back on a new phone
+• Log out any time, or delete your account for good
 
-STUDENT ATHLETE PRO
-The check-in, your weekly plan, logging and the Apple Watch app are free forever. Pro unlocks unlimited skill plans, the full season calendar and data export. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the period; manage them in your App Store account settings.
+ATHLETE OS PRO
+The check-in, weekly plan, logging, Campus and the Apple Watch app are free. Pro unlocks unlimited skill plans and muscle workouts, several sports and every progress chart. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the period; manage them in your App Store account settings.
 
-Sportvisor gives general training information for athletes 13 and up. It is not medical advice, never predicts injury, and never replaces your coach or athletic trainer.
+Athlete OS gives general training information for athletes 13 and up. It is not medical advice, never predicts injury, never clears anyone to return to play, and never replaces a coach, athletic trainer or doctor.
 
 Terms: https://api.lejacob.dev/fitness/terms
 Privacy: https://api.lejacob.dev/fitness/privacy`,
   reviewNotes: `WHAT THE APP IS
-Sportvisor is a training companion for high school and college athletes (13+). It builds a weekly training plan from the athlete's sport, position and season, rearranges it around their games, adjusts each day from a four-tap readiness check-in, and offers a "get better at a skill" menu. All plan logic runs on-device with deterministic algorithms; there is no AI/LLM, no ads and no third-party SDKs.
+Athlete OS is a training companion for high school and college athletes (13+). It builds workouts around the athlete's sport, season, practices, games and exams, adjusts each day from a morning check-in, and adds learning (Campus lessons) and mindset tools. All plan logic runs on-device with deterministic algorithms; there is no AI/LLM, no ads and no third-party SDKs.
 
 SIGN IN
-Sign in with Apple is the only login, so any Apple ID works — no demo account is needed. Pro: the core features reviewed below are free; see Subscriptions.
+Sign in with Apple is the only login, so any Apple ID works — no demo account is needed.
 
 HOW TO REVIEW IN FIVE MINUTES
-1. Enter any birth date 13+ years ago, sign in with Apple.
-2. Pick a sport (e.g. Soccer), a position, keep the default season dates, pick some equipment, answer the coach question.
-3. Today tab: complete the four-tap check-in, open today's session and tap Start to log a set, then Finish and rate effort.
-4. Improve tab: Skills → "Shooting power" → pick a game date → Build my plan. Or Muscles → pick "Legs".
-5. Plan tab: "Add a game" three days out and watch the week rearrange around it.
-6. Me tab: trends, settings, and Delete account.
+1. Enter any birth date 13+ years ago, sign in with Apple, pick a sport (e.g. Soccer) and a position.
+2. Home: do the morning check-in, set practice days, open today's workout and tap Start.
+3. Campus tab: play a lesson (Duolingo-style), then open the trophy (leagues) and medal (badges).
+4. Home → Your levels → Mindset: evening reflection, season goals, breathing.
+5. Me → Tests (jump test uses the camera), Team & family, Head knocks & concussion, Log out and Delete account.
 
-AGE (Guideline 1.3/5.1.1)
-A date-of-birth gate on first launch blocks anyone under 13 completely. We store only the Apple user identifier ("sub") and the birth date; no name, email, location or contacts are requested or collected.
+AGE (1.3 / 5.1.1)
+A date-of-birth gate blocks anyone under 13. We store the Apple user identifier ("sub") and birth date; no name, email, location or contacts.
 
 HEALTH DATA (5.1.3)
-With permission, the app reads sleep from Apple Health to pre-fill the check-in, and writes finished training sessions as workouts. Health data is used only to support the user's training inside the app. It is never used for advertising, never shared with third parties and never sold. The app works fully if permission is declined.
+With permission the app reads sleep and resting heart rate from Apple Health to pre-fill the check-in, and writes finished sessions as workouts. Health data is used only for the user's own training in the app — never for advertising, never shared or sold. Everything works if permission is declined.
+
+CAMERA
+Used only for the vertical jump test: the video stays on the device and is used to measure flight time.
+
+LEAGUES, TEAMS, PARENT LINK
+Leagues and coach teams are private groups joined only with a 6-character code. Other members see a 2–20 character nickname and numbers (weekly XP, or for a coach: readiness band and training minutes) — no messaging, no free text. The parent summary is a private, revocable link showing numbers only.
 
 NO MEDICAL CLAIMS (1.4.1)
-The app never predicts injury, diagnoses anything, or advises on return to play. Training-load feedback is phrased only as training load (e.g. "your load is up 40% on your four-week average"), never as injury risk. Fuelling guidance is general, never a calorie deficit for minors, and tells users to consult a doctor or dietitian for specific needs.
+The app never predicts injury or diagnoses. The concussion page explains the standard graduated return-to-sport steps (2023 international consensus, CDC HEADS UP) and pauses training; it states that a doctor must clear the athlete. The low-energy notice suggests eating enough and talking to a parent, coach or doctor. Fuelling guidance never includes a calorie deficit.
 
 SUBSCRIPTIONS
-Sportvisor Pro (monthly / yearly auto-renewable) unlocks unlimited skill plans, the season calendar and data export. The check-in, weekly plan, logging, Apple Watch app and account deletion are always free.
-
-SERVICES USED
-None. The only server is the developer's own backend (sign-in verification, backup sync, content downloads). No analytics, advertising or tracking SDKs.
+Athlete OS Pro (monthly / yearly auto-renewable). The check-in, weekly plan, logging, Campus, Apple Watch app, log out and account deletion are always free.
 
 ACCOUNT DELETION
-Me → Delete account permanently deletes the account and all server data, and clears the device.`,
+Me → Delete account deletes the account and all server data (and revokes Sign in with Apple), then clears the device.`,
 };
 
 let token;

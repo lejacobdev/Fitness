@@ -259,7 +259,7 @@ struct TeamBoardView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     ScreenTitle(team.name, subtitle: "Code \(team.code) — give it to your athletes to join.")
-                    #if os(iOS)
+                    #if os(iOS) && !APP_EXTENSION
                     ShareLink(item: "Join our team \"\(team.name)\" in Athlete OS: Me → My team → enter the code \(team.code).") {
                         Label("Send the code", systemImage: "square.and.arrow.up")
                     }
@@ -538,7 +538,7 @@ struct ParentSummaryView: View {
                                 #if os(iOS)
                                 .textSelection(.enabled)
                                 #endif
-                            #if os(iOS)
+                            #if os(iOS) && !APP_EXTENSION
                             ShareLink(item: link, message: Text("My training week in Athlete OS — this page updates every day.")) {
                                 Label("Send to a parent", systemImage: "square.and.arrow.up")
                             }

@@ -7,6 +7,9 @@ public enum DayStatus: String, CaseIterable, Codable, Sendable, Identifiable {
     /// A normal day: school or campus, practice, the plan as usual.
     case active
     case sick
+    /// A head knock / possible concussion: every workout pauses until the
+    /// athlete switches back after a doctor clears them.
+    case concussion
     case travel
     case holiday
 
@@ -16,6 +19,7 @@ public enum DayStatus: String, CaseIterable, Codable, Sendable, Identifiable {
         switch self {
         case .active: "Active at Campus"
         case .sick: "Sick / Rest"
+        case .concussion: "Head knock"
         case .travel: "Travel day"
         case .holiday: "Holiday"
         }
@@ -25,6 +29,7 @@ public enum DayStatus: String, CaseIterable, Codable, Sendable, Identifiable {
         switch self {
         case .active: "graduationcap.fill"
         case .sick: "bed.double.fill"
+        case .concussion: "bandage.fill"
         case .travel: "airplane"
         case .holiday: "sun.max.fill"
         }
@@ -35,6 +40,7 @@ public enum DayStatus: String, CaseIterable, Codable, Sendable, Identifiable {
         switch self {
         case .active: "Your plan as usual: workouts around practice and games."
         case .sick: "No training. Rest, drink, sleep. Workout reminders pause."
+        case .concussion: "Possible concussion: all workouts pause. Follow your doctor's step-by-step return to play."
         case .travel: "An optional 15-minute workout you can do anywhere, no equipment."
         case .holiday: "Your plan pauses. Optional light workouts, no reminders."
         }
