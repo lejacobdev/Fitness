@@ -31,6 +31,9 @@ struct HomeView: View {
     @State private var checkInAppeared = false
     @State private var routine: MindsetRoutine?
     @State private var lowEnergySnoozed = LowEnergyCheck.isSnoozed
+    @State private var layout = HomeLayout.load()
+    @State private var editingLayout = false
+    @State private var wiggle = false
     /// Bumped when a Mindset sheet closes, so the level redraws.
     @State private var mindsetRevision = 0
 
@@ -103,25 +106,13 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         topBar
                         if !introSeen { introCard }
-                        QuoteCard(quote: DailyQuotes.quote())
-                        checkInCard
-                        if !scheduleIsSet { scheduleCard }
-                        todayCard
-                        if status != .sick, status != .concussion {
-                            ForEach(CoachAssignments.today()) { assignment in coachCard(assignment) }
-                        }
-                        if gameToday != nil, status == .active { gameRoutinesCard }
-                        if showEveningReflection { eveningCard }
                         if let lowEnergy, !lowEnergySnoozed {
                             LowEnergyCard(warning: lowEnergy) {
                                 LowEnergyCheck.snoozeForAWeek()
                                 lowEnergySnoozed = true
                             }
                         }
-                        if let mobility { mobilityCard(mobility) }
-                        levels
-                        if showTestsCard { testsCard }
-                        upcoming
+                        widgetBoard
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
@@ -572,43 +563,266 @@ struct HomeView: View {
     }
 
     /// Four ways the athlete gets better: body, sport, knowledge and mindset.
-    private var levels: some View {
-        let learned = CampusProgress.learned(campusLearnedRaw)
-        let totalLessons = campusTopics.reduce(0) { $0 + $1.lessons.count }
-        _ = mindsetRevision
-        let mindset = MindsetStore.weekProgress()
-        let results = BenchmarkStore.results
-        let bodyGain = BenchmarkMath.headline(results, tests: BenchmarkCatalog.body)
-        let sportGain = athlete.activeSport.flatMap { BenchmarkMath.headline(results, tests: [BenchmarkCatalog.sportTest(for: $0.sportSlug)]) }
-        let planned = max(week?.sessions.count ?? 0, 1) + practiceDays.count
-        let skillPlans = athlete.skillBlocks.filter { $0.targetDate >= calendar.startOfDay(for: .now) }.count
-        return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Your levels", subtitle: "Four ways you get better. Tap one to work on it.")
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                Button { selectedTab = .plan } label: {
-                    WidgetTile(value: "\(loggedThisWeek) of \(planned)", label: "Body", progress: Double(loggedThisWeek) / Double(planned),
-                               color: AppTheme.accent, systemImage: "figure.strengthtraining.traditional", caption: bodyGain ?? "Workouts done this week")
-                }
-                .buttonStyle(.plain)
-                Button { selectedTab = .improve } label: {
-                    WidgetTile(value: skillPlans == 0 ? "Pick a skill" : "\(skillPlans) active", label: "Sport",
-                               progress: skillPlans == 0 ? 0 : 1, color: AppTheme.blue, systemImage: "sportscourt.fill",
-                               caption: sportGain ?? (skillPlans == 0 ? "A plan for one skill of your sport" : "Skill plans in progress"))
-                }
-                .buttonStyle(.plain)
-                Button { selectedTab = .campus } label: {
-                    WidgetTile(value: "\(learned.count) of \(totalLessons)", label: "Knowledge", progress: Double(learned.count) / Double(max(1, totalLessons)),
-                               color: AppTheme.green, systemImage: "graduationcap.fill", caption: "Campus lessons learned")
-                }
-                .buttonStyle(.plain)
-                Button { activeSheet = .mindset } label: {
-                    WidgetTile(value: "\(mindset.done) of \(mindset.target)", label: "Mindset", progress: Double(mindset.done) / Double(max(1, mindset.target)),
-                               color: AppTheme.purple, systemImage: "brain.head.profile", caption: "Reflections, goals, game-day routines this week")
-                }
-                .buttonStyle(.plain)
-            }
+    // MARK: - The widget board
+
+    /// Only widgets that matter right now (in edit mode: all of them).
+    private func isRelevant(_ widget: HomeWidget) -> Bool {
+        switch widget {
+        case .coach: status != .sick && status != .concussion && !CoachAssignments.today().isEmpty
+        case .gameDay: gameToday != nil && status == .active
+        case .reflection: showEveningReflection
+        case .mobility: mobility != nil
+        case .schedule: !scheduleIsSet
+        default: true
         }
     }
+
+    private var widgetBoard: some View {
+        let shown = layout.visible.filter { editingLayout || isRelevant($0) }
+        return VStack(spacing: 14) {
+            ForEach(Array(HomeLayout.rows(shown).enumerated()), id: \.offset) { _, row in
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(row) { widget in
+                        editableWidget(widget)
+                    }
+                    if row.count == 1, row[0].size == .small {
+                        Color.clear.frame(maxWidth: .infinity)
+                    }
+                }
+            }
+            layoutControls
+        }
+    }
+
+    @ViewBuilder
+    private func editableWidget(_ widget: HomeWidget) -> some View {
+        if editingLayout {
+            Group {
+                if isRelevant(widget) {
+                    widgetContent(widget).allowsHitTesting(false)
+                } else {
+                    placeholder(widget)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .overlay(alignment: .topLeading) {
+                Button {
+                    withAnimation { layout.hidden.insert(widget); layout.save() }
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.title)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, AppTheme.red)
+                        .background(Circle().fill(.white).padding(4))
+                }
+                .buttonStyle(.plain)
+                .offset(x: -8, y: -8)
+                .accessibilityLabel("Remove \(widget.title)")
+            }
+            .rotationEffect(.degrees(wiggle ? 0.8 : -0.8))
+            .animation(.easeInOut(duration: 0.14).repeatForever(autoreverses: true), value: wiggle)
+            #if os(iOS)
+            .draggable(widget.rawValue) {
+                Label(widget.title, systemImage: widget.systemImage)
+                    .font(.headline)
+                    .padding(12)
+                    .background(AppTheme.card, in: Capsule())
+            }
+            .dropDestination(for: String.self) { items, _ in
+                guard let raw = items.first, let dragged = HomeWidget(rawValue: raw) else { return false }
+                withAnimation { layout.move(dragged, to: widget); layout.save() }
+                return true
+            }
+            #endif
+        } else {
+            widgetContent(widget)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// A widget that isn't showing right now, while arranging.
+    private func placeholder(_ widget: HomeWidget) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(widget.title, systemImage: widget.systemImage)
+                .font(.headline)
+                .foregroundStyle(AppTheme.ink)
+            Text(widget.whenShown ?? "")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+            .strokeBorder(AppTheme.hairline, style: StrokeStyle(lineWidth: 2, dash: [6, 5])))
+    }
+
+    @ViewBuilder
+    private var layoutControls: some View {
+        if editingLayout {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Hold and drag a widget to move it. Tap – to remove it.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+                let hidden = layout.order.filter { layout.hidden.contains($0) }
+                if !hidden.isEmpty {
+                    SectionHeader("Add widgets")
+                    ForEach(hidden) { widget in
+                        Button {
+                            withAnimation { layout.hidden.remove(widget); layout.save() }
+                        } label: {
+                            HStack(spacing: 14) {
+                                Image(systemName: widget.systemImage)
+                                    .font(.title3.weight(.semibold))
+                                    .foregroundStyle(AppTheme.ink)
+                                    .frame(width: 44, height: 44)
+                                    .background(AppTheme.fill, in: Circle())
+                                Text(widget.title)
+                                    .font(.headline)
+                                    .foregroundStyle(AppTheme.ink)
+                                Spacer()
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(AppTheme.green)
+                            }
+                            .cardStyle(padding: 12)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                Button("Back to the standard layout") {
+                    withAnimation { layout = .standard; layout.save() }
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+                Button {
+                    editingLayout = false
+                    wiggle = false
+                } label: { Label("Done", systemImage: "checkmark") }
+                    .buttonStyle(.primary)
+            }
+            .padding(.top, 8)
+        } else {
+            Button {
+                editingLayout = true
+                wiggle = true
+            } label: {
+                Label("Edit Home", systemImage: "square.grid.2x2")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.ink)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(AppTheme.fill, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 8)
+        }
+    }
+
+    @ViewBuilder
+    private func widgetContent(_ widget: HomeWidget) -> some View {
+        switch widget {
+        case .quote:
+            QuoteCard(quote: DailyQuotes.quote())
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .cardStyle(padding: 20)
+        case .checkIn: checkInCard
+        case .today: todayCard
+        case .coach:
+            VStack(spacing: 14) {
+                ForEach(CoachAssignments.today()) { assignment in coachCard(assignment) }
+            }
+        case .gameDay: gameRoutinesCard
+        case .reflection: eveningCard
+        case .mobility:
+            if let mobility { mobilityCard(mobility) }
+        case .schedule: scheduleCard
+        case .body, .sport, .knowledge, .mindset, .nextGame, .food, .streak, .tests:
+            smallWidget(widget)
+        }
+    }
+
+    /// The square widgets: one number, what it means, one tap to act on it.
+    @ViewBuilder
+    private func smallWidget(_ widget: HomeWidget) -> some View {
+        switch widget {
+        case .body:
+            let planned = max(week?.sessions.count ?? 0, 1) + practiceDays.count
+            let gain = BenchmarkMath.headline(BenchmarkStore.results, tests: BenchmarkCatalog.body)
+            Button { selectedTab = .plan } label: {
+                WidgetTile(value: "\(loggedThisWeek) of \(planned)", label: "Body", progress: Double(loggedThisWeek) / Double(planned),
+                           color: AppTheme.accent, systemImage: "figure.strengthtraining.traditional", caption: gain ?? "Workouts done this week")
+            }
+            .buttonStyle(.plain)
+        case .sport:
+            let skillPlans = athlete.skillBlocks.filter { $0.targetDate >= calendar.startOfDay(for: .now) }.count
+            let gain = athlete.activeSport.flatMap { BenchmarkMath.headline(BenchmarkStore.results, tests: [BenchmarkCatalog.sportTest(for: $0.sportSlug)]) }
+            Button { selectedTab = .improve } label: {
+                WidgetTile(value: skillPlans == 0 ? "Pick a skill" : "\(skillPlans) active", label: "Sport",
+                           progress: skillPlans == 0 ? 0 : 1, color: AppTheme.brand, systemImage: "sportscourt.fill",
+                           caption: gain ?? (skillPlans == 0 ? "A plan for one skill of your sport" : "Skill plans in progress"))
+            }
+            .buttonStyle(.plain)
+        case .knowledge:
+            let learned = CampusProgress.learned(campusLearnedRaw)
+            let total = campusTopics.reduce(0) { $0 + $1.lessons.count }
+            Button { selectedTab = .campus } label: {
+                WidgetTile(value: "\(learned.count) of \(total)", label: "Knowledge", progress: Double(learned.count) / Double(max(1, total)),
+                           color: AppTheme.green, systemImage: "graduationcap.fill", caption: "Campus lessons learned")
+            }
+            .buttonStyle(.plain)
+        case .mindset:
+            let progress = mindsetProgress
+            Button { activeSheet = .mindset } label: {
+                WidgetTile(value: "\(progress.done) of \(progress.target)", label: "Mindset", progress: Double(progress.done) / Double(max(1, progress.target)),
+                           color: AppTheme.purple, systemImage: "brain.head.profile", caption: "Reflections, goals, game-day routines")
+            }
+            .buttonStyle(.plain)
+        case .nextGame:
+            let nextGame = AthleteStats.upcomingCompetitions(athlete).first
+            let days = nextGame.map { AthleteStats.daysUntil($0.date) }
+            Button { if nextGame == nil { activeSheet = .addGame } else { selectedTab = .plan } } label: {
+                WidgetTile(value: days.map { $0 == 0 ? "Today" : ($0 == 1 ? "Tomorrow" : "In \($0) days") } ?? "None yet",
+                           label: "Next game", progress: days.map { max(0.05, 1 - Double($0) / 14) } ?? 0,
+                           color: AppTheme.brand, systemImage: "sportscourt.fill",
+                           caption: nextGame.map { nextGameCaption($0) } ?? "Tap to add one — training eases off before it")
+            }
+            .buttonStyle(.plain)
+        case .food:
+            Button { activeSheet = .fuel } label: {
+                WidgetTile(value: gameToday != nil ? "Game day" : (todaysWorkout != nil ? "Training day" : "Rest day"),
+                           label: "Food & water", progress: 0.5, color: AppTheme.green, systemImage: "fork.knife",
+                           caption: "What to eat and drink today")
+            }
+            .buttonStyle(.plain)
+        case .streak:
+            Button { activeSheet = .history } label: {
+                WidgetTile(value: "\(streak) \(streak == 1 ? "day" : "days")", label: "Streak", progress: min(1, Double(streak) / 7),
+                           color: AppTheme.orange, systemImage: "flame.fill", caption: "Days in a row you checked in or trained")
+            }
+            .buttonStyle(.plain)
+        default:
+            let value: String = {
+                switch testStatus {
+                case .firstTime: return "First tests"
+                case .notYet(let days): return "In \(days) days"
+                case .due: return "Test week"
+                case .overdue: return "Overdue"
+                }
+            }()
+            let headline = BenchmarkMath.headline(BenchmarkStore.results, tests: BenchmarkCatalog.tests(for: athlete.activeSport?.sportSlug))
+            Button { activeSheet = .tests } label: {
+                WidgetTile(value: value, label: "Tests", progress: showTestsCard ? 1 : 0.3, color: AppTheme.coral,
+                           systemImage: "stopwatch.fill", caption: headline ?? "Jump, sprint, strength — every 6–8 weeks")
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var mindsetProgress: (done: Int, target: Int) {
+        _ = mindsetRevision
+        return MindsetStore.weekProgress()
+    }
+
 
     /// Constant fatigue while training hard (see Safety.swift).
     private var lowEnergy: LowEnergyWarning? {
@@ -766,29 +980,6 @@ struct HomeView: View {
         let hasTime = calendar.component(.hour, from: game.date) != 0 || calendar.component(.minute, from: game.date) != 0
         let when = hasTime ? game.date.formatted(.dateTime.weekday(.abbreviated).hour().minute()) : game.date.formatted(.dateTime.weekday(.abbreviated).month().day())
         return "\(game.isHome ? "Home" : "Away") · \(when)"
-    }
-
-    private var upcoming: some View {
-        let nextGame = AthleteStats.upcomingCompetitions(athlete).first
-        let daysToGame = nextGame.map { AthleteStats.daysUntil($0.date) }
-        return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Coming up")
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                Button { if nextGame == nil { activeSheet = .addGame } else { selectedTab = .plan } } label: {
-                    WidgetTile(value: daysToGame.map { $0 == 0 ? "Today" : ($0 == 1 ? "Tomorrow" : "In \($0) days") } ?? "None yet",
-                               label: "Next game", progress: daysToGame.map { max(0.05, 1 - Double($0) / 14) } ?? 0,
-                               color: AppTheme.brand, systemImage: "sportscourt.fill",
-                               caption: nextGame.map { nextGameCaption($0) } ?? "Tap to add one — training eases off before it")
-                }
-                .buttonStyle(.plain)
-                Button { activeSheet = .fuel } label: {
-                    WidgetTile(value: gameToday != nil ? "Game day" : (todaysWorkout != nil ? "Training day" : "Rest day"),
-                               label: "Food & water", progress: 0.5, color: AppTheme.green, systemImage: "fork.knife",
-                               caption: "What to eat and drink today")
-                }
-                .buttonStyle(.plain)
-            }
-        }
     }
 }
 
