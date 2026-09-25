@@ -331,11 +331,11 @@ struct ProgressTabView: View {
         let items: [(Color, String)] = [(ProgressColors.workout, "Workout"), (ProgressColors.practice, "Team practice"),
                                           (ProgressColors.afterPractice, "After practice"), (ProgressColors.mobility, "Mobility")]
         return VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 12) {
+            LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)], spacing: 6) {
                 ForEach(items, id: \.1) { item in
-                    HStack(spacing: 4) {
-                        Circle().fill(item.0).frame(width: 9, height: 9)
-                        Text(item.1).font(.caption2.weight(.semibold)).foregroundStyle(AppTheme.secondaryText).lineLimit(1)
+                    HStack(spacing: 6) {
+                        Circle().fill(item.0).frame(width: 10, height: 10)
+                        Text(item.1).font(.caption.weight(.semibold)).foregroundStyle(AppTheme.secondaryText).lineLimit(1)
                     }
                 }
             }

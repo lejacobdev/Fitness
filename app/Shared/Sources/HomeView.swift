@@ -117,14 +117,9 @@ struct HomeView: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
-                    .padding(.bottom, 110)
+                    .padding(.bottom, 30)
                 }
                 .scrollIndicators(.hidden)
-
-                FloatingActionButton(accessibilityLabel: "Add: log a workout, check in, add a game, food or past workouts") {
-                    activeSheet = .quickActions
-                }
-                .padding(20)
             }
             .appScreen()
             .toolbar(.hidden, for: .navigationBar)
@@ -245,6 +240,17 @@ struct HomeView: View {
                 .background(AppTheme.card, in: Capsule())
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(streak) day streak: days in a row you checked in or trained")
+                // Add: log a workout, check in, add a game, food — in the top
+                // bar so it never covers a widget.
+                Button { activeSheet = .quickActions } label: {
+                    Image(systemName: "plus")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(AppTheme.onAccent)
+                        .frame(width: 44, height: 44)
+                        .background(AppTheme.accent, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add: log a workout, check in, add a game, food or past workouts")
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text("\(greeting), \(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))")
