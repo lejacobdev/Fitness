@@ -5,8 +5,8 @@ import UIKit
 
 /// Athlete OS's visual language: minimal, and big — made to be read and
 /// tapped quickly between sets. White (light) or near-black (dark) canvas,
-/// soft cards, cobalt blue for every action and selection, cyan as the
-/// second accent in rings and highlights, slate gray for secondary text.
+/// soft cards, red for every action and selection, coral as the second
+/// accent in rings and highlights, slate gray for secondary text.
 /// Follows the system appearance; watchOS always gets the dark palette.
 public enum AppTheme {
     public static let background = Color.dynamic(light: 0xFFFFFF, dark: 0x0B0F14)
@@ -16,7 +16,7 @@ public enum AppTheme {
     /// Primary text.
     public static let ink = Color.dynamic(light: 0x0B0F14, dark: 0xF8FAFC)
     /// Every action and selection: buttons, selected chips, the "+".
-    public static let accent = Color(hex: "#2563EB")
+    public static let accent = Color(hex: "#E5383B")
     /// Text and glyphs drawn on `accent`.
     public static let onAccent = Color.white
     /// Secondary text — the brand's slate gray (#94A3B8), one shade deeper on
@@ -25,8 +25,9 @@ public enum AppTheme {
     public static let hairline = Color.dynamic(light: 0xE2E8F0, dark: 0x1F2733)
 
     // Ring and highlight colours.
-    public static let brand = Color(hex: "#2563EB")
-    public static let cyan = Color(hex: "#06B6D4")
+    public static let brand = Color(hex: "#E5383B")
+    /// The second accent (rings, highlights): a lighter coral red.
+    public static let coral = Color(hex: "#FF6B6B")
     public static let orange = Color(hex: "#FF8A3D")
     public static let blue = Color(hex: "#2563EB")
     public static let purple = Color(hex: "#7C5CF2")
@@ -114,7 +115,7 @@ public extension View {
 
 // MARK: - Buttons
 
-/// The primary action: a full-width cobalt capsule, big and bold.
+/// The primary action: a full-width red capsule, big and bold.
 public struct PrimaryButtonStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
@@ -159,7 +160,7 @@ public extension ButtonStyle where Self == SecondaryButtonStyle {
     static var secondary: SecondaryButtonStyle { SecondaryButtonStyle() }
 }
 
-/// The floating cobalt "+" (or a labelled capsule).
+/// The floating red "+" (or a labelled capsule).
 public struct FloatingActionButton: View {
     let systemImage: String
     let title: String?
@@ -472,7 +473,7 @@ public struct WeekStripLegend: View {
 
 // MARK: - Choices
 
-/// A big rounded choice row: cobalt when selected, soft gray when not.
+/// A big rounded choice row: red when selected, soft gray when not.
 public struct OptionRow: View {
     let title: String
     let subtitle: String?
