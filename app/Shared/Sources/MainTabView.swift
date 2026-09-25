@@ -123,6 +123,10 @@ public struct MainTabView: View {
         if reached {
             await CloudSync.restoreRows(athlete: athlete, context: modelContext, apiClient: apiClient, full: false)
         }
+        // Team and school calendars: new games, moved or cancelled practices, exams.
+        if !athlete.isDeleted, scenePhase != .background {
+            await CalendarSync.refresh(athlete: athlete, context: modelContext)
+        }
         if !athlete.isDeleted, scenePhase != .background { regenerate() }
     }
 
@@ -189,33 +193,52 @@ enum WeeklyPlan {
         // Free tapers for the next game; Pro for every game in the week.
         let competitions = ProGate.competitionsForTaper(athlete.competitions.map(\.date), isPro: ProAccess.isPro)
         let tapered = TaperApplier.apply(to: generated, competitions: competitions, contactLevel: sportInfo.contactLevel)
-        return alignToSchedule(tapered, practiceWeekdays: PracticeSchedule.weekdays, gameDays: athlete.competitions.map(\.date))
+        // A practice cancelled today or later pulls a gym day onto that day.
+        let startOfToday = calendar.startOfDay(for: .now)
+        let cancelled = calendar.dateInterval(of: .weekOfYear, for: weekStart).map {
+            ScheduleStore.imported.cancelledPracticeDays(in: $0, calendar: calendar).filter { $0 >= startOfToday }
+        } ?? []
+        let aligned = alignToSchedule(tapered, isPracticeDay: { PracticeSchedule.hasPractice(on: $0, calendar: calendar) },
+                                      preferredDays: cancelled, gameDays: athlete.competitions.map(\.date), calendar: calendar)
+        // Exam weeks: fewer, shorter sessions.
+        guard let aligned, ScheduleStore.isExamWeek(weekStart, calendar: calendar) else { return aligned }
+        return ExamWeek.lighten(aligned)
     }
 
     /// Gym days go on days without team practice (practice days get the short
     /// after-practice workout instead), spread across the week with a day
     /// between them where possible, and never on a game day.
     static func alignToSchedule(_ week: GeneratedWeek?, practiceWeekdays: Set<Int>, gameDays: [Date], calendar: Calendar = .current) -> GeneratedWeek? {
-        guard let week, !practiceWeekdays.isEmpty, !week.sessions.isEmpty else { return week }
+        alignToSchedule(week, isPracticeDay: { practiceWeekdays.contains(calendar.component(.weekday, from: $0)) },
+                        preferredDays: [], gameDays: gameDays, calendar: calendar)
+    }
+
+    /// The same, for a schedule that changes week to week (a team calendar).
+    /// `preferredDays` — days a practice was cancelled — get a gym session
+    /// first: the gym day moves there.
+    static func alignToSchedule(_ week: GeneratedWeek?, isPracticeDay: (Date) -> Bool, preferredDays: [Date],
+                                gameDays: [Date], calendar: Calendar = .current) -> GeneratedWeek? {
+        guard let week, !week.sessions.isEmpty else { return week }
         let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: week.weekStart) }
+        let preferred = Set(preferredDays.map { calendar.startOfDay(for: $0) })
+        guard days.contains(where: isPracticeDay) || !preferred.isEmpty else { return week }
         let games = Set(gameDays.map { calendar.startOfDay(for: $0) })
-        let free = days.filter { !practiceWeekdays.contains(calendar.component(.weekday, from: $0)) && !games.contains(calendar.startOfDay(for: $0)) }
+        let free = days.filter { !isPracticeDay($0) && !games.contains(calendar.startOfDay(for: $0)) }
         guard !free.isEmpty else { return week }
-        // Pick as many free days as there are sessions, spaced evenly through the free days.
         let count = min(week.sessions.count, free.count)
-        let chosen = (0..<count).map { free[($0 * free.count) / count] }
-        let sessions = week.sessions.prefix(count).enumerated().map { index, session in
+        let first = Array(free.filter { preferred.contains(calendar.startOfDay(for: $0)) }.prefix(count))
+        let rest = free.filter { !preferred.contains(calendar.startOfDay(for: $0)) }
+        let remaining = min(count - first.count, rest.count)
+        // The rest spaced evenly through the remaining free days.
+        let spread = remaining > 0 ? (0..<remaining).map { rest[($0 * rest.count) / remaining] } : []
+        let chosen = (first + spread).sorted()
+        let sessions = week.sessions.prefix(chosen.count).enumerated().map { index, session in
             GeneratedSession(date: chosen[index], title: session.title, focusQualities: session.focusQualities,
                              estimatedMinutes: session.estimatedMinutes, items: session.items)
         }
         return GeneratedWeek(phase: week.phase, weekStart: week.weekStart, sessions: Array(sessions))
     }
-}
 
-/// Small, pure helpers over the athlete's own data that more than one tab
-/// shows.
-@MainActor
-enum AthleteStats {
     static func todaysCheckIn(_ athlete: Athlete) -> CheckIn? {
         athlete.checkIns.first { Calendar.current.isDateInToday($0.date) }
     }

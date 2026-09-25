@@ -16,6 +16,7 @@ struct PlanView: View {
     @State private var detailItem: CatalogueItem?
     @State private var gamePendingDelete: Competition?
     @State private var confirmingNewPlan = false
+    @State private var showingSchedule = false
     @AppStorage(PlanVariant.key) private var planVariant = 0
 
     private var calendar: Calendar { .current }
@@ -86,6 +87,7 @@ struct PlanView: View {
                         WeekStripLegend()
                     }
                     selectedDayDetail
+                    scheduleButton
                     weekOverview
                     SectionHeader("Your season", subtitle: "Your training changes as the season goes on.")
                     phaseCard
@@ -101,6 +103,9 @@ struct PlanView: View {
             .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
             .sheet(isPresented: $showingAddGame) {
                 AddGameSheet(athlete: athlete, onSaved: onPlanInputsChanged)
+            }
+            .sheet(isPresented: $showingSchedule) {
+                ScheduleSheet(athlete: athlete, onChanged: onPlanInputsChanged)
             }
             .sheet(item: $detailItem) { item in
                 NavigationStack { ItemDetailView(item: item) }
@@ -326,6 +331,33 @@ struct PlanView: View {
         .padding(.vertical, 8)
     }
 
+    /// Team calendar, practice days and exams: what the week is built around.
+    private var scheduleButton: some View {
+        Button { showingSchedule = true } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "calendar.badge.clock")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(AppTheme.brand)
+                    .frame(width: 48, height: 48)
+                    .background(AppTheme.brand.opacity(0.12), in: Circle())
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Your schedule")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.ink)
+                    Text(ScheduleStore.feeds.isEmpty ? "Connect your team calendar, set practice days and exams" : "Team calendar connected · practice days · exams")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            .cardStyle(padding: 14)
+        }
+        .buttonStyle(.plain)
+    }
+
     /// Delete this plan and get a different one, or go back to the first.
     private var planOptions: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -365,6 +397,8 @@ struct PlanView: View {
 
     private func deletePendingGame() {
         guard let game = gamePendingDelete else { return }
+        // A game from a connected calendar stays removed on the next update.
+        if CalendarSync.isImported(game) { ScheduleStore.hiddenGameIDs.insert(game.id) }
         modelContext.delete(game)
         try? modelContext.save()
         gamePendingDelete = nil

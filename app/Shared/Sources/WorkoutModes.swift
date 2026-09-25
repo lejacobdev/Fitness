@@ -16,11 +16,15 @@ public enum PracticeSchedule {
         }
     }
 
-    /// Whether the athlete has told us their practice days yet.
-    public static var isSet: Bool { UserDefaults.standard.bool(forKey: setKey) }
+    /// Whether the athlete has told us their practice days yet (or
+    /// connected a calendar that has them).
+    public static var isSet: Bool { UserDefaults.standard.bool(forKey: setKey) || !ScheduleStore.feeds.isEmpty }
 
+    /// A connected team calendar decides first (a cancelled practice is no
+    /// practice); weeks it says nothing about use the practice days.
     public static func hasPractice(on date: Date, calendar: Calendar = .current) -> Bool {
-        weekdays.contains(calendar.component(.weekday, from: date))
+        ScheduleStore.imported.practiceStatus(on: date, calendar: calendar)
+            ?? weekdays.contains(calendar.component(.weekday, from: date))
     }
 }
 

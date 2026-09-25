@@ -205,8 +205,12 @@ struct MeView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
+                // Exactly as wide as the screen, so nothing on it (a chart's
+                // axis labels, big text) can make the page drift sideways.
+                .containerRelativeFrame(.horizontal)
             }
             .scrollIndicators(.hidden)
+            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
             .appScreen()
             .toolbar(.hidden, for: .navigationBar)
             .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }

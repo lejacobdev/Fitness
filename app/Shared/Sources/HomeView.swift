@@ -39,7 +39,11 @@ struct HomeView: View {
     private var todaysCheckIn: CheckIn? { AthleteStats.todaysCheckIn(athlete) }
     private var sportInfo: SportInfo? { athlete.activeSport.flatMap { allSportsBySlug[$0.sportSlug] } }
     private var gameToday: Competition? { athlete.competitions.first { calendar.isDateInToday($0.date) } }
-    private var practiceToday: Bool { practiceDays.contains(calendar.component(.weekday, from: .now)) }
+    /// The team calendar decides when there is one (practice days otherwise).
+    /// `practiceDays` is read so a change there redraws this.
+    private var practiceToday: Bool { _ = practiceDays; return PracticeSchedule.hasPractice(on: .now) }
+    private var practicesToday: [ScheduleEvent] { ScheduleStore.imported.practices(on: .now) }
+    private var examWeek: Bool { _ = practiceDays; return ScheduleStore.isExamWeek(.now) }
     private var loggedToday: Bool { allSessions.contains { calendar.isDateInToday($0.startedAt) } }
 
     private var modeContext: WorkoutModeContext {
@@ -145,11 +149,9 @@ struct HomeView: View {
                         onPlanInputsChanged()
                     }
                 case .schedule:
-                    PracticeDaysSheet(selection: practiceDays) { days in
-                        PracticeSchedule.weekdays = days
-                        practiceDays = days
-                        scheduleIsSet = true
-                        activeSheet = nil
+                    ScheduleSheet(athlete: athlete) {
+                        practiceDays = PracticeSchedule.weekdays
+                        scheduleIsSet = PracticeSchedule.isSet
                         onPlanInputsChanged()
                     }
                 }
@@ -332,11 +334,11 @@ struct HomeView: View {
             Label("When do you have practice?", systemImage: "calendar.badge.clock")
                 .font(.title3.bold())
                 .foregroundStyle(AppTheme.ink)
-            Text("Tell us once. On practice days you get a short workout for after practice; on the other days, a full gym session.")
+            Text("Connect your team's calendar (TeamSnap, Google or Apple) or just pick your practice days. On practice days you get a short workout for after practice; on the other days, a full gym session.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
-            Button { activeSheet = .schedule } label: { Label("Set my practice days", systemImage: "calendar") }
+            Button { activeSheet = .schedule } label: { Label("Set up my schedule", systemImage: "calendar") }
                 .buttonStyle(.primary)
         }
         .cardStyle(padding: 20)
@@ -356,7 +358,7 @@ struct HomeView: View {
         } else if let game = gameToday, status == .active {
             infoCard(icon: "sportscourt.fill", color: AppTheme.brand,
                      title: game.kind == .tournament ? "Tournament day" : (game.kind == .meet ? "Meet day" : "Game day"),
-                     text: "No workout today — save your energy. Eat a proper meal about 3 hours before, a snack an hour before, warm up well, and play.")
+                     text: gameDayText(game))
         } else if let workout = todaysWorkout {
             workoutCard(workout.mode, workout.session)
         } else {
@@ -364,6 +366,27 @@ struct HomeView: View {
                      text: "No workout today. Rest is when your body gets stronger from training — sleep well tonight.",
                      action: ("Log a workout anyway", { liveLaunch = LiveSessionLaunch(planned: nil) }))
         }
+    }
+
+    private func gameDayText(_ game: Competition) -> String {
+        let hasTime = calendar.component(.hour, from: game.date) != 0 || calendar.component(.minute, from: game.date) != 0
+        let start = hasTime ? "Starts at \(game.date.formatted(date: .omitted, time: .shortened)). " : ""
+        let away = game.isHome ? "" : " It's an away game: pack water, snacks and all your kit, and eat before the trip."
+        return start + "No workout today — save your energy. Eat a proper meal about 3 hours before, a snack an hour before, warm up well, and play." + away
+    }
+
+    /// Today's practice from the team calendar, or why today is a gym day.
+    private var practiceLine: (text: String, icon: String)? {
+        let held = practicesToday.filter { !$0.cancelled }
+        if let practice = held.first {
+            let time = practice.allDay ? "" : " " + practice.start.formatted(date: .omitted, time: .shortened)
+                + (practice.end.map { " – " + $0.formatted(date: .omitted, time: .shortened) } ?? "")
+            return ("Practice today\(time)\(practice.location.map { " · \($0)" } ?? "")", "sportscourt.fill")
+        }
+        if practicesToday.contains(where: \.cancelled) {
+            return ("Practice is cancelled today — so today is a gym day.", "xmark.circle.fill")
+        }
+        return nil
     }
 
     private func workoutCard(_ mode: WorkoutMode, _ session: GeneratedSession) -> some View {
@@ -396,10 +419,20 @@ struct HomeView: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(AppTheme.accent)
             }
+            if let practiceLine, mode == .afterPractice || mode == .gymDay {
+                Label(practiceLine.text, systemImage: practiceLine.icon)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+            }
+            if examWeek, mode == .gymDay || mode == .afterPractice {
+                Label("Exam week: shorter workouts, so you have time to study and sleep.", systemImage: "book.closed.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.purple)
+            }
             thumbnails(session)
             if mode == .afterPractice || mode == .gymDay {
                 Button { activeSheet = .schedule } label: {
-                    Label("Practice days: \(practiceDayNames)", systemImage: "calendar")
+                    Label(ScheduleStore.feeds.isEmpty ? "Practice days: \(practiceDayNames)" : "Your schedule", systemImage: "calendar")
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(AppTheme.secondaryText)
                 }
@@ -539,6 +572,12 @@ struct HomeView: View {
 
     // MARK: - Coming up
 
+    private func nextGameCaption(_ game: Competition) -> String {
+        let hasTime = calendar.component(.hour, from: game.date) != 0 || calendar.component(.minute, from: game.date) != 0
+        let when = hasTime ? game.date.formatted(.dateTime.weekday(.abbreviated).hour().minute()) : game.date.formatted(.dateTime.weekday(.abbreviated).month().day())
+        return "\(game.isHome ? "Home" : "Away") · \(when)"
+    }
+
     private var upcoming: some View {
         let nextGame = AthleteStats.upcomingCompetitions(athlete).first
         let daysToGame = nextGame.map { AthleteStats.daysUntil($0.date) }
@@ -549,7 +588,7 @@ struct HomeView: View {
                     WidgetTile(value: daysToGame.map { $0 == 0 ? "Today" : ($0 == 1 ? "Tomorrow" : "In \($0) days") } ?? "None yet",
                                label: "Next game", progress: daysToGame.map { max(0.05, 1 - Double($0) / 14) } ?? 0,
                                color: AppTheme.brand, systemImage: "sportscourt.fill",
-                               caption: nextGame == nil ? "Tap to add one — training eases off before it" : "Training eases off before it")
+                               caption: nextGame.map { nextGameCaption($0) } ?? "Tap to add one — training eases off before it")
                 }
                 .buttonStyle(.plain)
                 Button { activeSheet = .fuel } label: {
