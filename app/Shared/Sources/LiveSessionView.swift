@@ -46,6 +46,9 @@ public struct LiveSessionView: View {
     @State private var startedAt = Date.now
     /// Why today's target differs from last time (progressive overload).
     @State private var targetNote: String?
+    /// "New best: 45 kg" after a set heavier than ever before.
+    @State private var bestNote: String?
+    @State private var bestCount = 0
     @AppStorage(WeightUnit.storageKey) private var unitRaw = WeightUnit.current.rawValue
 
     private var unit: WeightUnit { WeightUnit(rawValue: unitRaw) ?? .kg }
@@ -205,6 +208,12 @@ public struct LiveSessionView: View {
                 Tag("Goal: \(DoseFormatter.text(current.dose))", color: AppTheme.ink)
                 Tag(done >= current.dose.sets ? "All sets done" : "Set \(min(done + 1, current.dose.sets)) of \(current.dose.sets)",
                     color: done >= current.dose.sets ? AppTheme.green : AppTheme.orange)
+            }
+            if let bestNote {
+                Label(bestNote, systemImage: "trophy.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.amber)
+                    .sensoryFeedback(.success, trigger: bestCount)
             }
             if let targetNote, done == 0 {
                 Label(targetNote, systemImage: "arrow.up.right")
@@ -488,6 +497,15 @@ public struct LiveSessionView: View {
     private func logSet(_ current: GeneratedPlannedItem) {
         guard let session else { return }
         let kind = current.dose.kind
+        if kind == "reps", weightKg > 0 {
+            let slug = current.itemSlug
+            let descriptor = FetchDescriptor<SetLog>(predicate: #Predicate { $0.itemSlug == slug })
+            let heaviest = ((try? modelContext.fetch(descriptor)) ?? []).compactMap(\.weightKg).max()
+            if let heaviest, weightKg > heaviest + 0.01 {
+                bestNote = "New best on \(currentItem?.name ?? displayName(forSlug: slug)): \(unit.format(kg: weightKg))"
+                bestCount += 1
+            }
+        }
         let setIndex = setsLogged[current.itemSlug, default: 0]
         _ = try? SessionLogger(modelContext: modelContext).logSet(
             session: session, itemSlug: current.itemSlug, setIndex: setIndex,

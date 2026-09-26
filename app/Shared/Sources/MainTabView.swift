@@ -121,11 +121,13 @@ public struct MainTabView: View {
             if phase == .background || phase == .active {
                 Task { await backUp() }
             }
+            if phase == .active { StreakFreeze.protectTodayIfResting() }
             if phase == .active, !DemoData.isEnabled {
                 Task { await refreshAnimations() }
             }
         }
         .task {
+            StreakFreeze.protectTodayIfResting()
             workoutContext = WorkoutContext(athlete: athlete, apiClient: apiClient)
             #if os(iOS) && !APP_EXTENSION
             ProStore.shared.start(athlete: athlete)
@@ -387,16 +389,22 @@ enum AthleteStats {
     /// Consecutive days, ending today (or yesterday, so the streak doesn't
     /// read zero before the morning check-in), with a check-in or a logged
     /// session — the daily-habit number Cal AI shows as its flame.
-    static func streak(checkInDates: [Date], sessionDates: [Date], now: Date = .now) -> Int {
-        let calendar = Calendar.current
+    /// Days in a row with a check-in or a workout. Sick, travel and holiday
+    /// days (StreakFreeze) are skipped: they neither count nor break it.
+    static func streak(checkInDates: [Date], sessionDates: [Date], frozen: Set<String> = StreakFreeze.days(),
+                       now: Date = .now, calendar: Calendar = .current) -> Int {
         let active = Set((checkInDates + sessionDates).map { calendar.startOfDay(for: $0) })
         var day = calendar.startOfDay(for: now)
         if !active.contains(day) {
             day = calendar.date(byAdding: .day, value: -1, to: day) ?? day
         }
         var count = 0
-        while active.contains(day) {
-            count += 1
+        for _ in 0..<3650 {
+            if active.contains(day) {
+                count += 1
+            } else if !frozen.contains(DayKey.of(day, calendar: calendar)) {
+                break
+            }
             guard let previous = calendar.date(byAdding: .day, value: -1, to: day) else { break }
             day = previous
         }

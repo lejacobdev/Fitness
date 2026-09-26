@@ -31,6 +31,19 @@ public enum BenchmarkUnit: String, Codable, Sendable {
         }
     }
 
+    /// One step when setting a goal.
+    public var goalStep: Double {
+        switch self {
+        case .centimeters, .reps, .outOf10: 1
+        case .seconds: 0.05
+        }
+    }
+
+    /// A goal step that suits the size of the number (whole seconds for runs).
+    public func goalStep(near value: Double) -> Double {
+        self == .seconds && value >= 100 ? 1 : goalStep
+    }
+
     private static func minutes(_ seconds: Double) -> String {
         let s = Int(seconds.rounded())
         return String(format: "%d:%02d", s / 60, s % 60)
@@ -302,6 +315,90 @@ public enum BenchmarkMath {
             }
         }
         return bestLine?.0
+    }
+}
+
+// MARK: - Personal bests and goals
+
+public extension BenchmarkMath {
+    /// A new personal best: better than every earlier result (a first result
+    /// is a starting point, not a record).
+    static func isPersonalBest(_ value: Double, test: BenchmarkTest, before results: [BenchmarkResult]) -> Bool {
+        guard let best = best(results, test: test) else { return false }
+        return test.higherIsBetter ? value > best.value : value < best.value
+    }
+
+    /// Every test's results as the change since its first result, in
+    /// percent, with better always up — so jump, sprint and strength fit on
+    /// one season chart.
+    static func seasonSeries(_ results: [BenchmarkResult], tests: [BenchmarkTest]) -> [SeasonPoint] {
+        tests.flatMap { test -> [SeasonPoint] in
+            let mine = results.filter { $0.testID == test.id }.sorted { $0.date < $1.date }
+            guard mine.count >= 2, let first = mine.first, first.value != 0 else { return [] }
+            return mine.map { result in
+                let change = (result.value - first.value) / first.value * 100
+                return SeasonPoint(test: test.name, date: result.date, percent: test.higherIsBetter ? change : -change)
+            }
+        }
+    }
+}
+
+/// One point on the season chart.
+public struct SeasonPoint: Identifiable, Sendable, Equatable {
+    public let test: String
+    public let date: Date
+    public let percent: Double
+    public var id: String { "\(test)-\(date.timeIntervalSince1970)" }
+}
+
+/// A measurable goal for one test ("vertical jump 55 cm by March").
+public struct BenchmarkGoal: Codable, Sendable, Equatable {
+    public var testID: String
+    public var target: Double
+    public var by: Date
+    /// The best result when the goal was set, so progress has a start.
+    public var start: Double?
+
+    public init(testID: String, target: Double, by: Date, start: Double?) {
+        self.testID = testID
+        self.target = target
+        self.by = by
+        self.start = start
+    }
+
+    /// How far along: 0…1, and what's left (always positive, in the test's unit).
+    public func progress(best: Double?, higherIsBetter: Bool) -> (fraction: Double, toGo: Double, reached: Bool) {
+        guard let best else { return (0, abs(target - (start ?? target)), false) }
+        let reached = higherIsBetter ? best >= target : best <= target
+        let from = start ?? best
+        let span = abs(target - from)
+        let done = higherIsBetter ? best - from : from - best
+        let fraction = reached ? 1 : (span == 0 ? 0 : min(1, max(0, done / span)))
+        return (fraction, reached ? 0 : abs(target - best), reached)
+    }
+}
+
+public enum BenchmarkGoals {
+    static let key = "benchmark.goals"
+
+    public static var all: [BenchmarkGoal] {
+        get { UserDefaults.standard.data(forKey: key).flatMap { try? JSONDecoder().decode([BenchmarkGoal].self, from: $0) } ?? [] }
+        set { UserDefaults.standard.set(try? JSONEncoder().encode(newValue), forKey: key) }
+    }
+
+    public static func goal(for testID: String) -> BenchmarkGoal? { all.first { $0.testID == testID } }
+
+    public static func set(_ goal: BenchmarkGoal?, for testID: String) {
+        var goals = all.filter { $0.testID != testID }
+        if let goal { goals.append(goal) }
+        all = goals
+    }
+
+    /// A sensible first target: about 5% better than the best so far.
+    public static func suggestedTarget(best: Double, test: BenchmarkTest) -> Double {
+        let raw = test.higherIsBetter ? best * 1.05 : best * 0.95
+        let step = test.unit.goalStep(near: best)
+        return (raw / step).rounded() * step
     }
 }
 

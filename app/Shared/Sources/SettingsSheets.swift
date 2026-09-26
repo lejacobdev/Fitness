@@ -49,6 +49,18 @@ struct RemindersSheet: View {
                         }
                         .tint(AppTheme.green)
                         .padding(.vertical, 8)
+                        Divider().overlay(AppTheme.hairline)
+                        Toggle(isOn: $settings.bedtimeEnabled) {
+                            row("Bedtime", "Silent, 30 min before a 9-hour night", "bed.double.fill", AppTheme.purple)
+                        }
+                        .tint(AppTheme.green)
+                        .padding(.vertical, 8)
+                        Divider().overlay(AppTheme.hairline)
+                        Toggle(isOn: $settings.smartTiming) {
+                            row("Smart timing", "Later check-in at weekends, reflection after practice", "wand.and.stars", AppTheme.ink)
+                        }
+                        .tint(AppTheme.green)
+                        .padding(.vertical, 8)
                     }
                     .cardStyle(padding: 16)
 

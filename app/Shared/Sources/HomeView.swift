@@ -107,6 +107,53 @@ struct HomeView: View {
         isTrainingDay ? WorkoutModeBuilder.build(.mobility, modeContext) : nil
     }
 
+    /// Sundays: the week in review (what you did, one highlight, next week's focus).
+    private var weeklyReview: WeeklyReview? {
+        guard calendar.component(.weekday, from: .now) == 1 else { return nil }
+        let weekAgo = calendar.date(byAdding: .day, value: -7, to: .now) ?? .now
+        let results = BenchmarkStore.results
+        let newBests = BenchmarkCatalog.tests(for: athlete.activeSport?.sportSlug).compactMap { test -> String? in
+            guard let latest = results.filter({ $0.testID == test.id && $0.date > weekAgo }).last,
+                  BenchmarkMath.isPersonalBest(latest.value, test: test, before: results.filter { $0.testID == test.id && $0.date < latest.date })
+            else { return nil }
+            return "\(test.name) \(test.unit.format(latest.value))"
+        }
+        let nextWeekEnd = calendar.date(byAdding: .day, value: 8, to: calendar.startOfDay(for: .now)) ?? .now
+        let games = athlete.competitions.filter { $0.date > .now && $0.date < nextWeekEnd }.count
+        let nextMonday = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: .now)) ?? .now
+        let phase = athlete.activeSport.map { PhaseCalculator.phase(today: nextMonday, seasonStart: $0.seasonStart, seasonEnd: $0.seasonEnd) }
+        let nextWeekStart = calendar.dateInterval(of: .weekOfYear, for: nextMonday)?.start ?? nextMonday
+        let goal = BenchmarkGoals.all.first.flatMap { goal -> String? in
+            guard let test = BenchmarkCatalog.tests(for: athlete.activeSport?.sportSlug).first(where: { $0.id == goal.testID }) else { return nil }
+            return "\(test.name) \(test.unit.format(goal.target))"
+        }
+        return WeeklyReview.make(WeeklyReview.Input(
+            sessionDates: allSessions.map(\.startedAt), sessionMinutes: allSessions.map(\.minutes),
+            checkInDates: athlete.checkIns.map(\.date),
+            lessonsThisWeek: CampusProgress.newLessonDates().filter { $0 > weekAgo }.count,
+            newBests: newBests, streak: streak, gamesNextWeek: games,
+            deloadNextWeek: phase.map { Deload.isDeloadWeek(weekStart: nextWeekStart, anchor: athlete.createdAt, phase: $0) } ?? false,
+            phase: phase, goal: goal
+        ), now: .now)
+    }
+
+    /// From 6 pm: tonight's bedtime for 9 hours before tomorrow's start, and
+    /// last week's sleep when it's been short.
+    private var bedtimeTonight: (minutes: Int, detail: String)? {
+        guard calendar.component(.hour, from: .now) >= 18, status != .sick else { return nil }
+        let settings = ReminderScheduler.settings
+        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: .now) else { return nil }
+        let early = Bedtime.firstSessionStart(on: tomorrow, games: athlete.competitions.map(\.date), calendar: calendar)
+        let wake = ReminderScheduler.nextWake(after: .now, settings: settings, calendar: calendar)
+        let minutes = Bedtime.suggested(wakeMinutes: wake, firstSessionTomorrow: early)
+        let week = athlete.checkIns.filter { $0.date > calendar.date(byAdding: .day, value: -7, to: .now) ?? .now }.compactMap(\.sleepHours)
+        let average = week.isEmpty ? nil : week.reduce(0, +) / Double(week.count)
+        if let average, average < 8 {
+            return (minutes, "You've averaged \(average.formatted(.number.precision(.fractionLength(1)))) h this week")
+        }
+        return (minutes, early != nil ? "Early start tomorrow: 9 h of sleep" : "9 h before tomorrow")
+    }
+
     private var streak: Int {
         AthleteStats.streak(checkInDates: athlete.checkIns.map(\.date), sessionDates: allSessions.map(\.startedAt))
     }
@@ -171,6 +218,7 @@ struct HomeView: View {
                     if !scheduleIsSet && status == .active { scheduleCard }
                     todaySection
                     if gameToday != nil && status == .active { gameRoutinesCard }
+                    if let weeklyReview { WeeklyReviewCard(review: weeklyReview) }
                     widgetsSection
                 }
                 .padding(.horizontal, 20)
@@ -518,6 +566,10 @@ struct HomeView: View {
                 ListRow(systemImage: "figure.flexibility", color: AppTheme.water, title: movementPrep.title,
                         detail: "\(movementPrep.estimatedMinutes) min")
             }.buttonStyle(.plain)))
+        }
+        if let bedtime = bedtimeTonight {
+            rows.append(AnyView(ListRow(systemImage: "bed.double.fill", color: AppTheme.purple,
+                                        title: "Bed by \(Bedtime.label(bedtime.minutes))", detail: bedtime.detail) { EmptyView() }))
         }
         if let next = nextLesson {
             rows.append(AnyView(Button { selectedTab = .campus } label: {
