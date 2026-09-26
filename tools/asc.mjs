@@ -486,6 +486,124 @@ const commands = {
    * What each subscription really costs in a few territories — the price
    * StoreKit shows there (customer price, local currency).
    */
+  /**
+   * Everything App Store Connect needs before "Add for Review", checked from
+   * the API: ✅ done, ❌ missing, ⚠️ worth a look, 👤 can't be read by an API
+   * key (the web UI only). Read-only.
+   */
+  async readiness(identifier) {
+    const app = await appFor(identifier);
+    const lines = [];
+    const ok = (label, detail = '') => lines.push(`✅ ${label}${detail ? ` — ${detail}` : ''}`);
+    const missing = (label, detail = '') => lines.push(`❌ ${label}${detail ? ` — ${detail}` : ''}`);
+    const warn = (label, detail = '') => lines.push(`⚠️  ${label}${detail ? ` — ${detail}` : ''}`);
+    const manual = (label, detail = '') => lines.push(`👤 ${label}${detail ? ` — ${detail}` : ''}`);
+    const safe = async (path) => { try { return await api(path); } catch (err) { return { error: err.message }; } };
+    const filled = (v) => typeof v === 'string' ? v.trim().length > 0 : v !== null && v !== undefined;
+
+    // The version being submitted.
+    const versions = await api(`/v1/apps/${app.id}/appStoreVersions?filter[platform]=IOS&limit=5`);
+    const version = versions.data.find((v) => ['PREPARE_FOR_SUBMISSION', 'DEVELOPER_REJECTED', 'REJECTED', 'METADATA_REJECTED'].includes(v.attributes.appStoreState)) ?? versions.data[0];
+    if (!version) { missing('App Store version'); console.log(lines.join('\n')); return; }
+    const va = version.attributes;
+    ok(`Version ${va.versionString}`, va.appStoreState);
+    filled(va.copyright) ? ok('Copyright', va.copyright) : missing('Copyright', 'e.g. "2026 <your name>"');
+
+    const build = await safe(`/v1/appStoreVersions/${version.id}/build`);
+    if (build.data) ok('Build selected', `build ${build.data.attributes.version}, ${build.data.attributes.processingState}`);
+    else missing('Build selected for this version');
+
+    const vLocs = await api(`/v1/appStoreVersions/${version.id}/appStoreVersionLocalizations`);
+    const vLoc = vLocs.data.find((l) => l.attributes.locale === 'en-US') ?? vLocs.data[0];
+    for (const [field, label, required] of [['description', 'Description', true], ['keywords', 'Keywords', true], ['supportUrl', 'Support URL', true], ['marketingUrl', 'Marketing URL', false], ['promotionalText', 'Promotional text', false]]) {
+      const v = vLoc?.attributes?.[field];
+      if (filled(v)) ok(label, String(v).length > 60 ? `${String(v).length} characters` : String(v));
+      else if (required) missing(label); else warn(`${label} (optional)`, 'empty');
+    }
+
+    // Screenshots per device family.
+    const sets = vLoc ? await api(`/v1/appStoreVersionLocalizations/${vLoc.id}/appScreenshotSets?limit=50`) : { data: [] };
+    const counts = {};
+    for (const set of sets.data) {
+      const shots = await api(`/v1/appScreenshotSets/${set.id}/appScreenshots?limit=20`);
+      counts[set.attributes.screenshotDisplayType] = shots.data.length;
+    }
+    const has = (re) => Object.entries(counts).filter(([k, n]) => re.test(k) && n > 0);
+    const family = (label, re) => { const f = has(re); f.length ? ok(`${label} screenshots`, f.map(([k, n]) => `${k} ×${n}`).join(', ')) : missing(`${label} screenshots`); };
+    family('iPhone', /IPHONE/);
+    family('iPad', /IPAD/);
+    family('Apple Watch', /WATCH/);
+
+    // App information.
+    const infos = await api(`/v1/apps/${app.id}/appInfos?include=primaryCategory`);
+    const info = infos.data.find((i) => i.attributes.appStoreState !== 'READY_FOR_SALE') ?? infos.data[0];
+    info?.relationships?.primaryCategory?.data ? ok('Primary category', info.relationships.primaryCategory.data.id) : missing('Primary category');
+    const iLocs = await api(`/v1/appInfos/${info.id}/appInfoLocalizations`);
+    const iLoc = iLocs.data.find((l) => l.attributes.locale === 'en-US') ?? iLocs.data[0];
+    filled(iLoc?.attributes?.name) ? ok('Name', iLoc.attributes.name) : missing('Name');
+    filled(iLoc?.attributes?.subtitle) ? ok('Subtitle', iLoc.attributes.subtitle) : warn('Subtitle (optional)', 'empty');
+    filled(iLoc?.attributes?.privacyPolicyUrl) ? ok('Privacy policy URL', iLoc.attributes.privacyPolicyUrl) : missing('Privacy policy URL');
+    const appRow = await api(`/v1/apps/${app.id}`);
+    filled(appRow.data.attributes.contentRightsDeclaration) ? ok('Content rights', appRow.data.attributes.contentRightsDeclaration) : missing('Content rights declaration');
+    const age = await safe(`/v1/appInfos/${info.id}/ageRatingDeclaration`);
+    if (age.data) {
+      const blanks = Object.entries(age.data.attributes).filter(([, v]) => v === null).map(([k]) => k);
+      blanks.length ? warn('Age rating questionnaire', `unanswered: ${blanks.join(', ')}`) : ok('Age rating questionnaire', info.attributes.appStoreAgeRating ?? 'answered');
+    } else missing('Age rating questionnaire');
+
+    // Price and availability of the app itself.
+    const schedule = await safe(`/v1/apps/${app.id}/appPriceSchedule?include=baseTerritory,manualPrices`);
+    schedule.data ? ok('App price', `set (base ${schedule.data.relationships?.baseTerritory?.data?.id ?? '?'})`) : missing('App price (Free)', 'Pricing and Availability → Price');
+    const avail = await safe(`/v1/apps/${app.id}/appAvailabilityV2`);
+    if (avail.data) ok('Availability', avail.data.attributes?.availableInNewTerritories ? 'set, new territories on' : 'set');
+    else {
+      const terr = await safe(`/v1/apps/${app.id}/availableTerritories?limit=200`);
+      terr.data?.length ? ok('Availability', `${terr.data.length} territories`) : missing('Availability (countries)');
+    }
+
+    // App Review information.
+    const review = await safe(`/v1/appStoreVersions/${version.id}/appStoreReviewDetail`);
+    const r = review.data?.attributes;
+    if (!r) missing('App Review information', 'contact, notes');
+    else {
+      const contact = ['contactFirstName', 'contactLastName', 'contactPhone', 'contactEmail'].filter((f) => !filled(r[f]));
+      contact.length ? missing('App Review contact', `missing ${contact.join(', ')}`) : ok('App Review contact', `${r.contactFirstName} ${r.contactLastName}, ${r.contactEmail}`);
+      filled(r.notes) ? ok('App Review notes', `${r.notes.length} characters`) : missing('App Review notes');
+      r.demoAccountRequired ? (filled(r.demoAccountName) ? ok('Demo account', r.demoAccountName) : missing('Demo account', 'required but empty')) : ok('Sign-in for review', 'no demo account needed (Sign in with Apple)');
+    }
+
+    // Subscriptions.
+    const groups = await api(`/v1/apps/${app.id}/subscriptionGroups?limit=10`);
+    for (const group of groups.data) {
+      const gLocs = await api(`/v1/subscriptionGroups/${group.id}/subscriptionGroupLocalizations?limit=10`);
+      const g = gLocs.data[0]?.attributes;
+      g ? ok('Subscription group display name', `"${g.name}"`) : missing('Subscription group localization');
+      const subs = await api(`/v1/subscriptionGroups/${group.id}/subscriptions?limit=10`);
+      for (const sub of subs.data) {
+        const a = sub.attributes;
+        const shot = await safe(`/v1/subscriptions/${sub.id}/appStoreReviewScreenshot`);
+        const locs = await api(`/v1/subscriptions/${sub.id}/subscriptionLocalizations?limit=10`);
+        const issues = [];
+        if (!shot.data) issues.push('no review screenshot');
+        if (!locs.data.length) issues.push('no name/description');
+        const label = `Subscription ${a.productId}`;
+        if (a.state === 'MISSING_METADATA' || issues.length) missing(label, `${a.state}${issues.length ? `; ${issues.join(', ')}` : ''}`);
+        else ok(label, `${a.state}${a.state === 'READY_TO_SUBMIT' ? ' — add it on the version page ("In-App Purchases and Subscriptions") so it is reviewed with the app' : ''}`);
+      }
+    }
+
+    // Anything already submitted?
+    const subsNow = await safe(`/v1/reviewSubmissions?filter[app]=${app.id}&filter[platform]=IOS&limit=5`);
+    const open = (subsNow.data ?? []).filter((x) => !['COMPLETE', 'CANCELING'].includes(x.attributes.state));
+    open.length ? warn('Review submissions', open.map((x) => x.attributes.state).join(', ')) : ok('Review submissions', 'none open yet');
+
+    // What the API can't see.
+    manual('App Privacy', 'publish the data-collection answers (App Privacy page) — no API');
+    manual('Agreements, Tax and Banking', 'Paid Apps agreement active, tax forms, bank account — required to sell subscriptions');
+    manual('EU Digital Services Act', 'trader status (Business → your account) — required to be on the EU App Store');
+    console.log(lines.join('\n'));
+  },
+
   async 'subscription-prices'(identifier, territories = 'USA,DEU,FRA,ITA,ESP,NLD,AUT,CHE,GBR,CAN,AUS') {
     const app = await appFor(identifier);
     const wanted = new Set(territories.split(','));

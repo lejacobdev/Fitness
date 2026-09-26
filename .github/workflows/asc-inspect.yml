@@ -55,6 +55,10 @@ jobs:
         continue-on-error: true
         run: node tools/asc.mjs builds '${{ inputs.bundle_id }}' 10
 
+      - name: Ready to submit for review?
+        continue-on-error: true
+        run: node tools/asc.mjs readiness '${{ inputs.bundle_id }}'
+
       - name: Recent uploads (with Apple's processing errors)
         continue-on-error: true
         run: node tools/asc.mjs uploads '${{ inputs.bundle_id }}' 10
