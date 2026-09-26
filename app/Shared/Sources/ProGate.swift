@@ -20,6 +20,20 @@ public enum ProFeature: String, CaseIterable, Sendable {
     case muscleWorkouts
     case exerciseProgress
     case shareWorkouts
+    /// Free: swap exercises and set the week. Pro: change everything.
+    case workoutEditor
+    /// Free: a couple of own workouts. Pro: as many as you like.
+    case myWorkouts
+    /// Free: a few new Campus lessons a day. Pro: no limit.
+    case unlimitedLessons
+    /// Free: easy practice logs. Pro: exact tracking and its insights.
+    case detailedTracking
+    case videoJumpTest
+    /// Free: one team or school calendar. Pro: all of them.
+    case moreCalendars
+    /// Coaches: send workouts to the whole team.
+    case coachWorkouts
+    case visualization
 
     /// Available to every athlete regardless of subscription.
     public var isFreeForever: Bool {
@@ -43,6 +57,14 @@ public enum ProFeature: String, CaseIterable, Sendable {
         case .muscleWorkouts: "Unlimited muscle-group workouts"
         case .exerciseProgress: "Progress charts for every exercise"
         case .shareWorkouts: "Share your workouts with a code, link or QR code"
+        case .workoutEditor: "Change every exercise, set and rep in your plan"
+        case .myWorkouts: "Build and keep as many of your own workouts as you like"
+        case .unlimitedLessons: "Unlimited Campus lessons every day"
+        case .detailedTracking: "Exact practice tracking — muscles, every rating — with insights"
+        case .videoJumpTest: "Measure your jump height with the camera"
+        case .moreCalendars: "Connect every team, club and school calendar"
+        case .coachWorkouts: "Coaches: send workouts to your whole team"
+        case .visualization: "Guided game-day visualization"
         default: ""
         }
     }
@@ -61,6 +83,12 @@ public enum ProLimits {
     public static let freeMuscleWorkoutsPerWeek = 1
     /// Times a free athlete can change their sport per calendar month.
     public static let freeSportSwitchesPerMonth = 3
+    /// New Campus lessons a free athlete can start per day (replays and reviews don't count).
+    public static let freeLessonsPerDay = 3
+    /// Own workouts (built, or saved from a code) on a free account.
+    public static let freeMyWorkouts = 2
+    /// Connected team / school calendars on a free account.
+    public static let freeCalendarFeeds = 1
 }
 
 public enum ProGate {
@@ -136,5 +164,22 @@ public enum ProGate {
         guard !isPro else { return nil }
         let thisWeek = startDates.filter { calendar.isDate($0, equalTo: now, toGranularity: .weekOfYear) }.count
         return max(0, ProLimits.freeMuscleWorkoutsPerWeek - thisWeek)
+    }
+
+    /// New Campus lessons left today on free. `nil` means unlimited.
+    public static func remainingLessonsToday(
+        isPro: Bool, lessonDates: [Date], now: Date = .now, calendar: Calendar = .current
+    ) -> Int? {
+        guard !isPro else { return nil }
+        let today = lessonDates.filter { calendar.isDate($0, inSameDayAs: now) }.count
+        return max(0, ProLimits.freeLessonsPerDay - today)
+    }
+
+    public static func canKeepAnotherWorkout(isPro: Bool, myWorkoutCount: Int) -> Bool {
+        isPro || myWorkoutCount < ProLimits.freeMyWorkouts
+    }
+
+    public static func canAddCalendar(isPro: Bool, calendarCount: Int) -> Bool {
+        isPro || calendarCount < ProLimits.freeCalendarFeeds
     }
 }

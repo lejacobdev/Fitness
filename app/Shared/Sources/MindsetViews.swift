@@ -19,6 +19,8 @@ struct MindsetView: View {
     @State private var editingGoals = false
     @State private var reflecting = false
     @State private var routine: MindsetRoutine?
+    @State private var showingPaywall = false
+    @Environment(\.workoutContext) private var context
     /// Bumped after any change so the week's numbers redraw.
     @State private var revision = 0
 
@@ -62,6 +64,7 @@ struct MindsetView: View {
                     editingGoals = false
                 }
             }
+            .proPaywall(isPresented: $showingPaywall, athlete: context?.athlete, feature: .visualization)
             .fullScreenCover(item: $routine, onDismiss: { revision += 1 }) { routine in
                 switch routine {
                 case .breathing: BreathingView()
@@ -196,7 +199,11 @@ struct MindsetView: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Before a game", subtitle: "Nerves are normal — they mean you care. These get you calm and sharp.")
             routineButton("2-minute breathing", detail: "Calm your nerves or lock in", icon: "wind", color: AppTheme.ink) { routine = .breathing }
-            routineButton("Game-day visualization", detail: "5 minutes: play the game in your head first", icon: "eye.fill", color: AppTheme.purple) { routine = .visualization }
+            // Breathing stays free; the guided visualization is Pro.
+            routineButton(ProAccess.isPro ? "Game-day visualization" : "Game-day visualization 🔒", detail: "5 minutes: play the game in your head first",
+                          icon: "eye.fill", color: AppTheme.purple) {
+                if ProAccess.isPro { routine = .visualization } else { showingPaywall = true }
+            }
         }
     }
 

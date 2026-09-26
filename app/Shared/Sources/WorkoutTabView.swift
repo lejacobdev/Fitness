@@ -27,6 +27,7 @@ struct WorkoutTabView: View {
     @State private var afterPreview: AfterPreview?
     @State private var myWorkouts = MyWorkoutsStore.load()
     @State private var custom = PlanCustomizationStore.load()
+    @State private var showingWorkoutsPaywall = false
     @State private var confirmingNewPlan = false
     @State private var readinessOverridden = false
     @AppStorage(PlanVariant.key) private var planVariant = 0
@@ -134,7 +135,9 @@ struct WorkoutTabView: View {
                 )
             }
             .sheet(item: $editing) { target in
+                // Plan workouts: swapping is free, the rest is Pro. Own workouts: all of it.
                 WorkoutEditorView(heading: target.heading, workout: target.workout, sportSlug: athlete.activeSport?.sportSlug,
+                                  fullAccess: target.slot == nil || ProAccess.isPro,
                                   onReset: resetAction(for: target)) { saved in
                     save(saved, for: target)
                 }
@@ -147,6 +150,7 @@ struct WorkoutTabView: View {
                     myWorkouts = MyWorkoutsStore.load()
                 }
             }
+            .proPaywall(isPresented: $showingWorkoutsPaywall, athlete: athlete, feature: .myWorkouts)
             .sheet(isPresented: $showingPlanSettings) {
                 PlanSettingsSheet {
                     custom = PlanCustomizationStore.load()
@@ -539,13 +543,19 @@ struct WorkoutTabView: View {
     /// Workouts the athlete built, or added with a code.
     private var myWorkoutsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("My workouts", subtitle: "Build your own from the exercise library, or add one a teammate or coach shared with a code, link or QR code.")
+            SectionHeader("My workouts", subtitle: ProAccess.isPro
+                          ? "Build your own from the exercise library, or add one a teammate or coach shared with a code, link or QR code."
+                          : "Build your own, or add one a teammate or coach shared. Free keeps \(ProLimits.freeMyWorkouts); Pro keeps as many as you like.")
             ForEach(myWorkouts) { workout in
                 myWorkoutCard(workout)
             }
             ButtonRow {
                 Button {
-                    editing = EditorTarget(heading: "New workout", workout: CustomWorkout(title: "My workout", items: []))
+                    if ProGate.canKeepAnotherWorkout(isPro: ProAccess.isPro, myWorkoutCount: myWorkouts.count) {
+                        editing = EditorTarget(heading: "New workout", workout: CustomWorkout(title: "My workout", items: []))
+                    } else {
+                        showingWorkoutsPaywall = true
+                    }
                 } label: { Label("New workout", systemImage: "plus") }
                 .buttonStyle(.secondary)
                 Button { importing = true } label: { Label("Add with a code", systemImage: "qrcode.viewfinder") }

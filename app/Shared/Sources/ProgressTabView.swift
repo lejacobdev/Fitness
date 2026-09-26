@@ -108,9 +108,10 @@ struct ProgressTabView: View {
     @State private var selectedDay: DayBox?
     @State private var loggingPractice: DayBox?
     @State private var sheet: ProgressSheet?
-    @State private var statsPeriod: StatsPeriod = .season
+    @State private var statsPeriod: StatsPeriod = ProAccess.isPro ? .season : .month
     @State private var revision = 0
-    @State private var tracking = TrackingLevel.current
+    @State private var tracking = ProAccess.isPro ? TrackingLevel.current : .easy
+    @State private var paywall: ProFeature?
 
     enum Zoom: String, CaseIterable, Identifiable {
         case month = "Month", season = "Season", year = "Year"
@@ -210,7 +211,7 @@ struct ProgressTabView: View {
                     }
                 }
             }
-            .sheet(item: $loggingPractice, onDismiss: { revision += 1; tracking = TrackingLevel.current }) { box in
+            .sheet(item: $loggingPractice, onDismiss: { revision += 1; tracking = ProAccess.isPro ? TrackingLevel.current : .easy }) { box in
                 PracticeLogSheet(athlete: athlete, date: box.date)
             }
             .sheet(item: $sheet, onDismiss: { revision += 1 }) { sheet in
@@ -223,6 +224,7 @@ struct ProgressTabView: View {
                 case .tests: BenchmarksView(sportSlug: sportSlug)
                 }
             }
+            .proPaywall(item: $paywall, athlete: athlete)
         }
     }
 
@@ -298,14 +300,22 @@ struct ProgressTabView: View {
         return VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
                 ForEach(Zoom.allCases) { value in
-                    Button { withAnimation(.easeInOut(duration: 0.2)) { zoom = value } } label: {
-                        Text(value.rawValue)
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(zoom == value ? AppTheme.onAccent : AppTheme.ink)
-                            .frame(maxWidth: .infinity, minHeight: 40)
-                            .background(zoom == value ? AppTheme.accent : AppTheme.fill, in: Capsule())
+                    // Month is free; the whole season and year are Pro.
+                    let locked = value != .month && !ProAccess.isPro
+                    Button {
+                        if locked { paywall = .fullSeasonCalendar } else { withAnimation(.easeInOut(duration: 0.2)) { zoom = value } }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(value.rawValue)
+                            if locked { Image(systemName: "lock.fill").font(.caption2) }
+                        }
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(zoom == value ? AppTheme.onAccent : AppTheme.ink)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .background(zoom == value ? AppTheme.accent : AppTheme.fill, in: Capsule())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(locked ? "\(value.rawValue), Pro" : value.rawValue)
                 }
             }
             switch zoom {
@@ -318,7 +328,11 @@ struct ProgressTabView: View {
         .cardStyle(padding: 16)
         #if os(iOS)
         .gesture(MagnifyGesture().onEnded { value in
-            // Pinch out to see more, in to see less.
+            // Pinch out to see more, in to see less (the season and year are Pro).
+            guard ProAccess.isPro else {
+                if value.magnification < 0.8 { paywall = .fullSeasonCalendar }
+                return
+            }
             withAnimation {
                 if value.magnification < 0.8 { zoom = zoom == .month ? .season : .year }
                 if value.magnification > 1.25 { zoom = zoom == .year ? .season : .month }
@@ -485,12 +499,20 @@ struct ProgressTabView: View {
             SectionHeader("Team practice", subtitle: "Log what you did at practice — as simply or as exactly as you like. Then you'll see what you practise most and least.")
             HStack(spacing: 8) {
                 ForEach(TrackingLevel.allCases, id: \.self) { level in
+                    let locked = level == .exact && !ProAccess.isPro
                     Button {
-                        tracking = level
-                        TrackingLevel.current = level
+                        if locked {
+                            paywall = .detailedTracking
+                        } else {
+                            tracking = level
+                            TrackingLevel.current = level
+                        }
                     } label: {
                         VStack(spacing: 2) {
-                            Text(level == .easy ? "Easy" : "Exact").font(.headline)
+                            HStack(spacing: 4) {
+                                Text(level == .easy ? "Easy" : "Exact").font(.headline)
+                                if locked { Image(systemName: "lock.fill").font(.caption2) }
+                            }
                             Text(level == .easy ? "How hard, how it went, mood" : "+ tired muscles, each part of your game")
                                 .font(.caption2)
                                 .multilineTextAlignment(.center)
@@ -537,8 +559,12 @@ struct ProgressTabView: View {
             SectionHeader("What you practised", subtitle: "From your practice logs. See where your time goes.")
             WrapLayout(spacing: 8) {
                 ForEach(StatsPeriod.allCases) { period in
-                    Button { statsPeriod = period } label: {
-                        Chip(period.rawValue, isSelected: statsPeriod == period)
+                    // The last 30 days are free; longer is Pro.
+                    let locked = period != .month && !ProAccess.isPro
+                    Button {
+                        if locked { paywall = .fullHistory } else { statsPeriod = period }
+                    } label: {
+                        Chip(locked ? "\(period.rawValue) 🔒" : period.rawValue, isSelected: statsPeriod == period)
                     }
                     .buttonStyle(.plain)
                 }
@@ -569,15 +595,25 @@ struct ProgressTabView: View {
                         }
                     }
                     if let insight {
-                        Label(insight, systemImage: "lightbulb.fill")
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.ink)
+                        if ProAccess.isPro {
+                            Label(insight, systemImage: "lightbulb.fill")
+                                .font(.subheadline)
+                                .foregroundStyle(AppTheme.ink)
+                                .padding(.top, 4)
+                        } else {
+                            Button { paywall = .detailedTracking } label: {
+                                Label("See what you practise least — Pro", systemImage: "lock.fill")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppTheme.ink)
+                            }
+                            .buttonStyle(.plain)
                             .padding(.top, 4)
+                        }
                     }
                 }
                 .cardStyle(padding: 16)
             }
-            if !ratings.isEmpty {
+            if !ratings.isEmpty, ProAccess.isPro {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(SportPractice.components(for: sportSlug).title)
                         .font(.headline)
@@ -819,7 +855,8 @@ struct PracticeLogSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var sportSlug: String
-    @State private var level = TrackingLevel.current
+    @State private var level = ProAccess.isPro ? TrackingLevel.current : .easy
+    @State private var showingPaywall = false
     @State private var types: Set<String> = []
     @State private var hard = 3
     @State private var went = 3
@@ -871,11 +908,16 @@ struct PracticeLogSheet: View {
             }
             HStack(spacing: 8) {
                 ForEach(TrackingLevel.allCases, id: \.self) { value in
+                    let locked = value == .exact && !ProAccess.isPro
                     Button {
-                        level = value
-                        TrackingLevel.current = value
+                        if locked {
+                            showingPaywall = true
+                        } else {
+                            level = value
+                            TrackingLevel.current = value
+                        }
                     } label: {
-                        Chip(value == .easy ? "Easy" : "Exact", isSelected: level == value)
+                        Chip(locked ? "Exact 🔒" : (value == .easy ? "Easy" : "Exact"), isSelected: level == value)
                     }
                     .buttonStyle(.plain)
                 }
@@ -964,6 +1006,7 @@ struct PracticeLogSheet: View {
                 .frame(maxWidth: .infinity)
             }
         }
+        .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .detailedTracking)
     }
 
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {

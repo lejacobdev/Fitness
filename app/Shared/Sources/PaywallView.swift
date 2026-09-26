@@ -6,9 +6,11 @@ import SwiftUI
 /// readable without buying anything: subscription length, price per period,
 /// what's included, Restore Purchases, and links to the Terms and Privacy
 /// Policy. And everything §4 says about selling to minors: no countdowns, no
-/// urgency, no "free trial" wording (no introductory offer is configured),
-/// the price stated plainly, and a line that a parent may need to approve —
-/// with Ask to Buy's waiting state shown as a real state, not a failure.
+/// urgency, the price stated plainly — every price is StoreKit's own, in the
+/// athlete's currency — and a line that a parent may need to approve, with
+/// Ask to Buy's waiting state shown as a real state, not a failure. The
+/// introductory offer (new subscribers) is shown next to the regular price it
+/// renews at, never on its own.
 public struct PaywallView: View {
     let athlete: Athlete
     /// Which feature brought the athlete here, shown first in the list.
@@ -17,6 +19,9 @@ public struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var store = ProStore.shared
     @State private var selectedID = ProStore.yearlyID
+    /// Products whose introductory offer this Apple ID can still use.
+    @State private var introEligible: Set<String> = []
+    @State private var pickedByHand = false
 
     public init(athlete: Athlete, highlight: ProFeature? = nil) {
         self.athlete = athlete
@@ -24,7 +29,12 @@ public struct PaywallView: View {
     }
 
     private var features: [ProFeature] {
-        let all: [ProFeature] = [.skillBlocks, .muscleWorkouts, .multipleSports, .exerciseProgress, .fullHistory, .fullSeasonCalendar, .positionProfiles, .coachReportOnDemand, .dataExport]
+        // Only what really is Pro in the app — each has a gate.
+        let all: [ProFeature] = [
+            .workoutEditor, .myWorkouts, .shareWorkouts, .unlimitedLessons, .skillBlocks, .muscleWorkouts,
+            .multipleSports, .fullSeasonCalendar, .detailedTracking, .exerciseProgress, .fullHistory,
+            .videoJumpTest, .visualization, .moreCalendars, .coachWorkouts, .dataExport,
+        ]
         guard let highlight, all.contains(highlight) else { return all }
         return [highlight] + all.filter { $0 != highlight }
     }
@@ -64,10 +74,31 @@ public struct PaywallView: View {
         .appScreen()
         .task {
             if store.products.isEmpty { await store.loadProducts() }
+            await checkOffers()
+        }
+        .onChange(of: store.products.count) {
+            Task { await checkOffers() }
         }
         .onChange(of: store.isPro) {
             if store.isPro { dismiss() }
         }
+    }
+
+    /// Which offers apply; with an offer on monthly, that plan starts selected.
+    private func checkOffers() async {
+        var eligible: Set<String> = []
+        for product in store.products {
+            if product.subscription?.introductoryOffer != nil, await product.subscription?.isEligibleForIntroOffer == true {
+                eligible.insert(product.id)
+            }
+        }
+        introEligible = eligible
+        if !pickedByHand, eligible.contains(ProStore.monthlyID) { selectedID = ProStore.monthlyID }
+    }
+
+    private func offer(for product: Product) -> Product.SubscriptionOffer? {
+        guard introEligible.contains(product.id) else { return nil }
+        return product.subscription?.introductoryOffer
     }
 
     // MARK: - Sections
@@ -82,7 +113,7 @@ public struct PaywallView: View {
             Text("Train smarter with Pro")
                 .font(.system(size: 32, weight: .bold))
                 .foregroundStyle(AppTheme.ink)
-            Text("Everything in the free app, plus the tools for chasing a specific goal and a whole season of games.")
+            Text("Everything in the free app, plus a plan that's completely yours, unlimited learning and the deep tools for a whole season.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
         }
@@ -111,7 +142,7 @@ public struct PaywallView: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "heart.fill")
                 .foregroundStyle(AppTheme.brand)
-            Text("Always free: the daily check-in, your weekly plan, logging, the Apple Watch app and fuelling guidance.")
+            Text("Always free: the daily check-in, your plan and all three kinds of workout, logging, the Apple Watch app, fuelling, safety, Campus lessons every day, your sport's guide, leagues and teams.")
                 .font(.footnote)
                 .foregroundStyle(AppTheme.secondaryText)
         }
@@ -125,8 +156,8 @@ public struct PaywallView: View {
         } else if store.products.isEmpty && DemoData.isEnabled {
             // Screenshot runs have no StoreKit: show the real App Store prices.
             VStack(spacing: 12) {
-                demoPlan("Yearly", "$39.99 per year · $3.33/month", badge: "Save 44%", selected: true)
-                demoPlan("Monthly", "$5.99 per month", badge: nil, selected: false)
+                demoPlan("Yearly", "$24.99 per year · $2.08/month", badge: "Save 30%", selected: false)
+                demoPlan("Monthly", "$0.99/month for your first 3 months, then $2.99/month", badge: "−67%", selected: true)
             }
         } else if store.products.isEmpty {
             VStack(spacing: 10) {
@@ -178,6 +209,7 @@ public struct PaywallView: View {
         let isYearly = product.id == ProStore.yearlyID
         return Button {
             selectedID = product.id
+            pickedByHand = true
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
@@ -188,7 +220,14 @@ public struct PaywallView: View {
                         Text(isYearly ? "Yearly" : "Monthly")
                             .font(.headline)
                             .foregroundStyle(AppTheme.ink)
-                        if isYearly, let saving = savingText {
+                        if let offer = offer(for: product), let reduced = reductionText(offer, regular: product) {
+                            Text(reduced)
+                                .font(.caption2.bold())
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(AppTheme.brand, in: Capsule())
+                        } else if isYearly, let saving = savingText {
                             Text(saving)
                                 .font(.caption2.bold())
                                 .foregroundStyle(AppTheme.onAccent)
@@ -197,11 +236,30 @@ public struct PaywallView: View {
                                 .background(AppTheme.accent, in: Capsule())
                         }
                     }
-                    Text(isYearly
-                         ? "\(product.displayPrice) per year\(product.monthlyEquivalent.map { " · \($0)/month" } ?? "")"
-                         : "\(product.displayPrice) per month")
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
+                    if let offer = offer(for: product) {
+                        // The regular price, struck through, next to the offer — and what it renews at.
+                        HStack(spacing: 6) {
+                            Text(product.displayPrice)
+                                .strikethrough()
+                                .foregroundStyle(AppTheme.secondaryText)
+                            Text(offer.displayPrice)
+                                .font(.title3.bold())
+                                .foregroundStyle(AppTheme.brand)
+                            Text("/ \(unitWord(offer.period.unit, count: 1))")
+                                .foregroundStyle(AppTheme.ink)
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        Text(offerTerms(offer, regular: product))
+                            .font(.footnote)
+                            .foregroundStyle(AppTheme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text(isYearly
+                             ? "\(product.displayPrice) per year\(product.monthlyEquivalent.map { " · \($0)/month" } ?? "")"
+                             : "\(product.displayPrice) per month")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.secondaryText)
+                    }
                 }
                 Spacer(minLength: 0)
             }
@@ -213,8 +271,42 @@ public struct PaywallView: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(isYearly ? "Yearly, \(product.displayPrice) per year" : "Monthly, \(product.displayPrice) per month")
+        .accessibilityLabel(offer(for: product).map { "\(isYearly ? "Yearly" : "Monthly"), \(offerTerms($0, regular: product))" }
+                            ?? (isYearly ? "Yearly, \(product.displayPrice) per year" : "Monthly, \(product.displayPrice) per month"))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    /// "€0.99/month for your first 3 months, then €2.99/month."
+    private func offerTerms(_ offer: Product.SubscriptionOffer, regular: Product) -> String {
+        let total = offer.periodCount * offer.period.value
+        let span = "\(total) \(unitWord(offer.period.unit, count: total))"
+        let renewal = "\(regular.displayPrice)/\(regular.subscription.map { unitWord($0.subscriptionPeriod.unit, count: 1) } ?? "month")"
+        switch offer.paymentMode {
+        case .freeTrial: return "Free for your first \(span), then \(renewal)."
+        case .payUpFront: return "\(offer.displayPrice) for your first \(span), then \(renewal)."
+        default: return "\(offer.displayPrice)/\(unitWord(offer.period.unit, count: 1)) for your first \(span), then \(renewal)."
+        }
+    }
+
+    /// "−67%": how much lower the offer is than the regular price per period.
+    private func reductionText(_ offer: Product.SubscriptionOffer, regular: Product) -> String? {
+        if offer.paymentMode == .freeTrial { return "Free" }
+        guard offer.paymentMode == .payAsYouGo, regular.price > 0,
+              offer.period.unit == regular.subscription?.subscriptionPeriod.unit else { return nil }
+        let percent = NSDecimalNumber(decimal: (1 - offer.price / regular.price) * 100).intValue
+        return percent > 0 ? "−\(percent)%" : nil
+    }
+
+    private func unitWord(_ unit: Product.SubscriptionPeriod.Unit, count: Int) -> String {
+        let word: String
+        switch unit {
+        case .day: word = "day"
+        case .week: word = "week"
+        case .month: word = "month"
+        case .year: word = "year"
+        @unknown default: word = "period"
+        }
+        return count == 1 ? word : word + "s"
     }
 
     /// "Save 44%" versus twelve months of the monthly plan.
@@ -258,6 +350,12 @@ public struct PaywallView: View {
         }
     }
 
+    /// The selected plan's offer terms, stated in full above the button.
+    private var footerTerms: String {
+        guard let product = selectedProduct, let offer = offer(for: product) else { return "" }
+        return offerTerms(offer, regular: product) + " "
+    }
+
     private var footer: some View {
         VStack(spacing: 10) {
             Button {
@@ -267,13 +365,14 @@ public struct PaywallView: View {
                 if store.purchaseState == .purchasing {
                     ProgressView().tint(AppTheme.onAccent)
                 } else {
-                    Text(store.purchaseState == .pending ? "Waiting for approval" : "Continue")
+                    Text(store.purchaseState == .pending ? "Waiting for approval"
+                         : (selectedProduct.flatMap { offer(for: $0) }.map { "Start for \($0.displayPrice)" } ?? "Continue"))
                 }
             }
             .buttonStyle(.primary)
             .disabled(selectedProduct == nil || store.purchaseState == .purchasing || store.purchaseState == .pending)
 
-            Text("Renews automatically until cancelled. Cancel anytime in Settings → Apple ID → Subscriptions. A parent may need to approve the purchase.")
+            Text(footerTerms + "Renews automatically until cancelled. Cancel anytime in Settings → Apple ID → Subscriptions. A parent may need to approve the purchase.")
                 .font(.caption2)
                 .foregroundStyle(AppTheme.secondaryText)
                 .multilineTextAlignment(.center)

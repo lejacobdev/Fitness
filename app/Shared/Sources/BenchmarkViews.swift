@@ -281,7 +281,14 @@ struct BenchmarkRunView: View {
         switch test.runner {
         case .jumpVideo:
             #if os(iOS) && !APP_EXTENSION
-            JumpVideoTest { centimeters in save(centimeters) }
+            if ProAccess.isPro {
+                JumpVideoTest { centimeters in save(centimeters) }
+            } else {
+                // Free: type the result in; the camera measurement is Pro.
+                ProLockCard(feature: .videoJumpTest, title: "Measure it with the camera",
+                            message: "Film your jump in slow motion and the app works out your height from the flight time. Or type in a result you measured another way.")
+                entry
+            }
             #else
             entry
             #endif

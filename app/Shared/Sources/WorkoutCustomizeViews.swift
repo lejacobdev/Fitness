@@ -8,6 +8,9 @@ import SwiftUI
 struct WorkoutEditorView: View {
     let heading: String
     let sportSlug: String?
+    /// Everything can change (Pro, or the athlete's own workout); otherwise
+    /// exercises can be swapped and the rest opens Pro.
+    var fullAccess = true
     /// "Back to the app's version" (for a planned workout the athlete edited).
     var onReset: (() -> Void)? = nil
     let onSave: (CustomWorkout) -> Void
@@ -18,6 +21,8 @@ struct WorkoutEditorView: View {
     @State private var picking: Picking?
     @State private var dosing: CustomItem?
     @State private var confirmReset = false
+    @State private var showingPaywall = false
+    @Environment(\.workoutContext) private var context
     #if os(iOS)
     @State private var editMode: EditMode = .inactive
     #endif
@@ -28,9 +33,11 @@ struct WorkoutEditorView: View {
         let replacing: UUID?
     }
 
-    init(heading: String, workout: CustomWorkout, sportSlug: String?, onReset: (() -> Void)? = nil, onSave: @escaping (CustomWorkout) -> Void) {
+    init(heading: String, workout: CustomWorkout, sportSlug: String?, fullAccess: Bool = true,
+         onReset: (() -> Void)? = nil, onSave: @escaping (CustomWorkout) -> Void) {
         self.heading = heading
         self.sportSlug = sportSlug
+        self.fullAccess = fullAccess
         self.onReset = onReset
         self.onSave = onSave
         _draft = State(initialValue: workout)
@@ -39,6 +46,26 @@ struct WorkoutEditorView: View {
     var body: some View {
         NavigationStack {
             List {
+                if !fullAccess {
+                    Section {
+                        Button { showingPaywall = true } label: {
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: "arrow.left.arrow.right.circle.fill").font(.title3)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Swap any exercise for free").font(.headline)
+                                    Text("With Pro you can also add, remove and reorder exercises and set your own sets, reps and rest.")
+                                        .font(.subheadline)
+                                        .foregroundStyle(AppTheme.secondaryText)
+                                }
+                                Spacer(minLength: 0)
+                                ProBadge()
+                            }
+                            .foregroundStyle(AppTheme.ink)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .listRowBackground(AppTheme.card)
+                }
                 Section {
                     TextField("Name", text: $draft.title)
                         .font(.title3.weight(.semibold))
@@ -54,16 +81,19 @@ struct WorkoutEditorView: View {
                     ForEach(draft.items) { item in
                         row(item)
                     }
-                    .onDelete { draft.items.remove(atOffsets: $0) }
+                    .onDelete(perform: deleteAction)
                     #if os(iOS)
-                    .onMove { draft.items.move(fromOffsets: $0, toOffset: $1) }
+                    .onMove(perform: moveAction)
                     #endif
                     Button {
-                        picking = Picking(replacing: nil)
+                        if fullAccess { picking = Picking(replacing: nil) } else { showingPaywall = true }
                     } label: {
-                        Label("Add an exercise", systemImage: "plus.circle.fill")
-                            .font(.headline)
-                            .foregroundStyle(AppTheme.ink)
+                        HStack {
+                            Label("Add an exercise", systemImage: "plus.circle.fill")
+                                .font(.headline)
+                                .foregroundStyle(AppTheme.ink)
+                            if !fullAccess { Spacer(); ProBadge() }
+                        }
                     }
                 } header: {
                     HStack {
@@ -71,7 +101,11 @@ struct WorkoutEditorView: View {
                         Spacer()
                         #if os(iOS)
                         Button(editMode == .active ? "Done" : "Reorder") {
-                            withAnimation { editMode = editMode == .active ? .inactive : .active }
+                            if fullAccess {
+                                withAnimation { editMode = editMode == .active ? .inactive : .active }
+                            } else {
+                                showingPaywall = true
+                            }
                         }
                         .font(.subheadline.weight(.semibold))
                         .textCase(nil)
@@ -118,6 +152,7 @@ struct WorkoutEditorView: View {
                 }
             }
             .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
+            .proPaywall(isPresented: $showingPaywall, athlete: context?.athlete, feature: .workoutEditor)
             .sheet(item: $picking) { picking in
                 ExercisePickerView(catalogue: catalogue, sportSlug: sportSlug, suggestions: suggestions(for: picking)) { item in
                     if let id = picking.replacing, let index = draft.items.firstIndex(where: { $0.id == id }) {
@@ -138,6 +173,17 @@ struct WorkoutEditorView: View {
 
     private func name(_ slug: String) -> String { catalogue.item(slug)?.name ?? displayName(forSlug: slug) }
 
+    /// Removing and reordering are part of full editing.
+    private var deleteAction: ((IndexSet) -> Void)? {
+        guard fullAccess else { return nil }
+        return { offsets in draft.items.remove(atOffsets: offsets) }
+    }
+
+    private var moveAction: ((IndexSet, Int) -> Void)? {
+        guard fullAccess else { return nil }
+        return { offsets, destination in draft.items.move(fromOffsets: offsets, toOffset: destination) }
+    }
+
     private func suggestions(for picking: Picking) -> [CatalogueItem] {
         guard let id = picking.replacing, let current = draft.items.first(where: { $0.id == id }) else { return [] }
         return alternatives(for: current)
@@ -145,7 +191,7 @@ struct WorkoutEditorView: View {
 
     private func row(_ item: CustomItem) -> some View {
         HStack(spacing: 12) {
-            Button { dosing = item } label: {
+            Button { if fullAccess { dosing = item } else { showingPaywall = true } } label: {
                 HStack(spacing: 12) {
                     ItemThumbnail(item: catalogue.item(item.itemSlug), size: 48)
                     VStack(alignment: .leading, spacing: 2) {
@@ -502,8 +548,15 @@ struct SharedWorkoutSheet: View {
     @State private var loading = false
     @State private var message: String?
     @State private var catalogue = Catalogue()
+    @State private var showingPaywall = false
+    @Environment(\.workoutContext) private var context
 
     private let apiClient = APIClient(baseURL: AppConfig.backendBaseURL)
+
+    /// Free keeps a couple of own workouts; starting one is always free.
+    private var canKeep: Bool {
+        ProGate.canKeepAnotherWorkout(isPro: ProAccess.isPro, myWorkoutCount: MyWorkoutsStore.load().count)
+    }
 
     var body: some View {
         NavigationStack {
@@ -544,6 +597,7 @@ struct SharedWorkoutSheet: View {
             .onChange(of: code) {
                 if DeepLink.normalize(code) != shared?.code { shared = nil }
             }
+            .proPaywall(isPresented: $showingPaywall, athlete: context?.athlete, feature: .myWorkouts)
         }
     }
 
@@ -570,9 +624,13 @@ struct SharedWorkoutSheet: View {
             .cardStyle(padding: 16)
             ButtonRow {
                 Button {
-                    onSaved(workout)
-                    dismiss()
-                } label: { Label("Save to My workouts", systemImage: "square.and.arrow.down") }
+                    if canKeep {
+                        onSaved(workout)
+                        dismiss()
+                    } else {
+                        showingPaywall = true
+                    }
+                } label: { Label(canKeep ? "Save to My workouts" : "Save to My workouts 🔒", systemImage: "square.and.arrow.down") }
                 .buttonStyle(.secondary)
                 Button {
                     onStart(workout)

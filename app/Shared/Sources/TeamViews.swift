@@ -264,6 +264,8 @@ struct TeamBoardView: View {
     @State private var confirmDelete = false
     @State private var failed = false
     @State private var inviting = false
+    @State private var showingPaywall = false
+    @Environment(\.workoutContext) private var context
 
     private let apiClient = APIClient(baseURL: AppConfig.backendBaseURL)
 
@@ -295,6 +297,7 @@ struct TeamBoardView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
             }
             .task { await load() }
+            .proPaywall(isPresented: $showingPaywall, athlete: context?.athlete, feature: .coachWorkouts)
             .sheet(isPresented: $inviting) {
                 CodeShareSheet(title: "Invite athletes", subtitle: "They scan the QR code, open the link, or enter the code in Me → My team.",
                                link: .team(team.code), message: "Join our team “\(team.name)” in Athlete OS")
@@ -380,8 +383,11 @@ struct TeamBoardView: View {
                 }
                 .cardStyle(padding: 12)
             }
-            Button { assigning = true } label: { Label("Send a workout", systemImage: "paperplane.fill") }
-                .buttonStyle(.primary)
+            // The readiness board is free for coaches; sending workouts is Pro.
+            Button { if ProAccess.isPro { assigning = true } else { showingPaywall = true } } label: {
+                Label(ProAccess.isPro ? "Send a workout" : "Send a workout 🔒", systemImage: "paperplane.fill")
+            }
+            .buttonStyle(.primary)
         }
     }
 

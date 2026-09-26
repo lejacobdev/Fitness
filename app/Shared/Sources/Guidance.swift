@@ -536,6 +536,12 @@ extension View {
         self
         #endif
     }
+
+    /// The paywall on whichever feature was tapped last (nil: closed).
+    func proPaywall(item: Binding<ProFeature?>, athlete: Athlete?) -> some View {
+        proPaywall(isPresented: Binding(get: { item.wrappedValue != nil }, set: { if !$0 { item.wrappedValue = nil } }),
+                   athlete: athlete, feature: item.wrappedValue ?? .skillBlocks)
+    }
 }
 
 /// The small black "PRO" capsule next to anything that needs Pro.

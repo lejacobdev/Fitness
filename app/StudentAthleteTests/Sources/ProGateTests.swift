@@ -83,4 +83,30 @@ final class ProGateTests: XCTestCase {
         XCTAssertEqual(ProGate.remainingSportSwitches(isPro: false, switchDates: thisMonth + thisMonth, now: now, calendar: calendar), 0)
         XCTAssertNil(ProGate.remainingSportSwitches(isPro: true, switchDates: thisMonth, now: now, calendar: calendar))
     }
+
+    func testFreeGetsThreeNewLessonsADay() {
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: now)!
+        XCTAssertEqual(ProGate.remainingLessonsToday(isPro: false, lessonDates: [], now: now, calendar: calendar), 3)
+        XCTAssertEqual(ProGate.remainingLessonsToday(isPro: false, lessonDates: [now, yesterday, yesterday], now: now, calendar: calendar), 2,
+                       "yesterday's lessons don't count")
+        XCTAssertEqual(ProGate.remainingLessonsToday(isPro: false, lessonDates: [now, now, now, now], now: now, calendar: calendar), 0)
+        XCTAssertNil(ProGate.remainingLessonsToday(isPro: true, lessonDates: [now, now, now], now: now, calendar: calendar))
+    }
+
+    func testFreeKeepsTwoOwnWorkoutsAndOneCalendar() {
+        XCTAssertTrue(ProGate.canKeepAnotherWorkout(isPro: false, myWorkoutCount: 1))
+        XCTAssertFalse(ProGate.canKeepAnotherWorkout(isPro: false, myWorkoutCount: 2))
+        XCTAssertTrue(ProGate.canKeepAnotherWorkout(isPro: true, myWorkoutCount: 40))
+        XCTAssertTrue(ProGate.canAddCalendar(isPro: false, calendarCount: 0))
+        XCTAssertFalse(ProGate.canAddCalendar(isPro: false, calendarCount: 1))
+        XCTAssertTrue(ProGate.canAddCalendar(isPro: true, calendarCount: 5))
+    }
+
+    func testTheNewGatesAreProAndTheHabitStaysFree() {
+        for feature in [ProFeature.workoutEditor, .myWorkouts, .unlimitedLessons, .detailedTracking, .videoJumpTest,
+                        .moreCalendars, .coachWorkouts, .visualization, .shareWorkouts] {
+            XCTAssertFalse(feature.isFreeForever, "\(feature)")
+        }
+        XCTAssertTrue(ProFeature.weeklyPlan.isFreeForever, "the plan itself is never gated")
+    }
 }

@@ -145,6 +145,25 @@ struct CampusProgress {
         return badges
     }
 
+    /// When new lessons were finished (for the free daily allowance; replays
+    /// and reviews don't count). The last few only.
+    static let newLessonsKey = "campus.newLessonDates"
+
+    static func newLessonDates(_ defaults: UserDefaults = .standard) -> [Date] {
+        (defaults.array(forKey: newLessonsKey) as? [Double] ?? []).map(Date.init(timeIntervalSince1970:))
+    }
+
+    static func recordNewLesson(_ date: Date = .now, _ defaults: UserDefaults = .standard) {
+        let kept = (newLessonDates(defaults) + [date]).suffix(10).map(\.timeIntervalSince1970)
+        defaults.set(Array(kept), forKey: newLessonsKey)
+    }
+
+    /// New lessons left today on free; nil on Pro.
+    @MainActor
+    static func lessonsLeftToday(_ defaults: UserDefaults = .standard) -> Int? {
+        ProGate.remainingLessonsToday(isPro: ProAccess.isPro, lessonDates: newLessonDates(defaults))
+    }
+
     static func stats(_ defaults: UserDefaults = .standard) -> CampusStats {
         let streak = currentStreak(streak: defaults.integer(forKey: streakKey), lastDay: defaults.string(forKey: lastDayKey) ?? "")
         return CampusStats(learned: learned(defaults.string(forKey: learnedKey) ?? ""), xp: defaults.integer(forKey: xpKey),
@@ -181,6 +200,7 @@ struct CampusView: View {
     @State private var showingLeagues = false
     @State private var showingBadges = false
     @State private var showingGuide = false
+    @State private var showingPaywall = false
     @State private var newBadges: BadgeCelebration?
     /// Bumped after a review so the due list redraws.
     @State private var revision = 0
@@ -219,6 +239,7 @@ struct CampusView: View {
                 ScrollView {
                     VStack(spacing: 28) {
                         SportGuideCard(athlete: athlete) { showingGuide = true }
+                        dailyAllowance
                         if !dueForReview.isEmpty { reviewCard }
                         ForEach(Array(campusTopics.enumerated()), id: \.element.id) { unitIndex, topic in
                             unit(topic, index: unitIndex)
@@ -256,6 +277,7 @@ struct CampusView: View {
             .sheet(isPresented: $showingBadges) {
                 BadgesView()
             }
+            .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .unlimitedLessons)
             .sheet(isPresented: $showingGuide, onDismiss: { revision += 1 }) {
                 SportGuideView(athlete: athlete)
             }
@@ -345,7 +367,12 @@ struct CampusView: View {
                     isCurrent: lesson.id == currentLessonID,
                     title: lesson.title
                 ) {
-                    if open || done { playing = lesson }
+                    // Replays are always free; new lessons have a daily allowance on free.
+                    if done {
+                        playing = lesson
+                    } else if open {
+                        if CampusProgress.lessonsLeftToday() == 0 { showingPaywall = true } else { playing = lesson }
+                    }
                 }
                 .offset(x: pathOffset(lessonIndex))
             }
@@ -368,6 +395,7 @@ struct CampusView: View {
     private func finish(_ lesson: CampusLesson, xp earned: Int) {
         var set = learned
         let firstTime = !set.contains(lesson.id)
+        if firstTime { CampusProgress.recordNewLesson() }
         set.insert(lesson.id)
         learnedRaw = set.sorted().joined(separator: ",")
         if firstTime { CampusReview.schedule(lesson.id) }
@@ -385,6 +413,27 @@ struct CampusView: View {
     }
 
     private var stats: CampusStats { CampusProgress.stats() }
+
+    /// On free: how many new lessons are left today — calm, never a pop-up.
+    @ViewBuilder
+    private var dailyAllowance: some View {
+        let _ = revision
+        if let left = CampusProgress.lessonsLeftToday(), currentLessonID != nil {
+            if left > 0 {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                    Text("\(left) new lesson\(left == 1 ? "" : "s") left today · replays and reviews are unlimited")
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+            } else {
+                ProLockCard(feature: .unlimitedLessons, title: "That's today's \(ProLimits.freeLessonsPerDay) new lessons",
+                            message: "Great work. Come back tomorrow for more, replay or review any lesson now — or keep going with unlimited lessons in Pro.")
+            }
+        }
+    }
 
     /// "Review: 3 lessons" — spaced repetition keeps what was learned.
     private var reviewCard: some View {
