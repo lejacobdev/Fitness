@@ -121,13 +121,19 @@ public struct MainTabView: View {
             if phase == .background || phase == .active {
                 Task { await backUp() }
             }
-            if phase == .active { StreakFreeze.protectTodayIfResting() }
+            if phase == .active {
+                StreakFreeze.protectTodayIfResting()
+                Task { await ExternalWorkoutStore.refresh(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate) }
+            }
             if phase == .active, !DemoData.isEnabled {
                 Task { await refreshAnimations() }
             }
         }
         .task {
             StreakFreeze.protectTodayIfResting()
+            if !DemoData.isEnabled {
+                await ExternalWorkoutStore.refresh(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate)
+            }
             workoutContext = WorkoutContext(athlete: athlete, apiClient: apiClient)
             #if os(iOS) && !APP_EXTENSION
             ProStore.shared.start(athlete: athlete)

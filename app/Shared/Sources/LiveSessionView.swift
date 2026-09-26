@@ -49,6 +49,7 @@ public struct LiveSessionView: View {
     /// "New best: 45 kg" after a set heavier than ever before.
     @State private var bestNote: String?
     @State private var bestCount = 0
+    @State private var heartRate: HeartRateSummary?
     @AppStorage(WeightUnit.storageKey) private var unitRaw = WeightUnit.current.rawValue
 
     private var unit: WeightUnit { WeightUnit(rawValue: unitRaw) ?? .kg }
@@ -127,7 +128,16 @@ public struct LiveSessionView: View {
             }
         }
         .sheet(isPresented: $showingRPE) {
-            RPEPromptView(rpe: $rpe) { finish() }
+            RPEPromptView(rpe: $rpe, heartRate: heartRate) { finish() }
+                .task {
+                    guard let session else { return }
+                    heartRate = await HealthKitManager.shared.heartRate(from: session.startedAt, to: .now)
+                    // A watch saw the effort: start the question from there.
+                    if let heartRate {
+                        rpe = WearableLoad.effort(averageHeartRate: Double(heartRate.average), minutes: Int(Date.now.timeIntervalSince(session.startedAt) / 60),
+                                                  age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now))
+                    }
+                }
                 .presentationDetents([.large])
                 .interactiveDismissDisabled()
         }
@@ -696,6 +706,7 @@ struct ExercisePickerSheet: View {
 /// was that, 1–10?"
 struct RPEPromptView: View {
     @Binding var rpe: Int
+    var heartRate: HeartRateSummary? = nil
     let onDone: () -> Void
 
     private func description(_ value: Int) -> String {
@@ -712,6 +723,12 @@ struct RPEPromptView: View {
     var body: some View {
         StepScaffold(title: "How hard was that?", subtitle: "1 = very easy, 10 = the hardest you could do. It tells us how to plan your next days.", buttonTitle: "Save session", onContinue: onDone) {
             VStack(spacing: 18) {
+                if let heartRate {
+                    Label("Heart rate \(heartRate.average) bpm on average, \(heartRate.max) at the top", systemImage: "heart.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.red)
+                        .frame(maxWidth: .infinity)
+                }
                 Text("\(rpe)")
                     .font(.system(size: 80, weight: .bold))
                     .foregroundStyle(AppTheme.ink)

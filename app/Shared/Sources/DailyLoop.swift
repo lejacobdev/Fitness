@@ -288,7 +288,7 @@ public enum DailyLoop {
     /// yesterday was.
     public static func readiness(
         answers: MorningAnswers?, personalBand: ReadinessBand?, pain: PainReport?, yesterday: EveningSignal?,
-        ramp: ReturnRamp.Day? = nil
+        ramp: ReturnRamp.Day? = nil, wearable: String? = nil
     ) -> (level: TodayReadiness, reason: String)? {
         var candidates: [(TodayReadiness, String)] = []
         if let pain {
@@ -297,6 +297,9 @@ public enum DailyLoop {
         }
         if let ramp {
             candidates.append((ramp.isLighter ? .reduced : .normal, ramp.reason))
+        }
+        if let wearable {
+            candidates.append((.reduced, wearable))
         }
         if let answers {
             var flags = 0

@@ -13,7 +13,10 @@ extension DailyLoop {
         }
         return readiness(answers: answers, personalBand: checkIn?.readinessBand, pain: PainStore.report(on: now),
                          yesterday: MindsetStore.yesterdaySignal(now: now),
-                         ramp: ReturnRamp.day(reports: PainStore.all(), today: now))
+                         ramp: ReturnRamp.day(reports: PainStore.all(), today: now),
+                         wearable: WearableLoad.reason(ExternalWorkoutStore.recent, now: now,
+                                                       age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: now),
+                                                       practiceToday: PracticeSchedule.hasPractice(on: now) ? PracticeSchedule.time(on: now) : nil))
     }
 
     /// How today's training is adjusted (nil: as planned).

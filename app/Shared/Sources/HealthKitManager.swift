@@ -48,7 +48,7 @@ public final class HealthKitManager: @unchecked Sendable {
     #if canImport(HealthKit)
     private static var readTypes: Set<HKObjectType> {
         [HKCategoryType(.sleepAnalysis), HKObjectType.workoutType(), HKQuantityType(.restingHeartRate),
-         HKQuantityType(.heartRateVariabilitySDNN)]
+         HKQuantityType(.heartRateVariabilitySDNN), HKQuantityType(.heartRate)]
     }
     #endif
 
@@ -140,6 +140,55 @@ public final class HealthKitManager: @unchecked Sendable {
         #endif
     }
 
+    /// Workouts other apps and devices wrote (a run on the watch, a WHOOP
+    /// session…), never the ones this app saved. Newest first; empty without
+    /// data or permission.
+    public func externalWorkouts(since start: Date) async -> [ExternalWorkout] {
+        #if canImport(HealthKit)
+        guard isAvailable else { return [] }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: .now, options: [])
+        let own = Bundle.main.bundleIdentifier.map { String($0.split(separator: ".").prefix(3).joined(separator: ".")) } ?? "com.studentathlete.app"
+        let bpm = HKUnit.count().unitDivided(by: .minute())
+        return await withCheckedContinuation { continuation in
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+            let query = HKSampleQuery(sampleType: HKObjectType.workoutType(), predicate: predicate, limit: 50, sortDescriptors: [sort]) { _, samples, _ in
+                let workouts = (samples as? [HKWorkout] ?? [])
+                    .filter { !$0.sourceRevision.source.bundleIdentifier.hasPrefix(own) }
+                    .map { workout in
+                        ExternalWorkout(
+                            start: workout.startDate, end: workout.endDate,
+                            activity: ExternalWorkout.name(for: workout.workoutActivityType.rawValue),
+                            averageHeartRate: workout.statistics(for: HKQuantityType(.heartRate))?.averageQuantity()?.doubleValue(for: bpm)
+                        )
+                    }
+                continuation.resume(returning: workouts)
+            }
+            store.execute(query)
+        }
+        #else
+        return []
+        #endif
+    }
+
+    /// Average and highest heart rate between two moments (a finished
+    /// session), from a watch or band. nil without data or permission.
+    public func heartRate(from start: Date, to end: Date) async -> HeartRateSummary? {
+        #if canImport(HealthKit)
+        guard isAvailable, end > start else { return nil }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+        let bpm = HKUnit.count().unitDivided(by: .minute())
+        let values: [Double] = await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: HKQuantityType(.heartRate), predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
+                continuation.resume(returning: (samples as? [HKQuantitySample] ?? []).map { $0.quantity.doubleValue(for: bpm) })
+            }
+            store.execute(query)
+        }
+        return HeartRateSummary(values)
+        #else
+        return nil
+        #endif
+    }
+
     /// Writes ONE workout for a finished session and returns its UUID, which
     /// the caller stores on `Session.healthKitWorkoutId` so it is never
     /// written twice (§16/§17). Returns the existing id untouched if one is
@@ -210,6 +259,55 @@ public final class HealthKitManager: @unchecked Sendable {
         }
     }
     #endif
+}
+
+/// A workout from another app or device, as the plan cares about it.
+public struct ExternalWorkout: Codable, Sendable, Equatable {
+    public var start: Date
+    public var end: Date
+    public var activity: String
+    public var averageHeartRate: Double?
+
+    public init(start: Date, end: Date, activity: String, averageHeartRate: Double?) {
+        self.start = start
+        self.end = end
+        self.activity = activity
+        self.averageHeartRate = averageHeartRate
+    }
+
+    public var minutes: Int { max(0, Int(end.timeIntervalSince(start) / 60)) }
+
+    /// HKWorkoutActivityType raw values for the common ones; "Workout" otherwise.
+    static func name(for rawValue: UInt) -> String {
+        switch rawValue {
+        case 37: "Run"
+        case 13: "Ride"
+        case 46: "Swim"
+        case 52: "Walk"
+        case 50, 20: "Strength workout"
+        case 63: "HIIT"
+        case 41: "Soccer"
+        case 6: "Basketball"
+        default: "Workout"
+        }
+    }
+}
+
+/// Heart rate over a stretch of time.
+public struct HeartRateSummary: Sendable, Equatable {
+    public let average: Int
+    public let max: Int
+
+    public init?(_ values: [Double]) {
+        guard !values.isEmpty else { return nil }
+        average = Int((values.reduce(0, +) / Double(values.count)).rounded())
+        max = Int((values.max() ?? 0).rounded())
+    }
+
+    public init(average: Int, max: Int) {
+        self.average = average
+        self.max = max
+    }
 }
 
 /// A Sendable pair of dates, so samples can leave HealthKit's callback

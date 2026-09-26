@@ -73,6 +73,8 @@ struct WatchRootView: View {
     @State private var payload = WatchTodayPayload.loadFromDevice()
     @State private var showingSession = false
     @State private var showingCheckIn = false
+    @State private var showingReflection = false
+    @State private var reflectedToday = MindsetStore.reflection(on: .now) != nil
 
     private var athlete: Athlete? {
         guard let payload else { return athletes.first }
@@ -142,6 +144,17 @@ struct WatchRootView: View {
                     .foregroundStyle(.black)
                 }
 
+                if Calendar.current.component(.hour, from: .now) >= 18, !reflectedToday {
+                    Button {
+                        showingReflection = true
+                    } label: {
+                        Label("Evening reflection", systemImage: "moon.stars.fill")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.bordered)
+                }
+
                 if today && payload.isGameDay {
                     card(big: "Game", label: "Warm-up only today", icon: "sportscourt.fill")
                 } else if today, let title = payload.sessionTitle, !payload.items.isEmpty {
@@ -193,6 +206,12 @@ struct WatchRootView: View {
             WatchSessionView(items: payload.items, title: payload.sessionTitle ?? "Session", athlete: athlete, sportSlug: payload.sportSlug) {
                 showingSession = false
                 WatchSnapshotWriter.write(payload: payload, athlete: athlete)
+            }
+        }
+        .sheet(isPresented: $showingReflection) {
+            WatchReflectionView {
+                showingReflection = false
+                reflectedToday = true
             }
         }
         .sheet(isPresented: $showingCheckIn) {
