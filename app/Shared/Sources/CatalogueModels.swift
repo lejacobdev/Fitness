@@ -129,7 +129,7 @@ public struct SportInfo: Codable, Sendable, Hashable {
     public let contactLevel: String
     public let typicalSessionLength: Int
     public let typicalWeeklyGames: Int
-    /// One of the sports Athlete OS features first.
+    /// One of the sports AthleteOS features first.
     public let featured: Bool?
     public let formats: [SportFormat]?
     /// Old variant sport slugs → their format here ("" for none).

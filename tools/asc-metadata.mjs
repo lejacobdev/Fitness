@@ -5,7 +5,7 @@
  * the current source of truth for description, promotional text and notes.
  *
  * §20/M14: App Store listing metadata, age rating, content rights and App
- * Review notes for Athlete OS, set through the App Store Connect API.
+ * Review notes for AthleteOS, set through the App Store Connect API.
  * Idempotent — safe to re-run after editing the copy below. Never submits
  * for review and never touches builds or in-app purchases.
  *
@@ -22,7 +22,7 @@ const NAME_ONLY = args.includes('--name-only');
 const BUNDLE_ID = args.find((a) => !a.startsWith('--')) ?? 'com.studentathlete.app';
 
 /** App Store names are unique across the store; the first free one is used. */
-export const NAMES = ['Athlete OS', 'Athlete OS – AOS', 'AOS – Athlete OS', 'Athlete OS: Train & Learn'];
+export const NAMES = ['AthleteOS', 'AthleteOS – AOS', 'AOS – AthleteOS', 'AthleteOS: Train & Learn'];
 
 export const LISTING = {
   name: NAMES[0],
@@ -31,7 +31,7 @@ export const LISTING = {
   supportUrl: 'https://api.lejacob.dev/fitness/support',
   keywords: 'student athlete,high school,college,training,workout,sports,coach,team,mindset,soccer,basketball',
   promotionalText: 'Workouts built around your practices, games and exams — changeable exercise by exercise. Two-tap check-in, bite-size lessons, sport guides and a coach view.',
-  description: `Athlete OS is the operating system for student athletes: training built around your real schedule, plus the knowledge and mindset that take you to the next level.
+  description: `AthleteOS is the operating system for student athletes: training built around your real schedule, plus the knowledge and mindset that take you to the next level.
 
 HOME: YOUR DAY AT A GLANCE
 • Widgets you arrange: today's workout, a two-tap morning check-in (Apple Health fills in sleep and energy), your levels and your next game
@@ -79,15 +79,15 @@ PRIVATE BY DESIGN
 • Everything is backed up and comes back on a new phone
 • Log out any time, or delete your account for good
 
-ATHLETE OS PRO
+ATHLETEOS PRO
 The check-in, weekly plan, logging, Campus and the Apple Watch app are free. Pro unlocks unlimited skill plans and muscle workouts, several sports and every progress chart. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the period; manage them in your App Store account settings.
 
-Athlete OS gives general training information for athletes 13 and up. It is not medical advice, never predicts injury, never clears anyone to return to play, and never replaces a coach, athletic trainer or doctor.
+AthleteOS gives general training information for athletes 13 and up. It is not medical advice, never predicts injury, never clears anyone to return to play, and never replaces a coach, athletic trainer or doctor.
 
 Terms: https://api.lejacob.dev/fitness/terms
 Privacy: https://api.lejacob.dev/fitness/privacy`,
   reviewNotes: `WHAT THE APP IS
-Athlete OS is a training companion for high school and college athletes (13+). It builds workouts around the athlete's sport, season, practices, games and exams, adjusts each day from a morning check-in, and adds learning (Campus lessons) and mindset tools. All plan logic runs on-device with deterministic algorithms; there is no AI/LLM, no ads and no third-party SDKs.
+AthleteOS is a training companion for high school and college athletes (13+). It builds workouts around the athlete's sport, season, practices, games and exams, adjusts each day from a morning check-in, and adds learning (Campus lessons) and mindset tools. All plan logic runs on-device with deterministic algorithms; there is no AI/LLM, no ads and no third-party SDKs.
 
 SIGN IN
 Sign in with Apple is the only login, so any Apple ID works — no demo account is needed.
@@ -116,7 +116,7 @@ NO MEDICAL CLAIMS (1.4.1)
 The app never predicts injury or diagnoses. The concussion page explains the standard graduated return-to-sport steps (2023 international consensus, CDC HEADS UP) and pauses training; it states that a doctor must clear the athlete. The low-energy notice suggests eating enough and talking to a parent, coach or doctor. Fuelling guidance never includes a calorie deficit.
 
 SUBSCRIPTIONS
-Athlete OS Pro (monthly / yearly auto-renewable). The check-in, weekly plan, logging, Campus, Apple Watch app, log out and account deletion are always free.
+AthleteOS Pro (monthly / yearly auto-renewable). The check-in, weekly plan, logging, Campus, Apple Watch app, log out and account deletion are always free.
 
 ACCOUNT DELETION
 Me → Delete account deletes the account and all server data (and revokes Sign in with Apple), then clears the device.`,

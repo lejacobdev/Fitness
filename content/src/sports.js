@@ -32,7 +32,7 @@ export const DEEP_SKILL_SPORTS = new Set([
 ]);
 
 /**
- * The sports Athlete OS features first (the user's list): researched in depth
+ * The sports AthleteOS features first (the user's list): researched in depth
  * — how athletes succeed, what to train after practice, on a gym day and in
  * daily mobility. Every other sport stays fully supported.
  */

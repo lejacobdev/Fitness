@@ -55,7 +55,7 @@ struct CodeShareView: View {
                     .padding(14)
                     .background(Color.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                     .accessibilityLabel("QR code for \(link.code)")
-                Text("Scan with the iPhone Camera to open it in Athlete OS.")
+                Text("Scan with the iPhone Camera to open it in AthleteOS.")
                     .font(.footnote)
                     .foregroundStyle(AppTheme.secondaryText)
                     .multilineTextAlignment(.center)
@@ -68,7 +68,7 @@ struct CodeShareView: View {
             }
             #endif
             #if os(iOS) && !APP_EXTENSION
-            ShareLink(item: link.webURL, subject: Text("Athlete OS"), message: Text("\(message) — code \(link.code)")) {
+            ShareLink(item: link.webURL, subject: Text("AthleteOS"), message: Text("\(message) — code \(link.code)")) {
                 Label("Send the link", systemImage: "square.and.arrow.up")
             }
             .buttonStyle(.primary)
@@ -175,7 +175,7 @@ struct CodeField: View {
 }
 
 #if os(iOS) && !APP_EXTENSION
-/// The camera, looking for an Athlete OS QR code; reports the first one found.
+/// The camera, looking for an AthleteOS QR code; reports the first one found.
 struct CodeScanner: UIViewControllerRepresentable {
     let onFound: (String) -> Void
 

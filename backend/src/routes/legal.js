@@ -15,7 +15,7 @@ function page(title, body) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title} — Athlete OS</title>
+<title>${title} — AthleteOS</title>
 <style>
   :root { color-scheme: light dark; --bg: #f4f4f6; --card: #fff; --ink: #111; --muted: #6e6e73; }
   @media (prefers-color-scheme: dark) { :root { --bg: #000; --card: #1c1c1e; --ink: #fff; --muted: #9a9aa0; } }
@@ -42,7 +42,7 @@ ${body}
 
 const PRIVACY = page('Privacy Policy', `
 <section><h2>The short version</h2>
-<p>Athlete OS is a training app for athletes aged 13 and up. We collect the minimum needed to keep your training plan and history safe across devices. We never sell your data, never show ads, never use third-party analytics or trackers, and never share anything with anyone.</p></section>
+<p>AthleteOS is a training app for athletes aged 13 and up. We collect the minimum needed to keep your training plan and history safe across devices. We never sell your data, never show ads, never use third-party analytics or trackers, and never share anything with anyone.</p></section>
 <section><h2>What we store</h2>
 <ul>
 <li><strong>Your Apple sign-in identifier</strong> — the anonymous ID Apple gives us. We never request your name or email.</li>
@@ -70,7 +70,7 @@ const PRIVACY = page('Privacy Policy', `
 <section><h2>Deleting your data</h2>
 <p>You can delete your account at any time in the app: <strong>Me → Delete account</strong>. This permanently deletes your account and every check-in, session, set, plan, game, backup, league and team membership, shared workout and parent link stored on our server, revokes Sign in with Apple, and removes the copy on your device. It is free and never behind a subscription. <strong>Me → Log out</strong> backs everything up and removes it from the device without deleting your account.</p></section>
 <section><h2>Not medical advice</h2>
-<p>Athlete OS provides general training information. It never predicts injury, diagnoses anything, or clears anyone to return to play — its concussion page explains the usual steps and says a doctor decides. Always follow your coach, athletic trainer or doctor.</p></section>
+<p>AthleteOS provides general training information. It never predicts injury, diagnoses anything, or clears anyone to return to play — its concussion page explains the usual steps and says a doctor decides. Always follow your coach, athletic trainer or doctor.</p></section>
 <section><h2>Changes</h2><p>If this policy changes, the new version will be posted here with a new date.</p></section>
 `);
 
@@ -79,7 +79,7 @@ const TERMS = page('Terms of Use', `
 <section><h2>Training information, not medical advice</h2>
 <p>Plans, readiness suggestions, coaching messages and fuelling guidance are general information. They are not medical advice and do not replace your coach, athletic trainer, doctor or a registered dietitian. Stop exercising and tell an adult if something hurts. You train at your own discretion.</p></section>
 <section><h2>Subscriptions</h2>
-<p>Some features require Athlete OS Pro (monthly or yearly). Prices are shown in the app in your currency before you buy. Payment is charged to your Apple ID at confirmation of purchase. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period; your account is charged for renewal within 24 hours before the end of the period. Manage or cancel any time in your App Store account settings. An introductory price, when offered, applies once to new subscribers and is followed by the regular price. The daily check-in, your plan and all three kinds of workout, logging, the Apple Watch app, fuelling, safety features, daily Campus lessons, sport guides, leagues and teams are free.</p></section>
+<p>Some features require AthleteOS Pro (monthly or yearly). Prices are shown in the app in your currency before you buy. Payment is charged to your Apple ID at confirmation of purchase. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period; your account is charged for renewal within 24 hours before the end of the period. Manage or cancel any time in your App Store account settings. An introductory price, when offered, applies once to new subscribers and is followed by the regular price. The daily check-in, your plan and all three kinds of workout, logging, the Apple Watch app, fuelling, safety features, daily Campus lessons, sport guides, leagues and teams are free.</p></section>
 <section><h2>Community rules</h2>
 <p>Nicknames, league, team and workout names and coach notes can be seen by other people. There is no tolerance for objectionable content or abusive users: no insults, hate, harassment, sexual content, or anything you wouldn't say in front of your team. Names are checked when you save them. You can report a name, league, team or shared workout and block a player; reports are reviewed within 24 hours, objectionable content is removed and accounts that break these rules are closed.</p></section>
 <section><h2>Your content</h2><p>Your training data belongs to you. You can export it from Me → Export my data, and delete it at any time.</p></section>

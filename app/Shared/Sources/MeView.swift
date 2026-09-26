@@ -219,7 +219,7 @@ struct MeView: View {
                     .disabled(isLoggingOut || isDeleting)
                     }
 
-                    Text("Athlete OS \(BuildEvidence().version) (\(BuildEvidence().build))")
+                    Text("AthleteOS \(BuildEvidence().version) (\(BuildEvidence().build))")
                         .font(.caption)
                         .foregroundStyle(AppTheme.secondaryText)
                         .frame(maxWidth: .infinity)
@@ -266,7 +266,7 @@ struct MeView: View {
                 Button("Delete everything", role: .destructive) { deleteAccount() }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("This permanently deletes your account, everything backed up on our server and everything on this phone, and removes Athlete OS from your Apple ID's Sign in with Apple list. It can't be undone.")
+                Text("This permanently deletes your account, everything backed up on our server and everything on this phone, and removes AthleteOS from your Apple ID's Sign in with Apple list. It can't be undone.")
             }
             .confirmationDialog("Log out?", isPresented: $showingLogOutConfirmation, titleVisibility: .visible) {
                 Button("Log out") { logOut(force: false) }
@@ -449,7 +449,7 @@ struct MeView: View {
     /// and deleting everything on this phone.
     private var guestAccount: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Account", subtitle: "You're using Athlete OS without an account — everything is on this phone only.")
+            SectionHeader("Account", subtitle: "You're using AthleteOS without an account — everything is on this phone only.")
             VStack(alignment: .leading, spacing: 10) {
                 Text("Sign in to back up everything, use it on a new phone, join your coach's team and leagues, send a parent summary and share workouts.")
                     .font(.subheadline)
@@ -1202,7 +1202,7 @@ struct DataExportView: View {
                         exportStat("\(sessions.reduce(0) { $0 + $1.sets.count })", "sets")
                         exportStat("\(athlete.checkIns.count)", "check-ins")
                     }
-                    ShareLink(item: exportText, preview: SharePreview("Athlete OS export")) {
+                    ShareLink(item: exportText, preview: SharePreview("AthleteOS export")) {
                         Label("Share export", systemImage: "square.and.arrow.up")
                             .font(.headline)
                             .foregroundStyle(AppTheme.onAccent)

@@ -53,7 +53,7 @@ function nameLookup(packsDir) {
  *   GET /codes/:code          → { kind: team|league|workout, name }
  *   GET /team|league|workout|c/:code
  *       The page a link opens when the app isn't installed (or the link was
- *       typed into Safari): the code, "Open in Athlete OS" and the App Store.
+ *       typed into Safari): the code, "Open in AthleteOS" and the App Store.
  */
 export function linksRouter({
   prisma,
@@ -133,10 +133,10 @@ export function linksRouter({
         appStoreId,
         appArgument: `https://api.lejacob.dev/fitness/${found.kind}/${code}`,
         body: `<section class="code"><div class="big">${code}</div>
-<a class="button" href="${appLink}">Open in Athlete OS</a>
+<a class="button" href="${appLink}">Open in AthleteOS</a>
 <p>${how}</p></section>
 ${exercises}
-<section><p>Don't have Athlete OS yet? <a href="https://apps.apple.com/app/id${escape(appStoreId)}">Get it on the App Store</a>, then open this link again or enter the code.</p></section>`,
+<section><p>Don't have AthleteOS yet? <a href="https://apps.apple.com/app/id${escape(appStoreId)}">Get it on the App Store</a>, then open this link again or enter the code.</p></section>`,
       }));
     });
   }
@@ -155,7 +155,7 @@ function page({ title, body, appStoreId, appArgument }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 ${banner}
-<title>${title.replace(/<[^>]+>/g, '')} — Athlete OS</title>
+<title>${title.replace(/<[^>]+>/g, '')} — AthleteOS</title>
 <style>
   :root { color-scheme: light dark; --bg: #fff; --card: #f5f5f5; --ink: #111; --muted: #6e6e73; --red: #E5383B; }
   @media (prefers-color-scheme: dark) { :root { --bg: #000; --card: #141414; --ink: #fff; --muted: #9a9aa0; } }

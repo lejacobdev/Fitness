@@ -76,7 +76,7 @@ export function communityRouter({ prisma, sessionSecret }) {
 
 function thanks(ok) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Support — Athlete OS</title><style>body{font:17px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;max-width:640px;margin:0 auto;padding:40px 18px;}
+<title>Support — AthleteOS</title><style>body{font:17px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;max-width:640px;margin:0 auto;padding:40px 18px;}
 @media (prefers-color-scheme: dark){body{background:#000;color:#fff}}</style></head><body>
 <h1>${ok ? 'Thanks — we got your message.' : 'That didn\'t send.'}</h1>
 <p>${ok ? 'We read every message and reply within a few days if you left an email address.' : 'Write a few words in the message box and try again.'}</p>

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Athlete OS in five steps: PREPARE (morning check-in) → PERFORM (practice
+/// AthleteOS in five steps: PREPARE (morning check-in) → PERFORM (practice
 /// and workout) → LEARN (Campus) → REFLECT (evening) → ADAPT (tomorrow's
 /// plan). This file is the "adapt" logic that ties them together: today's
 /// readiness from the check-in, reported pain and last night's reflection,

@@ -262,7 +262,7 @@ struct JumpCameraView: View {
                 }
                 Spacer()
                 if denied {
-                    Text("Camera access is off. Turn it on in Settings → Athlete OS → Camera, or type your result in.")
+                    Text("Camera access is off. Turn it on in Settings → AthleteOS → Camera, or type your result in.")
                         .font(.headline)
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)

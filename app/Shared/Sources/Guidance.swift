@@ -586,7 +586,7 @@ struct ProFeatureSheet: View {
                 .font(.body)
                 .foregroundStyle(AppTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Available with Athlete OS Pro.")
+            Text("Available with AthleteOS Pro.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
             Spacer(minLength: 0)
@@ -642,7 +642,7 @@ struct ProLockCard: View {
                 .font(.footnote)
                 .foregroundStyle(AppTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Available with Athlete OS Pro.")
+            Text("Available with AthleteOS Pro.")
                 .font(.footnote)
                 .foregroundStyle(AppTheme.secondaryText)
             Button("Upgrade") { showingPaywall = true }

@@ -1,4 +1,4 @@
-# Athlete OS
+# AthleteOS
 
 A training companion for student athletes aged 13–18. Picks up the athlete's sport,
 generates season-aware daily and weekly training, runs a morning readiness check-in,

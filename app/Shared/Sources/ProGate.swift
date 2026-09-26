@@ -91,7 +91,7 @@ public extension ProFeature {
         case .multipleSports: "Several sports"
         case .exerciseProgress: "Exercise progress"
         case .dataExport: "Data export"
-        default: "Athlete OS Pro"
+        default: "AthleteOS Pro"
         }
     }
 

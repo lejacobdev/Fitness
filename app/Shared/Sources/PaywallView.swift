@@ -345,7 +345,7 @@ public struct PaywallView: View {
                 .foregroundStyle(AppTheme.red)
                 .frame(maxWidth: .infinity, alignment: .leading)
         case .purchased:
-            Label("You're Pro. Thanks for supporting Athlete OS.", systemImage: "checkmark.seal.fill")
+            Label("You're Pro. Thanks for supporting AthleteOS.", systemImage: "checkmark.seal.fill")
                 .font(.headline)
                 .foregroundStyle(AppTheme.green)
         case .idle, .purchasing:
@@ -465,7 +465,7 @@ public struct SubscriptionRow: View {
                         .background(store.isPro ? AppTheme.amber.opacity(0.13) : AppTheme.ink,
                                     in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(store.isPro ? "Athlete OS Pro" : "Upgrade to Pro")
+                        Text(store.isPro ? "AthleteOS Pro" : "Upgrade to Pro")
                             .font(.body)
                             .foregroundStyle(AppTheme.ink)
                         Text(statusLine)

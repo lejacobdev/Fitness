@@ -56,7 +56,7 @@ export function parentRouter({ prisma, sessionSecret, publicBaseURL = process.en
     const token = req.params.token;
     const link = TOKEN.test(token) ? await prisma.parentLink.findUnique({ where: { token } }) : null;
     if (!link) {
-      res.status(404).type('html').send(page('Link not found', '<section><p>This summary link was switched off or never existed. Ask your athlete to send a new one from the Athlete OS app (Me → Parent summary).</p></section>'));
+      res.status(404).type('html').send(page('Link not found', '<section><p>This summary link was switched off or never existed. Ask your athlete to send a new one from the AthleteOS app (Me → Parent summary).</p></section>'));
       return;
     }
     const summary = await weeklySummary(prisma, link.athleteId, now());
@@ -126,7 +126,7 @@ function renderSummary(s) {
     if (items.length) parts.push(`<section><h2>Learning &amp; mindset</h2><div class="stats">${items.join('')}</div></section>`);
     if (typeof a.testHeadline === 'string' && a.testHeadline) parts.push(`<section><h2>Latest tests</h2><p>${escape(a.testHeadline)}</p></section>`);
   }
-  parts.push('<p class="foot">Shared from the Athlete OS app. Only numbers are shown — never anything your athlete wrote. They can switch this link off at any time.</p>');
+  parts.push('<p class="foot">Shared from the AthleteOS app. Only numbers are shown — never anything your athlete wrote. They can switch this link off at any time.</p>');
   return parts.join('\n');
 }
 
@@ -137,7 +137,7 @@ function page(title, body) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>${escape(title)} — Athlete OS</title>
+<title>${escape(title)} — AthleteOS</title>
 <style>
   :root { color-scheme: light dark; --bg: #fff; --card: #f5f5f5; --ink: #111; --muted: #6e6e73; --red: #E5383B; }
   @media (prefers-color-scheme: dark) { :root { --bg: #000; --card: #141414; --ink: #fff; --muted: #9a9aa0; } }

@@ -87,7 +87,7 @@ struct LeaguesView: View {
             }
             .sheet(item: $inviting) { league in
                 CodeShareSheet(title: "Invite teammates", subtitle: "They scan the QR code, open the link, or tap the trophy in Campus → Join and enter the code.",
-                               link: .league(league.code), message: "Join my league “\(league.name)” in Athlete OS")
+                               link: .league(league.code), message: "Join my league “\(league.name)” in AthleteOS")
             }
             .confirmationDialog("Leave this league?", isPresented: Binding(
                 get: { leagueToLeave != nil }, set: { if !$0 { leagueToLeave = nil } }

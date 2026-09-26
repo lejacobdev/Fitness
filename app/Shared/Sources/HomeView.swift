@@ -316,7 +316,7 @@ struct HomeView: View {
 
     private var introCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Your day in Athlete OS")
+            Text("Your day in AthleteOS")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(AppTheme.ink)
             Text("Check in each morning. Train. Learn a little. Reflect in the evening. Tomorrow's plan adapts.")

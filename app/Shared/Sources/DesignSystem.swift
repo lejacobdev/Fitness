@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 #endif
 
-/// Athlete OS's visual language: minimal, and big — made to be read and
+/// AthleteOS's visual language: minimal, and big — made to be read and
 /// tapped quickly between sets. The two main colours are black and white:
 /// white canvas with black actions (light), black canvas with white actions
 /// (dark). Red, coral and the others are accents — rings, highlights, the

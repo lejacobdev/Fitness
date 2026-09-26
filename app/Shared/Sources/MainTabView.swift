@@ -196,12 +196,12 @@ public struct MainTabView: View {
             if let resolved = DeepLink.resolved(code: code, kind: info.kind) {
                 linkSheet = resolved
             } else {
-                linkMessage = "This version of the app doesn't know what \(code) is — update Athlete OS."
+                linkMessage = "This version of the app doesn't know what \(code) is — update AthleteOS."
             }
         } catch APIClient.APIError.http(status: 404, _) {
             linkMessage = "No team, league or workout has the code \(code)."
         } catch {
-            linkMessage = "Couldn't reach Athlete OS to open \(code) — check your connection and open the link again."
+            linkMessage = "Couldn't reach AthleteOS to open \(code) — check your connection and open the link again."
         }
     }
 

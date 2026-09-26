@@ -308,7 +308,7 @@ struct TeamBoardView: View {
             .proFeature(isPresented: $showingPaywall, athlete: context?.athlete, feature: .coachWorkouts)
             .sheet(isPresented: $inviting) {
                 CodeShareSheet(title: "Invite athletes", subtitle: "They scan the QR code, open the link, or enter the code in Me → My team.",
-                               link: .team(team.code), message: "Join our team “\(team.name)” in Athlete OS")
+                               link: .team(team.code), message: "Join our team “\(team.name)” in AthleteOS")
             }
             .sheet(isPresented: $assigning, onDismiss: { Task { await load() } }) {
                 AssignWorkoutSheet(teamID: team.id)
@@ -568,7 +568,7 @@ struct ParentSummaryView: View {
                                 .textSelection(.enabled)
                                 #endif
                             #if os(iOS) && !APP_EXTENSION
-                            ShareLink(item: link, message: Text("My training week in Athlete OS — this page updates every day.")) {
+                            ShareLink(item: link, message: Text("My training week in AthleteOS — this page updates every day.")) {
                                 Label("Send to a parent", systemImage: "square.and.arrow.up")
                             }
                             .buttonStyle(.primary)

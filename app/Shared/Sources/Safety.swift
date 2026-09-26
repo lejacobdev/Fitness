@@ -192,5 +192,5 @@ public enum SafetyTopic: String, CaseIterable, Identifiable, Sendable {
     }
 
     /// Said once, here — not on every screen.
-    public static let disclaimer = "Athlete OS gives general guidance, not medical advice, and can't diagnose anything. A doctor, athletic trainer or parent decides. In an emergency, call your local emergency number."
+    public static let disclaimer = "AthleteOS gives general guidance, not medical advice, and can't diagnose anything. A doctor, athletic trainer or parent decides. In an emergency, call your local emergency number."
 }

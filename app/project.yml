@@ -25,7 +25,7 @@ options:
 
 # One place for the identifiers. §23 records these as changeable constants.
 attributes:
-  ORGANIZATIONNAME: Athlete OS
+  ORGANIZATIONNAME: AthleteOS
 
 settings:
   base:

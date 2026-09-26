@@ -19,7 +19,7 @@
 	<string>APPL</string>
 
 	<key>CFBundleDisplayName</key>
-	<string>Athlete OS</string>
+	<string>AthleteOS</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
@@ -58,16 +58,16 @@
 
 	<!-- The jump test films at the camera's highest frame rate (no sound). -->
 	<key>NSCameraUsageDescription</key>
-	<string>Athlete OS uses the camera only when you film your vertical jump test, to measure how long you were in the air. The video stays on your phone.</string>
+	<string>AthleteOS uses the camera only when you film your vertical jump test, to measure how long you were in the air. The video stays on your phone.</string>
 
 	<!--
 	  §17: both strings are mandatory. An app with the HealthKit entitlement and
 	  only one of these is rejected at upload.
 	-->
 	<key>NSHealthShareUsageDescription</key>
-	<string>Athlete OS reads your sleep, workouts and heart rate so your morning check-in and training load reflect what your body actually did. You can use the whole app without granting this.</string>
+	<string>AthleteOS reads your sleep, workouts and heart rate so your morning check-in and training load reflect what your body actually did. You can use the whole app without granting this.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>Athlete OS saves the sessions you log to Health so they appear alongside your other activity. You can use the whole app without granting this.</string>
+	<string>AthleteOS saves the sessions you log to Health so they appear alongside your other activity. You can use the whole app without granting this.</string>
 
 	<!--
 	  §17: healthkit must NOT appear in UIRequiredDeviceCapabilities. Declaring it

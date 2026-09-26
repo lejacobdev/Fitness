@@ -885,14 +885,17 @@ const commands = {
     if (!ok) throw new Error('no introductory offer was created');
   },
 
-  async 'setup-subscriptions'(identifier) {
-    if (!identifier) throw new Error('usage: setup-subscriptions <bundle-id>');
+  async 'setup-subscriptions'(identifier, mode) {
+    if (!identifier) throw new Error('usage: setup-subscriptions <bundle-id> [--texts-only]');
+    // --texts-only: the display names and descriptions, nothing else — the
+    // prices set per territory (asc-pricing) stay as they are.
+    const textsOnly = mode === '--texts-only';
     const app = await appFor(identifier);
     const PLANS = [
       { productId: 'com.studentathlete.app.pro.yearly', name: 'Pro Yearly', period: 'ONE_YEAR', level: 1, usd: '24.99',
-        description: 'A full year of Athlete OS Pro.' },
+        description: 'A full year of AthleteOS Pro.' },
       { productId: 'com.studentathlete.app.pro.monthly', name: 'Pro Monthly', period: 'ONE_MONTH', level: 2, usd: '2.99',
-        description: 'One month of Athlete OS Pro.' },
+        description: 'One month of AthleteOS Pro.' },
     ];
 
     const groups = await api(`/v1/apps/${app.id}/subscriptionGroups?limit=50`);
@@ -912,11 +915,11 @@ const commands = {
       const en = locs.find((l) => l.attributes.locale === 'en-US');
       if (en) {
         return api(`/v1/subscriptionGroupLocalizations/${en.id}`, { method: 'PATCH',
-          body: { data: { type: 'subscriptionGroupLocalizations', id: en.id, attributes: { name: 'Athlete OS Pro' } } } });
+          body: { data: { type: 'subscriptionGroupLocalizations', id: en.id, attributes: { name: 'AthleteOS Pro' } } } });
       }
       return api('/v1/subscriptionGroupLocalizations', {
         method: 'POST',
-        body: { data: { type: 'subscriptionGroupLocalizations', attributes: { name: 'Athlete OS Pro', locale: 'en-US' },
+        body: { data: { type: 'subscriptionGroupLocalizations', attributes: { name: 'AthleteOS Pro', locale: 'en-US' },
           relationships: { subscriptionGroup: { data: { type: 'subscriptionGroups', id: group.id } } } } },
       });
     });
@@ -924,6 +927,10 @@ const commands = {
     const existing = (await api(`/v1/subscriptionGroups/${group.id}/subscriptions?limit=50`)).data;
     for (const plan of PLANS) {
       let sub = existing.find((s) => s.attributes.productId === plan.productId);
+      if (textsOnly && !sub) {
+        console.log(`${plan.productId} missing — run without --texts-only to create it`);
+        continue;
+      }
       if (sub) {
         console.log(`${plan.productId} exists (${sub.id}, ${sub.attributes.state})`);
       } else {
@@ -950,6 +957,8 @@ const commands = {
             relationships: { subscription: { data: { type: 'subscriptions', id: sub.id } } } } },
         });
       });
+
+      if (textsOnly) continue;
 
       await tryStep(`${plan.productId} availability`, async () => {
         const territories = await api('/v1/territories?limit=200');

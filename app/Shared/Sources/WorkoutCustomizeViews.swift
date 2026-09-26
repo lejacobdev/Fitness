@@ -478,10 +478,10 @@ struct ShareWorkoutSheet: View {
                 VStack(alignment: .leading, spacing: 22) {
                     ScreenTitle("Share “\(workout.title)”", subtitle: "Anyone with the code, link or QR code gets a copy of this workout — \(workout.items.count) exercises, about \(workout.estimatedMinutes) min.")
                     if let code {
-                        CodeShareView(link: .workout(code), message: "Try my workout “\(workout.title)” in Athlete OS")
+                        CodeShareView(link: .workout(code), message: "Try my workout “\(workout.title)” in AthleteOS")
                     } else if !ProAccess.isPro {
                         VStack(alignment: .leading, spacing: 12) {
-                            Label("Sharing workouts is part of Athlete OS Pro", systemImage: "sparkles")
+                            Label("Sharing workouts is part of AthleteOS Pro", systemImage: "sparkles")
                                 .font(.headline)
                                 .foregroundStyle(AppTheme.ink)
                             Text("Anyone can open a shared workout for free — sharing your own takes Pro.")
@@ -668,7 +668,7 @@ struct SharedWorkoutSheet: View {
         } catch APIClient.APIError.http(status: 404, _) {
             message = "No workout has that code. Check it and try again."
         } catch {
-            message = "Couldn't reach Athlete OS — check your connection."
+            message = "Couldn't reach AthleteOS — check your connection."
         }
     }
 }
