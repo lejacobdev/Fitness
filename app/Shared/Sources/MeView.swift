@@ -49,7 +49,7 @@ struct MeView: View {
     private var apiClient: APIClient { APIClient(baseURL: AppConfig.backendBaseURL) }
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, experience, name, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, safety, struggles, trends, mindset, schedule
+        case sport, season, equipment, experience, name, reports, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, safety, struggles, trends, mindset, schedule
         var id: String { rawValue }
     }
 
@@ -168,6 +168,8 @@ struct MeView: View {
 
                     SectionHeader("Your data", subtitle: "It's yours: export it any time.")
                     menuCard {
+                        menuRow("Reports", icon: "doc.richtext", tint: AppTheme.brand, detail: "Season, PDF, recruiting") { activeSheet = .reports }
+                        menuDivider
                         menuRow("Export my data", icon: "square.and.arrow.up", tint: AppTheme.green, detail: "JSON") { activeSheet = .dataExport }
                         menuDivider
                         HStack(spacing: 14) {
@@ -248,6 +250,12 @@ struct MeView: View {
                 case .equipment: EquipmentEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
                 case .experience: ExperienceEditorSheet(onSaved: onPlanInputsChanged)
                 case .name: NameEditorSheet(athlete: athlete)
+                case .reports:
+                    #if os(iOS)
+                    ReportsSheet(athlete: athlete, sessions: sessions, catalogue: catalogue)
+                    #else
+                    EmptyView()
+                    #endif
                 case .history: SessionHistoryView()
                 case .checkIns: CheckInHistoryView(checkIns: athlete.checkIns)
                 case .exercises: ExerciseProgressListView(sessions: sessions, catalogue: catalogue)
