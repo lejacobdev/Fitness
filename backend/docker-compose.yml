@@ -44,6 +44,14 @@ services:
       APP_VERSION: ${APP_VERSION:-dev}
       APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-com.studentathlete.app}
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      # Sign in with Apple token revocation on account deletion (guideline
+      # 5.1.1(v)); optional — without them deletion works, minus the revoke.
+      APPLE_SIWA_KEY_ID: ${APPLE_SIWA_KEY_ID:-}
+      APPLE_SIWA_TEAM_ID: ${APPLE_SIWA_TEAM_ID:-}
+      APPLE_SIWA_PRIVATE_KEY_PATH: ${APPLE_SIWA_PRIVATE_KEY_PATH:-}
+    volumes:
+      # The .p8 key lives in backend/secrets/ (git-ignored), read-only in the container.
+      - ./secrets:/run/secrets/siwa:ro
     ports:
       # Loopback only — never bound to the public interface directly.
       # Production traffic reaches this through Apache + Cloudflare

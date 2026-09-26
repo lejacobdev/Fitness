@@ -73,7 +73,9 @@ public struct PaywallView: View {
         }
         .appScreen()
         .task {
-            if store.products.isEmpty { await store.loadProducts() }
+            // Fresh every time: a price or offer changed in App Store Connect
+            // shows here without restarting the app.
+            await store.loadProducts()
             await checkOffers()
         }
         .onChange(of: store.products.count) {
