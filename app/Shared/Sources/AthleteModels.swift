@@ -468,6 +468,12 @@ public let athleteModelTypes: [any PersistentModel.Type] = [
 ]
 
 public extension Athlete {
+    /// Guests use the app without an account: everything stays on this phone
+    /// until they sign in with Apple (Me → Account).
+    static let guestPrefix = "guest-"
+
+    var isGuest: Bool { appleUserId.hasPrefix(Self.guestPrefix) }
+
     /// The sport the app is currently set to — plan, skills, drills and games
     /// all follow it. An athlete can play several; `isPrimary` marks the one
     /// switched to (the sport switcher sets it), with a stable fallback.

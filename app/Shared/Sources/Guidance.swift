@@ -114,7 +114,7 @@ struct AppTourView: View {
              body: "Home shows only the most important things as widgets: today's workout, your check-in, your levels and your next game. Tap any widget to open the full page.",
              steps: ["Do the 10-second morning check-in", "Tap a widget to go deeper", "Edit Home to move or remove widgets"]),
         Page(icon: "graduationcap.fill", color: AppTheme.green, tab: "Campus",
-             title: "Learn like Duolingo",
+             title: "Learn in a few minutes a day",
              body: "Short lessons on training, food, sleep, injuries, mindset and more, plus a guide to your own sport. Earn XP, keep a streak, collect badges and race your teammates in a league.",
              steps: ["Tap the next lesson on the path", "Know your sport: what wins, and a quiz", "Trophy: leagues · Medal: badges"]),
         Page(icon: "figure.strengthtraining.traditional", color: AppTheme.brand, tab: "Workout",

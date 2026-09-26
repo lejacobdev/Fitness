@@ -106,6 +106,15 @@ public struct OnboardingView: View {
                 Text("By continuing you agree to the Terms and Privacy Policy.")
                     .font(.caption)
                     .foregroundStyle(AppTheme.secondaryText)
+                // Guideline 5.1.1(v): the training itself needs no account.
+                Button("Continue without an account") { continueAsGuest() }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .frame(minHeight: 44)
+                Text("Everything stays on this phone. Sign in any time in Me to back it up, join a team or league, and share workouts.")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 16)
@@ -195,6 +204,18 @@ public struct OnboardingView: View {
                 errorMessage = "Couldn't sign in — check your connection and try again."
             }
         }
+    }
+
+    /// No account: a local athlete (the age gate still applies), the core
+    /// library, and the same setup. Signing in later keeps all of it.
+    private func continueAsGuest() {
+        errorMessage = nil
+        let context = modelContext
+        let athlete = Athlete(appleUserId: Athlete.guestPrefix + UUID().uuidString, birthDate: birthDate ?? .now)
+        context.insert(athlete)
+        try? context.save()
+        step = .downloadingCore
+        Task { await downloadCorePack(into: context) }
     }
 
     private func persistAthlete(from response: APIClient.AuthResponse, in context: ModelContext) -> Athlete {

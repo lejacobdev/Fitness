@@ -1,6 +1,7 @@
 import express from 'express';
 
 import { CODE, uniqueCode } from '../lib/codes.js';
+import { isObjectionable } from '../lib/moderation.js';
 import { requireAuth } from '../lib/requireAuth.js';
 
 const SLUG = /^[a-z0-9][a-z0-9-]{0,80}$/;
@@ -43,7 +44,7 @@ export function cleanItems(value) {
 export function cleanTitle(value) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim().replace(/\s+/g, ' ');
-  return trimmed.length >= 1 && trimmed.length <= 60 ? trimmed : null;
+  return trimmed.length >= 1 && trimmed.length <= 60 && !isObjectionable(trimmed) ? trimmed : null;
 }
 
 /**

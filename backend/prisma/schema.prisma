@@ -370,3 +370,25 @@ model SharedWorkout {
 
   @@index([ownerId])
 }
+
+/// Someone reported content they saw (guideline 1.2): a shared workout, a
+/// league member's nickname, a league or a team. Reviewed within 24 hours
+/// (scripts/inbox.mjs); a workout reported by three people stops being shared.
+model Report {
+  id         String   @id @default(uuid())
+  reporterId String?
+  kind       String
+  target     String
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@index([kind, target])
+}
+
+/// A message from the support page's contact form.
+model SupportMessage {
+  id        String   @id @default(uuid())
+  email     String?
+  message   String
+  createdAt DateTime @default(now())
+}

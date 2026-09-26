@@ -35,6 +35,9 @@ struct LeaguesView: View {
     @State private var working = false
     @State private var leagueToLeave: APIClient.LeagueTable.League?
     @State private var inviting: APIClient.LeagueTable.League?
+    /// Players this athlete blocked ("leagueId:nickname"), hidden from their tables.
+    @AppStorage(LeagueBlocks.key) private var blockedRaw = ""
+    @State private var reportedNotice: String?
 
     enum Mode { case create, join }
 
@@ -98,6 +101,14 @@ struct LeaguesView: View {
         }
     }
 
+    private func report(league: APIClient.LeagueTable.League, nickname: String, reason: String? = nil) {
+        Task {
+            try? await apiClient.report(kind: "leagueMember", target: "\(league.id):\(nickname)", reason: reason,
+                                        sessionToken: try? KeychainTokenStore().read())
+            reportedNotice = reason == "blocked" ? "\(nickname) is blocked and reported — thank you." : "Thanks — we'll look at \(nickname) within 24 hours."
+        }
+    }
+
     private func leagueCard(_ league: APIClient.LeagueTable.League) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -113,7 +124,7 @@ struct LeaguesView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Leave \(league.name)")
             }
-            ForEach(Array(league.members.enumerated()), id: \.offset) { index, member in
+            ForEach(Array(league.members.filter { !LeagueBlocks.isBlocked(league: league.id, nickname: $0.nickname, raw: blockedRaw) }.enumerated()), id: \.offset) { index, member in
                 HStack(spacing: 12) {
                     Text("\(index + 1)")
                         .font(.headline.monospacedDigit())
@@ -130,7 +141,26 @@ struct LeaguesView: View {
                 .padding(.vertical, 6)
                 .padding(.horizontal, 10)
                 .background(member.isMe ? AppTheme.accent.opacity(0.1) : Color.clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .contentShape(Rectangle())
+                #if os(iOS)
+                .contextMenu {
+                    if !member.isMe {
+                        Button { report(league: league, nickname: member.nickname) } label: {
+                            Label("Report \(member.nickname)", systemImage: "flag")
+                        }
+                        Button(role: .destructive) {
+                            blockedRaw = LeagueBlocks.adding(league: league.id, nickname: member.nickname, to: blockedRaw)
+                            report(league: league, nickname: member.nickname, reason: "blocked")
+                        } label: {
+                            Label("Block \(member.nickname)", systemImage: "hand.raised")
+                        }
+                    }
+                }
+                #endif
             }
+            Text(reportedNotice ?? "Long-press a name to report or block it.")
+                .font(.caption)
+                .foregroundStyle(AppTheme.secondaryText)
             HStack {
                 Label("Code: \(league.code)", systemImage: "number")
                     .font(.headline.monospaced())
@@ -186,7 +216,7 @@ struct LeaguesView: View {
                 Button(working ? "…" : button) {
                     Task {
                         guard let token = try? KeychainTokenStore().read() else {
-                            errorMessage = "Sign in again to use leagues."
+                            errorMessage = "Leagues need an account — sign in with Apple in Me → Account."
                             return
                         }
                         working = true
@@ -225,7 +255,7 @@ struct LeaguesView: View {
         await LeagueSync.report(apiClient: apiClient)
         guard let token = try? KeychainTokenStore().read() else {
             loading = false
-            errorMessage = "Sign in to use leagues."
+            errorMessage = "Leagues need an account — sign in with Apple in Me → Account."
             return
         }
         do {
@@ -340,5 +370,19 @@ struct BadgeCelebrationView: View {
         }
         .padding(24)
         .sensoryFeedback(.success, trigger: badges.count)
+    }
+}
+
+/// Players an athlete blocked in leagues: hidden from their tables (and
+/// reported). Stored as "leagueId:nickname" lines, backed up with Campus.
+enum LeagueBlocks {
+    static let key = "league.blocked"
+
+    static func isBlocked(league: String, nickname: String, raw: String) -> Bool {
+        raw.split(separator: "\n").contains { $0 == "\(league):\(nickname)" }
+    }
+
+    static func adding(league: String, nickname: String, to raw: String) -> String {
+        isBlocked(league: league, nickname: nickname, raw: raw) ? raw : (raw.isEmpty ? "" : raw + "\n") + "\(league):\(nickname)"
     }
 }

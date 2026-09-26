@@ -2,6 +2,7 @@ import express from 'express';
 
 import { requireAuth } from '../lib/requireAuth.js';
 import { uniqueCode } from '../lib/codes.js';
+import { isObjectionable } from '../lib/moderation.js';
 import { cleanName, cleanNickname } from './leagues.js';
 
 const CODE = /^[A-HJ-KM-NP-Z2-9]{6}$/;
@@ -238,6 +239,10 @@ export function teamsRouter({ prisma, sessionSecret }) {
     const date = day(req.body?.date);
     const title = cleanName(req.body?.title);
     const note = typeof req.body?.note === 'string' && req.body.note.trim() ? req.body.note.trim().slice(0, 300) : null;
+    if (note && isObjectionable(note)) {
+      res.status(400).json({ error: 'inappropriate' });
+      return;
+    }
     const items = cleanItems(req.body?.items);
     if (!date || !title || !items) {
       res.status(400).json({ error: !date ? 'invalid_date' : !title ? 'invalid_title' : 'invalid_items' });

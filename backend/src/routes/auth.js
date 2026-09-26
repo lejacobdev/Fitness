@@ -9,11 +9,13 @@ import { signSessionToken } from '../lib/sessionToken.js';
  * (same Apple `sub`) is looked up, not re-created, so a reinstall or a new
  * phone restores the same account.
  */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export function authRouter({ prisma, keyStore, appleBundleId, sessionSecret, appleRevoker = null }) {
   const router = express.Router();
 
   router.post('/apple', async (req, res) => {
-    const { identityToken, rawNonce, birthDate, authorizationCode } = req.body ?? {};
+    const { identityToken, rawNonce, birthDate, authorizationCode, athleteId: proposedId } = req.body ?? {};
     if (typeof identityToken !== 'string' || identityToken.length === 0) {
       res.status(400).json({ error: 'missing_identity_token' });
       return;
@@ -55,8 +57,12 @@ export function authRouter({ prisma, keyStore, appleBundleId, sessionSecret, app
         res.status(403).json({ error: 'under_minimum_age' });
         return;
       }
+      // Someone who used the app without an account keeps their id, so what
+      // they bought as a guest (App Store purchases carry it) stays theirs.
+      const keepId = typeof proposedId === 'string' && UUID.test(proposedId)
+        && !(await prisma.athlete.findUnique({ where: { id: proposedId } }));
       athlete = await prisma.athlete.create({
-        data: { appleUserId: sub, birthDate: parsedBirthDate },
+        data: { ...(keepId ? { id: proposedId } : {}), appleUserId: sub, birthDate: parsedBirthDate },
       });
     }
 

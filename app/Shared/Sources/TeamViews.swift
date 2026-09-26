@@ -74,6 +74,14 @@ struct MyTeamView: View {
                                 Text("You're \(team.nickname)").font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                             }
                             Spacer()
+                            Button("Report") {
+                                Task {
+                                    try? await apiClient.report(kind: "team", target: team.id, sessionToken: try? KeychainTokenStore().read())
+                                    message = "Thanks — we'll look at \(team.name) within 24 hours. You can also leave the team."
+                                }
+                            }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.secondaryText)
                             Button("Leave") { teamToLeave = team }
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(AppTheme.red)
@@ -124,7 +132,7 @@ struct MyTeamView: View {
 
     private func load() async {
         guard let token = try? KeychainTokenStore().read() else {
-            message = "Sign in to join a team."
+            message = "Teams need an account — sign in with Apple in Me → Account."
             return
         }
         teams = try? await apiClient.teams(sessionToken: token)

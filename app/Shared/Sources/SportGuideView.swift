@@ -59,7 +59,7 @@ struct SportGuideView: View {
                     .containerRelativeFrame(.horizontal)
                 } else {
                     ContentUnavailableView("No guide for this sport yet", systemImage: "book.closed",
-                                           description: Text("Guides cover the 29 main sports. More are on the way."))
+                                           description: Text("Guides cover the 29 main sports. Switch to one of them in Me → Sports to read its guide."))
                         .padding(.top, 60)
                 }
             }

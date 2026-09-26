@@ -61,6 +61,10 @@ const PRIVACY = page('Privacy Policy', `
 <li>Advertising identifiers, or any data for advertising or marketing.</li></ul></section>
 <section><h2>Apple Health</h2>
 <p>If you allow it, the app reads your sleep and resting heart rate from Apple Health to pre-fill your check-in, and writes your finished workouts back to Apple Health. Hours slept are stored with your check-in; heart rate is only used on your phone. Health data is used only inside the app to support your training. It is never used for advertising, never shared with third parties, and never sold.</p></section>
+<section><h2>Using the app without an account</h2>
+<p>If you continue without an account, everything stays on your device and nothing is sent to our server. Signing in with Apple later backs it up.</p></section>
+<section><h2>Reports and messages</h2>
+<p>If you report content, we store what you reported and when, linked to your account, to review it. Messages sent through the Support page are stored with the email address you give, only to answer you.</p></section>
 <section><h2>Where your data lives</h2>
 <p>Everything is stored on your device first and works offline. When you are online it is backed up to our own server so it survives a new phone. The server is operated by the developer; no third-party processors are used.</p></section>
 <section><h2>Deleting your data</h2>
@@ -75,26 +79,37 @@ const TERMS = page('Terms of Use', `
 <section><h2>Training information, not medical advice</h2>
 <p>Plans, readiness suggestions, coaching messages and fuelling guidance are general information. They are not medical advice and do not replace your coach, athletic trainer, doctor or a registered dietitian. Stop exercising and tell an adult if something hurts. You train at your own discretion.</p></section>
 <section><h2>Subscriptions</h2>
-<p>Some features require Athlete OS Pro. Subscriptions are billed through your Apple ID, renew automatically unless cancelled at least 24 hours before the end of the current period, and can be managed or cancelled in your App Store account settings. The daily check-in, your training plan, logging and the Apple Watch app are free.</p></section>
+<p>Some features require Athlete OS Pro (monthly or yearly). Prices are shown in the app in your currency before you buy. Payment is charged to your Apple ID at confirmation of purchase. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period; your account is charged for renewal within 24 hours before the end of the period. Manage or cancel any time in your App Store account settings. An introductory price, when offered, applies once to new subscribers and is followed by the regular price. The daily check-in, your plan and all three kinds of workout, logging, the Apple Watch app, fuelling, safety features, daily Campus lessons, sport guides, leagues and teams are free.</p></section>
+<section><h2>Community rules</h2>
+<p>Nicknames, league, team and workout names and coach notes can be seen by other people. There is no tolerance for objectionable content or abusive users: no insults, hate, harassment, sexual content, or anything you wouldn't say in front of your team. Names are checked when you save them. You can report a name, league, team or shared workout and block a player; reports are reviewed within 24 hours, objectionable content is removed and accounts that break these rules are closed.</p></section>
 <section><h2>Your content</h2><p>Your training data belongs to you. You can export it from Me → Export my data, and delete it at any time.</p></section>
-<section><h2>Acceptable use</h2><p>Don't attempt to access other people's data, interfere with the service, or reverse-engineer it for that purpose.</p></section>
+<section><h2>Acceptable use</h2><p>Don't attempt to access other people's data, interfere with the service, or reverse-engineer it for that purpose. Follow the community rules above.</p></section>
+<section><h2>Contact</h2><p>Questions or problems: use the form on the <a href="support">Support page</a>.</p></section>
 <section><h2>Availability</h2><p>The app is designed to work offline. The backup service is provided as-is and may occasionally be unavailable.</p></section>
 `);
 
 const SUPPORT = page('Support', `
 <section><h2>Getting started</h2>
-<p>Pick your sport, set your season dates and do the four-tap morning check-in. Your week is generated automatically and changes when you add a game on the Plan tab.</p></section>
+<p>Pick your sport and position, set your season and practice days, and do the two-tap morning check-in. Your workouts are built around your practices, games and exams — and you can change any of them.</p></section>
 <section><h2>Common questions</h2>
 <ul>
-<li><strong>My plan changed today.</strong> If your check-in was well below your normal, today's session is trimmed or swapped for mobility. Tap "Use the original session instead" to override.</li>
-<li><strong>How do I add a game?</strong> Plan tab → Add a game, or the + button on Today.</li>
+<li><strong>Do I need an account?</strong> No — tap "Continue without an account". Sign in with Apple any time in Me → Account to back up, join a team or league and share workouts.</li>
+<li><strong>Where are my workouts?</strong> The Workout tab: after practice, gym day, and stretching &amp; mobility. "See it" shows a workout, "Change it" lets you swap exercises.</li>
+<li><strong>My workout is lighter today.</strong> Your check-in was below your normal, so it was eased. You can switch back to the full version on the Workout tab.</li>
+<li><strong>How do I add a game or practice?</strong> The Progress tab → Schedule &amp; events, or connect your team's calendar link.</li>
+<li><strong>How do I join my coach's team?</strong> Me → My team → enter the code, or open the link or QR code your coach sent.</li>
+<li><strong>How do I report or block someone?</strong> Long-press their name in a league to report or block them; shared workouts and teams have a Report button.</li>
 <li><strong>Does it work offline?</strong> Yes. Everything is saved on your phone and backs up next time you're online.</li>
-<li><strong>How do I change my sport or equipment?</strong> Me → Training setup.</li>
 <li><strong>How do I delete my account?</strong> Me → Delete account. It deletes everything, immediately.</li>
 <li><strong>How do I cancel Pro?</strong> iPhone Settings → your name → Subscriptions.</li>
 </ul></section>
-<section><h2>Contact</h2>
-<p>Use the "App Support" link on the Athlete OS App Store page to reach the developer.</p></section>
+<section><h2>Contact us</h2>
+<p>Write to us here — we read every message and reply within a few days if you leave your email address.</p>
+<form method="post" action="support/messages">
+<p><label>Your email (optional)<br><input type="email" name="email" autocomplete="email" style="width:100%;font:inherit;padding:10px;border-radius:12px;border:1px solid #999"></label></p>
+<p><label>Message<br><textarea name="message" rows="6" required minlength="5" style="width:100%;font:inherit;padding:10px;border-radius:12px;border:1px solid #999"></textarea></label></p>
+<p><button type="submit" style="font:inherit;font-weight:700;padding:12px 22px;border-radius:999px;border:0;background:#111;color:#fff">Send</button></p>
+</form></section>
 `);
 
 export function legalRouter() {

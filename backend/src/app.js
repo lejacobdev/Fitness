@@ -8,6 +8,7 @@ import { installAsyncRejectionForwarding } from './lib/asyncRejection.js';
 import { athleteRouter } from './routes/athlete.js';
 import { authRouter } from './routes/auth.js';
 import { billingRouter } from './routes/billing.js';
+import { communityRouter } from './routes/community.js';
 import { leaguesRouter } from './routes/leagues.js';
 import { legalRouter } from './routes/legal.js';
 import { linksRouter } from './routes/links.js';
@@ -74,6 +75,7 @@ export function createApp({
     app.use('/leagues', leaguesRouter({ prisma, sessionSecret }));
     app.use('/teams', teamsRouter({ prisma, sessionSecret }));
     app.use('/workouts', workoutsRouter({ prisma, sessionSecret }));
+    app.use(communityRouter({ prisma, sessionSecret }));
     app.use(parentRouter({ prisma, sessionSecret }));
   }
 

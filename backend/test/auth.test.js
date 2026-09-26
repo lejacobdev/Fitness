@@ -43,8 +43,8 @@ function fakePrisma() {
   let nextId = 1;
   return {
     athlete: {
-      async findUnique({ where: { appleUserId } }) {
-        return athletesByAppleId.get(appleUserId) ?? null;
+      async findUnique({ where: { appleUserId, id } }) {
+        return (id ? athletesById.get(id) : athletesByAppleId.get(appleUserId)) ?? null;
       },
       async create({ data }) {
         const athlete = { id: String(nextId++), createdAt: new Date(), ...data };
@@ -203,3 +203,34 @@ function futureSafeUnder13BirthDate() {
   twelveYearsAgo.setUTCFullYear(twelveYearsAgo.getUTCFullYear() - 12);
   return twelveYearsAgo.toISOString().slice(0, 10);
 }
+
+test('a guest signing in keeps their id when the account is new (a valid, unused UUID only)', async () => {
+  const prisma = fakePrisma();
+  const { url, close } = await serve(buildApp(prisma));
+  const guestId = '3f8a2c1e-9b4d-4e7a-8c2f-1a2b3c4d5e6f';
+  try {
+    const res = await fetch(`${url}/auth/apple`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ identityToken: mintAppleToken(), birthDate: '2010-05-01', athleteId: guestId }),
+      signal: AbortSignal.timeout(2000),
+    });
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).athlete.id, guestId, 'App Store purchases made as a guest carry this id');
+  } finally {
+    await close();
+  }
+  const other = fakePrisma();
+  const second = await serve(buildApp(other));
+  try {
+    const res = await fetch(`${second.url}/auth/apple`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ identityToken: mintAppleToken(), birthDate: '2010-05-01', athleteId: 'not-a-uuid' }),
+      signal: AbortSignal.timeout(2000),
+    });
+    assert.notEqual((await res.json()).athlete.id, 'not-a-uuid');
+  } finally {
+    await second.close();
+  }
+});

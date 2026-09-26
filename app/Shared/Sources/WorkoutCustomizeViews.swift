@@ -549,6 +549,8 @@ struct SharedWorkoutSheet: View {
     @State private var message: String?
     @State private var catalogue = Catalogue()
     @State private var showingPaywall = false
+    @State private var reported = false
+    @State private var confirmReport = false
     @Environment(\.workoutContext) private var context
 
     private let apiClient = APIClient(baseURL: AppConfig.backendBaseURL)
@@ -638,6 +640,21 @@ struct SharedWorkoutSheet: View {
                 } label: { Label("Start now", systemImage: "play.fill") }
                 .buttonStyle(.primary)
             }
+            // Guideline 1.2: anything someone else wrote can be reported.
+            Button(reported ? "Reported — thank you" : "Report this workout") { confirmReport = true }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+                .disabled(reported)
+                .confirmationDialog("Report this workout?", isPresented: $confirmReport, titleVisibility: .visible) {
+                    Button("Report", role: .destructive) {
+                        Task {
+                            try? await apiClient.report(kind: "workout", target: shared.code, sessionToken: try? KeychainTokenStore().read())
+                            reported = true
+                        }
+                    }
+                } message: {
+                    Text("We look at every report within 24 hours and remove anything that breaks the community rules.")
+                }
         }
     }
 

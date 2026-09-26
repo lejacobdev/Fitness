@@ -220,6 +220,23 @@ public extension APIClient {
         try await open("codes/\(code)")
     }
 
+    // MARK: Reporting (guideline 1.2)
+
+    /// Reports a shared workout ("workout", its code), a league member
+    /// ("leagueMember", "leagueId:nickname"), a league or a team (their id).
+    func report(kind: String, target: String, reason: String? = nil, sessionToken: String?) async throws {
+        struct Body: Encodable, Sendable { let kind: String; let target: String; let reason: String? }
+        var request = URLRequest(url: baseURL.appending(path: "reports"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let sessionToken { request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization") }
+        request.httpBody = try JSONEncoder().encode(Body(kind: kind, target: target, reason: reason))
+        let (data, response) = try await perform(request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw apiError(from: response, data: data)
+        }
+    }
+
     // MARK: Plumbing
 
     /// A request that needs no sign-in.

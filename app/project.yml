@@ -111,6 +111,9 @@ targets:
     sources:
       - path: StudentAthleteWidget/Sources
       - path: Shared/Sources
+      # The privacy manifest (required-reason APIs: UserDefaults).
+      - path: StudentAthleteWidget/Resources
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.studentathlete.app.widget
@@ -199,6 +202,9 @@ targets:
     sources:
       - path: StudentAthleteWatchWidget/Sources
       - path: Shared/Sources
+      # The privacy manifest (required-reason APIs: UserDefaults).
+      - path: StudentAthleteWatchWidget/Resources
+        buildPhase: resources
     settings:
       base:
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) APP_EXTENSION"

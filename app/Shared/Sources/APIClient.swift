@@ -119,8 +119,11 @@ public struct APIClient: Sendable {
     /// (§2's age gate happens client-side before this call, so the client
     /// already knows the athlete's birth date by the time it gets here) —
     /// omitted on every subsequent sign-in, when the server already has it.
-    public func signInWithApple(identityToken: String, rawNonce: String?, birthDate: Date?, authorizationCode: String? = nil) async throws -> AuthResponse {
+    public func signInWithApple(identityToken: String, rawNonce: String?, birthDate: Date?, authorizationCode: String? = nil,
+                                athleteId: String? = nil) async throws -> AuthResponse {
         var body: [String: Any] = ["identityToken": identityToken]
+        // A guest signing in keeps their id when the account is new.
+        if let athleteId { body["athleteId"] = athleteId }
         if let rawNonce { body["rawNonce"] = rawNonce }
         if let authorizationCode { body["authorizationCode"] = authorizationCode }
         if let birthDate {

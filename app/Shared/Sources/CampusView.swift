@@ -244,10 +244,7 @@ struct CampusView: View {
                         ForEach(Array(campusTopics.enumerated()), id: \.element.id) { unitIndex, topic in
                             unit(topic, index: unitIndex)
                         }
-                        Text("More units are on the way.")
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.secondaryText)
-                            .padding(.bottom, 30)
+                        Color.clear.frame(height: 30)
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 12)

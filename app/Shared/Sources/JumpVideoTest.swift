@@ -164,9 +164,11 @@ struct JumpFrameMarker: View {
                             Text("Save \(Int(height.rounded())) cm")
                         }
                         .buttonStyle(.primary)
-                        Text(String(format: "In the air for %.3f s", flightTime))
+                        // Guideline 1.4.1: say how it's worked out and that it's an estimate.
+                        Text(String(format: "In the air for %.3f s. Estimated from flight time (height = g·t²/8) — good for tracking your own progress, not a lab measurement.", flightTime))
                             .font(.footnote)
                             .foregroundStyle(AppTheme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Button("Film again", action: onRetake)

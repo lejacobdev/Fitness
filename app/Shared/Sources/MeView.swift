@@ -17,6 +17,9 @@ struct MeView: View {
     @State private var catalogue = Catalogue()
     @State private var activeSheet: MeSheet?
     @State private var showingDeleteConfirmation = false
+    @State private var showingGuestDelete = false
+    @State private var linking = false
+    @State private var linkMessage: String?
     @State private var showingLogOutConfirmation = false
     @State private var isDeleting = false
     @State private var isLoggingOut = false
@@ -189,6 +192,9 @@ struct MeView: View {
 
                     disclaimerCard
 
+                    if athlete.isGuest {
+                        guestAccount
+                    } else {
                     SectionHeader("Account", subtitle: "Logging out keeps your account, backed up online. Deleting removes it for good.")
                     Button {
                         showingLogOutConfirmation = true
@@ -213,6 +219,7 @@ struct MeView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(isLoggingOut || isDeleting)
+                    }
 
                     Text("Athlete OS \(BuildEvidence().version) (\(BuildEvidence().build))")
                         .font(.caption)
@@ -446,6 +453,84 @@ struct MeView: View {
             }
         }
         .cardStyle(padding: 16)
+    }
+
+    // MARK: - No account yet
+
+    /// Using the app without an account: what signing in adds, the button,
+    /// and deleting everything on this phone.
+    private var guestAccount: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Account", subtitle: "You're using Athlete OS without an account — everything is on this phone only.")
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Sign in to back up everything, use it on a new phone, join your coach's team and leagues, send a parent summary and share workouts.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let linkMessage {
+                    Text(linkMessage).font(.footnote.weight(.semibold)).foregroundStyle(AppTheme.red)
+                }
+                if linking {
+                    ProgressView().frame(maxWidth: .infinity, minHeight: 56)
+                } else {
+                    AppleSignInButton(
+                        onSuccess: { identityToken, rawNonce, authorizationCode in
+                            linkAccount(identityToken: identityToken, rawNonce: rawNonce, authorizationCode: authorizationCode)
+                        },
+                        onFailure: { _ in linkMessage = "Sign in didn't finish — try again." }
+                    )
+                    .frame(height: 56)
+                    .clipShape(Capsule())
+                }
+            }
+            .cardStyle(padding: 16)
+            Button(role: .destructive) {
+                showingGuestDelete = true
+            } label: {
+                Text("Delete all my data")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.red)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(AppTheme.red.opacity(0.1), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .confirmationDialog("Delete everything on this phone?", isPresented: $showingGuestDelete, titleVisibility: .visible) {
+                Button("Delete all my data", role: .destructive) {
+                    let context = modelContext
+                    Task { await LocalWipe.wipe(context: context) }
+                }
+            } message: {
+                Text("Without an account nothing is backed up, so this can't be undone.")
+            }
+        }
+    }
+
+    /// Signs a guest in: the account is created with this phone's data (a
+    /// new account keeps the same id), then everything is backed up — or, for
+    /// an existing account, merged with what's already there.
+    private func linkAccount(identityToken: String, rawNonce: String, authorizationCode: String?) {
+        linking = true
+        linkMessage = nil
+        let context = modelContext
+        let client = apiClient
+        Task {
+            do {
+                let response = try await client.signInWithApple(
+                    identityToken: identityToken, rawNonce: rawNonce, birthDate: athlete.birthDate,
+                    authorizationCode: authorizationCode, athleteId: athlete.id
+                )
+                try? KeychainTokenStore().save(response.sessionToken)
+                athlete.id = response.athlete.id
+                athlete.appleUserId = response.athlete.appleUserId
+                try? context.save()
+                await CloudSync.sync(athlete: athlete, context: context, apiClient: client)
+                await CloudSync.restoreRows(athlete: athlete, context: context, apiClient: client, full: true)
+                linking = false
+            } catch {
+                linking = false
+                linkMessage = "Couldn't sign in — check your connection and try again."
+            }
+        }
     }
 
     // MARK: - Delete

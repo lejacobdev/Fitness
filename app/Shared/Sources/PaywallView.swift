@@ -251,9 +251,10 @@ public struct PaywallView: View {
                                 .foregroundStyle(AppTheme.ink)
                         }
                         .font(.subheadline.weight(.semibold))
+                        // What it renews at, as readable as the offer itself.
                         Text(offerTerms(offer, regular: product))
-                            .font(.footnote)
-                            .foregroundStyle(AppTheme.secondaryText)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink)
                             .fixedSize(horizontal: false, vertical: true)
                     } else {
                         Text(isYearly
