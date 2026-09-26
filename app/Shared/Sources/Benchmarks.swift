@@ -10,7 +10,7 @@ public enum BenchmarkUnit: String, Codable, Sendable {
 
     public func format(_ value: Double) -> String {
         switch self {
-        case .centimeters: "\(Int(value.rounded())) cm"
+        case .centimeters: Measure.length(cm: value)
         case .seconds: value >= 100 ? Self.minutes(value) : String(format: "%.2f s", value)
         case .reps: "\(Int(value.rounded()))"
         case .outOf10: "\(Int(value.rounded()))/10"
@@ -22,7 +22,7 @@ public enum BenchmarkUnit: String, Codable, Sendable {
         let better = higherIsBetter ? delta > 0 : delta < 0
         let size = abs(delta)
         switch self {
-        case .centimeters: return "\(Int(size.rounded())) cm \(better ? "higher" : "lower")"
+        case .centimeters: return "\(Measure.length(cm: size)) \(better ? "higher" : "lower")"
         case .seconds:
             let amount = size >= 100 ? Self.minutes(size) : String(format: "%.2f s", size)
             return "\(amount) \(better ? "faster" : "slower")"
@@ -147,7 +147,7 @@ public enum BenchmarkCatalog {
         sport(slug, "Standing long jump", .centimeters, higher: true, .entry, "arrow.right.to.line", [
             "Toes behind a line, feet shoulder-width. Swing your arms and jump forward as far as you can.",
             "Land on both feet and hold it. Measure from the line to the back of your nearest heel.",
-            "Three jumps; the best counts. Type the distance in cm.",
+            "Three jumps; the best counts. Type the distance.",
         ])
     }
     private static func wallSit(_ slug: String) -> BenchmarkTest {

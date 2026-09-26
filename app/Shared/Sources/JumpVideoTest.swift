@@ -161,7 +161,7 @@ struct JumpFrameMarker: View {
                             .foregroundStyle(AppTheme.red)
                     } else {
                         Button { onResult((height * 10).rounded() / 10) } label: {
-                            Text("Save \(Int(height.rounded())) cm")
+                            Text("Save \(Measure.length(cm: height))")
                         }
                         .buttonStyle(.primary)
                         // Guideline 1.4.1: say how it's worked out and that it's an estimate.

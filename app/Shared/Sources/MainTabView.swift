@@ -44,7 +44,10 @@ public struct MainTabView: View {
     }
 
     public var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: Binding(get: { selectedTab }, set: { tab in
+            selectedTab = tab
+            UsageCounts.count("tab.\(tab)")
+        })) {
             HomeView(athlete: athlete, apiClient: apiClient, week: week, selectedTab: $selectedTab, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Home", systemImage: "house.fill") }
                 .tag(AppTab.today)
@@ -130,6 +133,7 @@ public struct MainTabView: View {
             }
         }
         .task {
+            _ = RatingMoment.firstUse
             StreakFreeze.protectTodayIfResting()
             if !DemoData.isEnabled {
                 await ExternalWorkoutStore.refresh(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate)

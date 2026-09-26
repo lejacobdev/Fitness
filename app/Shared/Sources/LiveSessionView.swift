@@ -257,7 +257,7 @@ public struct LiveSessionView: View {
             case "time":
                 BigStepper(label: "Seconds", value: "\(seconds)", onMinus: { seconds = max(5, seconds - 5) }, onPlus: { seconds = min(900, seconds + 5) })
             case "distance":
-                BigStepper(label: "Metres", value: "\(Int(distanceM))", onMinus: { distanceM = max(5, distanceM - 5) }, onPlus: { distanceM = min(2000, distanceM + 5) })
+                BigStepper(label: "Distance", value: Measure.distance(m: distanceM), onMinus: { distanceM = max(5, distanceM - 5) }, onPlus: { distanceM = min(2000, distanceM + 5) })
             case "contacts":
                 BigStepper(label: "Contacts", value: "\(contacts)", onMinus: { contacts = max(1, contacts - 1) }, onPlus: { contacts = min(100, contacts + 1) })
             default:

@@ -180,7 +180,7 @@ struct ReportPage: View {
             if let recruiting {
                 let parts: [String] = [
                     recruiting.graduationYear.map { "Class of \($0)" },
-                    recruiting.heightCm.map { "\($0) cm" },
+                    recruiting.heightCm.map { Measure.height(cm: $0) },
                     recruiting.school,
                 ].compactMap { $0 }
                 if !parts.isEmpty { Text(parts.joined(separator: " · ")).font(.system(size: 13, weight: .semibold)) }
@@ -352,7 +352,7 @@ struct ReportsSheet: View {
                 Text("Class of \(details.graduationYear.map(String.init) ?? "—")")
             }
             Stepper(value: Binding(get: { details.heightCm ?? 170 }, set: { details.heightCm = $0 }), in: 120...230) {
-                Text("Height: \(details.heightCm.map { "\($0) cm" } ?? "—")")
+                Text("Height: \(details.heightCm.map { Measure.height(cm: $0) } ?? "—")")
             }
             TextField("School (optional)", text: Binding(get: { details.school ?? "" }, set: { details.school = $0.isEmpty ? nil : $0 }))
             TextField("Highlight video link (optional)", text: Binding(get: { details.highlights ?? "" }, set: { details.highlights = $0.isEmpty ? nil : $0 }))

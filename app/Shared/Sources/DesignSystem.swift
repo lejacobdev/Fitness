@@ -1015,7 +1015,7 @@ public enum DoseFormatter {
         switch dose.kind {
         case "reps": return "\(sets) of \(dose.reps ?? 0) reps\(perSide)"
         case "time": return "\(sets) of \(duration(dose.seconds ?? 0))\(perSide)"
-        case "distance": return "\(dose.sets == 1 ? "1 time" : "\(dose.sets) times") \(Int(dose.metres ?? 0)) m"
+        case "distance": return "\(dose.sets == 1 ? "1 time" : "\(dose.sets) times") \(Measure.distance(m: dose.metres ?? 0))"
         case "contacts": return "\(sets) of \(dose.contacts ?? 0) jumps"
         default: return sets
         }
@@ -1073,5 +1073,33 @@ public enum WeightUnit: String, Sendable, CaseIterable {
         let shown = value(kg: kg)
         let rounded = self == .lb ? shown.rounded() : (shown * 2).rounded() / 2
         return "\(rounded.formatted(.number.precision(.fractionLength(0...1)))) \(rawValue)"
+    }
+}
+
+/// Lengths and distances in the athlete's units: imperial when weights are
+/// in pounds (one choice for the whole app). Stored values stay metric.
+public enum Measure {
+    public static var imperial: Bool { WeightUnit.current == .lb }
+
+    /// A jump or a throw: "47 cm" / "18.5 in".
+    public static func length(cm: Double, imperial: Bool = Measure.imperial) -> String {
+        imperial ? "\((cm / 2.54).formatted(.number.precision(.fractionLength(0...1)))) in" : "\(Int(cm.rounded())) cm"
+    }
+
+    /// A drill or a sprint: "20 m" / "22 yd".
+    public static func distance(m: Double, imperial: Bool = Measure.imperial) -> String {
+        imperial ? "\(Int((m / 0.9144).rounded())) yd" : "\(Int(m.rounded())) m"
+    }
+
+    /// A body height: "175 cm" / "5 ft 9 in".
+    public static func height(cm: Int, imperial: Bool = Measure.imperial) -> String {
+        guard imperial else { return "\(cm) cm" }
+        let inches = Int((Double(cm) / 2.54).rounded())
+        return "\(inches / 12) ft \(inches % 12) in"
+    }
+
+    /// What the athlete types for a length, back to centimetres.
+    public static func centimetres(fromTyped value: Double, imperial: Bool = Measure.imperial) -> Double {
+        imperial ? value * 2.54 : value
     }
 }

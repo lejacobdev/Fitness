@@ -15,6 +15,7 @@ struct StudentAthleteApp: App {
             fatalError("Could not open the on-device store: \(error)")
         }
         PhoneWatchBridge.shared.activate()
+        MetricsReporter.shared.start()
     }
 
     var body: some Scene {

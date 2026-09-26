@@ -47,3 +47,16 @@ final class ReminderPlanTests: XCTestCase {
         XCTAssertEqual(FuelEngine.gameStart(day(21), usualMinutes: 17 * 60, calendar: calendar), day(21).addingTimeInterval(17 * 3600))
     }
 }
+
+/// Ratings are asked only at good moments.
+final class RatingMomentTests: XCTestCase {
+    func testOnlyAfterTheFirstWeekNeverWithPainAndNotTooOften() {
+        let start = Date(timeIntervalSince1970: 1_790_000_000)
+        let day = { (n: Double) in start.addingTimeInterval(n * 86_400) }
+        XCTAssertFalse(RatingMoment.shouldAsk(now: day(3), firstUse: start, lastAsked: nil, painToday: false), "not in the first week")
+        XCTAssertTrue(RatingMoment.shouldAsk(now: day(10), firstUse: start, lastAsked: nil, painToday: false))
+        XCTAssertFalse(RatingMoment.shouldAsk(now: day(10), firstUse: start, lastAsked: nil, painToday: true), "never after a pain report")
+        XCTAssertFalse(RatingMoment.shouldAsk(now: day(60), firstUse: start, lastAsked: day(10), painToday: false))
+        XCTAssertTrue(RatingMoment.shouldAsk(now: day(140), firstUse: start, lastAsked: day(10), painToday: false))
+    }
+}

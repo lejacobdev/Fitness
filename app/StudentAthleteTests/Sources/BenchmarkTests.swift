@@ -7,6 +7,7 @@ final class BenchmarkTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
+        UserDefaults.standard.set(WeightUnit.kg.rawValue, forKey: WeightUnit.storageKey)
         UserDefaults.standard.removeObject(forKey: "benchmark.results")
     }
 

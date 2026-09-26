@@ -1,6 +1,7 @@
 import Charts
 import SwiftUI
 #if os(iOS)
+import StoreKit
 import UIKit
 #endif
 
@@ -344,6 +345,9 @@ struct BenchmarkRunView: View {
     /// The test the saved result belongs to (the sprint saves 10 m and 30 m).
     @State private var savedTest: BenchmarkTest?
     @State private var newBest = false
+    #if os(iOS)
+    @Environment(\.requestReview) private var requestReview
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -409,7 +413,7 @@ struct BenchmarkRunView: View {
 
     private var unitLabel: String {
         switch test.unit {
-        case .centimeters: "cm"
+        case .centimeters: Measure.imperial ? "inches" : "cm"
         case .seconds: "seconds"
         case .reps: "reps"
         case .outOf10: "out of 10"
@@ -434,7 +438,9 @@ struct BenchmarkRunView: View {
                     .foregroundStyle(AppTheme.secondaryText)
             }
             Button("Save") {
-                if let value = Self.parse(typed, unit: test.unit) { save(value) }
+                if let value = Self.parse(typed, unit: test.unit) {
+                    save(test.unit == .centimeters ? Measure.centimetres(fromTyped: value) : value)
+                }
             }
             .buttonStyle(.primary)
             .disabled(Self.parse(typed, unit: test.unit) == nil)
@@ -496,7 +502,15 @@ struct BenchmarkRunView: View {
                     .font(.title3.bold())
                     .foregroundStyle(AppTheme.ink)
             }
-            Button("Done") { dismiss() }
+            Button("Done") {
+                #if os(iOS)
+                // A good moment (a new best) is the only time we ask for a rating.
+                if newBest, RatingMoment.consume(firstUse: RatingMoment.firstUse) {
+                    requestReview()
+                }
+                #endif
+                dismiss()
+            }
                 .buttonStyle(.primary)
         }
         .frame(maxWidth: .infinity)

@@ -3,6 +3,11 @@ import XCTest
 /// The season report, the PDF and the recruiting profile's numbers.
 final class ReportsTests: XCTestCase {
     private let calendar = Calendar(identifier: .gregorian)
+    override func setUp() {
+        super.setUp()
+        UserDefaults.standard.set(WeightUnit.kg.rawValue, forKey: WeightUnit.storageKey)
+    }
+
     private func day(_ d: Int) -> Date { calendar.date(from: DateComponents(year: 2026, month: 9, day: d, hour: 16))! }
 
     func testTheReportCountsTheSeasonOnly() {
@@ -25,5 +30,17 @@ final class ReportsTests: XCTestCase {
         XCTAssertEqual(report.topExercise, "Split squat")
         XCTAssertEqual(report.tests.first?.best, "44 cm")
         XCTAssertEqual(report.tests.first?.change, "4 cm higher")
+    }
+}
+
+/// Metric or imperial everywhere, from the one kg/lb choice.
+final class MeasureTests: XCTestCase {
+    func testLengthsDistancesAndHeights() {
+        XCTAssertEqual(Measure.length(cm: 47, imperial: false), "47 cm")
+        XCTAssertEqual(Measure.length(cm: 47, imperial: true), "18.5 in")
+        XCTAssertEqual(Measure.distance(m: 20, imperial: false), "20 m")
+        XCTAssertEqual(Measure.distance(m: 20, imperial: true), "22 yd")
+        XCTAssertEqual(Measure.height(cm: 175, imperial: true), "5 ft 9 in")
+        XCTAssertEqual(Measure.centimetres(fromTyped: 20, imperial: true), 50.8, accuracy: 0.001)
     }
 }

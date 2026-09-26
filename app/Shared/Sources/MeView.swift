@@ -243,6 +243,9 @@ struct MeView: View {
                 catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
                 if DemoData.initialTab == .me, let name = DemoData.initialSheet { activeSheet = MeSheet(rawValue: name) }
             }
+            .onChange(of: activeSheet) { _, sheet in
+                if let sheet { UsageCounts.count("me.\(sheet.rawValue)") }
+            }
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
                 case .sport: SportEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
@@ -1279,6 +1282,12 @@ struct DataExportView: View {
                         exportStat("\(sessions.count)", "sessions")
                         exportStat("\(sessions.reduce(0) { $0 + $1.sets.count })", "sets")
                         exportStat("\(athlete.checkIns.count)", "check-ins")
+                    }
+                    if !UsageCounts.all.isEmpty {
+                        ShareLink(item: "AthleteOS app usage (counted on this phone only)\n\n" + UsageCounts.summary) {
+                            Label("Share app usage with support", systemImage: "chart.bar")
+                        }
+                        .buttonStyle(.secondary)
                     }
                     ShareLink(item: exportText, preview: SharePreview("AthleteOS export")) {
                         Label("Share export", systemImage: "square.and.arrow.up")

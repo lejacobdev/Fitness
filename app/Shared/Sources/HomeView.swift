@@ -1,3 +1,6 @@
+#if os(iOS)
+import StoreKit
+#endif
 import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
@@ -33,6 +36,9 @@ struct HomeView: View {
     @State private var lowEnergySnoozed = LowEnergyCheck.isSnoozed
     /// Bumped when a sheet closes, so what it changed (reflection, pain, day status) redraws.
     @State private var revision = 0
+    #if os(iOS)
+    @Environment(\.requestReview) private var requestReview
+    #endif
     @State private var layout = HomeLayout.load()
     @State private var editingLayout = false
     @State private var wiggle = false
@@ -299,6 +305,12 @@ struct HomeView: View {
             .appScreen()
             .toolbar(.hidden, for: .navigationBar)
             .task(id: allSessions.count + athlete.checkIns.count) {
+                #if os(iOS)
+                // A streak milestone is a good moment to ask for a rating.
+                if loaded, RatingMoment.streakMilestones.contains(streak), RatingMoment.consume(firstUse: RatingMoment.firstUse) {
+                    requestReview()
+                }
+                #endif
                 catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
                 status = DayStatusStore.status()
                 if !loaded, DemoData.initialTab == .today, let name = DemoData.initialSheet { activeSheet = HomeSheet(rawValue: name) }
