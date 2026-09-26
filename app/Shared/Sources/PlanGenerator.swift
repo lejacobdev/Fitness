@@ -108,7 +108,7 @@ public enum PlanGenerator {
         for (index, date) in dates.enumerated() {
             let targetQualities = roundRobinSlice(qualityOrder, offset: index, count: 3)
             var session = buildSession(
-                date: date, targetQualities: targetQualities, input: input,
+                date: date, targetQualities: targetQualities, input: input, phase: phase,
                 isYouthEnvelope: isYouthEnvelope, age: age,
                 weeklyContacts: &weeklyContacts, rng: &rng
             )
@@ -217,7 +217,7 @@ public enum PlanGenerator {
     /// that ordering — Speed/Power items always precede Strength, which
     /// always precedes Endurance, which always precedes Control.
     private static func buildSession(
-        date: Date, targetQualities: [String], input: PlanGeneratorInput,
+        date: Date, targetQualities: [String], input: PlanGeneratorInput, phase: SeasonPhase,
         isYouthEnvelope: Bool, age: Int, weeklyContacts: inout Int, rng: inout SeededGenerator
     ) -> GeneratedSession {
         var candidates: [(quality: String, item: CatalogueItem)] = []
@@ -264,8 +264,10 @@ public enum PlanGenerator {
         var totalMinutes = 0
         var order = 0
         for (quality, item) in ordered {
-            let dose = input.experience.adjusted(clampedDose(item.defaultDose, isYouthEnvelope: isYouthEnvelope),
+            var dose = input.experience.adjusted(clampedDose(item.defaultDose, isYouthEnvelope: isYouthEnvelope),
                                                  isYouthEnvelope: isYouthEnvelope)
+            // In and after the season the gym keeps, it doesn't build: two sets at most.
+            if phase == .inSeason || phase == .postSeason { dose.sets = min(dose.sets, 2) }
 
             if dose.kind == plyometricDoseKind {
                 let contactsThisItem = dose.sets * (dose.contacts ?? 0)

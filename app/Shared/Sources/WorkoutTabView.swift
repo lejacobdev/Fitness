@@ -358,7 +358,8 @@ struct WorkoutTabView: View {
     private var weekSection: some View {
         if let week, !week.sessions.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
-                SectionHeader("This week's gym days")
+                SectionHeader("This week's gym days", subtitle: isDeloadWeek(week)
+                              ? "Deload week: lighter on purpose, so you come back stronger." : week.phase.focus)
                 VStack(spacing: 0) {
                     ForEach(Array(week.sessions.enumerated()), id: \.offset) { index, session in
                         Button { preview = PreviewBox(session: adjusted(session), kind: .gym, slot: session.slot.map { PlanSlot.gym($0) }) } label: {
@@ -388,6 +389,10 @@ struct WorkoutTabView: View {
                 .cardStyle(padding: 14)
             }
         }
+    }
+
+    private func isDeloadWeek(_ week: GeneratedWeek) -> Bool {
+        Deload.isDeloadWeek(weekStart: week.weekStart, anchor: athlete.createdAt, phase: week.phase)
     }
 
     private var moreSection: some View {
@@ -512,7 +517,7 @@ struct WorkoutTabView: View {
         let days = settings.weekdays.sorted { ($0 + 5) % 7 < ($1 + 5) % 7 }.map { dayNames[$0 - 1] }.joined(separator: ", ")
         let summary = [
             settings.weekdays.isEmpty ? (settings.sessionsPerWeek.map { "\($0) gym days a week" } ?? "Gym days picked for you") : days,
-            settings.minutesPerSession.map { "\($0) min each" } ?? "length picked for you",
+            settings.effectiveMinutesPerSession.map { "\($0) min each" } ?? "length picked for you",
         ].joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Make it yours", subtitle: "Your gym days, their length, and any exercise (View workout → Change it).")

@@ -422,11 +422,19 @@ struct PlanSettingsSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
-                        SectionHeader("Length of a gym day")
+                        SectionHeader("Free time on a gym day", subtitle: settings.freeMinutes.map {
+                            "A \(PlanSettings.sessionMinutes(freeMinutes: $0))-min session, with time to get there, warm up and cool down."
+                        })
                         WrapLayout(spacing: 8) {
-                            chip("Automatic", selected: settings.minutesPerSession == nil) { settings.minutesPerSession = nil }
-                            ForEach(PlanSettings.minuteChoices, id: \.self) { minutes in
-                                chip("\(minutes) min", selected: settings.minutesPerSession == minutes) { settings.minutesPerSession = minutes }
+                            chip("Automatic", selected: settings.effectiveMinutesPerSession == nil) {
+                                settings.freeMinutes = nil
+                                settings.minutesPerSession = nil
+                            }
+                            ForEach(PlanSettings.freeChoices, id: \.self) { minutes in
+                                chip(minutes < 120 ? "\(minutes) min" : "2 h+", selected: settings.freeMinutes == minutes) {
+                                    settings.freeMinutes = minutes
+                                    settings.minutesPerSession = nil
+                                }
                             }
                         }
                     }

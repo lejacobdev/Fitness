@@ -295,6 +295,36 @@ public enum WorkoutModeBuilder {
                                 estimatedMinutes: max(mode == .mobility ? 5 : 8, Int((Double(seconds) / 60).rounded())), items: items)
     }
 
+    /// A short warm-up for the athlete's sport: raise, mobilise, activate
+    /// (shoulders for throwing and swimming sports, glutes for the rest),
+    /// then a few fast skips. It goes in front of every gym day; after
+    /// practice you're warm already.
+    public static func warmUp(_ context: WorkoutModeContext) -> [GeneratedPlannedItem] {
+        var prep = context
+        prep.prepMoment = .beforePractice
+        guard let session = standard(.mobility, prep) else { return [] }
+        return session.items.prefix(5).map { item in
+            GeneratedPlannedItem(itemSlug: item.itemSlug, order: item.order, dose: item.dose, restSec: 10,
+                                 rationale: "Warm-up: " + item.rationale, quality: item.quality)
+        }
+    }
+
+    /// The session with the warm-up in front (nothing the session already has twice).
+    public static func withWarmUp(_ session: GeneratedSession, _ context: WorkoutModeContext) -> GeneratedSession {
+        let main = Set(session.items.map(\.itemSlug))
+        let warm = warmUp(context).filter { !main.contains($0.itemSlug) }
+        guard !warm.isEmpty else { return session }
+        let items = (warm + session.items).enumerated().map { index, item in
+            GeneratedPlannedItem(itemSlug: item.itemSlug, order: index, dose: item.dose, restSec: item.restSec,
+                                 rationale: item.rationale, quality: item.quality)
+        }
+        let warmSeconds = warm.reduce(0) { $0 + $1.dose.sets * (($1.dose.seconds ?? max(30, ($1.dose.reps ?? 8) * 4)) + $1.restSec) }
+        var out = GeneratedSession(date: session.date, title: session.title, focusQualities: session.focusQualities,
+                                   estimatedMinutes: session.estimatedMinutes + Int((Double(warmSeconds) / 60).rounded(.up)), items: items)
+        out.slot = session.slot
+        return out
+    }
+
     static func usable(_ item: CatalogueItem, _ context: WorkoutModeContext) -> Bool {
         item.fits(sport: context.sport?.slug, position: context.positionSlug, format: context.formatSlug)
             && PlanGenerator.isEligibleForEquipment(item, available: context.equipment)

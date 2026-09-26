@@ -289,12 +289,26 @@ enum WeeklyPlan {
             equipmentAvailable: Set(athlete.equipmentAvailable),
             catalogue: catalogue,
             seed: PlanVariant.seed("\(athlete.id)-\(Int(weekStart.timeIntervalSince1970))"),
-            timeBudgetMinutesPerSession: custom.settings.minutesPerSession ?? 60,
+            timeBudgetMinutesPerSession: custom.settings.effectiveMinutesPerSession ?? 60,
             sportSlug: athleteSport.sportSlug, positionSlug: athleteSport.positionSlug, formatSlug: athleteSport.formatSlug,
             sessionsPerWeek: custom.settings.effectiveSessionsPerWeek,
             experience: TrainingExperience.current
         )
-        let generated = PlanCustomizer.apply(custom, to: PlanGenerator.generate(input), catalogue: catalogue)
+        let customized = PlanCustomizer.apply(custom, to: PlanGenerator.generate(input), catalogue: catalogue)
+        // Every fifth week of the building phases is a planned deload.
+        let deloaded = Deload.isDeloadWeek(weekStart: weekStart, anchor: athlete.createdAt, phase: customized.phase, calendar: calendar)
+            ? Deload.apply(to: customized) : customized
+        // Every gym day the app built starts with a warm-up for the sport
+        // (the athlete's own versions stay exactly as they made them).
+        let warmUpContext = WorkoutModeContext(
+            catalogue: catalogue, sport: sportInfo, positionSlug: athleteSport.positionSlug, formatSlug: athleteSport.formatSlug,
+            equipment: Set(athlete.equipmentAvailable), trainsUnderCoach: athlete.trainsUnderCoach,
+            age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now), prepMoment: .beforePractice
+        )
+        let generated = GeneratedWeek(phase: deloaded.phase, weekStart: deloaded.weekStart, sessions: deloaded.sessions.map { session in
+            if let slot = session.slot, custom.workout(for: .gym(slot)) != nil { return session }
+            return WorkoutModeBuilder.withWarmUp(session, warmUpContext)
+        })
         // Every game counts, whatever sport it's for: the body that plays a
         // basketball game on Friday shouldn't squat heavy on Thursday.
         // Free tapers for the next game; Pro for every game in the week.

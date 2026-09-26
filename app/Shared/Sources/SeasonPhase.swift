@@ -6,6 +6,16 @@ public enum SeasonPhase: String, Sendable, Codable, CaseIterable {
     case preSeason = "PRE_SEASON"
     case inSeason = "IN_SEASON"
     case postSeason = "POST_SEASON"
+
+    /// What the gym work is for in this phase, in one line (the Workout tab).
+    public var focus: String {
+        switch self {
+        case .offSeason: "Off-season: building strength and power while there are no games."
+        case .preSeason: "Pre-season: turning strength into speed for the season ahead."
+        case .inSeason: "In season: two short sessions to keep what you built, fresh for games."
+        case .postSeason: "After the season: lighter weeks to recover before building again."
+        }
+    }
 }
 
 /// §10 describes the four phases with qualitative ranges ("3–8 weeks out",

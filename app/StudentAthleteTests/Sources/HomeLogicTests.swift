@@ -134,6 +134,29 @@ final class HomeLogicTests: XCTestCase {
         XCTAssertTrue(new.items.allSatisfy { $0.dose.sets <= 2 })
     }
 
+    func testEveryGymDayGetsAWarmUpInFrontWithoutRepeats() {
+        let main = GeneratedPlannedItem(itemSlug: "worlds-greatest-stretch", order: 0, dose: Dose(kind: "reps", sets: 3, reps: 8),
+                                        restSec: 90, rationale: "", quality: "hip-mobility")
+        let gym = GeneratedSession(date: .now, title: "Strength session", focusQualities: [], estimatedMinutes: 30,
+                                   items: [main, GeneratedPlannedItem(itemSlug: "split-squat", order: 1, dose: Dose(kind: "reps", sets: 3, reps: 8), restSec: 90, rationale: "", quality: "lower-body-strength")],
+                                   slot: 1)
+        let warmed = WorkoutModeBuilder.withWarmUp(gym, context())
+        XCTAssertGreaterThan(warmed.items.count, gym.items.count)
+        XCTAssertEqual(warmed.items.last?.itemSlug, "split-squat", "the warm-up goes first")
+        XCTAssertEqual(Set(warmed.items.map(\.itemSlug)).count, warmed.items.count, "no exercise twice")
+        XCTAssertEqual(warmed.items.map(\.order), Array(0..<warmed.items.count))
+        XCTAssertEqual(warmed.slot, 1)
+        XCTAssertGreaterThan(warmed.estimatedMinutes, 30)
+    }
+
+    func testFreeTimeBecomesASessionThatFits() {
+        XCTAssertEqual(PlanSettings.sessionMinutes(freeMinutes: 60), 25, "an hour free after school")
+        XCTAssertEqual(PlanSettings.sessionMinutes(freeMinutes: 90), 55)
+        XCTAssertEqual(PlanSettings.sessionMinutes(freeMinutes: 30), 15, "never shorter than 15")
+        XCTAssertEqual(PlanSettings(freeMinutes: 75).effectiveMinutesPerSession, 40)
+        XCTAssertEqual(PlanSettings(minutesPerSession: 45).effectiveMinutesPerSession, 45, "older settings still work")
+    }
+
     func testTheDailyQuoteIsStableForADay() {
         let morning = calendar.date(from: DateComponents(year: 2026, month: 9, day: 25, hour: 7))!
         let evening = calendar.date(from: DateComponents(year: 2026, month: 9, day: 25, hour: 22))!

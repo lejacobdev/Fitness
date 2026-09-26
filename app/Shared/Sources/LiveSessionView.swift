@@ -44,6 +44,8 @@ public struct LiveSessionView: View {
     @State private var loggedCount = 0
     @State private var restEndedCount = 0
     @State private var startedAt = Date.now
+    /// Why today's target differs from last time (progressive overload).
+    @State private var targetNote: String?
     @AppStorage(WeightUnit.storageKey) private var unitRaw = WeightUnit.current.rawValue
 
     private var unit: WeightUnit { WeightUnit(rawValue: unitRaw) ?? .kg }
@@ -203,6 +205,11 @@ public struct LiveSessionView: View {
                 Tag("Goal: \(DoseFormatter.text(current.dose))", color: AppTheme.ink)
                 Tag(done >= current.dose.sets ? "All sets done" : "Set \(min(done + 1, current.dose.sets)) of \(current.dose.sets)",
                     color: done >= current.dose.sets ? AppTheme.green : AppTheme.orange)
+            }
+            if let targetNote, done == 0 {
+                Label(targetNote, systemImage: "arrow.up.right")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.secondaryText)
             }
         }
     }
@@ -443,20 +450,39 @@ public struct LiveSessionView: View {
     }
 
     /// §15: "prefilled targets from last time" — the most recent logged set
-    /// of this item wins; otherwise the plan's own dose.
+    /// of this item wins; otherwise the plan's own dose. When last time went
+    /// well, the target moves on a step (ProgressionEngine).
     private func prefill() {
         guard let current else { return }
         let slug = current.itemSlug
         let descriptor = FetchDescriptor<SetLog>(predicate: #Predicate { $0.itemSlug == slug })
-        let previous = ((try? modelContext.fetch(descriptor)) ?? [])
-            .filter { $0.session?.id != session?.id }
-            .max { ($0.session?.startedAt ?? .distantPast) < ($1.session?.startedAt ?? .distantPast) }
+        let earlier = ((try? modelContext.fetch(descriptor)) ?? []).filter { $0.session?.id != session?.id }
+        let previous = earlier.max { ($0.session?.startedAt ?? .distantPast) < ($1.session?.startedAt ?? .distantPast) }
 
         reps = previous?.reps ?? current.dose.reps ?? 8
         weightKg = previous?.weightKg ?? 0
         seconds = previous?.seconds ?? current.dose.seconds ?? 30
         distanceM = previous?.distanceM ?? current.dose.metres ?? 20
         contacts = previous?.contacts ?? current.dose.contacts ?? 10
+        targetNote = nil
+
+        guard let lastSession = previous?.session else { return }
+        let lastSets = earlier.filter { $0.session?.id == lastSession.id }
+            .map { LoggedSet(reps: $0.reps, weightKg: $0.weightKg, seconds: $0.seconds) }
+        let age = PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now)
+        let calendar = Calendar.current
+        let deload = athlete.activeSport.map { sport -> Bool in
+            let weekStart = calendar.dateInterval(of: .weekOfYear, for: .now)?.start ?? .now
+            let phase = PhaseCalculator.phase(today: .now, seasonStart: sport.seasonStart, seasonEnd: sport.seasonEnd)
+            return Deload.isDeloadWeek(weekStart: weekStart, anchor: athlete.createdAt, phase: phase)
+        } ?? false
+        if let target = ProgressionEngine.next(last: lastSets, dose: current.dose, sessionRPE: lastSession.sessionRPE,
+                                               isYouth: age < 18, stepKg: unit.stepKg, deload: deload) {
+            if let value = target.reps { reps = value }
+            if let value = target.weightKg { weightKg = value }
+            if let value = target.seconds { seconds = value }
+            targetNote = target.note
+        }
     }
 
     private func logSet(_ current: GeneratedPlannedItem) {

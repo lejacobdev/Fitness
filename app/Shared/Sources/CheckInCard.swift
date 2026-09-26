@@ -12,7 +12,8 @@ extension DailyLoop {
             MorningAnswers(sleepQuality: $0.sleepQuality, sleepHours: $0.sleepHours, energy: $0.energy, soreness: $0.soreness, stress: $0.stress)
         }
         return readiness(answers: answers, personalBand: checkIn?.readinessBand, pain: PainStore.report(on: now),
-                         yesterday: MindsetStore.yesterdaySignal(now: now))
+                         yesterday: MindsetStore.yesterdaySignal(now: now),
+                         ramp: ReturnRamp.day(reports: PainStore.all(), today: now))
     }
 
     /// How today's training is adjusted (nil: as planned).

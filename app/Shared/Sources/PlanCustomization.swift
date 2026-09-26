@@ -82,16 +82,32 @@ public struct PlanSettings: Codable, Sendable, Equatable {
     public var weekdays: [Int]
     /// How many gym days, when the app picks the days.
     public var sessionsPerWeek: Int?
-    /// Minutes per gym session.
+    /// Minutes per gym session (older settings; `freeMinutes` replaces it).
     public var minutesPerSession: Int?
+    /// How much free time the athlete has on a gym day; the session is
+    /// built to fit inside it.
+    public var freeMinutes: Int?
 
-    public init(weekdays: [Int] = [], sessionsPerWeek: Int? = nil, minutesPerSession: Int? = nil) {
+    public init(weekdays: [Int] = [], sessionsPerWeek: Int? = nil, minutesPerSession: Int? = nil, freeMinutes: Int? = nil) {
         self.weekdays = weekdays
         self.sessionsPerWeek = sessionsPerWeek
         self.minutesPerSession = minutesPerSession
+        self.freeMinutes = freeMinutes
     }
 
-    public var isDefault: Bool { weekdays.isEmpty && sessionsPerWeek == nil && minutesPerSession == nil }
+    public var isDefault: Bool { weekdays.isEmpty && sessionsPerWeek == nil && minutesPerSession == nil && freeMinutes == nil }
+
+    /// The main part of a gym day, in minutes (nil: the app decides).
+    public var effectiveMinutesPerSession: Int? { freeMinutes.map(Self.sessionMinutes(freeMinutes:)) ?? minutesPerSession }
+
+    /// Free time → training time: getting there and changing (15 min), the
+    /// warm-up (8) and cooling down (10) come off first, then it's rounded
+    /// down to 5 minutes. An hour free after school is a 25-minute session.
+    public static func sessionMinutes(freeMinutes: Int) -> Int {
+        min(90, max(15, (freeMinutes - 33) / 5 * 5))
+    }
+
+    public static let freeChoices = [30, 45, 60, 75, 90, 120]
 
     /// Gym days in the week: the chosen weekdays decide it when there are any.
     public var effectiveSessionsPerWeek: Int? { weekdays.isEmpty ? sessionsPerWeek : weekdays.count }
