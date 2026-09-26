@@ -187,8 +187,8 @@ public enum WorkoutModeBuilder {
             for area in areas.prefix(2) {
                 if let slug = mobilityByArea[area] { pick([slug], why: "Loosens your \(area.replacingOccurrences(of: "-", with: " ")).") }
             }
-            if context.struggles.contains(.mobility) || context.struggles.contains(.injuryComeback) {
-                pick(["couch-stretch", "pigeon-stretch", "hamstring-floss", "cossack-squat"], why: "Extra range, because you want more flexibility.")
+            if context.struggles.contains(.mobility) {
+                pick(["couch-stretch", "pigeon-stretch", "hamstring-floss", "cossack-squat"], why: "Extra range for your mobility goal.")
             }
             pick(["breathing-90-90"], why: "Slow breathing switches your body into recovery mode.")
         case .travel:
