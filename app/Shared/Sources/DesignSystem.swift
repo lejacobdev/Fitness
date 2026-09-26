@@ -34,6 +34,10 @@ public enum AppTheme {
     /// Was the old cobalt blue; the palette is red, black and white, so
     /// this is now the black accent (light grey in dark mode, so it shows).
     public static let blue = Color.dynamic(light: 0x111111, dark: 0xE5E5E5)
+    /// The one real blue — an accent where it means something: water,
+    /// mobility, calm breathing, a Campus unit. Never a background.
+    public static let water = Color(hex: "#1CB0F6")
+    public static let waterDeep = Color(hex: "#1899D6")
     /// A solid black surface with white on it (a dark grey in dark mode, so
     /// it stands out from the black background).
     public static let solid = Color.dynamic(light: 0x111111, dark: 0x2E2E2E)

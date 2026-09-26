@@ -31,7 +31,7 @@ enum Duo {
 
     /// Unit colours along the path, starting with the brand red.
     static let units: [(Color, Color)] = [
-        (AppTheme.brand, Color(hex: "#B8272A")), (black, blackLip), (green, greenLip), (Color(hex: "#CE82FF"), Color(hex: "#A568CC")),
+        (AppTheme.brand, Color(hex: "#B8272A")), (AppTheme.water, AppTheme.waterDeep), (green, greenLip), (Color(hex: "#CE82FF"), Color(hex: "#A568CC")),
         (orange, Color(hex: "#CC7900")), (Color(hex: "#FF86D0"), Color(hex: "#CC6BA6")), (AppTheme.coral, Color(hex: "#D65454")),
     ]
 }

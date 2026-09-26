@@ -10,7 +10,7 @@ enum ProgressColors {
     /// The extra workout after practice.
     static let afterPractice = Color(hex: "#FACC15")
     /// Stretching and mobility.
-    static let mobility = Color(hex: "#3B82F6")
+    static let mobility = AppTheme.water
 }
 
 /// Everything on one day of the calendar.

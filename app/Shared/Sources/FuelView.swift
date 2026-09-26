@@ -109,7 +109,7 @@ struct FuelView: View {
 
     private var hydrationCard: some View {
         HStack(spacing: 18) {
-            RingView(progress: Double(glasses) / Double(max(glassTarget, 1)), color: AppTheme.blue, lineWidth: 10) {
+            RingView(progress: Double(glasses) / Double(max(glassTarget, 1)), color: AppTheme.water, lineWidth: 10) {
                 VStack(spacing: 0) {
                     Text("\(glasses)")
                         .font(.title2.bold())
@@ -125,9 +125,11 @@ struct FuelView: View {
             .accessibilityLabel("\(glasses) of \(glassTarget) glasses of water")
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Water")
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.ink)
+                HStack(spacing: 6) {
+                    Image(systemName: "drop.fill").foregroundStyle(AppTheme.water)
+                    Text("Water").foregroundStyle(AppTheme.ink)
+                }
+                .font(.headline)
                 Text(trainingMinutes > 0 ? "Training today, so a bit more than usual." : "A normal day's target.")
                     .font(.caption)
                     .foregroundStyle(AppTheme.secondaryText)

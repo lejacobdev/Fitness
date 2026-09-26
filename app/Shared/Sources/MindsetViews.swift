@@ -198,7 +198,7 @@ struct MindsetView: View {
     private var gameDaySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Before a game", subtitle: "Nerves are normal — they mean you care. These get you calm and sharp.")
-            routineButton("2-minute breathing", detail: "Calm your nerves or lock in", icon: "wind", color: AppTheme.ink) { routine = .breathing }
+            routineButton("2-minute breathing", detail: "Calm your nerves or lock in", icon: "wind", color: AppTheme.water) { routine = .breathing }
             // Breathing stays free; the guided visualization is Pro.
             routineButton(ProAccess.isPro ? "Game-day visualization" : "Game-day visualization 🔒", detail: "5 minutes: play the game in your head first",
                           icon: "eye.fill", color: AppTheme.purple) {

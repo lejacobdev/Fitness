@@ -496,7 +496,7 @@ struct HomeView: View {
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 56, height: 56)
-                    .background(AppTheme.coral, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(AppTheme.water, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Daily mobility · \(session.estimatedMinutes) min")
                         .font(.headline)
