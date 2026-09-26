@@ -31,6 +31,40 @@ public enum CheckInPrefill {
     }
 }
 
+/// The morning check-in from a watch or band (Apple Watch, WHOOP, Oura,
+/// Garmin… — anything that writes to Apple Health): sleep from the night's
+/// hours, energy from recovery signals against the athlete's own normal.
+/// Never the extremes on energy, and nothing without a normal to compare with.
+public enum WearablePrefill {
+    /// Sleep quality (1 poor, 3 okay, 4 good, 5 great) from hours asleep.
+    public static func sleepQuality(hours: Double) -> Int {
+        switch CheckInPrefill.sleepRating(hours: hours) {
+        case 5: 5
+        case 4: 4
+        case 3: 3
+        default: 1
+        }
+    }
+
+    /// Energy (1 low, 3 okay, 4 good) from this morning's resting heart rate
+    /// and heart-rate variability against the usual: a resting heart rate a
+    /// few beats higher, or variability well below normal, often goes with
+    /// being tired or getting ill.
+    public static func energy(restingHeartRate: (today: Double, usual: Double?)?, hrv: (today: Double, usual: Double?)?) -> Int? {
+        var level: Int?
+        if let rhr = restingHeartRate, let usual = rhr.usual {
+            let above = rhr.today - usual
+            level = above > 5 ? 1 : (above > 2 ? 3 : 4)
+        }
+        if let hrv, let usual = hrv.usual, usual > 0 {
+            let drop = (usual - hrv.today) / usual
+            let fromHRV = drop > 0.25 ? 1 : (drop > 0.1 ? 3 : 4)
+            level = min(level ?? fromHRV, fromHRV)
+        }
+        return level
+    }
+}
+
 public enum RestingHeartRate {
     /// Today's value (the latest sample today) and the median of the daily
     /// values over the weeks before — needs 7 days to call it "usual".

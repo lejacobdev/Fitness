@@ -361,7 +361,7 @@ struct HomeView: View {
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
-                Text("Sleep, energy, soreness. Today's plan adapts to it.")
+                Text("Sleep, energy, soreness. With a watch or band, it's filled in for you.")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)

@@ -29,4 +29,20 @@ final class CheckInPrefillTests: XCTestCase {
         XCTAssertNil(RestingHeartRate.summarize(Array(samples.prefix(3)) + [samples[10]], today: today, calendar: calendar)?.usual,
                      "a week of data before there's a normal")
     }
+
+    func testAWatchOrBandFillsInEnergyAgainstTheAthletesNormal() {
+        XCTAssertEqual(WearablePrefill.energy(restingHeartRate: (52, 53), hrv: (70, 72)), 4, "normal night: good")
+        XCTAssertEqual(WearablePrefill.energy(restingHeartRate: (57, 53), hrv: nil), 3, "a few beats up: okay")
+        XCTAssertEqual(WearablePrefill.energy(restingHeartRate: (52, 53), hrv: (50, 72)), 1, "variability well below normal wins: low")
+        XCTAssertEqual(WearablePrefill.energy(restingHeartRate: nil, hrv: (65, 72)), 4)
+        XCTAssertNil(WearablePrefill.energy(restingHeartRate: (60, nil), hrv: (40, nil)), "no normal yet, no guess")
+        XCTAssertNil(WearablePrefill.energy(restingHeartRate: nil, hrv: nil))
+    }
+
+    func testSleepQualityFromHours() {
+        XCTAssertEqual(WearablePrefill.sleepQuality(hours: 9), 5)
+        XCTAssertEqual(WearablePrefill.sleepQuality(hours: 7.8), 4)
+        XCTAssertEqual(WearablePrefill.sleepQuality(hours: 7), 3)
+        XCTAssertEqual(WearablePrefill.sleepQuality(hours: 5.5), 1)
+    }
 }

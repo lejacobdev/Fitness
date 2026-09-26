@@ -47,7 +47,8 @@ public final class HealthKitManager: @unchecked Sendable {
 
     #if canImport(HealthKit)
     private static var readTypes: Set<HKObjectType> {
-        [HKCategoryType(.sleepAnalysis), HKObjectType.workoutType(), HKQuantityType(.restingHeartRate)]
+        [HKCategoryType(.sleepAnalysis), HKObjectType.workoutType(), HKQuantityType(.restingHeartRate),
+         HKQuantityType(.heartRateVariabilitySDNN)]
     }
     #endif
 
@@ -68,27 +69,41 @@ public final class HealthKitManager: @unchecked Sendable {
     /// baseline until there are at least 7 days of it.
     public func restingHeartRate(on day: Date = .now, calendar: Calendar = .current) async -> (today: Double, usual: Double?)? {
         #if canImport(HealthKit)
+        await todayAndUsual(HKQuantityType(.restingHeartRate), unit: HKUnit.count().unitDivided(by: .minute()), on: day, calendar: calendar)
+        #else
+        return nil
+        #endif
+    }
+
+    /// This morning's heart-rate variability (SDNN, ms — what Apple Watch
+    /// records; WHOOP, Oura and others write it too) and the usual one.
+    public func heartRateVariability(on day: Date = .now, calendar: Calendar = .current) async -> (today: Double, usual: Double?)? {
+        #if canImport(HealthKit)
+        await todayAndUsual(HKQuantityType(.heartRateVariabilitySDNN), unit: .secondUnit(with: .milli), on: day, calendar: calendar)
+        #else
+        return nil
+        #endif
+    }
+
+    #if canImport(HealthKit)
+    /// Today's latest value and the median of the daily values over the 4
+    /// weeks before (from 7 days of data).
+    private func todayAndUsual(_ type: HKQuantityType, unit: HKUnit, on day: Date, calendar: Calendar) async -> (today: Double, usual: Double?)? {
         guard isAvailable else { return nil }
         let today = calendar.startOfDay(for: day)
         guard let start = calendar.date(byAdding: .day, value: -28, to: today),
               let end = calendar.date(byAdding: .day, value: 1, to: today) else { return nil }
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
-        let unit = HKUnit.count().unitDivided(by: .minute())
         let samples: [(date: Date, bpm: Double)] = await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: HKQuantityType(.restingHeartRate), predicate: predicate,
-                limit: HKObjectQueryNoLimit, sortDescriptors: nil
-            ) { _, samples, _ in
+            let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
                 let values = (samples as? [HKQuantitySample] ?? []).map { ($0.startDate, $0.quantity.doubleValue(for: unit)) }
                 continuation.resume(returning: values.map { (date: $0.0, bpm: $0.1) })
             }
             store.execute(query)
         }
         return RestingHeartRate.summarize(samples, today: today, calendar: calendar)
-        #else
-        return nil
-        #endif
     }
+    #endif
 
     /// Hours actually asleep in the night ending on `morning` (18:00 the day
     /// before until noon), summing only asleep stages — never `inBed` — and

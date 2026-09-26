@@ -33,9 +33,9 @@ struct CheckInSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    enum Step: Hashable { case sleepHours, sleepQuality, energy, soreness, pain, painDetail, mood, schedule, result }
+    enum Step: Hashable { case loading, summary, sleepHours, sleepQuality, energy, soreness, pain, painDetail, mood, schedule, result }
 
-    @State private var step: Step = .sleepHours
+    @State private var step: Step = .loading
     @State private var sleepHours: CheckInOption?
     @State private var sleepQuality: CheckInOption?
     @State private var energy: CheckInOption?
@@ -47,6 +47,14 @@ struct CheckInSheet: View {
     @State private var practiceToday = PracticeSchedule.hasPractice(on: .now)
     /// Hours slept from Apple Health, when connected: pre-selects the answer.
     @State private var healthHours: Double?
+    /// Recovery signals from a watch or band, against the athlete's normal.
+    @State private var restingHeartRate: (today: Double, usual: Double?)?
+    @State private var hrv: (today: Double, usual: Double?)?
+    @State private var energyFromWatch = false
+    /// Confirmed on the summary with pain: ask where, then save.
+    @State private var saveAfterPain = false
+    /// The summary exists: the step-by-step flow can go back to it.
+    @State private var hasSummary = false
     @State private var canConnectHealth = false
     @State private var dayStatus = DayStatusStore.status()
     @State private var showingSafety = false
@@ -85,6 +93,10 @@ struct CheckInSheet: View {
         .task {
             canConnectHealth = await HealthKitManager.shared.needsAuthorization()
             await loadHealth()
+            // With a watch or band's data: one screen to confirm or edit.
+            let fromWatch = healthHours != nil || energyFromWatch
+            hasSummary = fromWatch
+            withAnimation(.easeInOut(duration: 0.2)) { step = fromWatch ? .summary : .sleepHours }
         }
         .sheet(isPresented: $showingSafety) { SafetyCenterView() }
     }
@@ -92,6 +104,12 @@ struct CheckInSheet: View {
     @ViewBuilder
     private var page: some View {
         switch step {
+        case .loading:
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .appScreen()
+        case .summary:
+            summaryPage
         case .sleepHours:
             question("How long did you sleep?", hint: healthHours.map { "Apple Health: \(SleepMath.label($0))" },
                      options: CheckInOptions.sleepHours, selection: $sleepHours) {
@@ -184,7 +202,7 @@ struct CheckInSheet: View {
         @ViewBuilder extra: () -> Extra
     ) -> some View {
         let current = step
-        let backAction: (() -> Void)? = current == .sleepHours ? nil : { back() }
+        let backAction: (() -> Void)? = current == .sleepHours && !hasSummary ? nil : { back() }
         let buttonTitle: String? = selection.wrappedValue == nil ? nil : "Next"
         return QuestionPage(progress: progress, question: text, hint: hint, buttonTitle: buttonTitle,
                             onClose: { dismiss() }, onBack: backAction, onButton: { next(from: current) }) {
@@ -208,6 +226,10 @@ struct CheckInSheet: View {
     }
 
     private func next(from current: Step) {
+        if current == .painDetail, saveAfterPain, step == .painDetail {
+            save()
+            return
+        }
         guard step == current, let index = steps.firstIndex(of: current) else { return }
         if index + 1 < steps.count {
             withAnimation(.easeInOut(duration: 0.25)) { step = steps[index + 1] }
@@ -217,14 +239,145 @@ struct CheckInSheet: View {
     }
 
     private func back() {
+        if hasSummary, step == .sleepHours || (saveAfterPain && step == .painDetail) {
+            saveAfterPain = false
+            withAnimation(.easeInOut(duration: 0.2)) { step = .summary }
+            return
+        }
         guard let index = steps.firstIndex(of: step), index > 0 else { return }
         withAnimation(.easeInOut(duration: 0.2)) { step = steps[index - 1] }
     }
 
     private func loadHealth() async {
         healthHours = await HealthKitManager.shared.sleepHours()
+        restingHeartRate = await HealthKitManager.shared.restingHeartRate()
+        hrv = await HealthKitManager.shared.heartRateVariability()
         if sleepHours == nil, let healthHours {
             sleepHours = CheckInOptions.nearest(healthHours, in: CheckInOptions.sleepHours)
+        }
+        if sleepQuality == nil, let healthHours {
+            sleepQuality = CheckInOptions.nearest(Double(WearablePrefill.sleepQuality(hours: healthHours)), in: CheckInOptions.sleepQuality)
+        }
+        if let level = WearablePrefill.energy(restingHeartRate: restingHeartRate, hrv: hrv) {
+            energyFromWatch = true
+            if energy == nil { energy = CheckInOptions.nearest(Double(level), in: CheckInOptions.energy) }
+        }
+        // What can't be measured starts as yesterday's answer (the summary says so).
+        if let last = lastCheckIn {
+            if soreness == nil { soreness = CheckInOptions.nearest(Double(last.soreness), in: CheckInOptions.soreness) }
+            if mood == nil { mood = CheckInOptions.nearest(Double(last.stress), in: CheckInOptions.mood) }
+        }
+    }
+
+    /// The most recent check-in before today.
+    private var lastCheckIn: CheckIn? {
+        let today = Calendar.current.startOfDay(for: .now)
+        return athlete.checkIns.filter { $0.date < today }.max { $0.date < $1.date }
+    }
+
+    // MARK: Summary (a watch or band filled it in)
+
+    private var energyDetail: String? {
+        var parts: [String] = []
+        if let rhr = restingHeartRate, let usual = rhr.usual {
+            parts.append("Resting heart rate \(Int(rhr.today.rounded())) (usually \(Int(usual.rounded())))")
+        }
+        if let hrv, let usual = hrv.usual {
+            parts.append("HRV \(Int(hrv.today.rounded())) ms (usually \(Int(usual.rounded())))")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private var summaryPage: some View {
+        QuestionPage(progress: 0, question: "Your morning",
+                     hint: "Filled in from Apple Health. Confirm, or change anything.",
+                     buttonTitle: "Confirm", buttonEnabled: sleepQuality != nil && energy != nil && soreness != nil && mood != nil && hasPain != nil,
+                     onClose: { dismiss() }, onButton: { confirm() }) {
+            VStack(spacing: 0) {
+                Button { edit(from: .sleepHours) } label: {
+                    ListRow(systemImage: "moon.fill", color: AppTheme.purple,
+                            title: healthHours.map { "Sleep · \(SleepMath.label($0))" } ?? "Sleep · not recorded",
+                            detail: sleepQuality.map { "Quality: \($0.title.lowercased())" } ?? "Tap to answer") { editMark }
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 54)
+                Button { edit(from: .energy) } label: {
+                    ListRow(systemImage: "bolt.fill", color: AppTheme.amber,
+                            title: energy.map { "Energy · \($0.title)" } ?? "Energy",
+                            detail: energyFromWatch ? energyDetail : "Tap to answer") { editMark }
+                }
+                .buttonStyle(.plain)
+            }
+            .cardStyle(padding: 12)
+            compactRow("Soreness", hint: lastCheckIn == nil ? nil : "like yesterday — tap to change", CheckInOptions.soreness, selection: $soreness)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Any pain or discomfort?").font(.headline).foregroundStyle(AppTheme.ink)
+                WrapLayout(spacing: 8) {
+                    ForEach([false, true], id: \.self) { answer in
+                        Button {
+                            hasPain = answer
+                            if !answer { painAreas = []; painLevel = nil }
+                        } label: { Chip(answer ? "Yes" : "No", isSelected: hasPain == answer) }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            compactRow("Mood", hint: lastCheckIn == nil ? nil : "like yesterday — tap to change", CheckInOptions.mood, selection: $mood)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Today").font(.headline).foregroundStyle(AppTheme.ink)
+                WrapLayout(spacing: 8) {
+                    ForEach([true, false], id: \.self) { practice in
+                        Button { practiceToday = practice } label: {
+                            Chip(practice ? practiceLabel : "No practice", isSelected: practiceToday == practice)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            Button("Edit step by step") { edit(from: .sleepHours) }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+                .frame(maxWidth: .infinity, minHeight: 44)
+        }
+    }
+
+    private var editMark: some View {
+        Text("Edit")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(AppTheme.secondaryText)
+    }
+
+    private func compactRow(_ title: String, hint: String?, _ options: [CheckInOption], selection: Binding<CheckInOption?>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(title).font(.headline).foregroundStyle(AppTheme.ink)
+                if let hint {
+                    Text(hint).font(.caption).foregroundStyle(AppTheme.secondaryText)
+                }
+            }
+            WrapLayout(spacing: 8) {
+                ForEach(options, id: \.self) { option in
+                    Button { selection.wrappedValue = option } label: {
+                        Chip(option.title, isSelected: selection.wrappedValue == option)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func edit(from start: Step) {
+        saveAfterPain = false
+        withAnimation(.easeInOut(duration: 0.25)) { step = start }
+    }
+
+    /// Confirm: saves straight away — or first asks where it hurts.
+    private func confirm() {
+        if hasPain == true {
+            saveAfterPain = true
+            withAnimation(.easeInOut(duration: 0.25)) { step = .painDetail }
+        } else {
+            save()
         }
     }
 
