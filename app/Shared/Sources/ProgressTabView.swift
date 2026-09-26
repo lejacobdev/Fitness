@@ -456,6 +456,7 @@ struct ProgressTabView: View {
                 Button { month = calendar.date(byAdding: .month, value: -1, to: month) ?? month } label: {
                     Image(systemName: "chevron.left").font(.headline).frame(width: 44, height: 44)
                 }
+                .accessibilityLabel("Previous month")
                 Spacer()
                 Text(month.formatted(.dateTime.month(.wide).year()))
                     .font(.title3.bold())
@@ -464,6 +465,7 @@ struct ProgressTabView: View {
                 Button { month = calendar.date(byAdding: .month, value: 1, to: month) ?? month } label: {
                     Image(systemName: "chevron.right").font(.headline).frame(width: 44, height: 44)
                 }
+                .accessibilityLabel("Next month")
             }
             .foregroundStyle(AppTheme.ink)
             LazyVGrid(columns: columns, spacing: 6) {
@@ -522,12 +524,14 @@ struct ProgressTabView: View {
                     Button { month = calendar.date(byAdding: .year, value: -1, to: month) ?? month } label: {
                         Image(systemName: "chevron.left").font(.headline).frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel("Previous year")
                     Spacer()
                     Text(String(calendar.component(.year, from: month))).font(.title3.bold())
                     Spacer()
                     Button { month = calendar.date(byAdding: .year, value: 1, to: month) ?? month } label: {
                         Image(systemName: "chevron.right").font(.headline).frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel("Next year")
                 }
                 .foregroundStyle(AppTheme.ink)
             } else {

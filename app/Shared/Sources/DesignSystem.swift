@@ -131,6 +131,30 @@ public extension View {
                     .allowsHitTesting(false)
             }
             .contentMargins(.bottom, 24, for: .scrollContent)
+            .modifier(ReadableWidth())
+    }
+}
+
+/// On iPad (regular width) the content keeps a readable column in the
+/// middle instead of stretching edge to edge. Phones are unchanged.
+struct ReadableWidth: ViewModifier {
+    static let maxWidth: CGFloat = 680
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    #endif
+
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        if sizeClass == .regular {
+            GeometryReader { geometry in
+                content.contentMargins(.horizontal, max(0, (geometry.size.width - Self.maxWidth) / 2), for: .scrollContent)
+            }
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
     }
 }
 

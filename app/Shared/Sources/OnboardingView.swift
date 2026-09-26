@@ -18,6 +18,7 @@ public struct OnboardingView: View {
     @State private var step: Step = .ageGate
     @State private var birthDate: Date?
     @State private var errorMessage: String?
+    @State private var showingDemo = false
 
     private let apiClient: APIClient
     private let packDownloader: PackDownloader
@@ -76,6 +77,10 @@ public struct OnboardingView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         .accessibilityHidden(true)
                     ScreenTitle("Train smarter for your sport.", subtitle: "A plan built around your season, your position and your next game.")
+                    Button { showingDemo = true } label: {
+                        Label("See your first day · 1 min", systemImage: "play.circle.fill")
+                    }
+                    .buttonStyle(.secondary)
                     VStack(alignment: .leading, spacing: 18) {
                         feature("calendar", AppTheme.blue, "A weekly plan that knows your season", "Build in the off-season, stay sharp in-season, peak for game day.")
                         feature("figure.run", AppTheme.orange, "1 tap to start, every set logged", "Animated how-tos with the muscles each exercise trains.")
@@ -120,6 +125,7 @@ public struct OnboardingView: View {
             .padding(.bottom, 16)
         }
         .appScreen()
+        .sheet(isPresented: $showingDemo) { FirstDayDemo() }
     }
 
     private func feature(_ icon: String, _ tint: Color, _ title: String, _ detail: String) -> some View {
