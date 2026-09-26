@@ -595,7 +595,15 @@ const commands = {
     // Anything already submitted?
     const subsNow = await safe(`/v1/reviewSubmissions?filter[app]=${app.id}&filter[platform]=IOS&limit=5`);
     const open = (subsNow.data ?? []).filter((x) => !['COMPLETE', 'CANCELING'].includes(x.attributes.state));
-    open.length ? warn('Review submissions', open.map((x) => x.attributes.state).join(', ')) : ok('Review submissions', 'none open yet');
+    if (!open.length) ok('Review submissions', 'none open yet');
+    for (const submission of open) {
+      const items = await safe(`/v1/reviewSubmissions/${submission.id}/items?include=appStoreVersion&limit=20`);
+      const what = (items.data ?? []).map((i) => {
+        const v = (items.included ?? []).find((x) => x.id === i.relationships?.appStoreVersion?.data?.id);
+        return v ? `version ${v.attributes.versionString} (${i.attributes.state})` : `${Object.keys(i.relationships ?? {}).find((k) => i.relationships[k]?.data) ?? 'item'} (${i.attributes.state})`;
+      });
+      warn(`Review submission ${submission.attributes.state}`, `${what.join(', ') || 'no items'}${submission.attributes.submittedDate ? `, submitted ${submission.attributes.submittedDate}` : ' — not submitted yet'}`);
+    }
 
     // What the API can't see.
     manual('App Privacy', 'publish the data-collection answers (App Privacy page) — no API');
