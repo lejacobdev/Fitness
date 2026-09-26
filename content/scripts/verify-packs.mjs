@@ -73,6 +73,30 @@ for (const entry of manifest.packs) {
 // Every file in dist/ other than manifest.json should be listed — an orphan
 // file is either stale (a renamed pack) or a build that forgot to register it.
 const manifestFiles = new Set(manifest.packs.map((p) => p.file));
+
+// The downloadable animations: listed separately, checked the same way.
+if (manifest.animations) {
+  const entry = manifest.animations;
+  const filePath = path.join(distDir, entry.file ?? '');
+  if (!entry.file || !fs.existsSync(filePath)) {
+    fail(`animations: ${entry.file} listed in manifest but not present in ${distDir}`);
+  } else {
+    const content = fs.readFileSync(filePath, 'utf8');
+    if (Buffer.byteLength(content, 'utf8') !== entry.sizeBytes) fail('animations: size does not match the manifest');
+    if (crypto.createHash('sha256').update(content, 'utf8').digest('hex') !== entry.checksum) fail('animations: checksum does not match the manifest');
+    try {
+      const body = JSON.parse(content);
+      if (body.version !== entry.version) fail('animations: version does not match the manifest');
+      if (!Array.isArray(body.patterns) || body.patterns.length === 0) fail('animations: no patterns');
+      if (!Array.isArray(body.joints) || body.patterns.some((p) => p.keyframes.some((k) => k.angles.length !== body.joints.length))) {
+        fail('animations: a keyframe does not have one angle per joint');
+      }
+    } catch (err) {
+      fail(`animations: not valid JSON (${err.message})`);
+    }
+    manifestFiles.add(entry.file);
+  }
+}
 for (const file of fs.readdirSync(distDir)) {
   if (file === 'manifest.json') continue;
   if (!manifestFiles.has(file)) fail(`${file} exists in ${distDir} but is not listed in manifest.json`);

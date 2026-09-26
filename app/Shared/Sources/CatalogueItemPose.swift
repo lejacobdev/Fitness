@@ -1,9 +1,10 @@
 import Foundation
 
 public extension CatalogueItem {
-    /// The movement pattern this item animates. The app's own table wins
-    /// (so packs downloaded before a pose update still animate correctly),
-    /// then the pack's pattern name, then its older name's replacement.
+    /// The movement pattern this item animates. The current animation table
+    /// wins — downloaded when newer, else built in (AnimationLibrary) — so
+    /// packs downloaded before a pose update still animate correctly; then
+    /// the pack's pattern name, then its older name's replacement.
     var posePattern: PosePatternInfo? {
         for slug in [slug, baseSlug].compactMap({ $0 }) {
             if let name = posePatternForItem[slug], let pattern = posePatternsBySlug[name] { return pattern }

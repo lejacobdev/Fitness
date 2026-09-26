@@ -120,6 +120,9 @@ public struct MainTabView: View {
             if phase == .background || phase == .active {
                 Task { await backUp() }
             }
+            if phase == .active, !DemoData.isEnabled {
+                Task { await refreshAnimations() }
+            }
         }
         .task {
             workoutContext = WorkoutContext(athlete: athlete, apiClient: apiClient)
@@ -144,6 +147,7 @@ public struct MainTabView: View {
                     await SportPackInstaller.install(slug: sport.sportSlug, context: modelContext)
                 }
                 regenerate()
+                await refreshAnimations()
             }
         }
     }
@@ -198,6 +202,12 @@ public struct MainTabView: View {
         } catch {
             linkMessage = "Couldn't reach Athlete OS to open \(code) — check your connection and open the link again."
         }
+    }
+
+    /// Fixed or re-assigned exercise animations, published on the server,
+    /// arrive without a new app version (AnimationLibrary).
+    private func refreshAnimations() async {
+        await AnimationLibrary.shared.refresh(packsBaseURL: apiClient.baseURL.appending(path: "packs"))
     }
 
     private func askForHealthIfNeeded() {

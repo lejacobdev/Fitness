@@ -300,13 +300,14 @@ public let muscleMapCanonicalHeight: Double = 200
 
 
 
-function genPosePatternsSwift() {
-  const jointCases = JOINTS.map((j) => `    case ${j} = ${swiftStringLiteral(j)}`).join('\n');
+/**
+ * Every animation as data: the patterns (keyframes, timing, props) and which
+ * pattern each exercise shows. Built into the app (PosePatterns.swift) AND
+ * published as dist/animations.json, which the app downloads so animation
+ * fixes reach phones without a new build (AnimationLibrary.swift).
+ */
+function animationData() {
   const r3 = (v) => Math.round((v ?? 0) * 1000) / 1000;
-
-  // The data ships as JSON inside a raw string and is decoded once at
-  // launch: a Swift array literal this size makes the type checker run out
-  // of memory, a string literal costs nothing to compile.
   const patterns = POSE_PATTERNS.map((p) => ({
     id: p.slug, name: p.name, view: p.view ?? 'side', loops: !!p.loop, thumb: p.thumb ?? 0,
     fixture: p.fixture ? {
@@ -335,6 +336,20 @@ function genPosePatternsSwift() {
       fxPitch: r3(k.fx?.pitch ?? 0), fxLift: r3(k.fx?.lift ?? 0), fxShift: r3(k.fx?.shift ?? 0),
     })),
   }));
+  // Every item's pattern: the app prefers this over the pack's own pose
+  // names, so packs downloaded before a pose change still animate correctly.
+  const itemPoses = Object.fromEntries(CATALOGUE.map((i) => [i.slug, i.startPose]));
+  return { patterns, itemPoses, legacy: INTERIM_BY_POSE };
+}
+
+function genPosePatternsSwift() {
+  const jointCases = JOINTS.map((j) => `    case ${j} = ${swiftStringLiteral(j)}`).join('\n');
+  const r3 = (v) => Math.round((v ?? 0) * 1000) / 1000;
+
+  // The data ships as JSON inside a raw string and is decoded once at
+  // launch: a Swift array literal this size makes the type checker run out
+  // of memory, a string literal costs nothing to compile.
+  const { patterns, itemPoses } = animationData();
 
   // Golden samples: where rig3d.js puts key points, for the Swift parity test.
   const samples = [];
@@ -364,9 +379,6 @@ function genPosePatternsSwift() {
   }
   const json = (v) => JSON.stringify(v);
   if (json(patterns).includes('"#')) throw new Error('pose JSON would break the raw string literal');
-  // Every item's pattern, compiled into the app so packs downloaded before a
-  // pose change (which name older patterns) still animate correctly.
-  const itemPoses = Object.fromEntries(CATALOGUE.map((i) => [i.slug, i.startPose]));
 
   return `${generatedHeader('content/src/poses.js')}import Foundation
 
@@ -497,7 +509,9 @@ public struct PosePatternInfo: Sendable, Identifiable, Hashable, Codable {
 }
 
 /// Every movement the catalogue animates; each item names exactly one.
-public let posePatterns: [PosePatternInfo] = {
+/// The animations built into this app version. What the app shows comes from
+/// AnimationLibrary, which prefers a newer downloaded set (animations.json).
+public let bundledPosePatterns: [PosePatternInfo] = {
     do {
         return try JSONDecoder().decode([PosePatternInfo].self, from: Data(posePatternsJSON.utf8))
     } catch {
@@ -506,8 +520,6 @@ public let posePatterns: [PosePatternInfo] = {
     }
 }()
 
-public let posePatternsBySlug: [String: PosePatternInfo] =
-    Dictionary(uniqueKeysWithValues: posePatterns.map { ($0.id, $0) })
 
 /// Reference joint positions computed by content/src/rig3d.js.
 public struct RigGoldenSample: Sendable, Codable {
@@ -547,11 +559,11 @@ private let posePatternsJSON = #"${json(patterns)}"#
 private let rigGoldenSamplesJSON = #"${json(samples)}"#
 
 /// Item slug → its movement pattern, as of this build of the app.
-public let posePatternForItem: [String: String] =
+public let bundledPosePatternForItem: [String: String] =
     (try? JSONDecoder().decode([String: String].self, from: Data(itemPosesJSON.utf8))) ?? [:]
 
 /// Older pattern names (from packs downloaded before the 3D rig) → today's.
-public let legacyPosePatterns: [String: String] =
+public let bundledLegacyPosePatterns: [String: String] =
     (try? JSONDecoder().decode([String: String].self, from: Data(legacyPosesJSON.utf8))) ?? [:]
 
 private let itemPosesJSON = #"${json(itemPoses)}"#
@@ -649,6 +661,19 @@ function buildPacks() {
     generatedAt,
     packs: manifestPacks.sort((a, b) => a.slug.localeCompare(b.slug)),
   };
+  // The animations, downloadable (not a sport pack: its own manifest entry,
+  // which the app's pack loop never sees).
+  const { patterns, itemPoses, legacy } = animationData();
+  const animationsBody = JSON.stringify({ poseModelVersion: POSE_MODEL_VERSION, joints: JOINTS, patterns, itemPoses, legacy });
+  const animationsVersion = sha256(animationsBody).slice(0, 12);
+  const animationsPayload = JSON.stringify({ version: animationsVersion, ...JSON.parse(animationsBody) });
+  fs.writeFileSync(path.join(PACKS_OUT, 'animations.json'), animationsPayload, 'utf8');
+  manifest.animations = {
+    file: 'animations.json', version: animationsVersion,
+    sizeBytes: Buffer.byteLength(animationsPayload, 'utf8'), checksum: sha256(animationsPayload),
+  };
+  console.log(`animations: ${patterns.length} patterns, version ${animationsVersion}, ${(Buffer.byteLength(animationsPayload) / 1024).toFixed(0)} KB`);
+
   fs.writeFileSync(path.join(PACKS_OUT, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
   console.log(`wrote ${manifestPacks.length} packs + manifest.json to ${path.relative(REPO_ROOT, PACKS_OUT)}`);
 
