@@ -22,7 +22,9 @@ const NAME_ONLY = args.includes('--name-only');
 const BUNDLE_ID = args.find((a) => !a.startsWith('--')) ?? 'com.studentathlete.app';
 
 /** App Store names are unique across the store; the first free one is used. */
-export const NAMES = ['AthleteOS', 'AthleteOS – AOS', 'AOS – AthleteOS', 'AthleteOS: Train & Learn'];
+// "AthleteOS" alone is taken on the App Store; the user chose the one below
+// (the name under the icon stays "AthleteOS").
+export const NAMES = ['AthleteOS: Train & Learn', 'AthleteOS – AOS', 'AOS – AthleteOS'];
 
 export const LISTING = {
   name: NAMES[0],
