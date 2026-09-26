@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 /**
+ * NOTE (2026-09-26): the live listing texts and review notes were last set from
+ * tools/metadata/review-hardening.json (asc-metadata-edit workflow), which is
+ * the current source of truth for description, promotional text and notes.
+ *
  * §20/M14: App Store listing metadata, age rating, content rights and App
  * Review notes for Athlete OS, set through the App Store Connect API.
  * Idempotent — safe to re-run after editing the copy below. Never submits
@@ -26,7 +30,7 @@ export const LISTING = {
   privacyPolicyUrl: 'https://api.lejacob.dev/fitness/privacy',
   supportUrl: 'https://api.lejacob.dev/fitness/support',
   keywords: 'student athlete,high school,college,training,workout,sports,coach,team,mindset,soccer,basketball',
-  promotionalText: 'Workouts built around your practices, games and exams. Two-tap morning check-in, Duolingo-style Campus lessons, tests every 6 weeks, and a coach and parent view.',
+  promotionalText: 'Workouts built around your practices, games and exams — changeable exercise by exercise. Two-tap check-in, bite-size lessons, sport guides and a coach view.',
   description: `Athlete OS is the operating system for student athletes: training built around your real schedule, plus the knowledge and mindset that take you to the next level.
 
 HOME: YOUR DAY AT A GLANCE
@@ -51,7 +55,7 @@ GET BETTER AT YOUR SPORT
 • 700+ exercises and drills with animated how-tos
 • Tests every 6–8 weeks: vertical jump filmed with your camera, 10 m and 30 m sprint, plank, push-ups and a test for your sport — see real improvement
 
-CAMPUS: LEARN LIKE DUOLINGO
+CAMPUS: LEARN IN A FEW MINUTES A DAY
 • Short lessons on training, nutrition, sleep, injury prevention, psychology, tactics and more
 • Hearts, XP, streaks, badges and spaced review so it sticks
 • Leagues with your teammates
@@ -91,7 +95,7 @@ Sign in with Apple is the only login, so any Apple ID works — no demo account 
 HOW TO REVIEW IN FIVE MINUTES
 1. Enter any birth date 13+ years ago, sign in with Apple, pick a sport (e.g. Soccer) and a position.
 2. Home (widgets): do the morning check-in; tap Start on today's workout. Edit Home rearranges the widgets.
-3. Campus: play a lesson (Duolingo-style); the trophy opens leagues, the medal badges.
+3. Campus: play a lesson; the trophy opens leagues, the medal badges.
 4. Workout: the three kinds (after practice, gym day, stretching & mobility) — See it / Start.
 5. Progress: the calendar (Month / Season / Year), log a team practice (Easy or Exact), add a game or training, set practice times.
 6. Me: What you want to fix, Tests (jump test uses the camera), Team & family, Head knocks & concussion, Log out and Delete account.
@@ -211,10 +215,10 @@ async function main() {
   const ageAttributes = {
     advertising: false, alcoholTobaccoOrDrugUseOrReferences: 'NONE', contests: 'NONE', gambling: false,
     gamblingSimulated: 'NONE', gunsOrOtherWeapons: 'INFREQUENT_OR_MILD', healthOrWellnessTopics: true,
-    lootBox: false, medicalOrTreatmentInformation: 'NONE', messagingAndChat: false, parentalControls: false,
+    lootBox: false, medicalOrTreatmentInformation: 'INFREQUENT', messagingAndChat: false, parentalControls: false,
     profanityOrCrudeHumor: 'NONE', ageAssurance: false, sexualContentGraphicAndNudity: 'NONE',
     sexualContentOrNudity: 'NONE', socialMedia: false, horrorOrFearThemes: 'NONE', matureOrSuggestiveThemes: 'NONE',
-    unrestrictedWebAccess: false, userGeneratedContent: false, violenceCartoonOrFantasy: 'NONE',
+    unrestrictedWebAccess: false, userGeneratedContent: true, violenceCartoonOrFantasy: 'NONE',
     violenceRealisticProlongedGraphicOrSadistic: 'NONE', violenceRealistic: 'NONE',
     ageRatingOverrideV2: 'THIRTEEN_PLUS',
   };
