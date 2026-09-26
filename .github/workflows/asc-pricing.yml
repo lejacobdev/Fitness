@@ -22,6 +22,14 @@ on:
         description: 'Months at the offer price'
         required: false
         default: '3'
+      price_product:
+        description: 'Change the regular price of this product (empty: leave prices)'
+        required: false
+        default: ''
+      price_usd:
+        description: 'New regular price in USD (equalized to every territory)'
+        required: false
+        default: ''
 
 jobs:
   pricing:
@@ -38,5 +46,9 @@ jobs:
       - name: Set the introductory offer
         if: inputs.intro_product != ''
         run: node tools/asc.mjs set-intro-offer '${{ inputs.bundle_id }}' '${{ inputs.intro_product }}' '${{ inputs.intro_usd }}' '${{ inputs.intro_months }}'
+      # After the offer, so the offer is always below the regular price.
+      - name: Set the regular price
+        if: inputs.price_product != '' && inputs.price_usd != ''
+        run: node tools/asc.mjs set-price '${{ inputs.bundle_id }}' '${{ inputs.price_product }}' '${{ inputs.price_usd }}'
       - name: Prices customers see
         run: node tools/asc.mjs subscription-prices '${{ inputs.bundle_id }}'

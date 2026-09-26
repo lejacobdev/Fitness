@@ -521,6 +521,50 @@ const commands = {
    * USD price `usd` (pay as you go), in every territory at Apple's equalized
    * local price. Replaces any introductory offer the subscription had.
    */
+  /**
+   * Sets a subscription's regular price: `usd` in the USA and Apple's
+   * equalized price everywhere else, effective now (only safe before anyone
+   * subscribes — later changes should go through App Store Connect's price
+   * change flow so existing subscribers are notified).
+   */
+  async 'set-price'(identifier, productId, usd) {
+    if (!identifier || !productId || !usd) throw new Error('usage: set-price <bundle-id> <product-id> <usd>');
+    const app = await appFor(identifier);
+    const groups = await api(`/v1/apps/${app.id}/subscriptionGroups?limit=50`);
+    let sub;
+    for (const group of groups.data) {
+      const subs = await api(`/v1/subscriptionGroups/${group.id}/subscriptions?limit=50`);
+      sub = sub ?? subs.data.find((x) => x.attributes.productId === productId);
+    }
+    if (!sub) throw new Error(`no subscription ${productId}`);
+    const points = await api(`/v1/subscriptions/${sub.id}/pricePoints?filter[territory]=USA&limit=800`);
+    const point = points.data.find((p) => p.attributes.customerPrice === usd);
+    if (!point) throw new Error(`no USA price point at ${usd}`);
+    const equal = await api(`/v1/subscriptionPricePoints/${point.id}/equalizations?limit=200&include=territory`);
+    const targets = [{ id: point.id, territory: 'USA' }, ...equal.data.map((eq) => ({ id: eq.id, territory: eq.relationships?.territory?.data?.id }))];
+    let ok = 0;
+    const failed = [];
+    for (const target of targets) {
+      try {
+        await api('/v1/subscriptionPrices', {
+          method: 'POST',
+          body: { data: { type: 'subscriptionPrices', attributes: { preserveCurrentPrice: false },
+            relationships: {
+              subscription: { data: { type: 'subscriptions', id: sub.id } },
+              subscriptionPricePoint: { data: { type: 'subscriptionPricePoints', id: target.id } },
+              territory: { data: { type: 'territories', id: target.territory } },
+            } } },
+        });
+        ok += 1;
+      } catch (err) {
+        failed.push(`${target.territory}: ${err.message.slice(0, 160)}`);
+      }
+    }
+    console.log(`${productId} → ${usd} USD: ${ok} territories${failed.length ? `, ${failed.length} failed` : ''}`);
+    for (const f of failed.slice(0, 10)) console.log(`  ${f}`);
+    if (!ok) throw new Error('no price was set');
+  },
+
   async 'set-intro-offer'(identifier, productId, usd, months = '3') {
     if (!identifier || !productId || !usd) throw new Error('usage: set-intro-offer <bundle-id> <product-id> <usd> [months]');
     const app = await appFor(identifier);
