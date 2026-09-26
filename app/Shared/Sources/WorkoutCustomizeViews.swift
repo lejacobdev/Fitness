@@ -339,8 +339,22 @@ struct ExercisePickerView: View {
         }
     }
 
+    /// Tapping an exercise opens its preview (animation, how to do it); the
+    /// button at the bottom of the preview adds it.
     private func pickRow(_ item: CatalogueItem) -> some View {
-        Button { onPick(item) } label: {
+        NavigationLink {
+            ItemDetailView(item: item)
+                .safeAreaInset(edge: .bottom) {
+                    Button { onPick(item) } label: {
+                        Label(suggestions.isEmpty ? "Add to workout" : "Swap in", systemImage: suggestions.isEmpty ? "plus" : "arrow.left.arrow.right")
+                    }
+                    .buttonStyle(.primary)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 8)
+                    .background(AppTheme.background.opacity(0.96))
+                }
+        } label: {
             HStack(spacing: 12) {
                 ItemThumbnail(item: item, size: 44)
                 VStack(alignment: .leading, spacing: 2) {
@@ -349,7 +363,6 @@ struct ExercisePickerView: View {
                 }
             }
         }
-        .buttonStyle(.plain)
     }
 }
 
