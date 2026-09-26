@@ -111,8 +111,8 @@ struct AppTourView: View {
     static let pages: [Page] = [
         Page(icon: "house.fill", color: AppTheme.ink, tab: "Home",
              title: "Your day at a glance",
-             body: "Home shows only the most important things as widgets: today's workout, your check-in, your levels and your next game. Tap any widget to open the full page.",
-             steps: ["Do the 10-second morning check-in", "Tap a widget to go deeper", "Edit Home to move or remove widgets"]),
+             body: "Home is your day: the morning check-in, today's readiness, what's on today and why. Want more on it? Add widgets with Edit Home.",
+             steps: ["Check in each morning — 30 seconds", "Start today's training from TODAY", "Edit Home (at the bottom) to add widgets"]),
         Page(icon: "graduationcap.fill", color: AppTheme.green, tab: "Campus",
              title: "Learn in a few minutes a day",
              body: "Short lessons on training, food, sleep, injuries, mindset and more, plus a guide to your own sport. Earn XP, keep a streak, collect badges and race your teammates in a league.",
@@ -410,7 +410,7 @@ struct HelpCenterView: View {
 
     private let faqs: [(q: String, a: String)] = [
         ("How do I start a workout?",
-         "Workout tab → pick After practice, Gym day or Stretching & mobility → Start. Home's Today widget starts the one recommended for today. You can also start any day of a skill plan, a muscle workout, or a single exercise from the Library (Try it now)."),
+         "Home → TODAY → Start, or the Workout tab: the recommended workout is on top, the other modes below. You can also start any day of a skill plan, a muscle workout, or a single exercise from the Library (Try it now)."),
         ("What happens during a workout?",
          "You see one exercise at a time with its animation. Set the reps or weight with the big buttons, tap Log set, and a rest timer starts on its own. Swipe or tap Next when you're done with an exercise. Tap × to finish."),
         ("Why did my workout change?",

@@ -1,11 +1,13 @@
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Home — the command center (V3). One calm screen that answers "what do I
 /// do today?": the kind of day and the streak, a greeting and a short quote,
 /// the morning check-in (then today's readiness), the TODAY list, why the
 /// plan looks like this, and in the evening the reflection.
-/// PREPARE → PERFORM → LEARN → REFLECT → ADAPT.
+/// PREPARE → PERFORM → LEARN → REFLECT → ADAPT. Below it, the widgets the
+/// athlete added in Edit Home (none by default).
 struct HomeView: View {
     let athlete: Athlete
     let apiClient: APIClient
@@ -31,9 +33,14 @@ struct HomeView: View {
     @State private var lowEnergySnoozed = LowEnergyCheck.isSnoozed
     /// Bumped when a sheet closes, so what it changed (reflection, pain, day status) redraws.
     @State private var revision = 0
+    @State private var layout = HomeLayout.load()
+    @State private var editingLayout = false
+    @State private var wiggle = false
+    /// The widget being held while arranging, and where the board is in reordering it.
+    @State private var drag = HomeDragState()
 
     enum HomeSheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, reflection, safety
+        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, reflection, safety, mindset, tests
         var id: String { rawValue }
     }
 
@@ -163,6 +170,7 @@ struct HomeView: View {
                     if !scheduleIsSet && status == .active { scheduleCard }
                     todaySection
                     if gameToday != nil && status == .active { gameRoutinesCard }
+                    widgetsSection
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
@@ -205,6 +213,10 @@ struct HomeView: View {
                     }
                 case .safety:
                     SafetyCenterView()
+                case .mindset:
+                    MindsetView(sportName: AthleteStats.sportName(athlete)) { selectedTab = .campus }
+                case .tests:
+                    BenchmarksView(sportSlug: athlete.activeSport?.sportSlug)
                 case .reflection:
                     ReflectionSheet(completion: completion, practiceToday: practiceToday) { revision += 1 }
                 case .schedule:
@@ -656,6 +668,238 @@ struct HomeView: View {
         }
         .cardStyle(padding: 20)
     }
+
+    // MARK: - Widgets (Edit Home)
+
+    /// The widgets the athlete added, and Edit Home.
+    @ViewBuilder
+    private var widgetsSection: some View {
+        if !layout.widgets.isEmpty {
+            // One container for every widget, so while arranging they glide
+            // to their new places instead of jumping.
+            WidgetGridLayout {
+                ForEach(layout.widgets) { widget in
+                    editableWidget(widget)
+                }
+            }
+            #if os(iOS)
+            // Letting go anywhere on the board keeps the order it shows.
+            .contentShape(Rectangle())
+            .onDrop(of: [.text], delegate: HomeWidgetDropDelegate(target: nil, drag: $drag, layout: $layout))
+            #endif
+        }
+        layoutControls
+    }
+
+    /// While arranging: hold a widget and drag it — the others make room as
+    /// it passes over them, so the new order shows before letting go. Tap –
+    /// to remove it.
+    @ViewBuilder
+    private func editableWidget(_ widget: HomeWidget) -> some View {
+        if editingLayout {
+            let held = drag.widget == widget
+            widgetContent(widget)
+                .allowsHitTesting(false)
+                .frame(maxWidth: .infinity)
+                // Where the held widget will land: its place stays, faded and outlined.
+                .opacity(held ? 0.3 : 1)
+                .overlay {
+                    if held {
+                        RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                            .strokeBorder(AppTheme.ink.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [7, 6]))
+                    }
+                }
+                // The widget itself ignores taps while arranging; this layer
+                // catches the long-press for dragging.
+                .overlay { Color.clear.contentShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)) }
+                .rotationEffect(.degrees(wiggle ? 0.8 : -0.8))
+                .animation(.easeInOut(duration: 0.14).repeatForever(autoreverses: true), value: wiggle)
+                #if os(iOS)
+                .onDrag {
+                    // Marked as held on the next turn, after the lifted copy
+                    // under the finger has been captured at full strength.
+                    Task { @MainActor in drag = HomeDragState(widget: widget) }
+                    return NSItemProvider(object: widget.rawValue as NSString)
+                }
+                .onDrop(of: [.text], delegate: HomeWidgetDropDelegate(target: widget, drag: $drag, layout: $layout))
+                #endif
+                .overlay(alignment: .topLeading) {
+                    Button {
+                        withAnimation { layout.remove(widget); layout.save() }
+                    } label: {
+                        Image(systemName: "minus")
+                            .font(.headline.weight(.heavy))
+                            .foregroundStyle(.white)
+                            .frame(width: 32, height: 32)
+                            .background(AppTheme.red, in: Circle())
+                            .overlay(Circle().stroke(AppTheme.background, lineWidth: 3))
+                    }
+                    .buttonStyle(.plain)
+                    .offset(x: -8, y: -8)
+                    .accessibilityLabel("Remove \(widget.title)")
+                }
+                .padding(.top, 8)
+        } else {
+            widgetContent(widget)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    @ViewBuilder
+    private var layoutControls: some View {
+        if editingLayout {
+            VStack(alignment: .leading, spacing: 12) {
+                if !layout.widgets.isEmpty {
+                    Text("Hold a widget and drag it to move it. Tap – to remove it.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+                if !layout.available.isEmpty {
+                    SectionHeader("Add widgets")
+                    VStack(spacing: 0) {
+                        ForEach(layout.available) { widget in
+                            Button {
+                                withAnimation { layout.add(widget); layout.save() }
+                            } label: {
+                                ListRow(systemImage: widget.systemImage, color: AppTheme.ink, title: widget.title, detail: widget.detail) {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.title2)
+                                        .foregroundStyle(AppTheme.green)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Add \(widget.title)")
+                            if widget != layout.available.last {
+                                Divider().padding(.leading, 54)
+                            }
+                        }
+                    }
+                    .cardStyle(padding: 12)
+                }
+                Button("Done") {
+                    editingLayout = false
+                    wiggle = false
+                    drag = HomeDragState()
+                    layout.save()
+                }
+                .buttonStyle(.primary)
+            }
+            .padding(.top, 4)
+        } else {
+            Button {
+                editingLayout = true
+                wiggle = true
+            } label: {
+                Label("Edit Home", systemImage: "square.grid.2x2")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .background(AppTheme.fill, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+        }
+    }
+
+    private var loggedThisWeek: Int {
+        guard let interval = calendar.dateInterval(of: .weekOfYear, for: .now) else { return 0 }
+        return allSessions.filter { interval.contains($0.startedAt) }.count
+    }
+
+    private var mindsetProgress: (done: Int, target: Int) {
+        _ = revision
+        return MindsetStore.weekProgress()
+    }
+
+    private var testStatus: BenchmarkSchedule.Status {
+        _ = revision
+        return BenchmarkSchedule.status(lastTest: BenchmarkStore.lastTestDate())
+    }
+
+    private func nextGameCaption(_ game: Competition) -> String {
+        let hasTime = calendar.component(.hour, from: game.date) != 0 || calendar.component(.minute, from: game.date) != 0
+        let when = hasTime ? game.date.formatted(.dateTime.weekday(.abbreviated).hour().minute()) : game.date.formatted(.dateTime.weekday(.abbreviated).month().day())
+        return "\(game.isHome ? "Home" : "Away") · \(when)"
+    }
+
+    private var testsValue: (value: String, due: Bool) {
+        switch testStatus {
+        case .firstTime: ("First tests", true)
+        case .notYet(let days): ("In \(days) days", false)
+        case .due: ("Test week", true)
+        case .overdue: ("Overdue", true)
+        }
+    }
+
+    /// The square widgets: one number, what it means, one tap to act on it.
+    @ViewBuilder
+    private func widgetContent(_ widget: HomeWidget) -> some View {
+        switch widget {
+        case .body:
+            let planned = max(week?.sessions.count ?? 0, 1) + practiceDays.count
+            let gain = BenchmarkMath.headline(BenchmarkStore.results, tests: BenchmarkCatalog.body)
+            Button { selectedTab = .progress } label: {
+                WidgetTile(value: "\(loggedThisWeek) of \(planned)", label: "Body", progress: Double(loggedThisWeek) / Double(planned),
+                           color: AppTheme.accent, systemImage: widget.systemImage, caption: gain ?? "Workouts this week")
+            }
+            .buttonStyle(.plain)
+        case .sport:
+            let skillPlans = athlete.skillBlocks.filter { $0.targetDate >= calendar.startOfDay(for: .now) }.count
+            let gain = athlete.activeSport.flatMap { BenchmarkMath.headline(BenchmarkStore.results, tests: [BenchmarkCatalog.sportTest(for: $0.sportSlug)]) }
+            Button { selectedTab = .workout } label: {
+                WidgetTile(value: skillPlans == 0 ? "No plan" : "\(skillPlans) active", label: "Sport",
+                           progress: skillPlans == 0 ? 0 : 1, color: AppTheme.brand, systemImage: widget.systemImage,
+                           caption: gain ?? (skillPlans == 0 ? "Skill plans in Workout" : "Skill plans in progress"))
+            }
+            .buttonStyle(.plain)
+        case .knowledge:
+            let learned = CampusProgress.learned(campusLearnedRaw)
+            let total = campusTopics.reduce(0) { $0 + $1.lessons.count }
+            Button { selectedTab = .campus } label: {
+                WidgetTile(value: "\(learned.count) of \(total)", label: "Knowledge", progress: Double(learned.count) / Double(max(1, total)),
+                           color: AppTheme.green, systemImage: widget.systemImage, caption: "Campus lessons")
+            }
+            .buttonStyle(.plain)
+        case .mindset:
+            let progress = mindsetProgress
+            Button { activeSheet = .mindset } label: {
+                WidgetTile(value: "\(progress.done) of \(progress.target)", label: "Mindset", progress: Double(progress.done) / Double(max(1, progress.target)),
+                           color: AppTheme.purple, systemImage: widget.systemImage, caption: "This week")
+            }
+            .buttonStyle(.plain)
+        case .nextGame:
+            let nextGame = AthleteStats.upcomingCompetitions(athlete).first
+            let days = nextGame.map { AthleteStats.daysUntil($0.date) }
+            Button { if nextGame == nil { activeSheet = .addGame } else { selectedTab = .progress } } label: {
+                WidgetTile(value: days.map { $0 == 0 ? "Today" : ($0 == 1 ? "Tomorrow" : "In \($0) days") } ?? "None yet",
+                           label: "Next game", progress: days.map { max(0.05, 1 - Double($0) / 14) } ?? 0,
+                           color: ProgressColors.game, systemImage: widget.systemImage,
+                           caption: nextGame.map { nextGameCaption($0) } ?? "Tap to add one")
+            }
+            .buttonStyle(.plain)
+        case .food:
+            Button { activeSheet = .fuel } label: {
+                WidgetTile(value: gameToday != nil ? "Game day" : (todaysWorkout != nil ? "Training day" : "Rest day"),
+                           label: "Food & water", progress: 0.5, color: AppTheme.green, systemImage: widget.systemImage,
+                           caption: "What to eat today")
+            }
+            .buttonStyle(.plain)
+        case .streak:
+            Button { selectedTab = .progress } label: {
+                WidgetTile(value: "\(streak) \(streak == 1 ? "day" : "days")", label: "Streak", progress: min(1, Double(streak) / 7),
+                           color: AppTheme.orange, systemImage: widget.systemImage, caption: "Checked in or trained")
+            }
+            .buttonStyle(.plain)
+        case .tests:
+            let tests = testsValue
+            let headline = BenchmarkMath.headline(BenchmarkStore.results, tests: BenchmarkCatalog.tests(for: athlete.activeSport?.sportSlug))
+            Button { activeSheet = .tests } label: {
+                WidgetTile(value: tests.value, label: "Tests", progress: tests.due ? 1 : 0.3, color: AppTheme.coral,
+                           systemImage: widget.systemImage, caption: headline ?? "Every 6–8 weeks")
+            }
+            .buttonStyle(.plain)
+        }
+    }
 }
 
 /// `GeneratedSession` isn't Identifiable; this wraps one for `.sheet(item:)`.
@@ -847,3 +1091,94 @@ struct SessionPreviewSheet: View {
     }
 }
 
+// MARK: - Arranging the widgets
+
+/// Home's widgets: two to a row, in the athlete's order. One layout for all
+/// of them, so while arranging they glide to their new places.
+struct WidgetGridLayout: Layout {
+    var columnSpacing: CGFloat = 12
+    var rowSpacing: CGFloat = 12
+
+    private func columnWidth(_ total: CGFloat) -> CGFloat { (total - columnSpacing) / 2 }
+
+    private func rowHeights(_ subviews: Subviews, width: CGFloat) -> [CGFloat] {
+        stride(from: 0, to: subviews.count, by: 2).map { start in
+            (start..<min(start + 2, subviews.count)).map {
+                subviews[$0].sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+            }.max() ?? 0
+        }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let total = proposal.width ?? 360
+        let heights = rowHeights(subviews, width: columnWidth(total))
+        return CGSize(width: total, height: heights.reduce(0, +) + rowSpacing * CGFloat(max(0, heights.count - 1)))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let width = columnWidth(bounds.width)
+        let heights = rowHeights(subviews, width: width)
+        var y = bounds.minY
+        for (row, height) in heights.enumerated() {
+            for column in 0..<2 {
+                let index = row * 2 + column
+                guard index < subviews.count else { break }
+                let x = bounds.minX + CGFloat(column) * (width + columnSpacing)
+                subviews[index].place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: ProposedViewSize(width: width, height: height))
+            }
+            y += height + rowSpacing
+        }
+    }
+}
+
+/// The widget held while arranging Home.
+struct HomeDragState: Equatable {
+    var widget: HomeWidget?
+    /// The widget the held one just moved over, until the board has made room.
+    var pending: HomeWidget?
+    var lastMove = Date.distantPast
+}
+
+#if os(iOS)
+/// Live rearranging: as the held widget passes over another, the board makes
+/// room straight away (animated), so the new order is visible while still
+/// holding. A short pause between moves keeps widgets from trading places
+/// back and forth under the finger. `target` nil is the board itself, which
+/// only ends the drag.
+struct HomeWidgetDropDelegate: DropDelegate {
+    let target: HomeWidget?
+    @Binding var drag: HomeDragState
+    @Binding var layout: HomeLayout
+
+    func dropEntered(info: DropInfo) {
+        guard let target else { return }
+        drag.pending = target
+        makeRoom()
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        makeRoom()
+        return DropProposal(operation: .move)
+    }
+
+    func dropExited(info: DropInfo) {
+        if let target, drag.pending == target { drag.pending = nil }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        drag = HomeDragState()
+        layout.save()
+        return true
+    }
+
+    private func makeRoom() {
+        guard let target, drag.pending == target, let held = drag.widget, held != target,
+              Date.now.timeIntervalSince(drag.lastMove) > 0.2 else { return }
+        drag.pending = nil
+        drag.lastMove = .now
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+            layout.move(held, to: target)
+        }
+    }
+}
+#endif
