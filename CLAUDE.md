@@ -72,7 +72,8 @@ The repo is public: no secrets, key IDs or server internals go in this file.
   enters them in the ASC web UI.
 
 ## Content and animations
-- Catalogue: 840 base items, each with its own 3D rig pattern. Maths `content/src/rig3d.js`,
+- Catalogue (2026-09-26): 869 base items expanding to 1,020 (`BASE_ITEMS` / `CATALOGUE`
+  in `content/src/catalogue.js`), each with its own 3D rig pattern. Maths `content/src/rig3d.js`,
   drawing `rigDraw.js`, patterns `content/src/poses/*`, assignments `poseAssignments/*`.
   Swift ports `RigEngine.swift` / `RigShapes.swift` must stay line-for-line
   (`RigEngineTests` compare against golden samples from `build.mjs`).
