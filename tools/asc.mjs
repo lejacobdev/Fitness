@@ -683,6 +683,56 @@ const commands = {
     console.log(`available in ${refs.length} territories (and new ones)`);
   },
 
+  /** The listing texts and review notes as they are now (JSON between markers). */
+  async 'metadata-get'(identifier) {
+    const app = await appFor(identifier);
+    const versions = await api(`/v1/apps/${app.id}/appStoreVersions?filter[platform]=IOS&limit=5`);
+    const version = versions.data.find((v) => v.attributes.appStoreState === 'PREPARE_FOR_SUBMISSION') ?? versions.data[0];
+    const vLocs = await api(`/v1/appStoreVersions/${version.id}/appStoreVersionLocalizations`);
+    const vLoc = vLocs.data.find((l) => l.attributes.locale === 'en-US') ?? vLocs.data[0];
+    const review = await api(`/v1/appStoreVersions/${version.id}/appStoreReviewDetail`).catch(() => ({ data: null }));
+    const infos = await api(`/v1/apps/${app.id}/appInfos`);
+    const age = await api(`/v1/appInfos/${infos.data[0].id}/ageRatingDeclaration`).catch(() => ({ data: null }));
+    const out = {
+      description: vLoc.attributes.description, promotionalText: vLoc.attributes.promotionalText,
+      keywords: vLoc.attributes.keywords, notes: review.data?.attributes?.notes ?? null,
+      ageRating: age.data?.attributes ?? null,
+    };
+    console.log('<<<METADATA');
+    console.log(JSON.stringify(out, null, 2));
+    console.log('METADATA>>>');
+  },
+
+  /**
+   * Writes listing texts / review notes / age-rating answers from a JSON
+   * file with any of: description, promotionalText, keywords, notes, ageRating.
+   */
+  async 'metadata-set'(identifier, file) {
+    const fs = await import('node:fs');
+    const wanted = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const app = await appFor(identifier);
+    const versions = await api(`/v1/apps/${app.id}/appStoreVersions?filter[platform]=IOS&limit=5`);
+    const version = versions.data.find((v) => v.attributes.appStoreState === 'PREPARE_FOR_SUBMISSION') ?? versions.data[0];
+    const vLocs = await api(`/v1/appStoreVersions/${version.id}/appStoreVersionLocalizations`);
+    const vLoc = vLocs.data.find((l) => l.attributes.locale === 'en-US') ?? vLocs.data[0];
+    const text = Object.fromEntries(['description', 'promotionalText', 'keywords'].filter((k) => typeof wanted[k] === 'string').map((k) => [k, wanted[k]]));
+    if (Object.keys(text).length) {
+      await api(`/v1/appStoreVersionLocalizations/${vLoc.id}`, { method: 'PATCH', body: { data: { type: 'appStoreVersionLocalizations', id: vLoc.id, attributes: text } } });
+      console.log(`listing: ${Object.keys(text).join(', ')} updated`);
+    }
+    if (typeof wanted.notes === 'string') {
+      const review = await api(`/v1/appStoreVersions/${version.id}/appStoreReviewDetail`);
+      await api(`/v1/appStoreReviewDetails/${review.data.id}`, { method: 'PATCH', body: { data: { type: 'appStoreReviewDetails', id: review.data.id, attributes: { notes: wanted.notes } } } });
+      console.log(`review notes updated (${wanted.notes.length} characters)`);
+    }
+    if (wanted.ageRating && typeof wanted.ageRating === 'object') {
+      const infos = await api(`/v1/apps/${app.id}/appInfos`);
+      const age = await api(`/v1/appInfos/${infos.data[0].id}/ageRatingDeclaration`);
+      await api(`/v1/ageRatingDeclarations/${age.data.id}`, { method: 'PATCH', body: { data: { type: 'ageRatingDeclarations', id: age.data.id, attributes: wanted.ageRating } } });
+      console.log(`age rating updated: ${Object.keys(wanted.ageRating).join(', ')}`);
+    }
+  },
+
   async 'subscription-prices'(identifier, territories = 'USA,DEU,FRA,ITA,ESP,NLD,AUT,CHE,GBR,CAN,AUS') {
     const app = await appFor(identifier);
     const wanted = new Set(territories.split(','));
