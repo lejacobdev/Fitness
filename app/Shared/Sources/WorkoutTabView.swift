@@ -292,7 +292,9 @@ struct WorkoutTabView: View {
 
     /// The modes not recommended today, one line each.
     private var otherModes: some View {
-        let others = [WorkoutMode.afterPractice, .gymDay, .mobility, .travel].filter { $0 != recommendation.mode }
+        let recommended = recommendation.mode
+        let all: [WorkoutMode] = [.afterPractice, .gymDay, .mobility, .travel]
+        let others: [WorkoutMode] = all.filter { mode in mode != recommended }
         return VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Other modes")
             VStack(spacing: 0) {
