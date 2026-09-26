@@ -17,3 +17,17 @@ final class CampusLessonTests: XCTestCase {
         }
     }
 }
+
+/// The lesson that fits the day.
+final class LessonPickerTests: XCTestCase {
+    func testTheDayPicksTheLesson() {
+        XCTAssertEqual(LessonPicker.forToday(.init(sleepHours: 5.5))?.id, "sleep-power")
+        XCTAssertEqual(LessonPicker.forToday(.init(daysToGame: 1))?.id, "pressure")
+        XCTAssertEqual(LessonPicker.forToday(.init(sleepHours: 5.5, pain: true))?.id, "pain", "pain comes first")
+        XCTAssertEqual(LessonPicker.forToday(.init(examWeek: true))?.id, "balance")
+        XCTAssertNil(LessonPicker.forToday(.init(sleepHours: 8, soreness: 2, energy: 4, daysToGame: 5)), "an ordinary day follows the path")
+        for id in ["pain", "sleep-power", "pressure", "rest-days", "overtraining", "balance"] {
+            XCTAssertNotNil(LessonPicker.lesson(id), "\(id) exists")
+        }
+    }
+}

@@ -246,6 +246,14 @@ struct CampusView: View {
                     if !dueForReview.isEmpty { reviewCard }
                     SectionHeader("Know Your Sport")
                     SportGuideCard(athlete: athlete) { showingGuide = true }
+                    if let lesson = positionLesson {
+                        Button { playing = lesson } label: {
+                            ListRow(systemImage: "person.fill.viewfinder", color: AppTheme.brand, title: "Know your position",
+                                    detail: "\(lesson.minutes) min · your job on the field")
+                        }
+                        .buttonStyle(.plain)
+                        .cardStyle(padding: 14)
+                    }
                     SectionHeader("Learning Areas")
                     VStack(spacing: 0) {
                         ForEach(Array(campusTopics.enumerated()), id: \.element.id) { index, topic in
@@ -367,9 +375,55 @@ struct CampusView: View {
         return nil
     }
 
+    /// The athlete's position, as a lesson from their sport's guide.
+    private var positionLesson: CampusLesson? {
+        guard let sport = athlete.activeSport, let position = sport.positionSlug,
+              let name = allSportsBySlug[sport.sportSlug]?.positions.first(where: { $0.slug == position })?.name,
+              let guide = SportGuide.forSport(sport.sportSlug) else { return nil }
+        return guide.positionLesson(positionSlug: position, positionName: name)
+    }
+
+    /// Today's lesson when the day calls for one (a short night, a game…).
+    private var todayPick: (lesson: CampusLesson, topic: CampusTopic, reason: String)? {
+        let calendar = Calendar.current
+        let checkIn = AthleteStats.todaysCheckIn(athlete)
+        let nextGame = AthleteStats.upcomingCompetitions(athlete).first.map { AthleteStats.daysUntil($0.date) }
+        let context = LessonPicker.Context(
+            sleepHours: checkIn?.sleepHours, sleepQuality: checkIn?.sleepQuality, soreness: checkIn?.soreness,
+            energy: checkIn?.energy, daysToGame: nextGame, pain: PainStore.report() != nil, examWeek: ScheduleStore.isExamWeek(.now)
+        )
+        guard let pick = LessonPicker.forToday(context), let found = LessonPicker.lesson(pick.id) else { return nil }
+        // Once it's done today, the path takes over again.
+        let doneToday = CampusProgress.newLessonDates().contains { calendar.isDateInToday($0) } && learned.contains(pick.id)
+        return doneToday ? nil : (found.lesson, found.topic, pick.reason)
+    }
+
     @ViewBuilder
     private var recommendedCard: some View {
-        if let next = recommended {
+        if let pick = todayPick {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("FOR TODAY · \(pick.lesson.minutes) MIN")
+                    .font(.caption.weight(.bold))
+                    .tracking(0.8)
+                    .foregroundStyle(AppTheme.secondaryText)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(pick.lesson.title)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(AppTheme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(pick.reason)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Button("Start") {
+                    if learned.contains(pick.lesson.id) || CampusProgress.lessonsLeftToday() != 0 { playing = pick.lesson } else { showingPaywall = true }
+                }
+                .buttonStyle(.primary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardStyle(padding: 20)
+        } else if let next = recommended {
             VStack(alignment: .leading, spacing: 12) {
                 Text("RECOMMENDED · \(next.lesson.minutes) MIN")
                     .font(.caption.weight(.bold))
@@ -437,6 +491,8 @@ struct CampusView: View {
     }
 
     private func finish(_ lesson: CampusLesson, xp earned: Int) {
+        // Position lessons aren't on the path: XP, not a learned lesson.
+        guard !lesson.id.hasPrefix("position-") else { return earn(earned, lesson: false) }
         var set = learned
         let firstTime = !set.contains(lesson.id)
         if firstTime { CampusProgress.recordNewLesson() }
@@ -583,6 +639,7 @@ struct CampusLessonPlayer: View {
     @State private var feedbackTrigger = 0
     @State private var confirmQuit = false
     @State private var wrong: Set<CampusQuestion> = []
+    @StateObject private var speaker = LessonSpeaker()
 
     enum Phase { case answering, correct, wrong }
 
@@ -617,6 +674,7 @@ struct CampusLessonPlayer: View {
         }
         .background(AppTheme.background.ignoresSafeArea())
         .onAppear { if queue.isEmpty { queue = allSteps } }
+        .onDisappear { speaker.stop() }
         .sensoryFeedback(trigger: feedbackTrigger) { _, _ in phase == .wrong ? .error : .success }
         .confirmationDialog("Quit this lesson?", isPresented: $confirmQuit, titleVisibility: .visible) {
             Button("Quit", role: .destructive) { dismiss() }
@@ -651,6 +709,15 @@ struct CampusLessonPlayer: View {
             .frame(height: 6)
             .accessibilityElement()
             .accessibilityLabel("Step \(min(completed + 1, total)) of \(total)")
+            if customSteps == nil {
+                Button { speaker.toggle(lesson) } label: {
+                    Image(systemName: speaker.isSpeaking ? "stop.circle.fill" : "speaker.wave.2.fill")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel(speaker.isSpeaking ? "Stop reading" : "Listen to this lesson")
+            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)

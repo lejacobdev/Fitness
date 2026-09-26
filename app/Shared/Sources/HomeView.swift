@@ -232,6 +232,13 @@ struct HomeView: View {
 
     private var nextLesson: (lesson: CampusLesson, topic: CampusTopic)? {
         let learned = CampusProgress.learned(campusLearnedRaw)
+        // A lesson for today's situation first (a short night, a game…).
+        let context = LessonPicker.Context(
+            sleepHours: todaysCheckIn?.sleepHours, sleepQuality: todaysCheckIn?.sleepQuality, soreness: todaysCheckIn?.soreness,
+            energy: todaysCheckIn?.energy, daysToGame: daysToNextGame, pain: PainStore.report() != nil, examWeek: examWeek
+        )
+        if let pick = LessonPicker.forToday(context), !(learnedToday && learned.contains(pick.id)),
+           let found = LessonPicker.lesson(pick.id) { return found }
         for topic in campusTopics {
             if let lesson = topic.lessons.first(where: { !learned.contains($0.id) }) { return (lesson, topic) }
         }

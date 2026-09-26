@@ -281,7 +281,22 @@ struct ReflectionSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    enum Step: Hashable { case hardness, body, practice, wentWell, needsWork, learned, done }
+    enum Step: Hashable { case hardness, body, practice, wentWell, needsWork, learned, review, done }
+
+    /// One Campus review question at the end (spaced repetition without a
+    /// separate screen): the lesson that's most overdue.
+    private let review: (lessonID: String, question: CampusQuestion)? = {
+        let learned = CampusProgress.learned(UserDefaults.standard.string(forKey: CampusProgress.learnedKey) ?? "")
+        for id in CampusReview.due(learned: learned) {
+            if let question = CampusReview.questions(for: [id]).first(where: {
+                if case .choice = $0 { return true }
+                if case .trueFalse = $0 { return true }
+                return false
+            }) { return (id, question) }
+        }
+        return nil
+    }()
+    @State private var reviewAnswer: Int?
 
     @State private var step: Step = .hardness
     @State private var hardness: Int?
@@ -344,6 +359,8 @@ struct ReflectionSheet: View {
                     .padding(16)
                     .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
             }
+        case .review:
+            if let review { reviewPage(review) }
         case .done:
             QuestionPage(progress: 1, question: "Today completed", hint: "Tomorrow's plan adapts to how today went.",
                          buttonTitle: "Done", onClose: { dismiss() }, onButton: { dismiss() }) {
@@ -364,6 +381,44 @@ struct ReflectionSheet: View {
                     }
                     .cardStyle(padding: 16)
                 }
+            }
+        }
+    }
+
+    private func reviewPage(_ review: (lessonID: String, question: CampusQuestion)) -> some View {
+        let (prompt, options, answer, explain): (String, [String], Int, String) = {
+            switch review.question {
+            case .choice(let prompt, let options, let answer, let explain): return (prompt, options, answer, explain)
+            case .trueFalse(let statement, let answer, let explain): return (statement, ["True", "False"], answer ? 0 : 1, explain)
+            default: return ("", [], 0, "")
+            }
+        }()
+        return QuestionPage(progress: 1, question: "One quick question", hint: prompt,
+                            buttonTitle: reviewAnswer == nil ? nil : "Next", onClose: { dismiss() }, onButton: { finishReview(review, right: reviewAnswer == answer) }) {
+            VStack(alignment: .leading, spacing: 12) {
+                ChoiceGrid(Array(options.indices), title: { (index: Int) -> String in options[index] },
+                           isSelected: { (index: Int) -> Bool in reviewAnswer == index }) { (index: Int) in
+                    if reviewAnswer == nil { reviewAnswer = index }
+                }
+                if let reviewAnswer {
+                    Label(reviewAnswer == answer ? "Right. " + explain : "The answer: \(options[answer]). " + explain,
+                          systemImage: reviewAnswer == answer ? "checkmark.circle.fill" : "arrow.uturn.backward.circle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private func finishReview(_ review: (lessonID: String, question: CampusQuestion), right: Bool) {
+        CampusReview.record(reviewed: [review.lessonID], wrong: right ? [] : [review.lessonID])
+        if completion == nil {
+            dismiss()
+        } else {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                completion?.reflected = true
+                step = .done
             }
         }
     }
@@ -425,7 +480,9 @@ struct ReflectionSheet: View {
             learned: learned
         )
         onSaved()
-        if completion == nil {
+        if review != nil {
+            withAnimation(.easeInOut(duration: 0.25)) { step = .review }
+        } else if completion == nil {
             dismiss()
         } else {
             withAnimation(.easeInOut(duration: 0.25)) {
