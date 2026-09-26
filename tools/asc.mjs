@@ -898,10 +898,26 @@ const commands = {
         description: 'One month of AthleteOS Pro.' },
     ];
 
+    // The group is the one holding the Pro products (whatever its reference
+    // name became); an empty group, e.g. left by an earlier run, is removed.
     const groups = await api(`/v1/apps/${app.id}/subscriptionGroups?limit=50`);
-    let group = groups.data.find((g) => g.attributes.referenceName === 'Student Athlete Pro');
+    const productIds = new Set(PLANS.map((p) => p.productId));
+    const counts = new Map();
+    let group = null;
+    for (const g of groups.data) {
+      const subs = (await api(`/v1/subscriptionGroups/${g.id}/subscriptions?limit=50`)).data;
+      counts.set(g.id, subs.length);
+      if (!group && subs.some((sub) => productIds.has(sub.attributes.productId))) group = g;
+    }
+    group ??= groups.data.find((g) => g.attributes.referenceName === 'Student Athlete Pro');
+    for (const g of groups.data) {
+      if (g.id !== group?.id && counts.get(g.id) === 0) {
+        await tryStep(`remove empty group ${g.attributes.referenceName} (${g.id})`, () =>
+          api(`/v1/subscriptionGroups/${g.id}`, { method: 'DELETE' }));
+      }
+    }
     if (group) {
-      console.log(`group exists (${group.id})`);
+      console.log(`group exists: ${group.attributes.referenceName} (${group.id})`);
     } else {
       group = (await api('/v1/subscriptionGroups', {
         method: 'POST',
