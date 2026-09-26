@@ -56,6 +56,12 @@ struct RemindersSheet: View {
                         .tint(AppTheme.green)
                         .padding(.vertical, 8)
                         Divider().overlay(AppTheme.hairline)
+                        Toggle(isOn: $settings.hydrationEnabled) {
+                            row("Drink up", "2 hours before a game or long practice", "drop.fill", AppTheme.water)
+                        }
+                        .tint(AppTheme.green)
+                        .padding(.vertical, 8)
+                        Divider().overlay(AppTheme.hairline)
                         Toggle(isOn: $settings.smartTiming) {
                             row("Smart timing", "Later check-in at weekends, reflection after practice", "wand.and.stars", AppTheme.ink)
                         }

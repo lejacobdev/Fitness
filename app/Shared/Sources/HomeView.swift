@@ -107,6 +107,67 @@ struct HomeView: View {
         isTrainingDay ? WorkoutModeBuilder.build(.mobility, modeContext) : nil
     }
 
+    // MARK: - Food around practice and games
+
+    @AppStorage("gameStartMinutes") private var gameStartMinutes = 17 * 60
+    @State private var prePracticeAnswer: Bool?
+
+    /// Game day: the next two fuel steps, timed from the game.
+    private var gameFuelTips: [FuelTip]? {
+        guard let game = gameToday, status == .active else { return nil }
+        let start = FuelEngine.gameStart(game.date, usualMinutes: gameStartMinutes, calendar: calendar)
+        return Array(FuelEngine.gameDayTimeline(gameStart: start, isTournament: game.kind == .tournament)
+            .filter { ($0.time ?? .distantFuture) > .now.addingTimeInterval(-15 * 60) && $0.time != nil }
+            .prefix(2))
+    }
+
+    private func gameFuelCard(_ tips: [FuelTip]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Game-day fuel").font(.title3.weight(.semibold)).foregroundStyle(AppTheme.ink)
+            ForEach(tips) { tip in
+                HStack(alignment: .top, spacing: 10) {
+                    Text(tip.time?.formatted(date: .omitted, time: .shortened) ?? "")
+                        .font(.subheadline.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(AppTheme.ink)
+                        .frame(width: 64, alignment: .leading)
+                    Text(tip.title).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle()
+    }
+
+    /// In the three hours before practice: one question, not a food diary.
+    private var askPrePracticeFuel: Bool {
+        guard status == .active, practiceToday, prePracticeAnswer != true,
+              let time = PracticeSchedule.time(on: .now) else { return false }
+        let now = calendar.component(.hour, from: .now) * 60 + calendar.component(.minute, from: .now)
+        guard now >= time.start - 180, now <= time.start + 15 else { return false }
+        return !MealStore.meals(of: athlete, on: .now).contains { $0.slot == .preTraining }
+    }
+
+    private var prePracticeFuelCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Did you eat before practice?").font(.title3.weight(.semibold)).foregroundStyle(AppTheme.ink)
+            if prePracticeAnswer == false {
+                Text("A banana, toast or a cereal bar now gives you energy for practice.")
+                    .font(.subheadline).foregroundStyle(AppTheme.secondaryText)
+            }
+            ButtonRow {
+                Button("Yes") {
+                    _ = try? MealStore(modelContext: modelContext).logMeal(athlete: athlete, slot: .preTraining, protein: 0, carbs: 1, colour: 0)
+                    prePracticeAnswer = true
+                }
+                .buttonStyle(.primary)
+                Button("Not yet") { prePracticeAnswer = false }
+                    .buttonStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle()
+    }
+
     /// Sundays: the week in review (what you did, one highlight, next week's focus).
     private var weeklyReview: WeeklyReview? {
         guard calendar.component(.weekday, from: .now) == 1 else { return nil }
@@ -218,6 +279,8 @@ struct HomeView: View {
                     if !scheduleIsSet && status == .active { scheduleCard }
                     todaySection
                     if gameToday != nil && status == .active { gameRoutinesCard }
+                    if let tips = gameFuelTips, !tips.isEmpty { gameFuelCard(tips) }
+                    if askPrePracticeFuel { prePracticeFuelCard }
                     if let weeklyReview { WeeklyReviewCard(review: weeklyReview) }
                     widgetsSection
                 }

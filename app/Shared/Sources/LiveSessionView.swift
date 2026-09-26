@@ -450,6 +450,28 @@ public struct LiveSessionView: View {
             prefill()
         }
         setIdleTimerDisabled(true)
+        updateActivity()
+    }
+
+    /// Keeps the Lock Screen / Dynamic Island in step with the workout.
+    private func updateActivity() {
+        #if os(iOS) && !APP_EXTENSION
+        guard let current else { return }
+        let done = setsLogged[current.itemSlug, default: 0]
+        let state = WorkoutActivityAttributes.ContentState(
+            exercise: currentItem?.name ?? displayName(forSlug: current.itemSlug),
+            detail: restRemaining > 0 ? "Rest" : "Set \(min(done + 1, current.dose.sets)) of \(current.dose.sets)",
+            restEndsAt: restRemaining > 0 ? Date.now.addingTimeInterval(Double(restRemaining)) : nil,
+            setsDone: totalLogged, setsTotal: totalTargetSets
+        )
+        WorkoutActivity.show(title: planned?.title ?? "Workout", state: state)
+        #endif
+    }
+
+    private func endActivity() {
+        #if os(iOS) && !APP_EXTENSION
+        WorkoutActivity.end()
+        #endif
     }
 
     private func add(_ item: CatalogueItem) {
@@ -466,6 +488,7 @@ public struct LiveSessionView: View {
         endRest(silently: true)
         showingCues = false
         prefill()
+        updateActivity()
     }
 
     /// §15: "prefilled targets from last time" — the most recent logged set
@@ -541,6 +564,7 @@ public struct LiveSessionView: View {
         restTask?.cancel()
         restTotal = max(duration, 1)
         restRemaining = duration
+        updateActivity()
         restTask = Task {
             while restRemaining > 0 {
                 try? await Task.sleep(for: .seconds(1))
@@ -548,6 +572,7 @@ public struct LiveSessionView: View {
                 restRemaining -= 1
             }
             restEndedCount += 1
+            updateActivity()
         }
     }
 
@@ -558,6 +583,7 @@ public struct LiveSessionView: View {
     }
 
     private func finish() {
+        endActivity()
         guard let session else { return }
         try? SessionLogger(modelContext: modelContext).finishSession(session, sessionRPE: rpe)
         WidgetSnapshotWriter.write(for: athlete, week: WeeklyPlan.generate(for: athlete))
@@ -581,6 +607,7 @@ public struct LiveSessionView: View {
     }
 
     private func discard() {
+        endActivity()
         if let session {
             modelContext.delete(session)
             try? modelContext.save()

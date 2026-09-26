@@ -31,4 +31,19 @@ final class ReminderPlanTests: XCTestCase {
         let friday = ReminderScheduler.plan(for: day(25), settings: settings, practice: nil, sessionTomorrowStart: nil, calendar: calendar)
         XCTAssertEqual(friday.bedtime, 22 * 60 + 75 - 30, "Saturday's later wake-up means a later bedtime")
     }
+
+    func testHydrationComesTwoHoursBeforeAGameOrALongPractice() {
+        let game = day(21).addingTimeInterval(18 * 3600)
+        XCTAssertEqual(ReminderScheduler.hydrationTime(gameStart: game, practice: nil, day: day(21), calendar: calendar), game.addingTimeInterval(-7200))
+        XCTAssertEqual(ReminderScheduler.hydrationTime(gameStart: nil, practice: PracticeTime(start: 15 * 60, end: 17 * 60), day: day(21), calendar: calendar),
+                       day(21).addingTimeInterval(13 * 3600))
+        XCTAssertNil(ReminderScheduler.hydrationTime(gameStart: nil, practice: PracticeTime(start: 15 * 60, end: 16 * 60), day: day(21), calendar: calendar),
+                     "a short practice needs no reminder")
+    }
+
+    func testAGameWithATimeUsesItAndOneWithoutUsesTheUsualTime() {
+        let at7pm = day(21).addingTimeInterval(19 * 3600)
+        XCTAssertEqual(FuelEngine.gameStart(at7pm, usualMinutes: 17 * 60, calendar: calendar), at7pm)
+        XCTAssertEqual(FuelEngine.gameStart(day(21), usualMinutes: 17 * 60, calendar: calendar), day(21).addingTimeInterval(17 * 3600))
+    }
 }

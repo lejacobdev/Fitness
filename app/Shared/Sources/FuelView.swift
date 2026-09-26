@@ -46,7 +46,8 @@ struct FuelView: View {
 
     private var timeline: [FuelTip] {
         if let gameToday {
-            return FuelEngine.gameDayTimeline(gameStart: time(fromMinutes: gameStartMinutes), isTournament: gameToday.kind == .tournament)
+            return FuelEngine.gameDayTimeline(gameStart: FuelEngine.gameStart(gameToday.date, usualMinutes: gameStartMinutes),
+                                              isTournament: gameToday.kind == .tournament)
         }
         if let todaysSession {
             return FuelEngine.sessionTimeline(start: time(fromMinutes: trainingStartMinutes), minutes: todaysSession.estimatedMinutes)
@@ -72,6 +73,7 @@ struct FuelView: View {
                     .buttonStyle(.primary)
 
                     timelineSection
+                    if let travel = travelTips { travelSection(travel) }
                     if !meals.isEmpty { mealsSection }
                     plateGuideCard
                 }
@@ -180,6 +182,25 @@ struct FuelView: View {
     // MARK: - Timeline
 
     @ViewBuilder
+    /// Travel days, and the day of (or before) an away game.
+    private var travelTips: [FuelTip]? {
+        let soon = athlete.competitions.first { !$0.isHome && ($0.date > .now.addingTimeInterval(-6 * 3600)) && $0.date < .now.addingTimeInterval(36 * 3600) }
+        guard DayStatusStore.status() == .travel || soon != nil else { return nil }
+        return FuelEngine.travelTips(awayGame: soon != nil)
+    }
+
+    private func travelSection(_ tips: [FuelTip]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionTitle("On the road")
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(tips.enumerated()), id: \.element.id) { index, tip in
+                    tipRow(tip, isLast: index == tips.count - 1)
+                }
+            }
+            .cardStyle(padding: 16)
+        }
+    }
+
     private var timelineSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {

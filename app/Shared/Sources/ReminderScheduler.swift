@@ -59,10 +59,13 @@ public enum ReminderScheduler {
         /// Reminders follow the day: a later check-in at weekends, the
         /// reflection an hour after practice ends.
         public var smartTiming: Bool
+        /// "Start drinking" two hours before a game or a long practice.
+        public var hydrationEnabled: Bool
 
         public init(checkInEnabled: Bool, checkInHour: Int, checkInMinute: Int, gameRemindersEnabled: Bool,
                     reflectionEnabled: Bool = false, reflectionHour: Int = 20, reflectionMinute: Int = 30,
-                    bedtimeEnabled: Bool = false, smartTiming: Bool = true) {
+                    bedtimeEnabled: Bool = false, smartTiming: Bool = true, hydrationEnabled: Bool = false) {
+            self.hydrationEnabled = hydrationEnabled
             self.bedtimeEnabled = bedtimeEnabled
             self.smartTiming = smartTiming
             self.checkInEnabled = checkInEnabled
@@ -86,14 +89,23 @@ public enum ReminderScheduler {
             reflectionMinute = try c.decodeIfPresent(Int.self, forKey: .reflectionMinute) ?? 30
             bedtimeEnabled = try c.decodeIfPresent(Bool.self, forKey: .bedtimeEnabled) ?? false
             smartTiming = try c.decodeIfPresent(Bool.self, forKey: .smartTiming) ?? true
+            hydrationEnabled = try c.decodeIfPresent(Bool.self, forKey: .hydrationEnabled) ?? false
         }
 
         public static let `default` = Settings(checkInEnabled: false, checkInHour: 7, checkInMinute: 15, gameRemindersEnabled: false)
 
-        public var anyEnabled: Bool { checkInEnabled || gameRemindersEnabled || reflectionEnabled || bedtimeEnabled }
+        public var anyEnabled: Bool { checkInEnabled || gameRemindersEnabled || reflectionEnabled || bedtimeEnabled || hydrationEnabled }
     }
 
     static let bedtimeIdentifier = "reminder.bedtime"
+    static let hydrationIdentifier = "reminder.hydration"
+
+    /// Two hours before a game, or a practice of 90 minutes or more.
+    public static func hydrationTime(gameStart: Date?, practice: PracticeTime?, day: Date, calendar: Calendar = .current) -> Date? {
+        if let gameStart { return gameStart.addingTimeInterval(-2 * 3600) }
+        guard let practice, practice.end - practice.start >= 90 else { return nil }
+        return calendar.startOfDay(for: day).addingTimeInterval(Double(practice.start - 120) * 60)
+    }
 
     /// Weekend mornings the check-in comes 75 minutes later.
     public static let weekendDelayMinutes = 75
@@ -160,7 +172,8 @@ public enum ReminderScheduler {
         let center = UNUserNotificationCenter.current()
         let pending = await center.pendingNotificationRequests()
         let ours = pending.map(\.identifier).filter {
-            $0.hasPrefix(checkInIdentifier) || $0.hasPrefix(gamePrefix) || $0.hasPrefix(reflectionIdentifier) || $0.hasPrefix(bedtimeIdentifier)
+            $0.hasPrefix(checkInIdentifier) || $0.hasPrefix(gamePrefix) || $0.hasPrefix(reflectionIdentifier)
+                || $0.hasPrefix(bedtimeIdentifier) || $0.hasPrefix(hydrationIdentifier)
         }
         center.removePendingNotificationRequests(withIdentifiers: ours)
 
@@ -208,6 +221,27 @@ public enum ReminderScheduler {
                 content.sound = .default
                 let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
                 let id = "\(reflectionIdentifier).\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
+                try? await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+            }
+        }
+
+        if current.hydrationEnabled {
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: .now)
+            let usualGame = UserDefaults.standard.object(forKey: "gameStartMinutes") as? Int ?? 17 * 60
+            for offset in 0..<14 {
+                guard let day = calendar.date(byAdding: .day, value: offset, to: today),
+                      DayStatusStore.status(on: day).trainsAsPlanned else { continue }
+                let game = games.first { calendar.isDate($0.date, inSameDayAs: day) }
+                    .map { FuelEngine.gameStart($0.date, usualMinutes: usualGame, calendar: calendar) }
+                let practice = PracticeSchedule.hasPractice(on: day) ? PracticeSchedule.time(on: day) : nil
+                guard let when = hydrationTime(gameStart: game, practice: practice, day: day, calendar: calendar), when > .now else { continue }
+                let content = UNMutableNotificationContent()
+                content.title = game != nil ? "Game in 2 hours" : "Long practice later"
+                content.body = "Start sipping now: a bottle of water before you go."
+                let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: when)
+                let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
+                let id = "\(hydrationIdentifier).\(parts.year ?? 0)-\(parts.month ?? 0)-\(parts.day ?? 0)"
                 try? await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
             }
         }
