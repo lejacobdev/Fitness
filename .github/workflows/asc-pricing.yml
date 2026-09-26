@@ -1,0 +1,42 @@
+name: asc-pricing
+
+# Subscription prices as customers see them (per territory, local currency),
+# and — only when asked — the introductory offer for new subscribers.
+# Dispatch-only: setting an offer CHANGES App Store Connect.
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: 'App bundle identifier'
+        required: false
+        default: 'com.studentathlete.app'
+      intro_product:
+        description: 'Set an introductory offer on this product (empty: only show prices)'
+        required: false
+        default: ''
+      intro_usd:
+        description: 'Offer price per month in USD (equalized to every territory)'
+        required: false
+        default: '2.99'
+      intro_months:
+        description: 'Months at the offer price'
+        required: false
+        default: '3'
+
+jobs:
+  pricing:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Set the introductory offer
+        if: inputs.intro_product != ''
+        run: node tools/asc.mjs set-intro-offer '${{ inputs.bundle_id }}' '${{ inputs.intro_product }}' '${{ inputs.intro_usd }}' '${{ inputs.intro_months }}'
+      - name: Prices customers see
+        run: node tools/asc.mjs subscription-prices '${{ inputs.bundle_id }}'

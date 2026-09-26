@@ -482,6 +482,93 @@ const commands = {
    * anything that already exists is left alone. Prices are set for the USA
    * base territory and then equalized to every other territory Apple offers.
    */
+  /**
+   * What each subscription really costs in a few territories — the price
+   * StoreKit shows there (customer price, local currency).
+   */
+  async 'subscription-prices'(identifier, territories = 'USA,DEU,FRA,ITA,ESP,NLD,AUT,CHE,GBR,CAN,AUS') {
+    const app = await appFor(identifier);
+    const wanted = new Set(territories.split(','));
+    const groups = await api(`/v1/apps/${app.id}/subscriptionGroups?limit=50`);
+    for (const group of groups.data) {
+      const subs = await api(`/v1/subscriptionGroups/${group.id}/subscriptions?limit=50`);
+      for (const sub of subs.data) {
+        console.log(`${sub.attributes.productId}`);
+        const prices = await api(`/v1/subscriptions/${sub.id}/prices?include=subscriptionPricePoint,territory&limit=200`);
+        const points = new Map((prices.included ?? []).filter((r) => r.type === 'subscriptionPricePoints').map((r) => [r.id, r.attributes]));
+        const territoryCurrency = new Map((prices.included ?? []).filter((r) => r.type === 'territories').map((r) => [r.id, r.attributes.currency]));
+        for (const price of prices.data) {
+          const territory = price.relationships?.territory?.data?.id;
+          if (!wanted.has(territory)) continue;
+          const point = points.get(price.relationships?.subscriptionPricePoint?.data?.id) ?? {};
+          console.log(`  ${territory}  ${point.customerPrice ?? '?'} ${territoryCurrency.get(territory) ?? ''}  (proceeds ${point.proceeds ?? '?'})`);
+        }
+        const offers = await api(`/v1/subscriptions/${sub.id}/introductoryOffers?include=territory,subscriptionPricePoint&limit=200`);
+        const offerPoints = new Map((offers.included ?? []).filter((r) => r.type === 'subscriptionPricePoints').map((r) => [r.id, r.attributes]));
+        const shown = offers.data.filter((o) => wanted.has(o.relationships?.territory?.data?.id));
+        console.log(`  introductory offers: ${offers.data.length} territories`);
+        for (const o of shown) {
+          const a = o.attributes;
+          const point = offerPoints.get(o.relationships?.subscriptionPricePoint?.data?.id) ?? {};
+          console.log(`    ${o.relationships.territory.data.id}  ${a.offerMode} ${a.numberOfPeriods}× ${a.duration}  ${point.customerPrice ?? 'free'}`);
+        }
+      }
+    }
+  },
+
+  /**
+   * A real introductory offer for new subscribers: `months` months at the
+   * USD price `usd` (pay as you go), in every territory at Apple's equalized
+   * local price. Replaces any introductory offer the subscription had.
+   */
+  async 'set-intro-offer'(identifier, productId, usd, months = '3') {
+    if (!identifier || !productId || !usd) throw new Error('usage: set-intro-offer <bundle-id> <product-id> <usd> [months]');
+    const app = await appFor(identifier);
+    const groups = await api(`/v1/apps/${app.id}/subscriptionGroups?limit=50`);
+    let sub;
+    for (const group of groups.data) {
+      const subs = await api(`/v1/subscriptionGroups/${group.id}/subscriptions?limit=50`);
+      sub = sub ?? subs.data.find((x) => x.attributes.productId === productId);
+    }
+    if (!sub) throw new Error(`no subscription ${productId}`);
+
+    const old = await api(`/v1/subscriptions/${sub.id}/introductoryOffers?limit=200`);
+    for (const offer of old.data) await api(`/v1/subscriptionIntroductoryOffers/${offer.id}`, { method: 'DELETE' });
+    console.log(`removed ${old.data.length} old introductory offers`);
+
+    const points = await api(`/v1/subscriptions/${sub.id}/pricePoints?filter[territory]=USA&limit=800`);
+    const point = points.data.find((p) => p.attributes.customerPrice === usd);
+    if (!point) throw new Error(`no USA price point at ${usd}`);
+    const equal = await api(`/v1/subscriptionPricePoints/${point.id}/equalizations?limit=200&include=territory`);
+    const targets = [{ id: point.id, territory: 'USA' }, ...equal.data.map((eq) => ({ id: eq.id, territory: eq.relationships?.territory?.data?.id }))];
+    let ok = 0;
+    const failed = [];
+    for (const target of targets) {
+      try {
+        await api('/v1/subscriptionIntroductoryOffers', {
+          method: 'POST',
+          body: {
+            data: {
+              type: 'subscriptionIntroductoryOffers',
+              attributes: { duration: 'ONE_MONTH', offerMode: 'PAY_AS_YOU_GO', numberOfPeriods: Number(months) },
+              relationships: {
+                subscription: { data: { type: 'subscriptions', id: sub.id } },
+                territory: { data: { type: 'territories', id: target.territory } },
+                subscriptionPricePoint: { data: { type: 'subscriptionPricePoints', id: target.id } },
+              },
+            },
+          },
+        });
+        ok += 1;
+      } catch (err) {
+        failed.push(`${target.territory}: ${err.message.slice(0, 120)}`);
+      }
+    }
+    console.log(`introductory offer ${usd} USD × ${months} months: ${ok} territories${failed.length ? `, ${failed.length} failed` : ''}`);
+    for (const f of failed.slice(0, 10)) console.log(`  ${f}`);
+    if (!ok) throw new Error('no introductory offer was created');
+  },
+
   async 'setup-subscriptions'(identifier) {
     if (!identifier) throw new Error('usage: setup-subscriptions <bundle-id>');
     const app = await appFor(identifier);
