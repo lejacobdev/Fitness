@@ -542,11 +542,16 @@ const commands = {
     if (!point) throw new Error(`no USA price point at ${usd}`);
     const equal = await api(`/v1/subscriptionPricePoints/${point.id}/equalizations?limit=200&include=territory`);
     const targets = [{ id: point.id, territory: 'USA' }, ...equal.data.map((eq) => ({ id: eq.id, territory: eq.relationships?.territory?.data?.id }))];
-    let ok = 0;
+    // Territories already at this price are left alone (re-runs only fix the rest).
+    const current = await api(`/v1/subscriptions/${sub.id}/prices?include=subscriptionPricePoint,territory&limit=200`);
+    const already = new Set(current.data
+      .filter((p) => targets.some((t) => t.territory === p.relationships?.territory?.data?.id && t.id === p.relationships?.subscriptionPricePoint?.data?.id))
+      .map((p) => p.relationships.territory.data.id));
+    let ok = already.size;
     const failed = [];
-    for (const target of targets) {
+    for (const target of targets.filter((t) => !already.has(t.territory))) {
       try {
-        await api('/v1/subscriptionPrices', {
+        await withRetry(() => api('/v1/subscriptionPrices', {
           method: 'POST',
           body: { data: { type: 'subscriptionPrices', attributes: { preserveCurrentPrice: false },
             relationships: {
@@ -554,13 +559,13 @@ const commands = {
               subscriptionPricePoint: { data: { type: 'subscriptionPricePoints', id: target.id } },
               territory: { data: { type: 'territories', id: target.territory } },
             } } },
-        });
+        }));
         ok += 1;
       } catch (err) {
         failed.push(`${target.territory}: ${err.message.slice(0, 160)}`);
       }
     }
-    console.log(`${productId} → ${usd} USD: ${ok} territories${failed.length ? `, ${failed.length} failed` : ''}`);
+    console.log(`${productId} → ${usd} USD: ${ok} territories (${already.size} already)${failed.length ? `, ${failed.length} failed` : ''}`);
     for (const f of failed.slice(0, 10)) console.log(`  ${f}`);
     if (!ok) throw new Error('no price was set');
   },
@@ -617,9 +622,9 @@ const commands = {
     if (!identifier) throw new Error('usage: setup-subscriptions <bundle-id>');
     const app = await appFor(identifier);
     const PLANS = [
-      { productId: 'com.studentathlete.app.pro.yearly', name: 'Pro Yearly', period: 'ONE_YEAR', level: 1, usd: '39.99',
+      { productId: 'com.studentathlete.app.pro.yearly', name: 'Pro Yearly', period: 'ONE_YEAR', level: 1, usd: '24.99',
         description: 'A full year of Athlete OS Pro.' },
-      { productId: 'com.studentathlete.app.pro.monthly', name: 'Pro Monthly', period: 'ONE_MONTH', level: 2, usd: '5.99',
+      { productId: 'com.studentathlete.app.pro.monthly', name: 'Pro Monthly', period: 'ONE_MONTH', level: 2, usd: '2.99',
         description: 'One month of Athlete OS Pro.' },
     ];
 
@@ -840,6 +845,18 @@ async function appFor(identifier) {
 }
 
 /** One idempotent step: an "already exists"-style 409 is fine, anything else is reported, never fatal. */
+/** Apple's API sometimes answers 500 under load: try again a little later. */
+async function withRetry(fn, attempts = 4) {
+  for (let i = 1; ; i += 1) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i >= attempts || !/\b5\d\d\b/.test(err.message)) throw err;
+      await new Promise((r) => setTimeout(r, 1500 * i));
+    }
+  }
+}
+
 async function tryStep(label, fn) {
   try {
     const result = await fn();
