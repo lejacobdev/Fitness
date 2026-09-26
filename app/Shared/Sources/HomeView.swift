@@ -322,6 +322,11 @@ struct HomeView: View {
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
             }
+            // Which sport the plan follows: switch or add one in a tap.
+            HStack {
+                SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
+                Spacer(minLength: 0)
+            }
             QuoteCard(quote: DailyQuotes.short())
         }
     }

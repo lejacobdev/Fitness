@@ -1,8 +1,8 @@
 import SwiftData
 import SwiftUI
 
-/// The sport switcher that heads Today, Plan and Improve: shows which sport
-/// the app is set to and switches in one tap. Plan, skills, drills and
+/// The sport switcher on Home (and Plan and Improve): shows which sport the
+/// app is set to, switches in one tap, and adds another sport. Plan, skills, drills and
 /// suggestions all follow the active sport; games from every sport still
 /// count, so the week never loads you up before any game.
 /// When a free athlete changed sport (device-local), for the monthly allowance.
@@ -73,7 +73,7 @@ struct SportSwitcher: View {
                 Button {
                     if canAdd { showingAdd = true } else { showingPaywall = true }
                 } label: {
-                    Label(canAdd ? "Add a sport" : "Add a sport (Pro)", systemImage: canAdd ? "plus" : "crown.fill")
+                    Label("Add a sport", systemImage: "plus")
                 }
                 Button { showingManage = true } label: { Label("Manage sports", systemImage: "slider.horizontal.3") }
             } label: {
@@ -149,7 +149,7 @@ struct SportsManagerSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    ScreenTitle("Your sports", subtitle: "Play more than one? Add them all. The app follows the active sport — switch any time from the top of Today, Plan or Improve.")
+                    ScreenTitle("Your sports", subtitle: "The app follows the active sport. Switch any time from the top of Home.")
                     ForEach(athlete.sortedSports) { sport in
                         sportCard(sport)
                     }
@@ -159,15 +159,12 @@ struct SportsManagerSheet: View {
                         Label("Change sport", systemImage: "arrow.left.arrow.right")
                     }
                     .buttonStyle(.primary)
-                    if canAdd {
-                        Button { showingAdd = true } label: { Label("Add a sport", systemImage: "plus") }
-                            .buttonStyle(.primary)
-                    } else {
-                        Button { showingPaywall = true } label: { Label("Add another sport with Pro", systemImage: "crown.fill") }
-                            .buttonStyle(.secondary)
-                    }
+                    Button {
+                        if canAdd { showingAdd = true } else { showingPaywall = true }
+                    } label: { Label("Add a sport", systemImage: "plus") }
+                    .buttonStyle(.secondary)
                     if !canAdd {
-                        Text("Free covers one sport, and you can change it \(ProLimits.freeSportSwitchesPerMonth) times a month\(SportSwitchLedger.remaining.map { " (\($0) left)" } ?? ""). Pro lets you add every sport you play and switch between them any time.")
+                        Text("Free covers one sport, and you can change it \(ProLimits.freeSportSwitchesPerMonth) times a month\(SportSwitchLedger.remaining.map { " (\($0) left)" } ?? ""). Pro adds every sport you play.")
                             .font(.caption)
                             .foregroundStyle(AppTheme.secondaryText)
                             .frame(maxWidth: .infinity)

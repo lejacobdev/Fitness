@@ -109,6 +109,7 @@ public extension ProFeature {
         case .visualization: "A guided 5-minute visualization before games."
         case .moreCalendars: "Connect every team, club and school calendar."
         case .coachWorkouts: "Send workouts to your whole team."
+        case .multipleSports: "Add every sport you play and switch between them any time. Free covers one sport."
         default: proDescription
         }
     }
