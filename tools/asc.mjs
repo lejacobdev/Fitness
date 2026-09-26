@@ -725,6 +725,16 @@ const commands = {
       await api(`/v1/appStoreReviewDetails/${review.data.id}`, { method: 'PATCH', body: { data: { type: 'appStoreReviewDetails', id: review.data.id, attributes: { notes: wanted.notes } } } });
       console.log(`review notes updated (${wanted.notes.length} characters)`);
     }
+    if (typeof wanted.subscriptionReviewNote === 'string') {
+      const groups = await api(`/v1/apps/${app.id}/subscriptionGroups?limit=10`);
+      for (const group of groups.data) {
+        const subs = await api(`/v1/subscriptionGroups/${group.id}/subscriptions?limit=10`);
+        for (const sub of subs.data) {
+          await api(`/v1/subscriptions/${sub.id}`, { method: 'PATCH', body: { data: { type: 'subscriptions', id: sub.id, attributes: { reviewNote: wanted.subscriptionReviewNote } } } });
+          console.log(`review note set on ${sub.attributes.productId}`);
+        }
+      }
+    }
     if (wanted.ageRating && typeof wanted.ageRating === 'object') {
       const infos = await api(`/v1/apps/${app.id}/appInfos`);
       const age = await api(`/v1/appInfos/${infos.data[0].id}/ageRatingDeclaration`);
