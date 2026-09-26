@@ -74,7 +74,6 @@ struct FuelView: View {
                     timelineSection
                     if !meals.isEmpty { mealsSection }
                     plateGuideCard
-                    noteCard
                 }
                 .padding(20)
             }
@@ -326,17 +325,6 @@ struct FuelView: View {
                     .foregroundStyle(AppTheme.secondaryText)
             }
         }
-    }
-
-    private var noteCard: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "stethoscope")
-                .foregroundStyle(AppTheme.secondaryText)
-            Text(FuelEngine.standingNote)
-                .font(.caption)
-                .foregroundStyle(AppTheme.secondaryText)
-        }
-        .cardStyle(padding: 16)
     }
 }
 

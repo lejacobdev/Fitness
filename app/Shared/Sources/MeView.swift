@@ -49,7 +49,7 @@ struct MeView: View {
     private var apiClient: APIClient { APIClient(baseURL: AppConfig.backendBaseURL) }
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, safety, struggles, trends, mindset, schedule
+        case sport, season, equipment, experience, name, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, safety, struggles, trends, mindset, schedule
         var id: String { rawValue }
     }
 
@@ -104,6 +104,9 @@ struct MeView: View {
                         menuDivider
                         menuRow("Equipment", icon: "dumbbell.fill", tint: AppTheme.purple,
                                 detail: athlete.equipmentAvailable.isEmpty ? "Bodyweight only" : "\(athlete.equipmentAvailable.count) items") { activeSheet = .equipment }
+                        menuDivider
+                        menuRow("Training experience", icon: "figure.strengthtraining.traditional", tint: AppTheme.coral,
+                                detail: TrainingExperience.saved?.title ?? "Not set") { activeSheet = .experience }
                         menuDivider
                         coachToggleRow
                     }
@@ -240,6 +243,8 @@ struct MeView: View {
                 case .sport: SportEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
                 case .season: SeasonEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
                 case .equipment: EquipmentEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
+                case .experience: ExperienceEditorSheet(onSaved: onPlanInputsChanged)
+                case .name: NameEditorSheet(athlete: athlete)
                 case .history: SessionHistoryView()
                 case .checkIns: CheckInHistoryView(checkIns: athlete.checkIns)
                 case .exercises: ExerciseProgressListView(sessions: sessions, catalogue: catalogue)
@@ -306,10 +311,14 @@ struct MeView: View {
                 .frame(width: 72, height: 72)
                 .background(AppTheme.accent, in: Circle())
             VStack(alignment: .leading, spacing: 4) {
-                Text(athlete.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? sportInfo?.name ?? "Athlete")
-                    .font(.title2.bold())
-                    .foregroundStyle(AppTheme.ink)
-                Text([athlete.displayName?.isEmpty == false ? sportInfo?.name : nil, positionName, "Age \(age)"].compactMap { $0 }.joined(separator: " · "))
+                Button { activeSheet = .name } label: {
+                    Text(athlete.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? "Add your name")
+                        .font(.title2.bold())
+                        .foregroundStyle(athlete.displayName?.isEmpty == false ? AppTheme.ink : AppTheme.secondaryText)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Edit your first name")
+                Text([sportInfo?.name, positionName, "Age \(age)"].compactMap { $0 }.joined(separator: " · "))
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
                 Tag(AthleteStats.phaseLabel(phase), color: AppTheme.ink)
@@ -849,6 +858,64 @@ struct EquipmentEditorSheet: View {
         athlete.equipmentAvailable = Array(selection).sorted()
         try? modelContext.save()
         onSaved()
+        dismiss()
+    }
+}
+
+/// How long the athlete has been lifting: changes sets, reps and jumps.
+struct ExperienceEditorSheet: View {
+    let onSaved: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var selection: TrainingExperience = .current
+
+    var body: some View {
+        StepScaffold(title: "Training experience", subtitle: "Your plan's sets, reps and jumps follow this.", buttonTitle: "Save",
+                     onBack: { dismiss() }, onContinue: save) {
+            VStack(spacing: 10) {
+                ForEach(TrainingExperience.allCases, id: \.self) { level in
+                    Button { selection = level } label: {
+                        OptionRow(title: level.title, subtitle: level.detail, isSelected: selection == level)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func save() {
+        TrainingExperience.saved = selection
+        onSaved()
+        dismiss()
+    }
+}
+
+/// An optional first name, only for the greeting on Home. It stays on this
+/// phone: it isn't backed up or sent anywhere.
+struct NameEditorSheet: View {
+    let athlete: Athlete
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+
+    var body: some View {
+        StepScaffold(title: "Your first name", subtitle: "Optional. Only used to greet you, and it stays on this phone.",
+                     buttonTitle: "Save", onBack: { dismiss() }, onContinue: save) {
+            TextField("First name", text: $name)
+                .font(.title3.weight(.semibold))
+                .autocorrectionDisabled()
+                .submitLabel(.done)
+                .onSubmit(save)
+                .padding(.horizontal, 18)
+                .frame(height: 56)
+                .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
+        }
+        .onAppear { name = athlete.displayName ?? "" }
+    }
+
+    private func save() {
+        let first = name.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ").first.map(String.init) ?? ""
+        athlete.displayName = first.isEmpty ? nil : String(first.prefix(30))
+        try? modelContext.save()
         dismiss()
     }
 }

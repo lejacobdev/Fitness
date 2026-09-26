@@ -61,7 +61,8 @@ struct HomeView: View {
             catalogue: catalogue, sport: sportInfo, positionSlug: athlete.activeSport?.positionSlug,
             formatSlug: athlete.activeSport?.formatSlug, equipment: Set(athlete.equipmentAvailable),
             trainsUnderCoach: athlete.trainsUnderCoach, age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now),
-            struggles: Struggles.selected
+            struggles: Struggles.selected,
+            prepMoment: PrepMoment.at(.now, gameToday: gameToday != nil)
         )
     }
 
@@ -513,8 +514,8 @@ struct HomeView: View {
         }
         if let movementPrep {
             rows.append(AnyView(Button { preview = PreviewBox(session: movementPrep, kind: .mobility) } label: {
-                ListRow(systemImage: "figure.flexibility", color: AppTheme.water, title: "Movement prep",
-                        detail: "\(movementPrep.estimatedMinutes) min · loosen up")
+                ListRow(systemImage: "figure.flexibility", color: AppTheme.water, title: movementPrep.title,
+                        detail: "\(movementPrep.estimatedMinutes) min")
             }.buttonStyle(.plain)))
         }
         if let next = nextLesson {

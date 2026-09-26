@@ -544,22 +544,6 @@ extension View {
     }
 }
 
-/// The small black "PRO" capsule next to anything that needs Pro.
-struct ProBadge: View {
-    var body: some View {
-        HStack(spacing: 3) {
-            Image(systemName: "crown.fill")
-            Text("PRO")
-        }
-        .font(.system(size: 10, weight: .heavy))
-        .foregroundStyle(AppTheme.onAccent)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
-        .background(AppTheme.accent, in: Capsule())
-        .accessibilityLabel("Pro feature")
-    }
-}
-
 extension ProFeature: Identifiable {
     public var id: String { rawValue }
 }

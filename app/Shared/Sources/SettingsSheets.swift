@@ -211,7 +211,6 @@ struct DownloadsSheet: View {
                 Text("Every sport, offline")
                     .font(.headline)
                     .foregroundStyle(AppTheme.ink)
-                if !ProAccess.isPro { ProBadge() }
             }
             Text("Download all exercises and drills from all \(allSports.count) sports, so you can browse and train any of them with no signal.")
                 .font(.footnote)

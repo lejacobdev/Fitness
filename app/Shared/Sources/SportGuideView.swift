@@ -391,9 +391,6 @@ struct SportGuideView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Text("General education, not medical advice. For pain, illness or injury, see a doctor or athletic trainer.")
-                .font(.footnote)
-                .foregroundStyle(AppTheme.secondaryText)
         }
     }
 }

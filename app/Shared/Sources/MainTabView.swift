@@ -291,7 +291,8 @@ enum WeeklyPlan {
             seed: PlanVariant.seed("\(athlete.id)-\(Int(weekStart.timeIntervalSince1970))"),
             timeBudgetMinutesPerSession: custom.settings.minutesPerSession ?? 60,
             sportSlug: athleteSport.sportSlug, positionSlug: athleteSport.positionSlug, formatSlug: athleteSport.formatSlug,
-            sessionsPerWeek: custom.settings.effectiveSessionsPerWeek
+            sessionsPerWeek: custom.settings.effectiveSessionsPerWeek,
+            experience: TrainingExperience.current
         )
         let generated = PlanCustomizer.apply(custom, to: PlanGenerator.generate(input), catalogue: catalogue)
         // Every game counts, whatever sport it's for: the body that plays a

@@ -67,6 +67,49 @@ public enum WorkoutMode: String, Sendable {
     }
 }
 
+/// When the athlete does their movement prep, which decides what it is:
+/// before practice or a game it wakes the body up (moving, activating,
+/// skipping — no long holds that dull a sprint); in the evening it calms it
+/// down (long holds and slow breathing); otherwise a bit of both.
+public enum PrepMoment: String, Sendable {
+    case beforePractice
+    case evening
+    case anytime
+
+    public var title: String {
+        switch self {
+        case .beforePractice: "Movement prep"
+        case .evening: "Evening mobility"
+        case .anytime: "Mobility"
+        }
+    }
+
+    public var subtitle: String {
+        switch self {
+        case .beforePractice: "Wake your body up before practice"
+        case .evening: "Unwind and sleep better"
+        case .anytime: "Loosen up"
+        }
+    }
+
+    /// Before the day's practice or game starts (3 pm when the time isn't
+    /// known), after it, or from 6 pm on a day without one.
+    public static func at(_ date: Date, sessionToday: Bool, startMinutes: Int?, calendar: Calendar = .current) -> PrepMoment {
+        let parts = calendar.dateComponents([.hour, .minute], from: date)
+        let now = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
+        if sessionToday { return now < (startMinutes ?? 15 * 60) ? .beforePractice : .evening }
+        return now >= 18 * 60 ? .evening : .anytime
+    }
+
+    /// The moment for this date from the athlete's practice schedule.
+    public static func at(_ date: Date, gameToday: Bool = false, calendar: Calendar = .current) -> PrepMoment {
+        let practice = PracticeSchedule.hasPractice(on: date, calendar: calendar)
+        let gameStart = UserDefaults.standard.object(forKey: "gameStartMinutes") as? Int
+        let start = gameToday ? gameStart : PracticeSchedule.time(on: date, calendar: calendar)?.start
+        return at(date, sessionToday: practice || gameToday, startMinutes: start, calendar: calendar)
+    }
+}
+
 /// What the builder needs to know about the athlete.
 public struct WorkoutModeContext {
     public var catalogue: Catalogue
@@ -79,10 +122,16 @@ public struct WorkoutModeContext {
     public var date: Date
     /// The athlete's development goals (Me → My Development Goals).
     public var struggles: [Struggle]
+    public var experience: TrainingExperience
+    /// Nil: worked out from the practice schedule and the time of day.
+    public var prepMoment: PrepMoment?
 
     public init(catalogue: Catalogue, sport: SportInfo?, positionSlug: String?, formatSlug: String?,
-                equipment: Set<String>, trainsUnderCoach: Bool, age: Int, date: Date = .now, struggles: [Struggle] = []) {
+                equipment: Set<String>, trainsUnderCoach: Bool, age: Int, date: Date = .now, struggles: [Struggle] = [],
+                experience: TrainingExperience = .current, prepMoment: PrepMoment? = nil) {
         self.struggles = struggles
+        self.experience = experience
+        self.prepMoment = prepMoment
         self.catalogue = catalogue
         self.sport = sport
         self.positionSlug = positionSlug
@@ -156,6 +205,7 @@ public enum WorkoutModeBuilder {
         }
 
         let areas = context.sport?.commonLoadAreas ?? []
+        let moment = context.prepMoment ?? PrepMoment.at(context.date)
         switch mode {
         case .afterPractice:
             pick(lowerStrength, why: "Single-leg strength: the base for sprinting, cutting and landing.")
@@ -183,14 +233,39 @@ public enum WorkoutModeBuilder {
                 pick(Array(matches.prefix(8)), why: "For your goal: \(struggle.title.lowercased()).")
             }
         case .mobility:
-            for slug in mobilityBase { pick([slug], why: "Keeps hips, spine and ankles moving freely.") }
-            for area in areas.prefix(2) {
-                if let slug = mobilityByArea[area] { pick([slug], why: "Loosens your \(area.replacingOccurrences(of: "-", with: " ")).") }
+            switch moment {
+            case .beforePractice:
+                pick(["hip-circles-standing"], why: "Raises your temperature and gets the hips moving.")
+                pick(["worlds-greatest-stretch"], why: "Opens hips, hamstrings and upper back in one move.")
+                pick(["ankle-knee-to-wall", "deep-squat-hold"], why: "Ankle range for sprinting, cutting and landing.", rotate: false)
+                pick(["lateral-band-walk", "single-leg-glute-bridge"], why: "Switches on the glutes that keep your knees in line.", rotate: false)
+                if areas.contains(where: { ["shoulder", "shoulders", "elbow", "elbows", "upper-back"].contains($0) }) {
+                    pick(["band-external-rotation", "prone-y-t-w-raise"], why: "Wakes up the small muscles that protect your shoulder.", rotate: false)
+                }
+                pick(["a-skip"], why: "Rhythm and quick feet: the bridge from warm-up to full speed.")
+                pick(["b-skip", "acceleration-march"], why: "Primes your hamstrings for sprinting.", rotate: false)
+            case .evening:
+                pick(["cat-camel"], why: "Moves your spine gently after a day of sitting and training.")
+                pick(["thoracic-open-book"], why: "Opens your upper back and chest.")
+                pick(["90-90-hip-switch"], why: "Keeps your hips moving freely.")
+                for area in areas.prefix(2) {
+                    if let slug = mobilityByArea[area] { pick([slug], why: "Loosens your \(area.replacingOccurrences(of: "-", with: " ")).") }
+                }
+                pick(["couch-stretch", "pigeon-stretch", "hamstring-floss"], why: "A long, easy hold for tight hips and legs.")
+                if context.struggles.contains(.mobility) {
+                    pick(["pigeon-stretch", "hamstring-floss", "cossack-squat"], why: "Extra range for your mobility goal.")
+                }
+                pick(["breathing-90-90"], why: "Slow breathing switches your body into recovery mode, for better sleep.")
+            case .anytime:
+                for slug in mobilityBase { pick([slug], why: "Keeps hips, spine and ankles moving freely.") }
+                for area in areas.prefix(2) {
+                    if let slug = mobilityByArea[area] { pick([slug], why: "Loosens your \(area.replacingOccurrences(of: "-", with: " ")).") }
+                }
+                if context.struggles.contains(.mobility) {
+                    pick(["couch-stretch", "pigeon-stretch", "hamstring-floss", "cossack-squat"], why: "Extra range for your mobility goal.")
+                }
+                pick(["breathing-90-90"], why: "Slow breathing switches your body into recovery mode.")
             }
-            if context.struggles.contains(.mobility) {
-                pick(["couch-stretch", "pigeon-stretch", "hamstring-floss", "cossack-squat"], why: "Extra range for your mobility goal.")
-            }
-            pick(["breathing-90-90"], why: "Slow breathing switches your body into recovery mode.")
         case .travel:
             for slug in travel { pick([slug], why: "No equipment, anywhere.") }
         case .gymDay:
@@ -201,9 +276,12 @@ public enum WorkoutModeBuilder {
         let youth = context.age < 18
         let items = picks.enumerated().map { index, pair -> GeneratedPlannedItem in
             let (item, why) = pair
-            var dose = PlanGenerator.clampedDose(item.defaultDose, isYouthEnvelope: youth)
+            var dose = context.experience.adjusted(PlanGenerator.clampedDose(item.defaultDose, isYouthEnvelope: youth),
+                                                   isYouthEnvelope: youth)
             // Short sessions: at most 2 sets (after practice, on travel days, and relaxed mobility rounds).
             dose.sets = min(dose.sets, 2)
+            // Before practice it's one quick round of each: moving, not holding.
+            if mode == .mobility, moment == .beforePractice { dose.sets = item.defaultDose.kind == "distance" ? 2 : 1 }
             return GeneratedPlannedItem(itemSlug: item.slug, order: index, dose: dose,
                                         restSec: mode == .mobility ? 15 : min(item.restSeconds, 75),
                                         rationale: why, quality: item.primaryQuality?.id ?? "")
@@ -212,9 +290,9 @@ public enum WorkoutModeBuilder {
             let work = item.dose.seconds ?? max(30, (item.dose.reps ?? 8) * 4)
             return total + item.dose.sets * (work + item.restSec)
         }
-        return GeneratedSession(date: context.date, title: mode.title,
+        return GeneratedSession(date: context.date, title: mode == .mobility ? moment.title : mode.title,
                                 focusQualities: picks.compactMap { $0.0.primaryQuality?.id },
-                                estimatedMinutes: max(8, Int((Double(seconds) / 60).rounded())), items: items)
+                                estimatedMinutes: max(mode == .mobility ? 5 : 8, Int((Double(seconds) / 60).rounded())), items: items)
     }
 
     static func usable(_ item: CatalogueItem, _ context: WorkoutModeContext) -> Bool {
@@ -223,5 +301,6 @@ public enum WorkoutModeBuilder {
             && (context.trainsUnderCoach || !item.isCoached)
             && item.minAge <= context.age
             && item.defaultDose.kind != "contacts"
+            && context.experience.allows(item)
     }
 }

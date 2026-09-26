@@ -26,6 +26,9 @@ public struct PlanGeneratorInput: Sendable {
     public let formatSlug: String?
     /// The athlete's own number of gym days (nil: what the season calls for).
     public let sessionsPerWeek: Int?
+    /// How long the athlete has been lifting: sets, reps, jumps and which
+    /// variants are picked.
+    public let experience: TrainingExperience
 
     public init(
         sportProfile: [String: Double], positionProfile: [String: Double]? = nil,
@@ -33,9 +36,10 @@ public struct PlanGeneratorInput: Sendable {
         trainsUnderCoach: Bool = false, equipmentAvailable: Set<String> = [],
         catalogue: Catalogue, seed: String, timeBudgetMinutesPerSession: Int = 60,
         now: Date = .now, sportSlug: String? = nil, positionSlug: String? = nil, formatSlug: String? = nil,
-        sessionsPerWeek: Int? = nil
+        sessionsPerWeek: Int? = nil, experience: TrainingExperience = .intermediate
     ) {
         self.sessionsPerWeek = sessionsPerWeek
+        self.experience = experience
         self.sportSlug = sportSlug
         self.positionSlug = positionSlug
         self.formatSlug = formatSlug
@@ -222,6 +226,7 @@ public enum PlanGenerator {
                 && isEligibleForEquipment(item, available: input.equipmentAvailable)
                 && (input.trainsUnderCoach || !item.isCoached)
                 && item.minAge <= age
+                && input.experience.allows(item)
         }
         for quality in targetQualities {
             let eligible = input.catalogue.itemsBySlug.values
@@ -259,11 +264,12 @@ public enum PlanGenerator {
         var totalMinutes = 0
         var order = 0
         for (quality, item) in ordered {
-            let dose = clampedDose(item.defaultDose, isYouthEnvelope: isYouthEnvelope)
+            let dose = input.experience.adjusted(clampedDose(item.defaultDose, isYouthEnvelope: isYouthEnvelope),
+                                                 isYouthEnvelope: isYouthEnvelope)
 
             if dose.kind == plyometricDoseKind {
                 let contactsThisItem = dose.sets * (dose.contacts ?? 0)
-                if weeklyContacts + contactsThisItem > weeklyContactCap(age: age) {
+                if weeklyContacts + contactsThisItem > input.experience.contactCap(weeklyContactCap(age: age)) {
                     continue // would exceed the weekly ground-contact cap (§10)
                 }
             }
@@ -330,9 +336,9 @@ public enum PlanGenerator {
     }
 
     /// §10: the weekly ceiling "scales with age and training history."
-    /// Training history isn't a modeled field yet, so this scales by age
-    /// only — conservative, named constants, the one place to change per
-    /// §23's "each is changeable later by editing the noted constant."
+    /// This is the age part — conservative, named constants, the one place
+    /// to change per §23's "each is changeable later by editing the noted
+    /// constant." Training history scales it in `TrainingExperience.contactCap`.
     /// Not `private`: `SkillMenuEngine` reuses this same age-scaled ceiling
     /// as a per-block plyometric budget (§10's cap, applied over a shorter
     /// window than a full week — see that file's own comment).

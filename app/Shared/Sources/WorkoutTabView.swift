@@ -41,7 +41,8 @@ struct WorkoutTabView: View {
             catalogue: catalogue, sport: sportInfo, positionSlug: athlete.activeSport?.positionSlug,
             formatSlug: athlete.activeSport?.formatSlug, equipment: Set(athlete.equipmentAvailable),
             trainsUnderCoach: athlete.trainsUnderCoach, age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now),
-            struggles: Struggles.selected
+            struggles: Struggles.selected,
+            prepMoment: PrepMoment.at(.now, gameToday: gameToday != nil)
         )
     }
 

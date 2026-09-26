@@ -58,7 +58,6 @@ struct WorkoutEditorView: View {
                                         .foregroundStyle(AppTheme.secondaryText)
                                 }
                                 Spacer(minLength: 0)
-                                ProBadge()
                             }
                             .foregroundStyle(AppTheme.ink)
                         }
@@ -92,7 +91,6 @@ struct WorkoutEditorView: View {
                             Label("Add an exercise", systemImage: "plus.circle.fill")
                                 .font(.headline)
                                 .foregroundStyle(AppTheme.ink)
-                            if !fullAccess { Spacer(); ProBadge() }
                         }
                     }
                 } header: {
