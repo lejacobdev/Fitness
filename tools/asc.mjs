@@ -691,14 +691,24 @@ const commands = {
       const subs = await api(`/v1/subscriptionGroups/${group.id}/subscriptions?limit=50`);
       for (const sub of subs.data) {
         console.log(`${sub.attributes.productId}`);
-        const prices = await api(`/v1/subscriptions/${sub.id}/prices?include=subscriptionPricePoint,territory&limit=200`);
-        const points = new Map((prices.included ?? []).filter((r) => r.type === 'subscriptionPricePoints').map((r) => [r.id, r.attributes]));
-        const territoryCurrency = new Map((prices.included ?? []).filter((r) => r.type === 'territories').map((r) => [r.id, r.attributes.currency]));
-        for (const price of prices.data) {
+        // Every price record (old and new, with the date each starts), all pages.
+        const records = [];
+        const included = [];
+        let next = `/v1/subscriptions/${sub.id}/prices?include=subscriptionPricePoint,territory&limit=200`;
+        while (next) {
+          const page = await api(next);
+          records.push(...page.data);
+          included.push(...(page.included ?? []));
+          next = page.links?.next ? page.links.next.replace('https://api.appstoreconnect.apple.com', '') : null;
+        }
+        const points = new Map(included.filter((r) => r.type === 'subscriptionPricePoints').map((r) => [r.id, r.attributes]));
+        const territoryCurrency = new Map(included.filter((r) => r.type === 'territories').map((r) => [r.id, r.attributes.currency]));
+        console.log(`  ${records.length} price records`);
+        for (const price of records) {
           const territory = price.relationships?.territory?.data?.id;
           if (!wanted.has(territory)) continue;
           const point = points.get(price.relationships?.subscriptionPricePoint?.data?.id) ?? {};
-          console.log(`  ${territory}  ${point.customerPrice ?? '?'} ${territoryCurrency.get(territory) ?? ''}  (proceeds ${point.proceeds ?? '?'})`);
+          console.log(`  ${territory}  ${point.customerPrice ?? '?'} ${territoryCurrency.get(territory) ?? ''}  from ${price.attributes?.startDate ?? 'the start'}${price.attributes?.preserved ? ' (preserved)' : ''}  (proceeds ${point.proceeds ?? '?'})`);
         }
         const offers = await api(`/v1/subscriptions/${sub.id}/introductoryOffers?include=territory,subscriptionPricePoint&limit=200`);
         const offerPoints = new Map((offers.included ?? []).filter((r) => r.type === 'subscriptionPricePoints').map((r) => [r.id, r.attributes]));
