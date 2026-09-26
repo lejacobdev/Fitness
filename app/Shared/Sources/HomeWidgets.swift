@@ -118,31 +118,31 @@ public struct HomeLayout: Codable, Sendable, Equatable {
         order.insert(widget, at: from <= to ? to + 1 : to)
     }
 
-    /// Swaps two widgets' places (the up/down arrows while arranging).
-    public mutating func swap(_ widget: HomeWidget, with other: HomeWidget) {
-        guard let a = order.firstIndex(of: widget), let b = order.firstIndex(of: other) else { return }
-        order.swapAt(a, b)
-    }
-
     /// Rows of the board: two small widgets side by side, everything else
     /// full width, in the athlete's order.
     public static func rows(_ widgets: [HomeWidget]) -> [[HomeWidget]] {
-        var rows: [[HomeWidget]] = []
-        var waiting: HomeWidget?
-        for widget in widgets {
-            if widget.size == .small {
+        rowIndices(small: widgets.map { $0.size == .small }).map { $0.map { widgets[$0] } }
+    }
+
+    /// The same rows as positions: which items share a row, given which
+    /// ones are small (the board's layout places views by these).
+    public static func rowIndices(small: [Bool]) -> [[Int]] {
+        var rows: [[Int]] = []
+        var waiting: Int?
+        for (index, isSmall) in small.enumerated() {
+            if isSmall {
                 if let first = waiting {
-                    rows.append([first, widget])
+                    rows.append([first, index])
                     waiting = nil
                 } else {
-                    waiting = widget
+                    waiting = index
                 }
             } else {
                 if let first = waiting {
                     rows.append([first])
                     waiting = nil
                 }
-                rows.append([widget])
+                rows.append([index])
             }
         }
         if let first = waiting { rows.append([first]) }

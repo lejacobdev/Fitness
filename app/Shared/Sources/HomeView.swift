@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Home: a simple overview of everything, explaining itself as it goes.
 /// Top to bottom: what kind of day it is (top left) and the streak, today's
@@ -34,6 +35,8 @@ struct HomeView: View {
     @State private var layout = HomeLayout.load()
     @State private var editingLayout = false
     @State private var wiggle = false
+    /// The widget being held while arranging, and where the board is in reordering it.
+    @State private var drag = HomeDragState()
     /// Bumped when a Mindset sheet closes, so the level redraws.
     @State private var mindsetRevision = 0
 
@@ -585,25 +588,30 @@ struct HomeView: View {
     private var widgetBoard: some View {
         let shown = layout.visible.filter { editingLayout || isRelevant($0) }
         return VStack(spacing: 14) {
-            ForEach(Array(HomeLayout.rows(shown).enumerated()), id: \.offset) { _, row in
-                HStack(alignment: .top, spacing: 12) {
-                    ForEach(row) { widget in
-                        editableWidget(widget)
-                    }
-                    if row.count == 1, row[0].size == .small {
-                        Color.clear.frame(maxWidth: .infinity)
-                    }
+            // One container for every widget, so while arranging they glide
+            // to their new places instead of jumping between rows.
+            WidgetBoardLayout {
+                ForEach(shown) { widget in
+                    editableWidget(widget)
+                        .layoutValue(key: WidgetBoardLayout.IsSmall.self, value: widget.size == .small)
                 }
             }
             layoutControls
         }
+        #if os(iOS)
+        // Letting go anywhere on the board keeps the order it shows.
+        .contentShape(Rectangle())
+        .onDrop(of: [.text], delegate: HomeWidgetDropDelegate(target: nil, drag: $drag, layout: $layout))
+        #endif
     }
 
-    /// While arranging: tap the arrows to move a widget up or down (or hold
-    /// and drag it onto another), tap – to remove it.
+    /// While arranging: hold a widget and drag it — the others make room as
+    /// it passes over them, so the new order shows before letting go. Tap –
+    /// to remove it.
     @ViewBuilder
     private func editableWidget(_ widget: HomeWidget) -> some View {
         if editingLayout {
+            let held = drag.widget == widget
             Group {
                 if isRelevant(widget) {
                     widgetContent(widget).allowsHitTesting(false)
@@ -612,23 +620,27 @@ struct HomeView: View {
                 }
             }
             .frame(maxWidth: .infinity)
+            // Where the held widget will land: its place stays, faded and outlined.
+            .opacity(held ? 0.3 : 1)
+            .overlay {
+                if held {
+                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
+                        .strokeBorder(AppTheme.ink.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [7, 6]))
+                }
+            }
             // The widget itself ignores taps while arranging; this layer
             // catches the long-press for dragging.
             .overlay { Color.clear.contentShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)) }
             .rotationEffect(.degrees(wiggle ? 0.6 : -0.6))
             .animation(.easeInOut(duration: 0.14).repeatForever(autoreverses: true), value: wiggle)
             #if os(iOS)
-            .draggable(widget.rawValue) {
-                Label(widget.title, systemImage: widget.systemImage)
-                    .font(.headline)
-                    .padding(12)
-                    .background(AppTheme.card, in: Capsule())
+            .onDrag {
+                // Marked as held on the next turn, after the lifted copy
+                // under the finger has been captured at full strength.
+                Task { @MainActor in drag = HomeDragState(widget: widget) }
+                return NSItemProvider(object: widget.rawValue as NSString)
             }
-            .dropDestination(for: String.self) { items, _ in
-                guard let raw = items.first, let dragged = HomeWidget(rawValue: raw) else { return false }
-                withAnimation { layout.move(dragged, to: widget); layout.save() }
-                return true
-            }
+            .onDrop(of: [.text], delegate: HomeWidgetDropDelegate(target: widget, drag: $drag, layout: $layout))
             #endif
             .overlay(alignment: .topLeading) {
                 Button {
@@ -645,43 +657,11 @@ struct HomeView: View {
                 .offset(x: -10, y: -10)
                 .accessibilityLabel("Remove \(widget.title)")
             }
-            .overlay(alignment: .topTrailing) {
-                HStack(spacing: 6) {
-                    moveButton(widget, by: -1, systemImage: "arrow.up")
-                    moveButton(widget, by: 1, systemImage: "arrow.down")
-                }
-                .offset(x: 6, y: -12)
-            }
             .padding(.top, 8)
         } else {
             widgetContent(widget)
                 .frame(maxWidth: .infinity)
         }
-    }
-
-    private func moveButton(_ widget: HomeWidget, by step: Int, systemImage: String) -> some View {
-        let visible = layout.visible
-        let index = visible.firstIndex(of: widget) ?? 0
-        let target = index + step
-        let possible = visible.indices.contains(target)
-        return Button {
-            guard possible else { return }
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                layout.swap(widget, with: visible[target])
-                layout.save()
-            }
-        } label: {
-            Image(systemName: systemImage)
-                .font(.headline.weight(.heavy))
-                .foregroundStyle(AppTheme.onAccent)
-                .frame(width: 34, height: 34)
-                .background(AppTheme.accent, in: Circle())
-                .overlay(Circle().stroke(AppTheme.background, lineWidth: 3))
-        }
-        .buttonStyle(.plain)
-        .opacity(possible ? 1 : 0.25)
-        .disabled(!possible)
-        .accessibilityLabel(step < 0 ? "Move \(widget.title) up" : "Move \(widget.title) down")
     }
 
     /// A widget that isn't showing right now, while arranging.
@@ -705,7 +685,7 @@ struct HomeView: View {
     private var layoutControls: some View {
         if editingLayout {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Tap the arrows to move a widget up or down, or hold one and drag it onto another. Tap – to remove it.")
+                Text("Hold a widget and drag it — the others make room as you move, so you see the new order before you let go. Tap – to remove it.")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
                 let hidden = layout.order.filter { layout.hidden.contains($0) }
@@ -742,6 +722,8 @@ struct HomeView: View {
                 Button {
                     editingLayout = false
                     wiggle = false
+                    drag = HomeDragState()
+                    layout.save()
                 } label: { Label("Done", systemImage: "checkmark") }
                     .buttonStyle(.primary)
             }
@@ -1209,3 +1191,106 @@ struct SessionPreviewSheet: View {
         .disabled(catalogueItem == nil)
     }
 }
+
+// MARK: - Arranging the board
+
+/// The Home board: small widgets two to a row, everything else full width,
+/// in the athlete's order (HomeLayout.rowIndices).
+struct WidgetBoardLayout: Layout {
+    var columnSpacing: CGFloat = 12
+    var rowSpacing: CGFloat = 14
+
+    struct IsSmall: LayoutValueKey {
+        static let defaultValue = false
+    }
+
+    private func rows(_ subviews: Subviews) -> [[Int]] {
+        HomeLayout.rowIndices(small: subviews.map { $0[IsSmall.self] })
+    }
+
+    private func width(_ index: Int, _ subviews: Subviews, total: CGFloat) -> CGFloat {
+        subviews[index][IsSmall.self] ? (total - columnSpacing) / 2 : total
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let total = proposal.width ?? 360
+        var height: CGFloat = 0
+        for (n, row) in rows(subviews).enumerated() {
+            var rowHeight: CGFloat = 0
+            for index in row {
+                let size = subviews[index].sizeThatFits(ProposedViewSize(width: width(index, subviews, total: total), height: nil))
+                rowHeight = max(rowHeight, size.height)
+            }
+            height += rowHeight + (n > 0 ? rowSpacing : 0)
+        }
+        return CGSize(width: total, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for row in rows(subviews) {
+            var x = bounds.minX
+            var rowHeight: CGFloat = 0
+            for index in row {
+                let w = width(index, subviews, total: bounds.width)
+                let size = subviews[index].sizeThatFits(ProposedViewSize(width: w, height: nil))
+                subviews[index].place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: ProposedViewSize(width: w, height: size.height))
+                x += w + columnSpacing
+                rowHeight = max(rowHeight, size.height)
+            }
+            y += rowHeight + rowSpacing
+        }
+    }
+}
+
+/// The widget held while arranging Home.
+struct HomeDragState: Equatable {
+    var widget: HomeWidget?
+    /// The widget the held one just moved over, until the board has made room.
+    var pending: HomeWidget?
+    var lastMove = Date.distantPast
+}
+
+#if os(iOS)
+/// Live rearranging: as the held widget passes over another, the board makes
+/// room straight away (animated), so the new order is visible while still
+/// holding. A short pause between moves keeps big and small widgets from
+/// trading places back and forth under the finger. `target` nil is the board
+/// itself, which only ends the drag.
+struct HomeWidgetDropDelegate: DropDelegate {
+    let target: HomeWidget?
+    @Binding var drag: HomeDragState
+    @Binding var layout: HomeLayout
+
+    func dropEntered(info: DropInfo) {
+        guard let target else { return }
+        drag.pending = target
+        makeRoom()
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        makeRoom()
+        return DropProposal(operation: .move)
+    }
+
+    func dropExited(info: DropInfo) {
+        if let target, drag.pending == target { drag.pending = nil }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        drag = HomeDragState()
+        layout.save()
+        return true
+    }
+
+    private func makeRoom() {
+        guard let target, drag.pending == target, let held = drag.widget, held != target,
+              Date.now.timeIntervalSince(drag.lastMove) > 0.2 else { return }
+        drag.pending = nil
+        drag.lastMove = .now
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+            layout.move(held, to: target)
+        }
+    }
+}
+#endif

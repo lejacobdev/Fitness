@@ -15,10 +15,22 @@ final class HomeWidgetsTests: XCTestCase {
         XCTAssertEqual(layout.order, [.quote, .checkIn, .today])
     }
 
-    func testTheArrowsSwapNeighbours() {
-        var layout = HomeLayout(order: [.quote, .checkIn, .today], hidden: [])
-        layout.swap(.today, with: .checkIn)
-        XCTAssertEqual(layout.order, [.quote, .today, .checkIn])
+    func testDraggingThroughTheBoardShowsTheOrderLive() {
+        // Holding the quote and passing over the next widgets moves it one
+        // step at a time — each step is what the board shows while holding.
+        var layout = HomeLayout(order: [.quote, .checkIn, .today, .body], hidden: [])
+        layout.move(.quote, to: .checkIn)
+        XCTAssertEqual(layout.order, [.checkIn, .quote, .today, .body])
+        layout.move(.quote, to: .today)
+        XCTAssertEqual(layout.order, [.checkIn, .today, .quote, .body])
+        layout.move(.quote, to: .checkIn)
+        XCTAssertEqual(layout.order, [.quote, .checkIn, .today, .body], "dragging back undoes it")
+    }
+
+    func testRowPositionsMatchTheRows() {
+        XCTAssertEqual(HomeLayout.rowIndices(small: [false, true, true, false, true, false]), [[0], [1, 2], [3], [4], [5]])
+        XCTAssertEqual(HomeLayout.rowIndices(small: [true, true, true]), [[0, 1], [2]])
+        XCTAssertEqual(HomeLayout.rowIndices(small: []), [])
     }
 
     func testAnOldLayoutGetsNewWidgetsAndHiddenOnesStayHidden() throws {
