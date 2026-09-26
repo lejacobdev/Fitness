@@ -604,6 +604,73 @@ const commands = {
     console.log(lines.join('\n'));
   },
 
+  /** Picks the build (by build number) for the version that's being prepared. */
+  async 'attach-build'(identifier, buildNumber) {
+    if (!identifier || !buildNumber) throw new Error('usage: attach-build <bundle-id> <build-number>');
+    const app = await appFor(identifier);
+    const versions = await api(`/v1/apps/${app.id}/appStoreVersions?filter[platform]=IOS&filter[appStoreState]=PREPARE_FOR_SUBMISSION,DEVELOPER_REJECTED,REJECTED,METADATA_REJECTED`);
+    const version = versions.data[0];
+    if (!version) throw new Error('no version in preparation');
+    const builds = await api(`/v1/builds?filter[app]=${app.id}&filter[version]=${encodeURIComponent(buildNumber)}&limit=5`);
+    const build = builds.data.find((b) => b.attributes.version === String(buildNumber));
+    if (!build) throw new Error(`no build ${buildNumber}`);
+    if (build.attributes.processingState !== 'VALID') throw new Error(`build ${buildNumber} is ${build.attributes.processingState}`);
+    await api(`/v1/appStoreVersions/${version.id}/relationships/build`, { method: 'PATCH', body: { data: { type: 'builds', id: build.id } } });
+    console.log(`version ${version.attributes.versionString} now uses build ${buildNumber}`);
+  },
+
+  /** The app itself is free (Pro is the in-app subscription). */
+  async 'set-free'(identifier) {
+    const app = await appFor(identifier);
+    const points = await api(`/v1/apps/${app.id}/appPricePoints?filter[territory]=USA&limit=200`);
+    const free = points.data.find((p) => Number(p.attributes.customerPrice) === 0);
+    if (!free) throw new Error('no free price point');
+    await api('/v1/appPriceSchedules', {
+      method: 'POST',
+      body: {
+        data: {
+          type: 'appPriceSchedules',
+          relationships: {
+            app: { data: { type: 'apps', id: app.id } },
+            baseTerritory: { data: { type: 'territories', id: 'USA' } },
+            manualPrices: { data: [{ type: 'appPrices', id: '${free}' }] },
+          },
+        },
+        included: [{
+          type: 'appPrices', id: '${free}', attributes: { startDate: null },
+          relationships: { appPricePoint: { data: { type: 'appPricePoints', id: free.id } } },
+        }],
+      },
+    });
+    console.log('app price: Free (base territory USA)');
+  },
+
+  /** On sale in every territory, and in new ones Apple adds. */
+  async 'set-availability'(identifier) {
+    const app = await appFor(identifier);
+    const territories = await api('/v1/territories?limit=200');
+    const refs = territories.data.map((t) => ({ local: `\${t-${t.id}}`, id: t.id }));
+    await api('/v2/appAvailabilities', {
+      method: 'POST',
+      body: {
+        data: {
+          type: 'appAvailabilities',
+          attributes: { availableInNewTerritories: true },
+          relationships: {
+            app: { data: { type: 'apps', id: app.id } },
+            territoryAvailabilities: { data: refs.map((r) => ({ type: 'territoryAvailabilities', id: r.local })) },
+          },
+        },
+        included: refs.map((r) => ({
+          type: 'territoryAvailabilities', id: r.local,
+          attributes: { available: true, releaseDate: null, preOrderEnabled: false },
+          relationships: { territory: { data: { type: 'territories', id: r.id } } },
+        })),
+      },
+    });
+    console.log(`available in ${refs.length} territories (and new ones)`);
+  },
+
   async 'subscription-prices'(identifier, territories = 'USA,DEU,FRA,ITA,ESP,NLD,AUT,CHE,GBR,CAN,AUS') {
     const app = await appFor(identifier);
     const wanted = new Set(territories.split(','));

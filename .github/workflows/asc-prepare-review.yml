@@ -1,0 +1,47 @@
+name: asc-prepare-review
+
+# Gets the App Store version ready for "Add for Review": picks the build,
+# makes the app free and available everywhere, then runs the readiness check.
+# Dispatch-only: this CHANGES App Store Connect (nothing is submitted).
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: 'App bundle identifier'
+        required: false
+        default: 'com.studentathlete.app'
+      build_number:
+        description: 'Build number to attach to the version (empty: leave it)'
+        required: false
+        default: ''
+      set_price_and_availability:
+        description: 'Make the app Free and available in every country'
+        required: false
+        default: 'yes'
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Attach the build
+        if: inputs.build_number != ''
+        continue-on-error: true
+        run: node tools/asc.mjs attach-build '${{ inputs.bundle_id }}' '${{ inputs.build_number }}'
+      - name: App price Free
+        if: inputs.set_price_and_availability == 'yes'
+        continue-on-error: true
+        run: node tools/asc.mjs set-free '${{ inputs.bundle_id }}'
+      - name: Available in every country
+        if: inputs.set_price_and_availability == 'yes'
+        continue-on-error: true
+        run: node tools/asc.mjs set-availability '${{ inputs.bundle_id }}'
+      - name: Ready to submit for review?
+        run: node tools/asc.mjs readiness '${{ inputs.bundle_id }}'
