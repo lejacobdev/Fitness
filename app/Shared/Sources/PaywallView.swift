@@ -115,7 +115,7 @@ public struct PaywallView: View {
             Text("Train smarter with Pro")
                 .font(.system(size: 32, weight: .bold))
                 .foregroundStyle(AppTheme.ink)
-            Text("Everything in the free app, plus a plan that's completely yours, unlimited learning and the deep tools for a whole season.")
+            Text("Everything free, plus a plan that's fully yours and unlimited learning.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
         }
@@ -144,7 +144,7 @@ public struct PaywallView: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "heart.fill")
                 .foregroundStyle(AppTheme.brand)
-            Text("Always free: the daily check-in, your plan and all three kinds of workout, logging, the Apple Watch app, fuelling, safety, Campus lessons every day, your sport's guide, leagues and teams.")
+            Text("Always free: check-in, your plan, every workout, logging, Watch, Campus daily, teams.")
                 .font(.footnote)
                 .foregroundStyle(AppTheme.secondaryText)
         }
@@ -333,7 +333,7 @@ public struct PaywallView: View {
                     Text("Waiting for approval")
                         .font(.headline)
                         .foregroundStyle(AppTheme.ink)
-                    Text("We've asked a parent or guardian to approve this. Pro unlocks automatically the moment they do — you can close this screen and keep training.")
+                    Text("A parent needs to approve this. Pro unlocks as soon as they do.")
                         .font(.footnote)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
@@ -483,7 +483,7 @@ public struct SubscriptionRow: View {
             .buttonStyle(.plain)
 
             if store.isInBillingRetry {
-                Label("There's a problem with your payment method. Pro stays on while Apple retries — update it in Settings.", systemImage: "exclamationmark.circle.fill")
+                Label("Payment problem: Pro stays on while Apple retries. Update it in Settings.", systemImage: "exclamationmark.circle.fill")
                     .font(.caption)
                     .foregroundStyle(AppTheme.amber)
             }

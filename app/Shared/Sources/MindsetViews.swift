@@ -30,7 +30,7 @@ struct MindsetView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Mindset", subtitle: "Strong in your head too: reflect for 2 minutes each evening, work on your season goals, and have a routine for game day.")
+                    ScreenTitle("Mindset", subtitle: "Evening reflection, season goals and a game-day routine.")
                     weekCard
                     reflectionSection
                     goalsSection
@@ -149,7 +149,7 @@ struct MindsetView: View {
         _ = revision
         return VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Season goals", subtitle: goals.isEmpty
-                ? "Up to three goals for this season. Each week you get one small, concrete thing to do for each."
+                ? "Up to three goals. One small step for each, every week."
                 : "This week's focus for each goal — tick it off when you've done it.")
             ForEach(focus) { point in
                 focusRow(point)
@@ -737,7 +737,7 @@ struct VisualizationView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        ScreenTitle("Game-day visualization", subtitle: "About 5 minutes. Find a quiet spot — the locker room, the bus, your bed. You'll picture the game going well, and how you bounce back from a mistake.")
+                        ScreenTitle("Game-day visualization", subtitle: "About 5 minutes, somewhere quiet. Picture the game going well, and bouncing back from a mistake.")
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Your reset word")
                                 .font(.headline)

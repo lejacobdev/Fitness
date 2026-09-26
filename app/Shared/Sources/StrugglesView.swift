@@ -36,7 +36,7 @@ struct StrugglesSheet: View {
                 }
             }
             if selected.count >= Struggles.maximum {
-                Text("That's \(Struggles.maximum) — tap one to swap it. Focusing on a few things works better than on everything.")
+                Text("That's \(Struggles.maximum). Tap one to swap it.")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
             }

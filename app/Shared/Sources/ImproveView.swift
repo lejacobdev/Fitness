@@ -100,7 +100,7 @@ struct ImproveView: View {
                         skillGrid
                     } else {
                         TipCard(id: "muscles", icon: "figure.stand", title: "Build a workout by muscle",
-                                message: "Tap a quick pick or the body areas you want to train, choose how long you have, then press Start workout.")
+                                message: "Pick what to train and how long you have.")
                         MuscleBuilderView(athlete: athlete, apiClient: apiClient)
                     }
                 }

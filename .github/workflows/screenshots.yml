@@ -92,7 +92,7 @@ jobs:
           # screenshots only need the app itself.
           rm -rf "$APP/PlugIns" "$APP/Watch"
           BUNDLE=com.studentathlete.app
-          mkdir -p screenshots
+          mkdir -p screenshots/all
           pick() { xcrun simctl list devices available | grep -E "$1" | head -1 | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}'; }
           for pattern in "iPhone 1[0-9] Pro Max" "iPad Pro 13"; do
             UDID=$(pick "$pattern")
@@ -117,6 +117,22 @@ jobs:
                 xcrun simctl terminate "$UDID" "$BUNDLE" || true
               done
             done
+            # Every Home and Me sheet, for the layout check (not uploaded).
+            if [ "${pattern#iPad}" = "$pattern" ]; then
+              xcrun simctl ui "$UDID" appearance light
+              for sheet in checkIn quickActions addGame fuel dayStatus schedule reflection safety mindset tests; do
+                xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab today -sheet "$sheet" >/dev/null
+                sleep 6
+                xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-home-${sheet}.png"
+                xcrun simctl terminate "$UDID" "$BUNDLE" || true
+              done
+              for sheet in sport season equipment experience name history checkIns exercises dataExport reminders downloads health sports help team coach parent struggles trends; do
+                xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab me -sheet "$sheet" >/dev/null
+                sleep 6
+                xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-me-${sheet}.png"
+                xcrun simctl terminate "$UDID" "$BUNDLE" || true
+              done
+            fi
             # The paywall, for the subscriptions' review screenshot.
             xcrun simctl ui "$UDID" appearance light
             xcrun simctl launch "$UDID" "$BUNDLE" -demoData -paywall >/dev/null

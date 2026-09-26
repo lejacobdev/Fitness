@@ -84,7 +84,7 @@ public struct LiveSessionView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         if loggedCount == 0 {
                             TipCard(id: "live", icon: "hand.tap.fill", title: "How a workout works",
-                                    message: "Watch the move, do one set, set the numbers to what you did and tap Log set. Rest starts on its own, then do the next set. Tap Finish when you're done.")
+                                    message: "Do a set, log it, rest. Tap Finish when you're done.")
                         }
                         if allDone {
                             doneCard

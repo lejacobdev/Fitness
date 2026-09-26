@@ -21,7 +21,7 @@ struct BenchmarksView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Tests", subtitle: "Every 6–8 weeks, the same tests done the same way — so you can see how much faster, stronger and better you've become.")
+                    ScreenTitle("Tests", subtitle: "The same tests every 6–8 weeks show how far you've come.")
                     statusCard
                     SectionHeader("Body", subtitle: "Power, speed, strength.")
                     ForEach(tests.filter { $0.level == .body }) { testRow($0) }
@@ -286,7 +286,7 @@ struct BenchmarkRunView: View {
             } else {
                 // Free: type the result in; the camera measurement is Pro.
                 ProLockCard(feature: .videoJumpTest, title: "Measure it with the camera",
-                            message: "Film your jump in slow motion and the app works out your height from the flight time. Or type in a result you measured another way.")
+                            message: "Film your jump in slow motion, or type in a result.")
                 entry
             }
             #else
@@ -376,7 +376,7 @@ struct BenchmarkRunView: View {
                     .font(.title3.bold())
                     .foregroundStyle(improved ? AppTheme.green : AppTheme.secondaryText)
                 if !improved {
-                    Text("Tests go up and down — sleep, food and tiredness all count. Look at the trend over months, not one day.")
+                    Text("Look at the trend over months, not one day.")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.secondaryText)
                         .multilineTextAlignment(.center)

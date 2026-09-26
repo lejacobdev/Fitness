@@ -183,6 +183,7 @@ struct HomeView: View {
             .task(id: allSessions.count + athlete.checkIns.count) {
                 catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
                 status = DayStatusStore.status()
+                if !loaded, DemoData.initialTab == .today, let name = DemoData.initialSheet { activeSheet = HomeSheet(rawValue: name) }
                 loaded = true
             }
             .sheet(item: $activeSheet, onDismiss: {

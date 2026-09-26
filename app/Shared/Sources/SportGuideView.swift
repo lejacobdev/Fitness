@@ -280,7 +280,7 @@ struct SportGuideView: View {
 
     private func injuries(_ guide: SportGuide) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Stay healthy", subtitle: "The injuries this sport sees most, and what prevents them. Pain that doesn't go away: tell your coach or athletic trainer.")
+            SectionHeader("Stay healthy", subtitle: "Common injuries and what prevents them.")
             ForEach(guide.injuries, id: \.self) { injury in
                 VStack(alignment: .leading, spacing: 10) {
                     Label(injury.area, systemImage: "cross.case.fill")

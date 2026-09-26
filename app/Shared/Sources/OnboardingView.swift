@@ -111,7 +111,7 @@ public struct OnboardingView: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.ink)
                     .frame(minHeight: 44)
-                Text("Everything stays on this phone. Sign in any time in Me to back it up, join a team or league, and share workouts.")
+                Text("Everything stays on this phone. Sign in later in Me to back it up.")
                     .font(.caption)
                     .foregroundStyle(AppTheme.secondaryText)
                     .multilineTextAlignment(.center)

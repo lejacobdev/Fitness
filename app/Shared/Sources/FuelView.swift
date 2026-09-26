@@ -198,7 +198,7 @@ struct FuelView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "moon.zzz.fill")
                         .foregroundStyle(AppTheme.purple)
-                    Text("Rest day: regular meals with protein at each one help you recover. No need to eat less just because you're not training.")
+                    Text("Rest day: protein at each meal helps you recover.")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.secondaryText)
                 }

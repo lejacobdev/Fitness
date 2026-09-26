@@ -40,7 +40,7 @@ public struct SetupFlowView: View {
             switch step {
             case .sport:
                 StepScaffold(
-                    progress: progress, title: "What's your sport?", subtitle: "Your whole plan is built around it. Play more than one? You can add the others later in Me → Sports.",
+                    progress: progress, title: "What's your sport?", subtitle: "Your plan is built around it. Add more sports later in Me.",
                     buttonEnabled: sportSlug != nil, onContinue: chooseSport
                 ) {
                     SportChooser(selection: $sportSlug)
@@ -71,7 +71,7 @@ public struct SetupFlowView: View {
                 }
             case .coach:
                 StepScaffold(
-                    progress: progress, title: "Do you train under a coach?", subtitle: "A coach, trainer or PE teacher who watches you lift. Say no and we only give you moves that are safe to learn alone — you can change it later in Me.",
+                    progress: progress, title: "Do you train under a coach?", subtitle: "Someone who watches you lift. If not, you only get moves you can learn alone.",
                     buttonTitle: "Finish setup", buttonEnabled: trainsUnderCoach != nil,
                     onBack: { go(.equipment) }, onContinue: finish
                 ) {

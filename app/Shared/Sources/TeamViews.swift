@@ -59,7 +59,7 @@ struct MyTeamView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("My team", subtitle: "Join your coach's team with their code. Your coach then sees how ready you are each day and how much you trained — never anything you wrote — and can send you workouts.")
+                    ScreenTitle("My team", subtitle: "Join with your coach's code. They see your readiness and training, never what you write.")
                     if let message {
                         Text(message).font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.red)
                     }
@@ -189,7 +189,7 @@ struct CoachView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Coach mode", subtitle: "Make a team and give your athletes the code. You'll see who checked in, who's tired and how much everyone trained, and you can send workouts.")
+                    ScreenTitle("Coach mode", subtitle: "Create a team and share the code. See check-ins and training, and send workouts.")
                     if let message {
                         Text(message).font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.red)
                     }
@@ -329,7 +329,7 @@ struct TeamBoardView: View {
 
     private var readinessSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Today", subtitle: "From each athlete's morning check-in. Green: ready. Amber: a bit tired. Red: go easy today.")
+            SectionHeader("Today", subtitle: "From morning check-ins. Green: ready. Amber: a bit tired. Red: go easy.")
             if let members = board?.members, !members.isEmpty {
                 VStack(spacing: 0) {
                     ForEach(Array(members.enumerated()), id: \.offset) { index, member in
@@ -553,7 +553,7 @@ struct ParentSummaryView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Parent summary", subtitle: "A private web page for a parent: this week's training, sleep, check-ins, upcoming games and Campus progress. Only numbers — never anything you wrote.")
+                    ScreenTitle("Parent summary", subtitle: "A private page for a parent: training, sleep, games and Campus. Never what you write.")
                     if loading {
                         ProgressView().frame(maxWidth: .infinity)
                     } else if let link {

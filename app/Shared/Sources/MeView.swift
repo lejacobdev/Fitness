@@ -237,7 +237,10 @@ struct MeView: View {
             .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
             .appScreen()
             .toolbar(.hidden, for: .navigationBar)
-            .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
+            .task {
+                catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
+                if DemoData.initialTab == .me, let name = DemoData.initialSheet { activeSheet = MeSheet(rawValue: name) }
+            }
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
                 case .sport: SportEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)

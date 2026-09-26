@@ -2,9 +2,9 @@ import SwiftUI
 
 // MARK: - Duolingo-style palette and components
 
-/// Campus works like Duolingo: a winding path of lessons per unit, chunky 3D
-/// buttons, a lesson player with a progress bar, hearts, "Check" and a green
-/// or red answer sheet. Its colours are Duolingo's own feedback colours plus
+/// Campus: a winding path of lessons per unit (with chunky path buttons) and
+/// a calm lesson player — a thin progress bar, "Check", and a quiet answer
+/// sheet; a missed question comes back at the end. Its colours are Duolingo's own feedback colours plus
 /// the app's red for the path.
 enum Duo {
     static let green = Color(hex: "#58CC02")
@@ -82,25 +82,24 @@ struct AnswerTile: View {
     var body: some View {
         let (fill, border, textColor): (Color, Color, Color) = {
             switch state {
-            case .idle: (AppTheme.background, Duo.border, AppTheme.ink)
-            case .selected: (Duo.blueSoft, Duo.blue, Duo.blueLip)
-            case .correct: (Duo.greenSoft, Duo.green, Duo.greenText)
-            case .wrong: (Duo.redSoft, Duo.red, Duo.redLip)
-            case .done: (AppTheme.background, Duo.border, Duo.lockedGlyph)
+            case .idle: (AppTheme.fill, .clear, AppTheme.ink)
+            case .selected: (AppTheme.fill, AppTheme.accent, AppTheme.ink)
+            case .correct: (AppTheme.green.opacity(0.14), AppTheme.green, AppTheme.ink)
+            case .wrong: (AppTheme.coral.opacity(0.14), AppTheme.coral, AppTheme.ink)
+            case .done: (AppTheme.fill, .clear, AppTheme.secondaryText)
             }
         }()
+        let shape = RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous)
         Text(text)
-            .font(.title3.weight(.semibold))
+            .font(.body.weight(.medium))
             .foregroundStyle(textColor)
             .multilineTextAlignment(.center)
             .padding(.horizontal, 14)
-            .padding(.vertical, 16)
-            .frame(maxWidth: .infinity, minHeight: 60)
-            .background(fill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(border, lineWidth: 2))
-            .background(border.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous)).offset(y: 4))
-            .padding(.bottom, 4)
-            .opacity(state == .done ? 0.5 : 1)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, minHeight: 56)
+            .background(fill, in: shape)
+            .overlay(shape.strokeBorder(border, lineWidth: 2))
+            .opacity(state == .done ? 0.6 : 1)
     }
 }
 
@@ -574,7 +573,6 @@ struct CampusLessonPlayer: View {
     @State private var queue: [CampusStep] = []
     @State private var index = 0
     @State private var completed = 0
-    @State private var hearts = 5
     @State private var mistakes = 0
     @State private var phase: Phase = .answering
     @State private var choice: Int?
@@ -604,8 +602,6 @@ struct CampusLessonPlayer: View {
                     onFinish(earnedXP)
                     dismiss()
                 }
-            } else if hearts == 0 {
-                outOfHearts
             } else {
                 header
                 ScrollView {
@@ -639,26 +635,22 @@ struct CampusLessonPlayer: View {
         HStack(spacing: 14) {
             Button { confirmQuit = true } label: {
                 Image(systemName: "xmark")
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(Duo.lockedGlyph)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(AppTheme.secondaryText)
                     .frame(width: 44, height: 44)
             }
             .accessibilityLabel("Quit lesson")
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Duo.lockedFill)
-                    Capsule().fill(Duo.green)
-                        .frame(width: max(16, geo.size.width * Double(completed) / Double(max(1, total))))
-                        .overlay(alignment: .top) {
-                            Capsule().fill(.white.opacity(0.3)).frame(height: 5).padding(.horizontal, 8).padding(.top, 4)
-                        }
-                        .animation(.spring(duration: 0.4), value: completed)
+                    Capsule().fill(AppTheme.fill)
+                    Capsule().fill(AppTheme.accent)
+                        .frame(width: max(6, geo.size.width * Double(completed) / Double(max(1, total))))
+                        .animation(.easeOut(duration: 0.3), value: completed)
                 }
             }
-            .frame(height: 18)
-            Label("\(hearts)", systemImage: "heart.fill")
-                .font(.headline.weight(.heavy))
-                .foregroundStyle(Duo.red)
+            .frame(height: 6)
+            .accessibilityElement()
+            .accessibilityLabel("Step \(min(completed + 1, total)) of \(total)")
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
@@ -685,11 +677,10 @@ struct CampusLessonPlayer: View {
         case .answering:
             footerButton
                 .padding(20)
-                .overlay(alignment: .top) { Rectangle().fill(Duo.border).frame(height: 2) }
         case .correct:
-            FeedbackPanel(correct: true, title: ["Nicely done!", "Great job!", "Excellent!", "You got it!"][index % 4], detail: nil) { advance() }
+            FeedbackPanel(correct: true, title: "Correct", detail: nil) { advance() }
         case .wrong:
-            FeedbackPanel(correct: false, title: "Correct answer:", detail: wrongDetail) { advance() }
+            FeedbackPanel(correct: false, title: "Not quite. The answer:", detail: wrongDetail) { advance() }
         }
     }
 
@@ -699,14 +690,14 @@ struct CampusLessonPlayer: View {
             switch step {
             case .teach:
                 Button("Continue") { advance() }
-                    .buttonStyle(ChunkyButtonStyle())
+                    .buttonStyle(.primary)
             case .question(let q):
                 if case .match = q {
                     // Matching needs no Check button: it checks itself.
-                    Button("Check") {}.buttonStyle(ChunkyButtonStyle()).disabled(true)
+                    Button("Check") {}.buttonStyle(.primary).disabled(true)
                 } else {
                     Button("Check") { check(q) }
-                        .buttonStyle(ChunkyButtonStyle())
+                        .buttonStyle(.primary)
                         .disabled(!answerReady(q))
                 }
             }
@@ -741,10 +732,9 @@ struct CampusLessonPlayer: View {
         }
         phase = right ? .correct : .wrong
         if !right {
-            hearts -= 1
             mistakes += 1
             wrong.insert(q)
-            // Duolingo brings a missed exercise back at the end of the lesson.
+            // A missed question comes back at the end of the lesson.
             queue.append(queue[index])
         }
         feedbackTrigger += 1
@@ -763,36 +753,6 @@ struct CampusLessonPlayer: View {
             finishedAt = .now
         }
     }
-
-    private var outOfHearts: some View {
-        VStack(spacing: 22) {
-            Spacer()
-            Image(systemName: "heart.slash.fill")
-                .font(.system(size: 80, weight: .bold))
-                .foregroundStyle(Duo.red)
-            Text("You ran out of hearts")
-                .font(.title.weight(.heavy))
-                .foregroundStyle(AppTheme.ink)
-            Text("No problem — go through the lesson again. Every try makes it stick.")
-                .font(.title3)
-                .foregroundStyle(AppTheme.secondaryText)
-                .multilineTextAlignment(.center)
-            Spacer()
-            Button("Try again") {
-                queue = allSteps
-                wrong = []
-                index = 0; completed = 0; hearts = 5; mistakes = 0; phase = .answering
-                choice = nil; fillWord = nil; match = MatchState(); startedAt = .now
-            }
-            .buttonStyle(ChunkyButtonStyle(fill: Duo.black, lip: Duo.blackLip))
-            Button("Quit") { dismiss() }
-                .font(.headline.weight(.heavy))
-                .textCase(.uppercase)
-                .foregroundStyle(Duo.blue)
-                .frame(height: 50)
-        }
-        .padding(24)
-    }
 }
 
 /// A teaching card: the coach explains one idea in a speech bubble.
@@ -802,14 +762,15 @@ private struct TeachCard: View {
 
     var body: some View {
         let forYou = section.heading == CampusLesson.meansForYouHeading
+        let example = section.heading == CampusLesson.exampleHeading
         VStack(alignment: .leading, spacing: 16) {
             Text(lessonTitle)
                 .font(.caption.weight(.bold))
                 .tracking(0.8)
                 .textCase(.uppercase)
                 .foregroundStyle(AppTheme.secondaryText)
-            if forYou {
-                Label(section.heading, systemImage: "person.fill.checkmark")
+            if forYou || example {
+                Label(section.heading, systemImage: forYou ? "person.fill.checkmark" : "figure.run")
                     .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(AppTheme.ink)
             } else {
@@ -824,8 +785,8 @@ private struct TeachCard: View {
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(forYou ? 16 : 0)
-                .background(forYou ? AppTheme.card : Color.clear, in: RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
+                .padding(forYou || example ? 16 : 0)
+                .background(forYou || example ? AppTheme.card : Color.clear, in: RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -892,8 +853,8 @@ private struct QuestionView: View {
 
     private func title(_ text: String) -> some View {
         Text(text)
-            .font(.title.weight(.heavy))
-            .foregroundStyle(AppTheme.ink)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(AppTheme.secondaryText)
             .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -1013,30 +974,31 @@ private struct FeedbackPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                Image(systemName: correct ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .font(.system(size: 34, weight: .bold))
+            HStack(spacing: 10) {
+                Image(systemName: correct ? "checkmark.circle.fill" : "arrow.uturn.backward.circle.fill")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(correct ? AppTheme.green : AppTheme.coral)
                 Text(title)
-                    .font(.title2.weight(.heavy))
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(AppTheme.ink)
             }
-            .foregroundStyle(correct ? Duo.greenText : Duo.redLip)
             if let detail, !detail.isEmpty {
                 Text(detail)
-                    .font(.title3.weight(.medium))
-                    .foregroundStyle(correct ? Duo.greenText : Duo.redLip)
+                    .font(.body)
+                    .foregroundStyle(AppTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Button(correct ? "Continue" : "Got it", action: onContinue)
-                .buttonStyle(ChunkyButtonStyle(fill: correct ? Duo.green : Duo.red, lip: correct ? Duo.greenLip : Duo.redLip))
+                .buttonStyle(.primary)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(correct ? Duo.greenSoft : Duo.redSoft)
+        .background(AppTheme.card)
         .transition(.move(edge: .bottom))
     }
 }
 
-/// "Lesson complete!" with the XP, accuracy and time boxes.
+/// Lesson complete: what it earned, calmly.
 private struct CampusComplete: View {
     let xp: Int
     let accuracy: Int
@@ -1045,49 +1007,42 @@ private struct CampusComplete: View {
     @State private var appeared = false
 
     var body: some View {
-        VStack(spacing: 26) {
+        VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "star.circle.fill")
-                .font(.system(size: 110, weight: .bold))
-                .foregroundStyle(Duo.gold)
-                .scaleEffect(appeared ? 1 : 0.4)
-                .animation(.spring(response: 0.5, dampingFraction: 0.5), value: appeared)
-            Text("Lesson complete!")
-                .font(.largeTitle.weight(.heavy))
-                .foregroundStyle(Duo.goldLip)
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 64, weight: .semibold))
+                .foregroundStyle(AppTheme.green)
+                .opacity(appeared ? 1 : 0)
+                .animation(.easeOut(duration: 0.3), value: appeared)
+            Text("Lesson complete")
+                .font(.system(size: 32, weight: .bold))
+                .foregroundStyle(AppTheme.ink)
             HStack(spacing: 12) {
-                stat("Total XP", "\(xp)", systemImage: "bolt.fill", color: Duo.gold)
-                stat(accuracy >= 80 ? "Amazing" : "Accuracy", "\(accuracy)%", systemImage: "target", color: Duo.green)
-                stat("Time", String(format: "%d:%02d", seconds / 60, seconds % 60), systemImage: "stopwatch.fill", color: Duo.blue)
+                stat("XP", "+\(xp)")
+                stat("Accuracy", "\(accuracy)%")
+                stat("Time", String(format: "%d:%02d", seconds / 60, seconds % 60))
             }
             Spacer()
             Button("Continue", action: onContinue)
-                .buttonStyle(ChunkyButtonStyle())
+                .buttonStyle(.primary)
         }
         .padding(24)
         .onAppear { appeared = true }
         .sensoryFeedback(.success, trigger: appeared)
     }
 
-    private func stat(_ label: String, _ value: String, systemImage: String, color: Color) -> some View {
-        VStack(spacing: 0) {
+    private func stat(_ label: String, _ value: String) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             Text(label)
-                .font(.caption.weight(.heavy))
-                .textCase(.uppercase)
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-            Label(value, systemImage: systemImage)
-                .font(.title3.weight(.heavy))
-                .foregroundStyle(color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .frame(maxWidth: .infinity, minHeight: 54)
-                .background(AppTheme.background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .padding(3)
+                .font(.footnote)
+                .foregroundStyle(AppTheme.secondaryText)
         }
-        .background(color, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .frame(maxWidth: .infinity, minHeight: 72)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
     }
 }

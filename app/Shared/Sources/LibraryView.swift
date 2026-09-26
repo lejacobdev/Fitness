@@ -86,7 +86,7 @@ public struct LibraryView: View {
                 LazyVStack(alignment: .leading, spacing: 14, pinnedViews: []) {
                     ScreenTitle("Library", subtitle: "\(allItems.count) exercises and drills, all offline.")
                     TipCard(id: "library", icon: "play.rectangle.fill", title: "Every move, animated",
-                            message: "Tap any exercise to watch how it's done and see the muscles it works in red. Press Try it now to do it on its own.")
+                            message: "Tap an exercise to see how it's done.")
                     searchRow
                     groupChips
                     if let region {
