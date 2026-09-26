@@ -18,7 +18,8 @@ final class RealPackDecodingTests: XCTestCase {
 
     func testEveryBuiltPackDecodesCompletely() throws {
         let files = try FileManager.default.contentsOfDirectory(at: distDirectory, includingPropertiesForKeys: nil)
-            .filter { $0.pathExtension == "json" && $0.lastPathComponent != "manifest.json" }
+            // animations.json isn't a sport pack (AnimationLibrary downloads it on its own).
+            .filter { $0.pathExtension == "json" && !["manifest.json", "animations.json"].contains($0.lastPathComponent) }
         XCTAssertEqual(files.count, allSports.count + 1, "expected the core pack plus one per sport")
 
         var totalItems = 0
@@ -32,6 +33,16 @@ final class RealPackDecodingTests: XCTestCase {
             }
         }
         XCTAssertGreaterThan(totalItems, 100)
+    }
+
+    /// The animations the server publishes decode with the app's own types
+    /// and fit this app's rig — so phones will actually use them.
+    func testThePublishedAnimationsFitThisApp() throws {
+        let data = try Data(contentsOf: distDirectory.appending(path: "animations.json"))
+        let pack = try JSONDecoder().decode(AnimationPack.self, from: data)
+        XCTAssertNil(AnimationLibrary.problem(with: pack))
+        XCTAssertEqual(pack.patterns.count, bundledPosePatterns.count)
+        XCTAssertEqual(pack.itemPoses, bundledPosePatternForItem, "this build's table and the published one agree")
     }
 
     func testTheLoaderSeesEveryItemFromTheRealPacks() throws {
