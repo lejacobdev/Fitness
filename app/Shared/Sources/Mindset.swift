@@ -14,7 +14,26 @@ public struct Reflection: Codable, Sendable, Equatable, Identifiable {
     public var lesson: String
     /// 1 (rough day) … 5 (great day), optional.
     public var feeling: Int?
+    // The evening check-in (V3): mostly taps, one optional sentence.
+    /// How hard was today: 1 easy … 4 very hard.
+    public var hardness: Int?
+    /// How the body feels: 1 fresh … 4 very sore.
+    public var body: Int?
+    /// How practice went: 1 tough … 4 great (nil: no practice).
+    public var practice: Int?
+    public var wentWell: [String]?
+    public var needsWork: [String]?
+    /// "What did you learn today?" — the one optional written answer.
+    public var learned: String?
     public var id: String { day }
+}
+
+/// Tap answers for the evening check-in.
+public enum EveningOptions {
+    public static let hardness = ["Easy", "Moderate", "Hard", "Very hard"]
+    public static let body = ["Fresh", "Normal", "Tired", "Very sore"]
+    public static let practice = ["Tough", "Okay", "Good", "Great"]
+    public static let areas = ["Effort", "Focus", "Technique", "Speed", "Strength", "Decisions", "Communication", "Confidence", "Recovery"]
 }
 
 /// What a season goal is about — decides the kind of weekly focus it gets.
@@ -197,6 +216,31 @@ public enum MindsetStore {
         var all = reflections.filter { $0.day != key }
         all.append(Reflection(day: key, win: win, lesson: lesson, feeling: feeling))
         reflections = all
+    }
+
+    /// Saves the evening check-in. "What went well" and "what needs work"
+    /// also become the win and lesson the Mindset page shows.
+    public static func saveEvening(hardness: Int?, body: Int?, practice: Int?, wentWell: [String], needsWork: [String],
+                                   learned: String?, on date: Date = .now, calendar: Calendar = .current) {
+        let key = dayKey(date, calendar: calendar)
+        var all = reflections.filter { $0.day != key }
+        let note = learned?.trimmingCharacters(in: .whitespacesAndNewlines)
+        all.append(Reflection(
+            day: key,
+            win: wentWell.isEmpty ? (note ?? "") : wentWell.joined(separator: ", "),
+            lesson: needsWork.isEmpty ? "" : needsWork.joined(separator: ", "),
+            feeling: practice.map { $0 + 1 }, hardness: hardness, body: body, practice: practice,
+            wentWell: wentWell, needsWork: needsWork, learned: (note?.isEmpty ?? true) ? nil : note
+        ))
+        reflections = all
+    }
+
+    /// Last evening's answers, for today's plan (ADAPT).
+    public static func yesterdaySignal(now: Date = .now, calendar: Calendar = .current) -> EveningSignal? {
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+              let reflection = reflection(on: yesterday, calendar: calendar),
+              reflection.hardness != nil || reflection.body != nil else { return nil }
+        return EveningSignal(hardness: reflection.hardness, body: reflection.body)
     }
 
     /// Reflections in the week containing `date`.

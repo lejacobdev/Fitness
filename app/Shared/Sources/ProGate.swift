@@ -70,6 +70,50 @@ public enum ProFeature: String, CaseIterable, Sendable {
     }
 }
 
+public extension ProFeature {
+    /// What the feature is called where the athlete meets it (V3: explained
+    /// on entry, never a wall of locks).
+    var proTitle: String {
+        switch self {
+        case .fullSeasonCalendar: "Season trends"
+        case .detailedTracking: "Detailed Log"
+        case .fullHistory: "Full history"
+        case .workoutEditor: "Your own plan"
+        case .myWorkouts: "More workouts"
+        case .shareWorkouts: "Share workouts"
+        case .unlimitedLessons: "Unlimited learning"
+        case .videoJumpTest: "Camera jump test"
+        case .visualization: "Game-day visualization"
+        case .moreCalendars: "More calendars"
+        case .coachWorkouts: "Coach tools"
+        case .skillBlocks: "More skill plans"
+        case .muscleWorkouts: "More muscle workouts"
+        case .multipleSports: "Several sports"
+        case .exerciseProgress: "Exercise progress"
+        case .dataExport: "Data export"
+        default: "Athlete OS Pro"
+        }
+    }
+
+    /// The benefit, in one sentence.
+    var proBenefit: String {
+        switch self {
+        case .fullSeasonCalendar: "See your whole season and year as colored dots, to spot your patterns."
+        case .detailedTracking: "Log each part of practice and see which areas get the least work."
+        case .fullHistory: "Your stats and history beyond the last 30 days."
+        case .workoutEditor: "Change any exercise, set and rep in your plan."
+        case .myWorkouts: "Keep as many of your own workouts as you like."
+        case .shareWorkouts: "Send a workout to teammates with a code, link or QR code."
+        case .unlimitedLessons: "Keep learning after today's three new lessons."
+        case .videoJumpTest: "Measure your jump from a slow-motion video."
+        case .visualization: "A guided 5-minute visualization before games."
+        case .moreCalendars: "Connect every team, club and school calendar."
+        case .coachWorkouts: "Send workouts to your whole team."
+        default: proDescription
+        }
+    }
+}
+
 public enum ProLimits {
     /// §4: "Named skill menu — 3 skill blocks per month" on free.
     public static let freeSkillBlocksPerMonth = 3

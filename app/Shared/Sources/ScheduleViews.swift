@@ -49,7 +49,7 @@ struct ScheduleSheet: View {
                     Button("Done") { dismiss() }.fontWeight(.semibold)
                 }
             }
-            .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .moreCalendars)
+            .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .moreCalendars)
             .sheet(isPresented: $addingCalendar) {
                 AddCalendarSheet(sportName: AthleteStats.sportName(athlete)) { feed, events in
                     feeds.append(feed)
@@ -97,7 +97,7 @@ struct ScheduleSheet: View {
             // One calendar is free; school + club + more is Pro.
             let canAdd = ProGate.canAddCalendar(isPro: ProAccess.isPro, calendarCount: feeds.count)
             Button { if canAdd { addingCalendar = true } else { showingPaywall = true } } label: {
-                Label(feeds.isEmpty ? "Connect a calendar" : (canAdd ? "Connect another calendar" : "Connect another calendar 🔒"), systemImage: "link.badge.plus")
+                Label(feeds.isEmpty ? "Connect a calendar" : "Connect another calendar", systemImage: "link.badge.plus")
             }
             .buttonStyle(.primary)
             if !feeds.isEmpty {

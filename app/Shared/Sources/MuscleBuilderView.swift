@@ -131,7 +131,7 @@ struct MuscleBuilderView: View {
             }
         }
         .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
-        .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .muscleWorkouts)
+        .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .muscleWorkouts)
         .sheet(item: $detailItem) { item in
             NavigationStack { ItemDetailView(item: item) }
         }

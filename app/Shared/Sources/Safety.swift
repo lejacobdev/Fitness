@@ -121,3 +121,76 @@ public enum ConcussionGuide {
         set { UserDefaults.standard.set(newValue, forKey: stepKey) }
     }
 }
+
+/// The Safety Center (Me → Safety Center): what to do when something doesn't
+/// feel right. Short and plain — it explains, it never diagnoses.
+public enum SafetyTopic: String, CaseIterable, Identifiable, Sendable {
+    case pain, headInjury, whenToStop, afterIllness, talkToAdult
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .pain: "Pain"
+        case .headInjury: "Head injury"
+        case .whenToStop: "When to stop training"
+        case .afterIllness: "Returning after illness"
+        case .talkToAdult: "Talk to an adult"
+        }
+    }
+
+    public var summary: String {
+        switch self {
+        case .pain: "Soreness is normal. Pain is a signal."
+        case .headInjury: "When in doubt, sit it out."
+        case .whenToStop: "Signs to stop straight away."
+        case .afterIllness: "Coming back without a setback."
+        case .talkToAdult: "Who to tell, and when."
+        }
+    }
+
+    public var systemImage: String {
+        switch self {
+        case .pain: "bandage.fill"
+        case .headInjury: "brain.head.profile"
+        case .whenToStop: "hand.raised.fill"
+        case .afterIllness: "thermometer.medium"
+        case .talkToAdult: "person.2.fill"
+        }
+    }
+
+    public var points: [String] {
+        switch self {
+        case .pain: [
+            "Muscle soreness a day or two after hard training is normal and fades.",
+            "Pain that is sharp, in a joint or bone, makes you limp, or gets worse as you train is different: stop that exercise.",
+            "Swelling, a pop, numbness or tingling: stop training and tell an adult today.",
+            "Pain that lasts more than a few days, or wakes you at night, needs a doctor or athletic trainer.",
+            "Report pain in the morning check-in and today's training gets lighter.",
+        ]
+        case .headInjury: ConcussionGuide.rightAway
+        case .whenToStop: [
+            "Chest pain, trouble breathing, or feeling faint or dizzy.",
+            "Sharp pain, a pop, or a joint that gives way.",
+            "Any knock to the head, even if you feel fine.",
+            "Feeling hot, confused or sick in the heat: stop, cool down and drink.",
+            "In an emergency, call your local emergency number.",
+        ]
+        case .afterIllness: [
+            "Fever, body aches or a stomach bug: no training until you've had no fever for 24 hours without medicine.",
+            "Just a head cold? Light training can be fine. Stop if you feel worse.",
+            "Come back with a few lighter days before full training.",
+            "Set your day to Sick / Rest on Home and the plan backs off.",
+            "Chest pain, a racing heart or unusual breathlessness after being ill: see a doctor before training.",
+        ]
+        case .talkToAdult: [
+            "Coaches, athletic trainers, parents and school nurses are there to help. Telling them is the smart move.",
+            "Tell someone about pain, a head knock, feeling low for a long time, or anything that worries you.",
+            "Struggling or thinking about hurting yourself? Talk to someone now: a parent, a trusted adult, or your local emergency number.",
+        ]
+        }
+    }
+
+    /// Said once, here — not on every screen.
+    public static let disclaimer = "Athlete OS gives general guidance, not medical advice, and can't diagnose anything. A doctor, athletic trainer or parent decides. In an emergency, call your local emergency number."
+}

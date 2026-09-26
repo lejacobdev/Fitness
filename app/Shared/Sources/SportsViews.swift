@@ -94,7 +94,7 @@ struct SportSwitcher: View {
         .sheet(isPresented: $showingManage) {
             SportsManagerSheet(athlete: athlete, onChanged: onChanged)
         }
-        .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .multipleSports)
+        .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .multipleSports)
     }
 
     private var label: some View {
@@ -190,7 +190,7 @@ struct SportsManagerSheet: View {
             .sheet(isPresented: $showingChange) {
                 AddSportSheet(athlete: athlete, replacing: true, onSaved: onChanged)
             }
-            .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .multipleSports)
+            .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .multipleSports)
             .sheet(item: $editing) { sport in
                 SportSettingsSheet(sport: sport, onSaved: onChanged)
             }

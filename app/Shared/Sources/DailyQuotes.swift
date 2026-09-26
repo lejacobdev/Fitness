@@ -51,6 +51,13 @@ public enum DailyQuotes {
     ]
 
     /// Today's quote: the same all day, the next one tomorrow.
+    /// Home's quote: one that fits in two lines.
+    public static func short(for date: Date = .now, calendar: Calendar = .current) -> DailyQuote {
+        let fitting = all.filter { $0.text.count <= 100 }
+        let day = calendar.ordinality(of: .day, in: .era, for: date) ?? 0
+        return fitting.isEmpty ? quote(for: date, calendar: calendar) : fitting[day % fitting.count]
+    }
+
     public static func quote(for date: Date = .now, calendar: Calendar = .current) -> DailyQuote {
         let day = calendar.ordinality(of: .day, in: .era, for: date) ?? 0
         return all[day % all.count]

@@ -26,7 +26,7 @@ public enum CloudSync {
 
     /// UserDefaults keys that belong to the athlete (not to this device).
     static let settingsKeys: Set<String> = [
-        "dayStatus.v1", "reminderSettings", "home.introSeen", "home.layout", "appTourSeen", "gettingStartedHidden",
+        "dayStatus.v1", "reminderSettings", "home.introSeen", "appTourSeen", "gettingStartedHidden",
         "libraryOpened", "trainingStartMinutes", "gameStartMinutes", "weightUnit",
         "freeSportSwitchDates", "muscleWorkoutStarts",
     ]

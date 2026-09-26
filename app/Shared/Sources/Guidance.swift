@@ -119,7 +119,7 @@ struct AppTourView: View {
              steps: ["Tap the next lesson on the path", "Know your sport: what wins, and a quiz", "Trophy: leagues · Medal: badges"]),
         Page(icon: "figure.strengthtraining.traditional", color: AppTheme.brand, tab: "Workout",
              title: "Three kinds of workout",
-             body: "After practice: short and smart. Gym day: your full session on days without practice. Stretching & mobility: good every day. Each one is built for your sport, schedule and what you want to fix.",
+             body: "After practice: short and smart. Gym day: your full session on days without practice. Stretching & mobility: good every day. Each one is built for your sport, your schedule and your goals.",
              steps: ["The one for today is marked", "See it, then press Start", "Change it: swap, add or remove exercises, pick your days"]),
         Page(icon: "calendar", color: AppTheme.orange, tab: "Progress",
              title: "See how far you've come",
@@ -127,8 +127,8 @@ struct AppTourView: View {
              steps: ["Tap a day to see or log it", "Log team practice — easy or exact", "Set practice times, games and trainings"]),
         Page(icon: "person.fill", color: AppTheme.purple, tab: "Me",
              title: "You, your goals and settings",
-             body: "Tell the app what you want to fix — speed, strength, stamina — and your workouts lean towards it. Sports, equipment, tests, team & family, reminders and your account live here too.",
-             steps: ["Me → What you want to fix", "Me → Tests every 6–8 weeks", "Replay this tour any time in Me → Help"]),
+             body: "Set your development goals — speed, strength, conditioning — and your training leans towards them. Sports, equipment, tests, team & family, reminders and your account live here too.",
+             steps: ["Me → My Development Goals", "Me → Tests every 6–8 weeks", "Replay this tour any time in Me → Help"]),
     ]
 
     var body: some View {
@@ -259,7 +259,7 @@ struct GettingStartedCard: View {
                  done: !athlete.competitions.isEmpty, action: onAddGame),
             Step(id: "session", title: "Finish your first workout", detail: "Press Start and follow along", icon: "play.fill",
                  done: hasLoggedSession, action: onStartSession),
-            Step(id: "skill", title: "Build a skill plan", detail: "Improve → pick a skill", icon: "target",
+            Step(id: "skill", title: "Build a skill plan", detail: "Workout → Skill plans", icon: "target",
                  done: !athlete.skillBlocks.isEmpty, action: onImprove),
             Step(id: "library", title: "Watch how an exercise is done", detail: "Library → tap any exercise", icon: "play.rectangle.fill",
                  done: libraryOpened, action: onLibrary),
@@ -422,9 +422,9 @@ struct HelpCenterView: View {
         ("How do I log team practice?",
          "Progress → Team practice → Log today's practice, or tap an earlier day in the calendar. Choose Easy (how hard, how it went, mood) or Exact (also tired muscles and how each part of your game went)."),
         ("How do I get better at one skill?",
-         "Workout → Skill plans & muscle workouts → Skills → pick a skill → set your game date → Build my plan."),
+         "Workout → Skill plans & muscle workouts → Skills → choose a skill → set your game date → Build my plan."),
         ("How do I make workouts more personal?",
-         "Me → What you want to fix: pick up to three things like speed, strength or stamina. Your gym days and after-practice workouts lean towards them."),
+         "Me → My Development Goals: choose up to three, like acceleration, strength or conditioning. Your training leans towards them."),
         ("What do the red muscles mean?",
          "Solid red is what an exercise mainly works, lighter red is what helps. The same colours glow on the animated athlete."),
         ("Does it work without internet?",
@@ -560,8 +560,63 @@ struct ProBadge: View {
     }
 }
 
-/// A calm upsell card where a Pro feature would be: says what is behind
-/// it and opens the paywall on that feature. Never a pop-up on its own.
+extension ProFeature: Identifiable {
+    public var id: String { rawValue }
+}
+
+/// Entering a Pro feature: what it is, that it's part of Pro, one Upgrade
+/// button (V3 — no lock icons around the app, no hard sell).
+struct ProFeatureSheet: View {
+    let feature: ProFeature
+    let athlete: Athlete?
+    @Environment(\.dismiss) private var dismiss
+    @State private var showingPaywall = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Image(systemName: "sparkles")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(AppTheme.onAccent)
+                .frame(width: 52, height: 52)
+                .background(AppTheme.accent, in: Circle())
+            Text(feature.proTitle)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+            Text(feature.proBenefit)
+                .font(.body)
+                .foregroundStyle(AppTheme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Available with Athlete OS Pro.")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+            Spacer(minLength: 0)
+            Button("Upgrade") { showingPaywall = true }
+                .buttonStyle(.primary)
+            Button("Not now") { dismiss() }
+                .font(.headline)
+                .foregroundStyle(AppTheme.secondaryText)
+                .frame(maxWidth: .infinity, minHeight: 48)
+        }
+        .padding(24)
+        .presentationDetents([.medium])
+        .appScreen()
+        .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: feature)
+    }
+}
+
+extension View {
+    /// Explains a Pro feature when the athlete taps into it (then Upgrade).
+    func proFeature(item: Binding<ProFeature?>, athlete: Athlete?) -> some View {
+        sheet(item: item) { feature in ProFeatureSheet(feature: feature, athlete: athlete) }
+    }
+
+    func proFeature(isPresented: Binding<Bool>, athlete: Athlete?, feature: ProFeature) -> some View {
+        sheet(isPresented: isPresented) { ProFeatureSheet(feature: feature, athlete: athlete) }
+    }
+}
+
+/// A calm card where a Pro feature would be: what it adds and one button.
+/// Never a pop-up on its own.
 struct ProLockCard: View {
     let feature: ProFeature
     let title: String
@@ -573,7 +628,7 @@ struct ProLockCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                Image(systemName: "lock.fill")
+                Image(systemName: "sparkles")
                     .font(.footnote.weight(.bold))
                     .foregroundStyle(AppTheme.onAccent)
                     .frame(width: 32, height: 32)
@@ -582,17 +637,19 @@ struct ProLockCard: View {
                     .font(.headline)
                     .foregroundStyle(AppTheme.ink)
                 Spacer(minLength: 0)
-                ProBadge()
             }
             Text(message)
                 .font(.footnote)
                 .foregroundStyle(AppTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("See Pro") { showingPaywall = true }
-                .buttonStyle(.primary)
+            Text("Available with Athlete OS Pro.")
+                .font(.footnote)
+                .foregroundStyle(AppTheme.secondaryText)
+            Button("Upgrade") { showingPaywall = true }
+                .buttonStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle(padding: 18)
+        .cardStyle(padding: 16)
         .proPaywall(isPresented: $showingPaywall, athlete: context?.athlete, feature: feature)
     }
 }

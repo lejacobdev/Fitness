@@ -305,7 +305,7 @@ struct TeamBoardView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
             }
             .task { await load() }
-            .proPaywall(isPresented: $showingPaywall, athlete: context?.athlete, feature: .coachWorkouts)
+            .proFeature(isPresented: $showingPaywall, athlete: context?.athlete, feature: .coachWorkouts)
             .sheet(isPresented: $inviting) {
                 CodeShareSheet(title: "Invite athletes", subtitle: "They scan the QR code, open the link, or enter the code in Me → My team.",
                                link: .team(team.code), message: "Join our team “\(team.name)” in Athlete OS")
@@ -393,7 +393,7 @@ struct TeamBoardView: View {
             }
             // The readiness board is free for coaches; sending workouts is Pro.
             Button { if ProAccess.isPro { assigning = true } else { showingPaywall = true } } label: {
-                Label(ProAccess.isPro ? "Send a workout" : "Send a workout 🔒", systemImage: "paperplane.fill")
+                Label("Send a workout", systemImage: "paperplane.fill")
             }
             .buttonStyle(.primary)
         }

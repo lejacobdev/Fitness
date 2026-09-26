@@ -49,7 +49,7 @@ struct MeView: View {
     private var apiClient: APIClient { APIClient(baseURL: AppConfig.backendBaseURL) }
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, concussion, struggles
+        case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, safety, struggles, trends, mindset, schedule
         var id: String { rawValue }
     }
 
@@ -85,49 +85,21 @@ struct MeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Me", subtitle: "Your progress, your training setup and your account.")
+                    ScreenTitle("Me")
                     profileCard
-                    statsRow
+                    goalsCard
 
-                    SectionHeader("Your progress", subtitle: "How your sleep, training and body balance are going.")
-                    SleepTrendCard(checkIns: athlete.checkIns)
-                    LoadTrendCard(summary: LoadCalculator.summarize(sessions.map {
-                        LoadSample(date: $0.startedAt, minutes: $0.minutes, rpe: $0.sessionRPE)
-                    }))
-                    MuscleBalanceCard(balance: CoachEngine.muscleBalance(sessions: coachSessions, catalogue: catalogue))
-
+                    SectionHeader("Training Setup")
                     menuCard {
-                        menuRow("Exercise progress", icon: "chart.xyaxis.line", tint: AppTheme.orange,
-                                detail: ProAccess.isPro ? "\(Set(sessions.flatMap { $0.sets.map(\.itemSlug) }).count) exercises" : "Pro") {
-                            if ProAccess.isPro { activeSheet = .exercises } else { showingPaywall = true }
-                        }
-                        menuDivider
-                        menuRow("Tests", icon: "stopwatch.fill", tint: AppTheme.accent, detail: "Every 6–8 weeks") { activeSheet = .tests }
-                        menuDivider
-                        menuRow("Past workouts", icon: "clock.arrow.circlepath", tint: AppTheme.blue, detail: "\(sessions.count)") { activeSheet = .history }
-                        menuDivider
-                        menuRow("Past check-ins", icon: "sun.max.fill", tint: AppTheme.amber, detail: "\(athlete.checkIns.count)") { activeSheet = .checkIns }
-                    }
-
-                    SectionHeader("Food & health", subtitle: "What to eat and drink, and your Apple Health data.")
-                    menuCard {
-                        menuRow("Food & water", icon: "fork.knife", tint: AppTheme.green, detail: "Today") { activeSheet = .fuel }
-                        menuDivider
-                        menuRow("Apple Health", icon: "heart.fill", tint: AppTheme.red,
-                                detail: HealthKitManager.shared.isAvailable ? "Connect" : "Unavailable") { activeSheet = .health }
-                    }
-
-                    SectionHeader("Your training setup", subtitle: "Change any of these and your plan updates to match.")
-                    menuCard {
-                        menuRow("What you want to fix", icon: "target", tint: AppTheme.brand,
-                                detail: Struggles.selected.isEmpty ? "Not set" : Struggles.selected.map(\.title).joined(separator: ", ")) { activeSheet = .struggles }
-                        menuDivider
                         menuRow(athlete.sports.count > 1 ? "Sports" : "Sport & position", icon: sportInfo.map { SportIcon.name(for: $0.slug) } ?? "sportscourt.fill", tint: AppTheme.brand,
                                 detail: athlete.sports.count > 1
                                     ? "\(athlete.sports.count) sports"
                                     : [sportInfo?.name, positionName].compactMap { $0 }.joined(separator: " · ")) { activeSheet = .sports }
                         menuDivider
-                        menuRow("Season dates", icon: "calendar", tint: AppTheme.blue,
+                        menuRow("Practice schedule", icon: "calendar.badge.clock", tint: AppTheme.orange,
+                                detail: PracticeSchedule.isSet ? "Set" : "Not set") { activeSheet = .schedule }
+                        menuDivider
+                        menuRow("Season dates", icon: "calendar", tint: AppTheme.ink,
                                 detail: athlete.sports.count > 1 ? "\(sportInfo?.name ?? "") · \(seasonDetail)" : seasonDetail) { activeSheet = .season }
                         menuDivider
                         menuRow("Equipment", icon: "dumbbell.fill", tint: AppTheme.purple,
@@ -136,7 +108,37 @@ struct MeView: View {
                         coachToggleRow
                     }
 
-                    SectionHeader("Team & family", subtitle: "Share how you're doing with your coach and parents — only what you choose.")
+                    SectionHeader("Training History")
+                    menuCard {
+                        menuRow("Trends", icon: "chart.xyaxis.line", tint: AppTheme.brand, detail: "Sleep, load, balance") { activeSheet = .trends }
+                        menuDivider
+                        menuRow("Exercise progress", icon: "chart.line.uptrend.xyaxis", tint: AppTheme.orange,
+                                detail: ProAccess.isPro ? "\(Set(sessions.flatMap { $0.sets.map(\.itemSlug) }).count) exercises" : "") {
+                            if ProAccess.isPro { activeSheet = .exercises } else { showingPaywall = true }
+                        }
+                        menuDivider
+                        menuRow("Tests", icon: "stopwatch.fill", tint: AppTheme.coral, detail: "Every 6–8 weeks") { activeSheet = .tests }
+                        menuDivider
+                        menuRow("Past workouts", icon: "clock.arrow.circlepath", tint: AppTheme.ink, detail: "\(sessions.count)") { activeSheet = .history }
+                        menuDivider
+                        menuRow("Past check-ins", icon: "sun.max.fill", tint: AppTheme.amber, detail: "\(athlete.checkIns.count)") { activeSheet = .checkIns }
+                    }
+
+                    SectionHeader("Food, mind & health")
+                    menuCard {
+                        menuRow("Food & water", icon: "fork.knife", tint: AppTheme.green, detail: "Today") { activeSheet = .fuel }
+                        menuDivider
+                        menuRow("Mindset", icon: "brain.head.profile", tint: AppTheme.purple, detail: "Goals & routines") { activeSheet = .mindset }
+                        menuDivider
+                        menuRow("Apple Health", icon: "heart.fill", tint: AppTheme.red,
+                                detail: HealthKitManager.shared.isAvailable ? "Connect" : "Unavailable") { activeSheet = .health }
+                    }
+
+                    menuCard {
+                        menuRow("Safety Center", icon: "cross.case.fill", tint: AppTheme.red, detail: "Pain, head injury, illness") { activeSheet = .safety }
+                    }
+
+                    SectionHeader("Team & Family")
                     menuCard {
                         menuRow("My team", icon: "person.3.fill", tint: AppTheme.brand, detail: "Join with a code") { activeSheet = .team }
                         menuDivider
@@ -145,16 +147,14 @@ struct MeView: View {
                         menuRow("Coach mode", icon: "whistle.fill", tint: AppTheme.orange, detail: "For coaches") { activeSheet = .coach }
                     }
 
-                    SectionHeader("Help & settings")
+                    SectionHeader("Settings")
                     menuCard {
                         menuRow("Help & app tour", icon: "questionmark.circle.fill", tint: AppTheme.ink, detail: "") { activeSheet = .help }
-                        menuDivider
-                        menuRow("Head knocks & concussion", icon: "bandage.fill", tint: AppTheme.red, detail: "Safety") { activeSheet = .concussion }
                         menuDivider
                         menuRow("Reminders", icon: "bell.fill", tint: AppTheme.amber,
                                 detail: ReminderScheduler.settings.anyEnabled ? "On" : "Off") { activeSheet = .reminders }
                         menuDivider
-                        menuRow("Downloads for offline use", icon: "arrow.down.circle.fill", tint: AppTheme.blue, detail: "") { activeSheet = .downloads }
+                        menuRow("Downloads for offline use", icon: "arrow.down.circle.fill", tint: AppTheme.ink, detail: "") { activeSheet = .downloads }
                     }
 
                     #if os(iOS) && !APP_EXTENSION
@@ -189,8 +189,6 @@ struct MeView: View {
                         menuDivider
                         linkRow("Support", icon: "questionmark.circle.fill", url: AppConfig.backendBaseURL.appending(path: "support"))
                     }
-
-                    disclaimerCard
 
                     if athlete.isGuest {
                         guestAccount
@@ -256,11 +254,14 @@ struct MeView: View {
                 case .team: MyTeamView()
                 case .coach: CoachView()
                 case .parent: ParentSummaryView()
-                case .concussion: ConcussionGuideView()
+                case .safety: SafetyCenterView()
                 case .struggles: StrugglesSheet(onSaved: onPlanInputsChanged)
+                case .trends: TrendsSheet(athlete: athlete, sessions: sessions, balance: CoachEngine.muscleBalance(sessions: coachSessions, catalogue: catalogue))
+                case .mindset: MindsetView(sportName: AthleteStats.sportName(athlete)) {}
+                case .schedule: ScheduleSheet(athlete: athlete, onChanged: onPlanInputsChanged)
                 }
             }
-            .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .exerciseProgress)
+            .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .exerciseProgress)
             .confirmationDialog("Delete your account?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
                 Button("Delete everything", role: .destructive) { deleteAccount() }
                 Button("Cancel", role: .cancel) {}
@@ -305,13 +306,13 @@ struct MeView: View {
                 .frame(width: 72, height: 72)
                 .background(AppTheme.accent, in: Circle())
             VStack(alignment: .leading, spacing: 4) {
-                Text(sportInfo?.name ?? "Athlete")
+                Text(athlete.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? sportInfo?.name ?? "Athlete")
                     .font(.title2.bold())
                     .foregroundStyle(AppTheme.ink)
-                Text([positionName, "Age \(age)"].compactMap { $0 }.joined(separator: " · "))
+                Text([athlete.displayName?.isEmpty == false ? sportInfo?.name : nil, positionName, "Age \(age)"].compactMap { $0 }.joined(separator: " · "))
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
-                Tag(AthleteStats.phaseLabel(phase), color: AppTheme.blue)
+                Tag(AthleteStats.phaseLabel(phase), color: AppTheme.ink)
             }
             Spacer(minLength: 0)
             Button {
@@ -329,30 +330,33 @@ struct MeView: View {
         .cardStyle()
     }
 
-    private var statsRow: some View {
-        HStack(spacing: 12) {
-            statTile("\(sessions.count)", "Sessions", "figure.run", AppTheme.orange)
-            statTile("\(totalMinutes / 60)h \(totalMinutes % 60)m", "Trained", "clock.fill", AppTheme.blue)
-            statTile("\(streak)", "Day streak", "flame.fill", AppTheme.brand)
+    /// My Development Goals: what the plan leans towards.
+    private var goalsCard: some View {
+        Button { activeSheet = .struggles } label: {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("My Development Goals")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink)
+                    Spacer()
+                    Text("Edit")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink)
+                }
+                let goals = Struggles.selected
+                if goals.isEmpty {
+                    Text("Choose what you want to develop. Your training leans towards it.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .multilineTextAlignment(.leading)
+                } else {
+                    FlowChips(goals.map(\.title))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardStyle(padding: 20)
         }
-    }
-
-    private func statTile(_ value: String, _ label: String, _ icon: String, _ color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: icon)
-                .font(.footnote.weight(.bold))
-                .foregroundStyle(color)
-            Text(value)
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(AppTheme.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(AppTheme.secondaryText)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle(padding: 14)
+        .buttonStyle(.plain)
     }
 
     // MARK: - Menu rows
@@ -437,22 +441,6 @@ struct MeView: View {
         }
         .tint(AppTheme.green)
         .padding(.vertical, 8)
-    }
-
-    private var disclaimerCard: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "cross.case.fill")
-                .foregroundStyle(AppTheme.secondaryText)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Not a medical device")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(AppTheme.ink)
-                Text("Athlete OS never predicts injury, diagnoses, or clears anyone to return to play. It supplements your coach and athletic trainer — it never replaces them. If something hurts, stop and tell an adult.")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-        }
-        .cardStyle(padding: 16)
     }
 
     // MARK: - No account yet
@@ -592,6 +580,36 @@ struct MeView: View {
 
 /// §11: "Chart sleep against training load... make that chart the first
 /// thing on the trends screen."
+/// Sleep, training load and body balance (Me → Training History → Trends).
+struct TrendsSheet: View {
+    let athlete: Athlete
+    let sessions: [Session]
+    let balance: [MuscleRegion: Double]
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    ScreenTitle("Trends", subtitle: "Sleep, training load and body balance.")
+                    SleepTrendCard(checkIns: athlete.checkIns)
+                    LoadTrendCard(summary: LoadCalculator.summarize(sessions.map {
+                        LoadSample(date: $0.startedAt, minutes: $0.minutes, rpe: $0.sessionRPE)
+                    }))
+                    MuscleBalanceCard(balance: balance)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .containerRelativeFrame(.horizontal)
+            }
+            .appScreen()
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
+            }
+        }
+    }
+}
+
 struct SleepTrendCard: View {
     let checkIns: [CheckIn]
 

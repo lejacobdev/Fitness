@@ -46,8 +46,9 @@ public enum AppTheme {
     public static let amber = Color(hex: "#F59E0B")
     public static let red = Color(hex: "#EF4444")
 
-    public static let cardCornerRadius: CGFloat = 26
-    public static let controlCornerRadius: CGFloat = 18
+    /// One corner radius for cards, one for controls (V3: calmer, consistent).
+    public static let cardCornerRadius: CGFloat = 20
+    public static let controlCornerRadius: CGFloat = 14
 
     public static func color(for band: ReadinessBand?) -> Color {
         switch band {
@@ -114,13 +115,22 @@ private struct CardBackground: ViewModifier {
 
 public extension View {
     /// A soft card: generous corner radius, a whisper of shadow, no border.
-    func cardStyle(padding: CGFloat = 20) -> some View {
+    func cardStyle(padding: CGFloat = 16) -> some View {
         modifier(CardBackground(padding: padding))
     }
 
-    /// The standard screen canvas, full-bleed.
+    /// The standard screen canvas, full-bleed. The status bar gets its own
+    /// backdrop, so scrolled content never sits under the clock, and every
+    /// scroll view ends with room to spare above the tab bar.
     func appScreen() -> some View {
         background(AppBackground())
+            .overlay(alignment: .top) {
+                AppTheme.background.opacity(0.96)
+                    .frame(height: 0)
+                    .ignoresSafeArea(edges: .top)
+                    .allowsHitTesting(false)
+            }
+            .contentMargins(.bottom, 24, for: .scrollContent)
     }
 }
 
@@ -139,14 +149,14 @@ public struct PrimaryButtonStyle: ButtonStyle {
 
         var body: some View {
             configuration.label
-                .font(.title3.weight(.bold))
+                .font(.headline.weight(.bold))
                 // One line, never wrapped: shrink a little first; a row of
                 // buttons that still doesn't fit stacks instead (ButtonRow).
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .padding(.horizontal, 18)
                 .foregroundStyle(AppTheme.onAccent)
-                .frame(maxWidth: .infinity, minHeight: 62)
+                .frame(maxWidth: .infinity, minHeight: 56)
                 .background(AppTheme.accent, in: Capsule())
                 .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1) : 0.3)
                 .scaleEffect(configuration.isPressed ? 0.98 : 1)
@@ -160,12 +170,12 @@ public struct SecondaryButtonStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.title3.weight(.semibold))
+            .font(.headline)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .padding(.horizontal, 18)
             .foregroundStyle(AppTheme.ink)
-            .frame(maxWidth: .infinity, minHeight: 58)
+            .frame(maxWidth: .infinity, minHeight: 52)
             .background(AppTheme.fill, in: Capsule())
             .opacity(configuration.isPressed ? 0.7 : 1)
     }
@@ -545,12 +555,189 @@ public struct OptionRow: View {
             Spacer(minLength: 0)
         }
         .foregroundStyle(isSelected ? AppTheme.onAccent : AppTheme.ink)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 20)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(isSelected ? AppTheme.accent : AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
         .contentShape(Rectangle())
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+/// One row of a list card (Home's TODAY, Me's settings): a tinted icon, a
+/// title, one short detail, and what's on the right (a time, a tick, a chevron).
+public struct ListRow<Trailing: View>: View {
+    let systemImage: String
+    let color: Color
+    let title: String
+    let detail: String?
+    let trailing: Trailing
+
+    public init(systemImage: String, color: Color = AppTheme.ink, title: String, detail: String? = nil,
+                @ViewBuilder trailing: () -> Trailing = { Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(AppTheme.secondaryText) }) {
+        self.systemImage = systemImage
+        self.color = color
+        self.title = title
+        self.detail = detail
+        self.trailing = trailing()
+    }
+
+    public var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 40, height: 40)
+                .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .multilineTextAlignment(.leading)
+                if let detail {
+                    Text(detail)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .multilineTextAlignment(.leading)
+                }
+            }
+            Spacer(minLength: 8)
+            trailing
+        }
+        .frame(minHeight: 56)
+        .contentShape(Rectangle())
+    }
+}
+
+/// A big answer for a one-tap question (check-in, reflection): the answers
+/// share the width, two to a row when they don't fit on one.
+public struct ChoiceGrid<Option: Hashable>: View {
+    let options: [Option]
+    let title: (Option) -> String
+    let isSelected: (Option) -> Bool
+    let onTap: (Option) -> Void
+
+    public init(_ options: [Option], title: @escaping (Option) -> String, isSelected: @escaping (Option) -> Bool, onTap: @escaping (Option) -> Void) {
+        self.options = options
+        self.title = title
+        self.isSelected = isSelected
+        self.onTap = onTap
+    }
+
+    public var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 10)], spacing: 10) {
+            ForEach(options, id: \.self) { option in
+                let selected = isSelected(option)
+                Button { onTap(option) } label: {
+                    Text(title(option))
+                        .font(.headline)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(selected ? AppTheme.onAccent : AppTheme.ink)
+                        .padding(.horizontal, 12)
+                        .frame(maxWidth: .infinity, minHeight: 56)
+                        .background(selected ? AppTheme.accent : AppTheme.fill,
+                                    in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
+    }
+}
+
+/// A calm one-question-at-a-time flow (check-in, reflection): close and a
+/// thin progress bar on top, the question big, its answers, one button.
+public struct QuestionPage<Content: View>: View {
+    let progress: Double
+    let question: String
+    let hint: String?
+    let buttonTitle: String?
+    let buttonEnabled: Bool
+    let onClose: () -> Void
+    let onBack: (() -> Void)?
+    let onButton: () -> Void
+    let content: Content
+
+    public init(progress: Double, question: String, hint: String? = nil, buttonTitle: String? = "Next", buttonEnabled: Bool = true,
+                onClose: @escaping () -> Void, onBack: (() -> Void)? = nil, onButton: @escaping () -> Void = {},
+                @ViewBuilder content: () -> Content) {
+        self.progress = progress
+        self.question = question
+        self.hint = hint
+        self.buttonTitle = buttonTitle
+        self.buttonEnabled = buttonEnabled
+        self.onClose = onClose
+        self.onBack = onBack
+        self.onButton = onButton
+        self.content = content()
+    }
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 14) {
+                if let onBack {
+                    CircleIconButton(systemImage: "chevron.left", accessibilityLabel: "Back", action: onBack)
+                } else {
+                    CircleIconButton(systemImage: "xmark", accessibilityLabel: "Close", action: onClose)
+                }
+                StepProgressBar(progress: progress)
+            }
+            .frame(minHeight: 44)
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(question)
+                            .font(.system(size: 26, weight: .bold))
+                            .foregroundStyle(AppTheme.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityAddTraits(.isHeader)
+                        if let hint {
+                            Text(hint)
+                                .font(.subheadline)
+                                .foregroundStyle(AppTheme.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    content
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.top, 28)
+                .padding(.bottom, 24)
+            }
+            if let buttonTitle {
+                Button(buttonTitle, action: onButton)
+                    .buttonStyle(.primary)
+                    .disabled(!buttonEnabled)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 16)
+            }
+        }
+        .appScreen()
+    }
+}
+
+/// Static chips that wrap (e.g. the athlete's development goals).
+struct FlowChips: View {
+    let titles: [String]
+
+    init(_ titles: [String]) {
+        self.titles = titles
+    }
+
+    var body: some View {
+        WrapLayout(spacing: 8) {
+            ForEach(titles, id: \.self) { title in
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(AppTheme.fill, in: Capsule())
+            }
+        }
     }
 }
 
@@ -611,13 +798,16 @@ public struct ScreenTitle: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 6) {
+            // V3 type scale: page 32 bold, section 22 semibold, card 18–20,
+            // body 15–17, secondary 14–15.
             Text(title)
-                .font(.system(size: 38, weight: .heavy))
+                .font(.system(size: 32, weight: .bold))
                 .foregroundStyle(AppTheme.ink)
             if let subtitle {
                 Text(subtitle)
-                    .font(.body)
+                    .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -642,7 +832,7 @@ public struct SectionHeader<Trailing: View>: View {
         HStack(alignment: .lastTextBaseline) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.title2.bold())
+                    .font(.title2.weight(.semibold))
                     .foregroundStyle(AppTheme.ink)
                     .accessibilityAddTraits(.isHeader)
                 if let subtitle {

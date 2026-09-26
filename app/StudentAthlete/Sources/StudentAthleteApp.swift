@@ -28,9 +28,9 @@ struct StudentAthleteApp: App {
                     if let url = activity.webpageURL { DeepLinkCenter.shared.open(url) }
                 }
                 .tint(AppTheme.accent)
-                // Big by default: one step above the system's standard text
-                // size (and everything larger the athlete chooses still works).
-                .dynamicTypeSize(.xLarge ... .accessibility3)
+                // The system's standard text size and up (V3: calmer type; the
+                // athlete's own larger sizes still work).
+                .dynamicTypeSize(.large ... .accessibility3)
         }
         .modelContainer(container)
     }

@@ -224,7 +224,7 @@ struct ProgressTabView: View {
                 case .tests: BenchmarksView(sportSlug: sportSlug)
                 }
             }
-            .proPaywall(item: $paywall, athlete: athlete)
+            .proFeature(item: $paywall, athlete: athlete)
         }
     }
 
@@ -305,17 +305,14 @@ struct ProgressTabView: View {
                     Button {
                         if locked { paywall = .fullSeasonCalendar } else { withAnimation(.easeInOut(duration: 0.2)) { zoom = value } }
                     } label: {
-                        HStack(spacing: 4) {
-                            Text(value.rawValue)
-                            if locked { Image(systemName: "lock.fill").font(.caption2) }
-                        }
+                        Text(value.rawValue)
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(zoom == value ? AppTheme.onAccent : AppTheme.ink)
                         .frame(maxWidth: .infinity, minHeight: 40)
                         .background(zoom == value ? AppTheme.accent : AppTheme.fill, in: Capsule())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(locked ? "\(value.rawValue), Pro" : value.rawValue)
+                    .accessibilityLabel(value.rawValue)
                 }
             }
             switch zoom {
@@ -509,11 +506,8 @@ struct ProgressTabView: View {
                         }
                     } label: {
                         VStack(spacing: 2) {
-                            HStack(spacing: 4) {
-                                Text(level == .easy ? "Easy" : "Exact").font(.headline)
-                                if locked { Image(systemName: "lock.fill").font(.caption2) }
-                            }
-                            Text(level == .easy ? "How hard, how it went, mood" : "+ tired muscles, each part of your game")
+                            Text(level.title).font(.headline)
+                            Text(level == .easy ? "Time, effort, mood, result" : "+ each part of your game")
                                 .font(.caption2)
                                 .multilineTextAlignment(.center)
                         }
@@ -564,7 +558,7 @@ struct ProgressTabView: View {
                     Button {
                         if locked { paywall = .fullHistory } else { statsPeriod = period }
                     } label: {
-                        Chip(locked ? "\(period.rawValue) 🔒" : period.rawValue, isSelected: statsPeriod == period)
+                        Chip(period.rawValue, isSelected: statsPeriod == period)
                     }
                     .buttonStyle(.plain)
                 }
@@ -602,7 +596,7 @@ struct ProgressTabView: View {
                                 .padding(.top, 4)
                         } else {
                             Button { paywall = .detailedTracking } label: {
-                                Label("See what you practise least — Pro", systemImage: "lock.fill")
+                                Label("See what you practise least", systemImage: "lightbulb")
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(AppTheme.ink)
                             }
@@ -917,7 +911,7 @@ struct PracticeLogSheet: View {
                             TrackingLevel.current = value
                         }
                     } label: {
-                        Chip(locked ? "Exact 🔒" : (value == .easy ? "Easy" : "Exact"), isSelected: level == value)
+                        Chip(value.title, isSelected: level == value)
                     }
                     .buttonStyle(.plain)
                 }
@@ -1006,7 +1000,7 @@ struct PracticeLogSheet: View {
                 .frame(maxWidth: .infinity)
             }
         }
-        .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .detailedTracking)
+        .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .detailedTracking)
     }
 
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {

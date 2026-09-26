@@ -116,7 +116,7 @@ public struct WatchTodayPayload: Codable, Sendable, Equatable {
         let calendar = Calendar.current
         let checkIn = AthleteStats.todaysCheckIn(athlete)
         var session = week?.sessions.first { calendar.isDateInToday($0.date) }
-        if let planned = session, let band = checkIn?.readinessBand {
+        if let planned = session, let band = DailyLoop.todayBand(athlete) {
             session = ReadinessApplier.apply(to: planned, band: band).session
         }
         let catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())

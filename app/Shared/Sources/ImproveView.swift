@@ -165,7 +165,7 @@ struct ImproveView: View {
 
     private var howItWorks: some View {
         HStack(spacing: 0) {
-            step(1, "Pick a skill", "target")
+            step(1, "Choose a skill", "target")
             connector
             step(2, "Set your game", "calendar")
             connector
@@ -682,10 +682,10 @@ struct SkillBlockView: View {
 }
 
 extension View {
-    /// The Pro paywall where StoreKit exists (the iOS app); a no-op in the
-    /// widget and watch builds that also compile this file.
+    /// What skill plans add with Pro, and the Upgrade button (the paywall
+    /// itself only exists in the iOS app).
     @ViewBuilder
     func skillPlanPaywall(isPresented: Binding<Bool>, athlete: Athlete) -> some View {
-        proPaywall(isPresented: isPresented, athlete: athlete, feature: .skillBlocks)
+        proFeature(isPresented: isPresented, athlete: athlete, feature: .skillBlocks)
     }
 }

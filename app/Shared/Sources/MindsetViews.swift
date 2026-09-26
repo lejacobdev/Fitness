@@ -64,7 +64,7 @@ struct MindsetView: View {
                     editingGoals = false
                 }
             }
-            .proPaywall(isPresented: $showingPaywall, athlete: context?.athlete, feature: .visualization)
+            .proFeature(isPresented: $showingPaywall, athlete: context?.athlete, feature: .visualization)
             .fullScreenCover(item: $routine, onDismiss: { revision += 1 }) { routine in
                 switch routine {
                 case .breathing: BreathingView()
@@ -200,7 +200,290 @@ struct MindsetView: View {
             SectionHeader("Before a game", subtitle: "Nerves are normal — they mean you care. These get you calm and sharp.")
             routineButton("2-minute breathing", detail: "Calm your nerves or lock in", icon: "wind", color: AppTheme.water) { routine = .breathing }
             // Breathing stays free; the guided visualization is Pro.
-            routineButton(ProAccess.isPro ? "Game-day visualization" : "Game-day visualization 🔒", detail: "5 minutes: play the game in your head first",
+            routineButton("Game-day visualization", detail: "5 minutes: play the game in your head first",
+                          icon: "eye.fill", color: AppTheme.purple) {
+                if ProAccess.isPro { routine = .visualization } else { showingPaywall = true }
+            }
+        }
+    }
+
+    private func routineButton(_ title: String, detail: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(color)
+                    .frame(width: 52, height: 52)
+                    .background(color.opacity(0.12), in: Circle())
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.ink)
+                    Text(detail)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "play.fill")
+                    .foregroundStyle(color)
+            }
+            .cardStyle(padding: 14)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var learnSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Learn", subtitle: "Short Campus lessons on confidence, pressure, focus and teamwork.")
+            Button {
+                dismiss()
+                onOpenCampus()
+            } label: {
+                Label("Open the mindset lessons", systemImage: "graduationcap.fill")
+            }
+            .buttonStyle(.secondary)
+        }
+    }
+
+    private var pastWins: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Your wins", subtitle: "Read these before a big game.")
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(reflections.prefix(7)) { reflection in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(reflection.day)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.secondaryText)
+                        Label(reflection.win, systemImage: "star.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.ink)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardStyle(padding: 16)
+        }
+    }
+}
+
+// MARK: - Reflection
+
+/// "One win, one lesson" — two big fields and done.
+/// The evening reflection (V3): about a minute of taps — how hard today
+/// was, how the body feels, how practice went, what went well and what needs
+/// work — and one optional line on what you learned. Then the day is done.
+/// Tomorrow's plan reads it (ADAPT).
+struct ReflectionSheet: View {
+    let practiceToday: Bool
+    let onSaved: () -> Void
+    /// The rest of today, for the "Today completed" ticks (nil: not shown).
+    @State private var completion: DayCompletion?
+
+    @Environment(\.dismiss) private var dismiss
+
+    enum Step: Hashable { case hardness, body, practice, wentWell, needsWork, learned, done }
+
+    @State private var step: Step = .hardness
+    @State private var hardness: Int?
+    @State private var bodyFeel: Int?
+    @State private var practice: Int?
+    @State private var wentWell: Set<String> = []
+    @State private var needsWork: Set<String> = []
+    @State private var learned = ""
+
+    init(completion: DayCompletion? = nil, practiceToday: Bool = false, onSaved: @escaping () -> Void) {
+        _completion = State(initialValue: completion)
+        self.practiceToday = practiceToday
+        self.onSaved = onSaved
+        let existing = MindsetStore.reflection(on: .now)
+        _hardness = State(initialValue: existing?.hardness)
+        _bodyFeel = State(initialValue: existing?.body)
+        _practice = State(initialValue: existing?.practice)
+        _wentWell = State(initialValue: Set(existing?.wentWell ?? []))
+        _needsWork = State(initialValue: Set(existing?.needsWork ?? []))
+        _learned = State(initialValue: existing?.learned ?? "")
+    }
+
+    private var steps: [Step] {
+        [.hardness, .body] + (practiceToday ? [.practice] : []) + [.wentWell, .needsWork, .learned]
+    }
+
+    private var progress: Double {
+        guard let index = steps.firstIndex(of: step) else { return 1 }
+        return Double(index) / Double(steps.count)
+    }
+
+    var body: some View {
+        ZStack {
+            page
+                .id(step)
+                .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
+        }
+        .sensoryFeedback(.success, trigger: step == .done)
+    }
+
+    @ViewBuilder
+    private var page: some View {
+        switch step {
+        case .hardness:
+            scale("How hard was today?", EveningOptions.hardness, selection: $hardness)
+        case .body:
+            scale("How does your body feel?", EveningOptions.body, selection: $bodyFeel)
+        case .practice:
+            scale("How was practice?", EveningOptions.practice, selection: $practice)
+        case .wentWell:
+            areas("What went well?", selection: $wentWell)
+        case .needsWork:
+            areas("What needs work?", selection: $needsWork)
+        case .learned:
+            QuestionPage(progress: progress, question: "What did you learn today?", hint: "Optional. One line is plenty.",
+                         buttonTitle: "Save", onClose: { dismiss() }, onBack: back, onButton: save) {
+                TextField("e.g. Call for the ball earlier", text: $learned, axis: .vertical)
+                    .lineLimit(2...4)
+                    .font(.body)
+                    .padding(16)
+                    .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
+            }
+        case .done:
+            QuestionPage(progress: 1, question: "Today completed", hint: "Tomorrow's plan adapts to how today went.",
+                         buttonTitle: "Done", onClose: { dismiss() }, onButton: { dismiss() }) {
+                if let completion {
+                    VStack(spacing: 0) {
+                        ForEach(completion.items) { item in
+                            HStack(spacing: 14) {
+                                Image(systemName: item.done ? "checkmark.circle.fill" : "circle")
+                                    .font(.title2)
+                                    .foregroundStyle(item.done ? AppTheme.green : AppTheme.secondaryText.opacity(0.5))
+                                Text(item.title)
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(item.done ? AppTheme.ink : AppTheme.secondaryText)
+                                Spacer()
+                            }
+                            .frame(minHeight: 52)
+                        }
+                    }
+                    .cardStyle(padding: 16)
+                }
+            }
+        }
+    }
+
+    private func scale(_ question: String, _ options: [String], selection: Binding<Int?>) -> some View {
+        let current = step
+        return QuestionPage(progress: progress, question: question, buttonTitle: selection.wrappedValue == nil ? nil : "Next",
+                            onClose: { dismiss() }, onBack: current == .hardness ? nil : back, onButton: { next(from: current) }) {
+            ChoiceGrid(Array(options.indices), title: { options[$0] }, isSelected: { selection.wrappedValue == $0 + 1 }) { index in
+                selection.wrappedValue = index + 1
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(220))
+                    next(from: current)
+                }
+            }
+        }
+    }
+
+    private func areas(_ question: String, selection: Binding<Set<String>>) -> some View {
+        let current = step
+        return QuestionPage(progress: progress, question: question, hint: "Tap any that fit.",
+                            buttonTitle: selection.wrappedValue.isEmpty ? "Skip" : "Next",
+                            onClose: { dismiss() }, onBack: back, onButton: { next(from: current) }) {
+            ChoiceGrid(EveningOptions.areas, title: { $0 }, isSelected: { selection.wrappedValue.contains($0) }) { area in
+                if selection.wrappedValue.contains(area) { selection.wrappedValue.remove(area) } else { selection.wrappedValue.insert(area) }
+            }
+        }
+    }
+
+    private func next(from current: Step) {
+        guard step == current, let index = steps.firstIndex(of: current) else { return }
+        if index + 1 < steps.count {
+            withAnimation(.easeInOut(duration: 0.25)) { step = steps[index + 1] }
+        } else {
+            save()
+        }
+    }
+
+    private func back() {
+        guard let index = steps.firstIndex(of: step), index > 0 else { return }
+        withAnimation(.easeInOut(duration: 0.2)) { step = steps[index - 1] }
+    }
+
+    private func save() {
+        let order = EveningOptions.areas
+        MindsetStore.saveEvening(
+            hardness: hardness, body: bodyFeel, practice: practiceToday ? practice : nil,
+            wentWell: order.filter { wentWell.contains($0) }, needsWork: order.filter { needsWork.contains($0) },
+            learned: learned
+        )
+        onSaved()
+        if completion == nil {
+            dismiss()
+        } else {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                completion?.reflected = true
+                step = .done
+            }
+        }
+    }
+}
+
+// MARK: - Goals
+
+    private var goalsSection: some View {
+        _ = revision
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Season goals", subtitle: goals.isEmpty
+                ? "Up to three goals for this season. Each week you get one small, concrete thing to do for each."
+                : "This week's focus for each goal — tick it off when you've done it.")
+            ForEach(focus) { point in
+                focusRow(point)
+            }
+            if goals.isEmpty {
+                Button { editingGoals = true } label: { Label("Set my season goals", systemImage: "flag.fill") }
+                    .buttonStyle(.primary)
+            } else {
+                Button { editingGoals = true } label: { Label("Change my goals", systemImage: "flag.fill") }
+                    .buttonStyle(.secondary)
+            }
+        }
+    }
+
+    private func focusRow(_ point: FocusPoint) -> some View {
+        let done = MindsetStore.isFocusDone(point.goal.id)
+        return Button {
+            MindsetStore.setFocusDone(point.goal.id, !done)
+            revision += 1
+        } label: {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                    .font(.title2)
+                    .foregroundStyle(done ? AppTheme.green : AppTheme.secondaryText)
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(point.goal.text, systemImage: point.goal.area.systemImage)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.secondaryText)
+                    Text(point.text)
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.ink)
+                        .strikethrough(done)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .cardStyle(padding: 16)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(point.text). \(done ? "Done" : "Not done yet")")
+    }
+
+    // MARK: - Game day
+
+    private var gameDaySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Before a game", subtitle: "Nerves are normal — they mean you care. These get you calm and sharp.")
+            routineButton("2-minute breathing", detail: "Calm your nerves or lock in", icon: "wind", color: AppTheme.water) { routine = .breathing }
+            // Breathing stays free; the guided visualization is Pro.
+            routineButton("Game-day visualization", detail: "5 minutes: play the game in your head first",
                           icon: "eye.fill", color: AppTheme.purple) {
                 if ProAccess.isPro { routine = .visualization } else { showingPaywall = true }
             }

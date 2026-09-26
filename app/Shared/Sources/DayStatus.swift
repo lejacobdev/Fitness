@@ -4,11 +4,11 @@ import Foundation
 /// The plan and the reminders follow it, so the app never nags someone who
 /// is ill, travelling or on holiday.
 public enum DayStatus: String, CaseIterable, Codable, Sendable, Identifiable {
-    /// A normal day: school or campus, practice, the plan as usual.
+    /// A normal day: school, practice, the plan as usual.
     case active
     case sick
-    /// A head knock / possible concussion: every workout pauses until the
-    /// athlete switches back after a doctor clears them.
+    /// A possible head injury: every workout pauses until a doctor clears the
+    /// athlete. Set from the Safety Center, never from the day menu.
     case concussion
     case travel
     case holiday
@@ -17,37 +17,41 @@ public enum DayStatus: String, CaseIterable, Codable, Sendable, Identifiable {
 
     public var title: String {
         switch self {
-        case .active: "Active at Campus"
+        case .active: "Normal Day"
         case .sick: "Sick / Rest"
-        case .concussion: "Head knock"
-        case .travel: "Travel day"
+        case .concussion: "Training paused"
+        case .travel: "Travel Day"
         case .holiday: "Holiday"
         }
     }
 
     public var systemImage: String {
         switch self {
-        case .active: "graduationcap.fill"
+        case .active: "sun.max.fill"
         case .sick: "bed.double.fill"
         case .concussion: "bandage.fill"
         case .travel: "airplane"
-        case .holiday: "sun.max.fill"
+        case .holiday: "beach.umbrella.fill"
         }
     }
 
     /// What the app does differently, in one line — shown in the menu so it explains itself.
     public var explanation: String {
         switch self {
-        case .active: "Your plan as usual: workouts around practice and games."
-        case .sick: "No training. Rest, drink, sleep. Workout reminders pause."
-        case .concussion: "Possible concussion: all workouts pause. Follow your doctor's step-by-step return to play."
-        case .travel: "An optional 15-minute workout you can do anywhere, no equipment."
-        case .holiday: "Your plan pauses. Optional light workouts, no reminders."
+        case .active: "Your plan as usual."
+        case .sick: "No training. Rest and recover."
+        case .concussion: "Possible head injury: no training until a doctor clears you."
+        case .travel: "An optional 15-minute workout, no equipment."
+        case .holiday: "Plan paused. Optional light workouts."
         }
     }
 
     /// Whether workouts are planned and reminded as usual.
     public var trainsAsPlanned: Bool { self == .active }
+
+    /// The day types an athlete picks from. A head injury isn't a kind of
+    /// day — it's reported in the Safety Center, which pauses training.
+    public static let menu: [DayStatus] = [.active, .sick, .travel, .holiday]
 }
 
 /// The athlete's current status and how long it lasts. Stored on this

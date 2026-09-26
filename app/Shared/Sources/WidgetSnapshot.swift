@@ -68,7 +68,7 @@ enum WidgetSnapshotWriter {
         let session = week?.sessions.first { calendar.isDateInToday($0.date) }
         let checkIn = AthleteStats.todaysCheckIn(athlete)
         var adjusted = session
-        if let session, let band = checkIn?.readinessBand {
+        if let session, let band = DailyLoop.todayBand(athlete) {
             adjusted = ReadinessApplier.apply(to: session, band: band).session
         }
         let weekInterval = calendar.dateInterval(of: .weekOfYear, for: today)
@@ -82,7 +82,7 @@ enum WidgetSnapshotWriter {
             exerciseCount: adjusted?.items.count ?? 0,
             isGameDay: athlete.competitions.contains { calendar.isDateInToday($0.date) },
             checkedIn: checkIn != nil,
-            readiness: checkIn?.readinessBand?.rawValue,
+            readiness: checkIn == nil ? nil : DailyLoop.today(athlete)?.level.band.rawValue,
             nextGameDate: AthleteStats.upcomingCompetitions(athlete).first?.date,
             streak: AthleteStats.streak(checkInDates: athlete.checkIns.map(\.date), sessionDates: athlete.sessions.map(\.startedAt)),
             sessionsThisWeek: sessionsThisWeek,

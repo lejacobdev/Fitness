@@ -121,7 +121,7 @@ public enum DemoData {
         PracticeSchedule.weekdays = [2, 4, 5]
         PracticeTimes.all = [2: PracticeTime(start: 16 * 60, end: 18 * 60), 4: PracticeTime(start: 16 * 60, end: 18 * 60),
                              5: PracticeTime(start: 15 * 60 + 30, end: 17 * 60 + 30)]
-        Struggles.selected = [.speed, .strength]
+        Struggles.selected = [.acceleration, .strength]
         let types = SportPractice.types(for: "soccer")
         for back in 1...35 {
             guard let day = calendar.date(byAdding: .day, value: -back, to: now),

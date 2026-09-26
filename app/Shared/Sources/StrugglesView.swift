@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Me → What you want to fix: up to three struggles the workouts lean towards.
+/// Me → My Development Goals: up to three goals the training leans towards.
 struct StrugglesSheet: View {
     let onSaved: () -> Void
 
@@ -9,8 +9,8 @@ struct StrugglesSheet: View {
 
     var body: some View {
         StepScaffold(
-            title: "What do you want to fix?",
-            subtitle: "Pick up to \(Struggles.maximum). Your gym days and after-practice workouts lean towards them — without losing what your sport needs.",
+            title: "My Development Goals",
+            subtitle: "Pick up to \(Struggles.maximum). Your training leans towards them.",
             buttonTitle: "Save", onBack: { dismiss() },
             onContinue: {
                 Struggles.selected = selected

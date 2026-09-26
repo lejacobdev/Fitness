@@ -274,7 +274,7 @@ struct CampusView: View {
             .sheet(isPresented: $showingBadges) {
                 BadgesView()
             }
-            .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .unlimitedLessons)
+            .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .unlimitedLessons)
             .sheet(isPresented: $showingGuide, onDismiss: { revision += 1 }) {
                 SportGuideView(athlete: athlete)
             }

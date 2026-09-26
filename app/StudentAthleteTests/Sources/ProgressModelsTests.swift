@@ -47,11 +47,11 @@ final class ProgressModelsTests: XCTestCase {
     }
 
     func testStrugglesLeanThePlanWithoutLosingTheSport() {
-        Struggles.selected = [.speed, .strength, .core, .power]
-        XCTAssertEqual(Struggles.selected, [.speed, .strength, .core], "three at most")
-        let profile = Struggles.profile(base: ["acceleration": 0.5, "aerobic-base": 0.9], struggles: [.speed])
+        Struggles.selected = [.acceleration, .strength, .agility, .power]
+        XCTAssertEqual(Struggles.selected, [.acceleration, .strength, .agility], "three at most")
+        let profile = Struggles.profile(base: ["acceleration": 0.5, "aerobic-base": 0.9], struggles: [.acceleration])
         XCTAssertGreaterThan(profile["acceleration"] ?? 0, 0.9)
         XCTAssertEqual(profile["aerobic-base"], 0.9, "the sport's own qualities stay")
-        XCTAssertNil(Struggles.topQuality([.nerves]), "nerves change the Mindset tools, not the exercises")
+        XCTAssertNil(Struggles.topQuality([.confidence]), "confidence changes the Mindset tools, not the exercises")
     }
 }

@@ -51,6 +51,13 @@ public enum TrackingLevel: String, Codable, Sendable, CaseIterable {
 
     static let key = "progress.trackingLevel"
 
+    public var title: String {
+        switch self {
+        case .easy: "Quick Log"
+        case .exact: "Detailed Log"
+        }
+    }
+
     public static var current: TrackingLevel {
         get { UserDefaults.standard.string(forKey: key).flatMap(TrackingLevel.init(rawValue:)) ?? .easy }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: key) }
@@ -281,87 +288,80 @@ public enum DayKey {
     }
 }
 
-// MARK: - Struggles
+// MARK: - Development goals
 
-/// What the athlete wants to fix — the plan leans towards it.
+/// What the athlete wants to develop — the plan leans towards it. Performance
+/// goals only: no appearance or weight goals for teenage athletes.
 public enum Struggle: String, Codable, Sendable, CaseIterable, Identifiable {
-    case speed, endurance, strength, power, agility, mobility, balance, core
-    case loseWeight, gainMuscle, injuryComeback, nerves, sleep
+    case acceleration, maxSpeed, agility, strength, power, conditioning, mobility, sportSkill, recovery, confidence
 
     public var id: String { rawValue }
 
     public var title: String {
         switch self {
-        case .speed: "Speed"
-        case .endurance: "Stamina / endurance"
+        case .acceleration: "Acceleration"
+        case .maxSpeed: "Max speed"
+        case .agility: "Agility"
         case .strength: "Strength"
-        case .power: "Jumping & power"
-        case .agility: "Agility & change of direction"
-        case .mobility: "Flexibility & mobility"
-        case .balance: "Balance & stability"
-        case .core: "Core"
-        case .loseWeight: "Losing weight"
-        case .gainMuscle: "Gaining muscle"
-        case .injuryComeback: "Coming back from an injury"
-        case .nerves: "Nerves & focus"
-        case .sleep: "Sleep & recovery"
+        case .power: "Power"
+        case .conditioning: "Conditioning"
+        case .mobility: "Mobility"
+        case .sportSkill: "Sport skill"
+        case .recovery: "Recovery habits"
+        case .confidence: "Confidence"
         }
     }
 
     public var systemImage: String {
         switch self {
-        case .speed: "hare.fill"
-        case .endurance: "lungs.fill"
+        case .acceleration: "hare.fill"
+        case .maxSpeed: "gauge.with.dots.needle.100percent"
+        case .agility: "arrow.triangle.turn.up.right.diamond.fill"
         case .strength: "dumbbell.fill"
         case .power: "arrow.up.to.line"
-        case .agility: "arrow.triangle.turn.up.right.diamond.fill"
+        case .conditioning: "lungs.fill"
         case .mobility: "figure.flexibility"
-        case .balance: "figure.stand"
-        case .core: "figure.core.training"
-        case .loseWeight: "scalemass.fill"
-        case .gainMuscle: "figure.strengthtraining.traditional"
-        case .injuryComeback: "bandage.fill"
-        case .nerves: "brain.head.profile"
-        case .sleep: "moon.zzz.fill"
+        case .sportSkill: "sportscourt.fill"
+        case .recovery: "moon.zzz.fill"
+        case .confidence: "brain.head.profile"
         }
     }
 
-    /// What the app does about it, in one line.
+    /// What changes in the plan, in a few words.
     public var whatChanges: String {
         switch self {
-        case .speed: "More acceleration and top-speed work, and springy lower legs."
-        case .endurance: "More conditioning for repeated sprints and a bigger engine."
+        case .acceleration: "More first-step and short-sprint work."
+        case .maxSpeed: "More top-speed running and springy lower legs."
+        case .agility: "More braking, cutting and lateral power."
         case .strength: "More leg, push and pull strength."
-        case .power: "More jumping and explosive work."
-        case .agility: "More braking, cutting and side-to-side power."
-        case .mobility: "Longer daily mobility and more hip and shoulder range."
-        case .balance: "More single-leg strength and ankle control."
-        case .core: "More trunk work that resists twisting and bending."
-        case .loseWeight: "More conditioning. The app never counts calories or sets a diet — talk to a doctor or sports dietitian first, especially if you're under 18."
-        case .gainMuscle: "More strength work and a reminder to eat enough protein and carbs around training."
-        case .injuryComeback: "More landing, braking and single-leg control. Follow your physio or athletic trainer first."
-        case .nerves: "Your Mindset tools come first: breathing, visualization and a reset word."
-        case .sleep: "Evening mobility and breathing to wind down, and bedtime reminders in your reflection."
+        case .power: "More jumps, throws and explosive lifts."
+        case .conditioning: "More work for repeated efforts."
+        case .mobility: "Longer daily mobility."
+        case .sportSkill: "Skill plans for your sport, first in Workout."
+        case .recovery: "Evening mobility and sleep habits."
+        case .confidence: "Mindset tools first: breathing and a reset routine."
         }
     }
 
     /// Extra weight for training qualities in the plan.
     public var boosts: [String: Double] {
         switch self {
-        case .speed: ["acceleration": 1, "max-velocity": 1, "reactive-strength": 0.6, "ankle-stiffness": 0.5]
-        case .endurance: ["aerobic-base": 1, "repeat-sprint": 0.8, "anaerobic-capacity": 0.6]
+        case .acceleration: ["acceleration": 1, "horizontal-power": 0.6]
+        case .maxSpeed: ["max-velocity": 1, "reactive-strength": 0.6, "ankle-stiffness": 0.5]
+        case .agility: ["change-of-direction": 1, "deceleration": 0.8, "lateral-power": 0.7]
         case .strength: ["lower-body-strength": 1, "upper-body-push": 0.8, "upper-body-pull": 0.8]
         case .power: ["vertical-power": 1, "horizontal-power": 0.8, "reactive-strength": 0.7]
-        case .agility: ["change-of-direction": 1, "deceleration": 0.8, "lateral-power": 0.7]
+        case .conditioning: ["aerobic-base": 1, "repeat-sprint": 0.8, "anaerobic-capacity": 0.6]
         case .mobility: ["hip-mobility": 1, "shoulder-stability": 0.5]
-        case .balance: ["single-leg-stability": 1, "ankle-stiffness": 0.6]
-        case .core: ["trunk-anti-rotation": 1]
-        case .loseWeight: ["aerobic-base": 0.8, "repeat-sprint": 0.6, "anaerobic-capacity": 0.6]
-        case .gainMuscle: ["lower-body-strength": 0.8, "upper-body-push": 0.8, "upper-body-pull": 0.8]
-        case .injuryComeback: ["landing-mechanics": 0.8, "single-leg-stability": 0.8, "deceleration": 0.6]
-        case .nerves, .sleep: [:]
+        case .sportSkill, .recovery, .confidence: [:]
         }
     }
+
+    /// Goals saved under their older names.
+    static let renamed: [String: Struggle] = [
+        "speed": .acceleration, "endurance": .conditioning, "balance": .agility, "core": .strength,
+        "nerves": .confidence, "sleep": .recovery,
+    ]
 }
 
 public enum Struggles {
@@ -369,7 +369,13 @@ public enum Struggles {
     public static let maximum = 3
 
     public static var selected: [Struggle] {
-        get { (UserDefaults.standard.stringArray(forKey: key) ?? []).compactMap(Struggle.init(rawValue:)) }
+        get {
+            // Older names carry over; appearance goals (weight) are gone.
+            var seen = Set<Struggle>()
+            return (UserDefaults.standard.stringArray(forKey: key) ?? [])
+                .compactMap { Struggle(rawValue: $0) ?? Struggle.renamed[$0] }
+                .filter { seen.insert($0).inserted }
+        }
         set { UserDefaults.standard.set(Array(newValue.prefix(maximum)).map(\.rawValue), forKey: key) }
     }
 

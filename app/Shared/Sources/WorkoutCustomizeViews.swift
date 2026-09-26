@@ -152,7 +152,7 @@ struct WorkoutEditorView: View {
                 }
             }
             .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
-            .proPaywall(isPresented: $showingPaywall, athlete: context?.athlete, feature: .workoutEditor)
+            .proFeature(isPresented: $showingPaywall, athlete: context?.athlete, feature: .workoutEditor)
             .sheet(item: $picking) { picking in
                 ExercisePickerView(catalogue: catalogue, sportSlug: sportSlug, suggestions: suggestions(for: picking)) { item in
                     if let id = picking.replacing, let index = draft.items.firstIndex(where: { $0.id == id }) {
@@ -481,7 +481,7 @@ struct ShareWorkoutSheet: View {
                         CodeShareView(link: .workout(code), message: "Try my workout “\(workout.title)” in Athlete OS")
                     } else if !ProAccess.isPro {
                         VStack(alignment: .leading, spacing: 12) {
-                            Label("Sharing workouts is part of Athlete OS Pro", systemImage: "lock.fill")
+                            Label("Sharing workouts is part of Athlete OS Pro", systemImage: "sparkles")
                                 .font(.headline)
                                 .foregroundStyle(AppTheme.ink)
                             Text("Anyone can open a shared workout for free — sharing your own takes Pro.")
@@ -512,7 +512,7 @@ struct ShareWorkoutSheet: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
             }
             .onAppear { code = workout.shareCode }
-            .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .shareWorkouts)
+            .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .shareWorkouts)
         }
     }
 
@@ -599,7 +599,7 @@ struct SharedWorkoutSheet: View {
             .onChange(of: code) {
                 if DeepLink.normalize(code) != shared?.code { shared = nil }
             }
-            .proPaywall(isPresented: $showingPaywall, athlete: context?.athlete, feature: .myWorkouts)
+            .proFeature(isPresented: $showingPaywall, athlete: context?.athlete, feature: .myWorkouts)
         }
     }
 
@@ -632,7 +632,7 @@ struct SharedWorkoutSheet: View {
                     } else {
                         showingPaywall = true
                     }
-                } label: { Label(canKeep ? "Save to My workouts" : "Save to My workouts 🔒", systemImage: "square.and.arrow.down") }
+                } label: { Label("Save to My workouts", systemImage: "square.and.arrow.down") }
                 .buttonStyle(.secondary)
                 Button {
                     onStart(workout)

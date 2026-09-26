@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The Workout section: the three kinds of workout — after practice, a gym
 /// day, stretching and mobility — each built for the athlete's sport,
-/// schedule and struggles, plus this week's gym plan and the other ways to
+/// schedule and development goals, plus this week's gym plan and the other ways to
 /// train (a skill, a muscle group).
 struct WorkoutTabView: View {
     let athlete: Athlete
@@ -36,7 +36,7 @@ struct WorkoutTabView: View {
     private var sportInfo: SportInfo? { athlete.activeSport.flatMap { allSportsBySlug[$0.sportSlug] } }
     private var gameToday: Competition? { athlete.competitions.first { calendar.isDateInToday($0.date) } }
     private var practiceToday: Bool { PracticeSchedule.hasPractice(on: .now) }
-    private var band: ReadinessBand? { readinessOverridden ? nil : AthleteStats.todaysCheckIn(athlete)?.readinessBand }
+    private var band: ReadinessBand? { readinessOverridden ? nil : DailyLoop.todayBand(athlete) }
 
     private var context: WorkoutModeContext {
         WorkoutModeContext(
@@ -82,7 +82,7 @@ struct WorkoutTabView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Workout", subtitle: "Three kinds of workout, each built for your sport, your schedule and what you want to fix. Pick one and press Start.")
+                    ScreenTitle("Workout", subtitle: "Built for your sport, your schedule and your goals.")
                     recommendationCard
                     if band != nil || readinessOverridden {
                         Button(readinessOverridden ? "Use the lighter versions from my check-in" : "Lighter because of your check-in — I feel fine, give me the full ones") {
@@ -150,7 +150,7 @@ struct WorkoutTabView: View {
                     myWorkouts = MyWorkoutsStore.load()
                 }
             }
-            .proPaywall(isPresented: $showingWorkoutsPaywall, athlete: athlete, feature: .myWorkouts)
+            .proFeature(isPresented: $showingWorkoutsPaywall, athlete: athlete, feature: .myWorkouts)
             .sheet(isPresented: $showingPlanSettings) {
                 PlanSettingsSheet {
                     custom = PlanCustomizationStore.load()
@@ -314,8 +314,8 @@ struct WorkoutTabView: View {
                 .font(.title2)
                 .foregroundStyle(AppTheme.ink)
             Text(struggles.isEmpty
-                 ? "Tell us what you want to fix — speed, strength, stamina… — in Me → What you want to fix, and your workouts lean towards it."
-                 : "Built around what you want to fix: \(struggles.map { $0.title.lowercased() }.joined(separator: ", ")). Change it in Me.")
+                 ? "Set your development goals in Me and your training leans towards them."
+                 : "Leaning towards your goals: \(struggles.map { $0.title.lowercased() }.joined(separator: ", ")).")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)

@@ -66,6 +66,7 @@ public struct MainTabView: View {
                 .tag(AppTab.me)
         }
         .tint(AppTheme.accent)
+        .modifier(CompactTabBar())
         .environment(\.workoutContext, workoutContext)
         .sheet(isPresented: $showingHealthPermission) {
             HealthPermissionView()
@@ -227,6 +228,21 @@ public struct MainTabView: View {
     }
 }
 
+/// The tab bar shrinks while scrolling (iOS 26), so it never covers content.
+private struct CompactTabBar: ViewModifier {
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        if #available(iOS 26.0, *) {
+            content.tabBarMinimizeBehavior(.onScrollDown)
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
+    }
+}
+
 /// "Delete my plan and give me a new one": the weekly plan is built from the
 /// athlete's inputs, so deleting it means building a different one — a new
 /// variant changes the generator's seed (different exercises, same rules).
@@ -256,7 +272,7 @@ enum WeeklyPlan {
         let basePosition = athleteSport.positionSlug.flatMap { slug in
             sportInfo.positions.first { $0.slug == slug }?.qualityProfile
         }
-        // What the athlete wants to fix (Me → struggles) leans the plan towards it.
+        // The athlete's development goals (Me) lean the plan towards them.
         let struggles = Struggles.selected
         let positionProfile = struggles.isEmpty ? basePosition
             : Struggles.profile(base: basePosition ?? sportInfo.qualityProfile, struggles: struggles)

@@ -23,6 +23,7 @@ public enum PracticeSchedule {
     /// A connected team calendar decides first (a cancelled practice is no
     /// practice); weeks it says nothing about use the practice days.
     public static func hasPractice(on date: Date, calendar: Calendar = .current) -> Bool {
+        if let confirmed = PracticeOverride.hasPractice(on: DayKey.of(date, calendar: calendar)) { return confirmed }
         if !ExtraPractices.on(DayKey.of(date, calendar: calendar)).isEmpty { return true }
         return ScheduleStore.imported.practiceStatus(on: date, calendar: calendar)
             ?? weekdays.contains(calendar.component(.weekday, from: date))
@@ -60,7 +61,7 @@ public enum WorkoutMode: String, Sendable {
         switch self {
         case .afterPractice: "Practice already trained your sport. This adds strength and injury prevention — short, so you still recover."
         case .gymDay: "No practice today, so this is your main strength and power session."
-        case .mobility: "Loosen up the areas your sport loads most, then calm down with slow breathing. Best in the evening."
+        case .mobility: "Loosen up for your sport, then calm down with slow breathing."
         case .travel: "Keep the habit going in a hotel room or at home — no equipment needed."
         }
     }
@@ -76,7 +77,7 @@ public struct WorkoutModeContext {
     public var trainsUnderCoach: Bool
     public var age: Int
     public var date: Date
-    /// What the athlete wants to fix (Me → struggles).
+    /// The athlete's development goals (Me → My Development Goals).
     public var struggles: [Struggle]
 
     public init(catalogue: Catalogue, sport: SportInfo?, positionSlug: String?, formatSlug: String?,
@@ -179,7 +180,7 @@ public enum WorkoutModeBuilder {
                     .filter { ($0.qualities[quality] ?? 0) >= 0.6 && $0.kind == "exercise" }
                     .sorted { ($0.qualities[quality] ?? 0) != ($1.qualities[quality] ?? 0) ? ($0.qualities[quality] ?? 0) > ($1.qualities[quality] ?? 0) : $0.slug < $1.slug }
                     .map(\.slug)
-                pick(Array(matches.prefix(8)), why: "For what you want to fix: \(struggle.title.lowercased()).")
+                pick(Array(matches.prefix(8)), why: "For your goal: \(struggle.title.lowercased()).")
             }
         case .mobility:
             for slug in mobilityBase { pick([slug], why: "Keeps hips, spine and ankles moving freely.") }

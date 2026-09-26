@@ -226,13 +226,13 @@ struct DownloadsSheet: View {
             }
             Button(action: downloadAll) {
                 Label(allProgress != nil && allProgress!.done < allProgress!.total ? "Downloading…" : "Download all sports",
-                      systemImage: ProAccess.isPro ? "arrow.down.circle.fill" : "lock.fill")
+                      systemImage: "arrow.down.circle.fill")
             }
             .buttonStyle(.primary)
             .disabled(allProgress != nil && allProgress!.done < allProgress!.total)
         }
         .cardStyle(padding: 16)
-        .proPaywall(isPresented: $showingPaywall, athlete: athlete, feature: .additionalSportDownloads)
+        .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .additionalSportDownloads)
     }
 
     private func downloadAll() {
