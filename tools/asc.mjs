@@ -598,6 +598,10 @@ const commands = {
     if (!open.length) ok('Review submissions', 'none open yet');
     for (const submission of open) {
       const items = await safe(`/v1/reviewSubmissions/${submission.id}/items?include=appStoreVersion&limit=20`);
+      for (const i of items.data ?? []) {
+        const rels = Object.entries(i.relationships ?? {}).map(([k, v]) => `${k}=${v?.data ? `${v.data.type}/${v.data.id}` : (v?.links ? 'link' : 'none')}`);
+        console.log(`   item ${i.id}: ${i.attributes.state}; ${rels.join(' ')}`);
+      }
       const what = (items.data ?? []).map((i) => {
         const v = (items.included ?? []).find((x) => x.id === i.relationships?.appStoreVersion?.data?.id);
         return v ? `version ${v.attributes.versionString} (${i.attributes.state})` : `${Object.keys(i.relationships ?? {}).find((k) => i.relationships[k]?.data) ?? 'item'} (${i.attributes.state})`;
