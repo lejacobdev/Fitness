@@ -32,6 +32,11 @@ public struct MainTabView: View {
     @State private var workoutContext: WorkoutContext?
     @State private var backingUp = false
     @State private var demoPaywall = false
+    // Opened with a link or QR code: the team, league or workout it points to.
+    @State private var linkSheet: DeepLink?
+    @State private var linkMessage: String?
+    @State private var startFromLink: CustomWorkout?
+    @State private var liveFromLink: LiveSessionLaunch?
 
     public init(athlete: Athlete, apiClient: APIClient) {
         self.athlete = athlete
@@ -76,6 +81,39 @@ public struct MainTabView: View {
         .onChange(of: athlete.sports.count) { regenerate() }
         .onChange(of: ProAccess.isPro) { regenerate() }
         .proPaywall(isPresented: $demoPaywall, athlete: athlete, feature: .skillBlocks)
+        .sheet(item: $linkSheet, onDismiss: {
+            if let workout = startFromLink {
+                startFromLink = nil
+                liveFromLink = LiveSessionLaunch(planned: workout.session(date: .now), kind: .gym)
+            }
+        }) { link in
+            switch link {
+            case .team(let code):
+                MyTeamView(initialCode: code)
+            case .league(let code):
+                LeaguesView(stats: CampusProgress.stats(), initialCode: code)
+            case .workout(let code):
+                SharedWorkoutSheet(initialCode: code, onSaved: { workout in
+                    MyWorkoutsStore.upsert(workout)
+                    selectedTab = .workout
+                }, onStart: { workout in
+                    startFromLink = workout
+                })
+            case .code:
+                EmptyView()
+            }
+        }
+        .fullScreenCover(item: $liveFromLink) { launch in
+            LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind)
+        }
+        .alert("Couldn't open that code", isPresented: Binding(get: { linkMessage != nil }, set: { if !$0 { linkMessage = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(linkMessage ?? "")
+        }
+        .onChange(of: DeepLinkCenter.shared.pending) {
+            Task { await openPendingLink() }
+        }
         // Back up when the athlete leaves the app, pick up other phones'
         // changes when they come back.
         .onChange(of: scenePhase) { _, phase in
@@ -97,6 +135,7 @@ public struct MainTabView: View {
                 askForHealthIfNeeded()
             }
             regenerate()
+            await openPendingLink()
             await backUp()
             // Keep the offline packs current: newer exercises, cues and
             // animations arrive without re-running setup.
@@ -136,6 +175,29 @@ public struct MainTabView: View {
         await CoachAssignments.refresh(apiClient: apiClient)
         await LeagueSync.report(apiClient: apiClient)
         if !athlete.isDeleted, scenePhase != .background { regenerate() }
+    }
+
+    /// Shows what a link or QR code points to. A bare code (aos://ABC234)
+    /// is looked up first: is it a team, a league or a workout?
+    private func openPendingLink() async {
+        guard let link = DeepLinkCenter.shared.pending, !DemoData.isEnabled else { return }
+        DeepLinkCenter.shared.handled()
+        guard case .code(let code) = link else {
+            linkSheet = link
+            return
+        }
+        do {
+            let info = try await apiClient.lookUpCode(code)
+            if let resolved = DeepLink.resolved(code: code, kind: info.kind) {
+                linkSheet = resolved
+            } else {
+                linkMessage = "This version of the app doesn't know what \(code) is — update Athlete OS."
+            }
+        } catch APIClient.APIError.http(status: 404, _) {
+            linkMessage = "No team, league or workout has the code \(code)."
+        } catch {
+            linkMessage = "Couldn't reach Athlete OS to open \(code) — check your connection and open the link again."
+        }
     }
 
     private func askForHealthIfNeeded() {
@@ -189,17 +251,23 @@ enum WeeklyPlan {
         let positionProfile = struggles.isEmpty ? basePosition
             : Struggles.profile(base: basePosition ?? sportInfo.qualityProfile, struggles: struggles)
 
+        // The athlete's own say: how many gym days, which days, how long, and
+        // their own version of any gym day.
+        let custom = PlanCustomizationStore.load()
+        let catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
         let input = PlanGeneratorInput(
             sportProfile: sportInfo.qualityProfile, positionProfile: positionProfile,
             seasonStart: athleteSport.seasonStart, seasonEnd: athleteSport.seasonEnd,
             weekStart: weekStart, birthDate: athlete.birthDate,
             trainsUnderCoach: athlete.trainsUnderCoach,
             equipmentAvailable: Set(athlete.equipmentAvailable),
-            catalogue: CatalogueLoader.load(from: AppConfig.packsDirectory()),
+            catalogue: catalogue,
             seed: PlanVariant.seed("\(athlete.id)-\(Int(weekStart.timeIntervalSince1970))"),
-            sportSlug: athleteSport.sportSlug, positionSlug: athleteSport.positionSlug, formatSlug: athleteSport.formatSlug
+            timeBudgetMinutesPerSession: custom.settings.minutesPerSession ?? 60,
+            sportSlug: athleteSport.sportSlug, positionSlug: athleteSport.positionSlug, formatSlug: athleteSport.formatSlug,
+            sessionsPerWeek: custom.settings.effectiveSessionsPerWeek
         )
-        let generated = PlanGenerator.generate(input)
+        let generated = PlanCustomizer.apply(custom, to: PlanGenerator.generate(input), catalogue: catalogue)
         // Every game counts, whatever sport it's for: the body that plays a
         // basketball game on Friday shouldn't squat heavy on Thursday.
         // Free tapers for the next game; Pro for every game in the week.
@@ -210,8 +278,11 @@ enum WeeklyPlan {
         let cancelled = calendar.dateInterval(of: .weekOfYear, for: weekStart).map {
             ScheduleStore.imported.cancelledPracticeDays(in: $0, calendar: calendar).filter { $0 >= startOfToday }
         } ?? []
-        let aligned = alignToSchedule(tapered, isPracticeDay: { PracticeSchedule.hasPractice(on: $0, calendar: calendar) },
-                                      preferredDays: cancelled, gameDays: athlete.competitions.map(\.date), calendar: calendar)
+        // Days the athlete picked win over the automatic placement.
+        let aligned = custom.settings.weekdays.isEmpty
+            ? alignToSchedule(tapered, isPracticeDay: { PracticeSchedule.hasPractice(on: $0, calendar: calendar) },
+                              preferredDays: cancelled, gameDays: athlete.competitions.map(\.date), calendar: calendar)
+            : PlanCustomizer.place(tapered, weekdays: custom.settings.weekdays, calendar: calendar)
         // Exam weeks: fewer, shorter sessions.
         guard let aligned, ScheduleStore.isExamWeek(weekStart, calendar: calendar) else { return aligned }
         return ExamWeek.lighten(aligned)
@@ -246,7 +317,7 @@ enum WeeklyPlan {
         let chosen = (first + spread).sorted()
         let sessions = week.sessions.prefix(chosen.count).enumerated().map { index, session in
             GeneratedSession(date: chosen[index], title: session.title, focusQualities: session.focusQualities,
-                             estimatedMinutes: session.estimatedMinutes, items: session.items)
+                             estimatedMinutes: session.estimatedMinutes, items: session.items, slot: session.slot)
         }
         return GeneratedWeek(phase: week.phase, weekStart: week.weekStart, sessions: Array(sessions))
     }

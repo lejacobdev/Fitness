@@ -1,7 +1,8 @@
 import express from 'express';
 
 import { requireAuth } from '../lib/requireAuth.js';
-import { cleanName, cleanNickname, makeCode } from './leagues.js';
+import { uniqueCode } from '../lib/codes.js';
+import { cleanName, cleanNickname } from './leagues.js';
 
 const CODE = /^[A-HJ-KM-NP-Z2-9]{6}$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -101,7 +102,7 @@ export function teamsRouter({ prisma, sessionSecret }) {
       res.status(409).json({ error: 'too_many_teams' });
       return;
     }
-    const team = await prisma.team.create({ data: { name, code: makeCode(), coachId: req.athleteId } });
+    const team = await prisma.team.create({ data: { name, code: await uniqueCode(prisma), coachId: req.athleteId } });
     res.status(201).json({ team: { id: team.id, name: team.name, code: team.code, memberCount: 0 } });
   });
 

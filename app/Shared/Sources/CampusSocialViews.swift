@@ -21,6 +21,8 @@ struct BadgeCelebration: Identifiable {
 /// the Campus XP everyone earned this week.
 struct LeaguesView: View {
     let stats: CampusStats
+    /// From a league link or QR code: straight to joining it.
+    var initialCode: String? = nil
 
     @Environment(\.dismiss) private var dismiss
     @AppStorage("league.nickname") private var nickname = ""
@@ -32,6 +34,7 @@ struct LeaguesView: View {
     @State private var code = ""
     @State private var working = false
     @State private var leagueToLeave: APIClient.LeagueTable.League?
+    @State private var inviting: APIClient.LeagueTable.League?
 
     enum Mode { case create, join }
 
@@ -73,6 +76,16 @@ struct LeaguesView: View {
                 }
             }
             .task { await load() }
+            .onAppear {
+                if let initialCode, code.isEmpty {
+                    code = initialCode
+                    mode = .join
+                }
+            }
+            .sheet(item: $inviting) { league in
+                CodeShareSheet(title: "Invite teammates", subtitle: "They scan the QR code, open the link, or tap the trophy in Campus → Join and enter the code.",
+                               link: .league(league.code), message: "Join my league “\(league.name)” in Athlete OS")
+            }
             .confirmationDialog("Leave this league?", isPresented: Binding(
                 get: { leagueToLeave != nil }, set: { if !$0 { leagueToLeave = nil } }
             ), titleVisibility: .visible) {
@@ -123,12 +136,10 @@ struct LeaguesView: View {
                     .font(.headline.monospaced())
                     .foregroundStyle(AppTheme.ink)
                 Spacer()
-                #if os(iOS) && !APP_EXTENSION
-                ShareLink(item: "Join my Athlete OS league \"\(league.name)\" — in Campus tap the trophy, then Join, and enter the code \(league.code).") {
-                    Label("Invite", systemImage: "square.and.arrow.up")
+                Button { inviting = league } label: {
+                    Label("Invite", systemImage: "qrcode")
                         .font(.subheadline.weight(.semibold))
                 }
-                #endif
             }
         }
         .cardStyle(padding: 16)
@@ -145,26 +156,26 @@ struct LeaguesView: View {
                     .buttonStyle(.secondary)
             }
         case .create?:
-            form(title: "Start a league", field: TextField("League name, e.g. U17 Girls", text: $leagueName), button: "Start") {
+            form(title: "Start a league", field: TextField("League name, e.g. U17 Girls", text: $leagueName)
+                .font(.title3)
+                .padding(16)
+                .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 16, style: .continuous)), button: "Start") {
                 try await apiClient.createLeague(name: leagueName, nickname: nickname, sessionToken: $0)
             }
         case .join?:
-            form(title: "Join a league", field: TextField("6-letter code", text: $code), button: "Join") {
+            form(title: "Join a league", field: CodeField(placeholder: "6-letter code", text: $code), button: "Join") {
                 try await apiClient.joinLeague(code: code.uppercased(), nickname: nickname, sessionToken: $0)
             }
         }
     }
 
-    private func form(title: String, field: TextField<Text>, button: String,
+    private func form(title: String, field: some View, button: String,
                       action: @escaping (String) async throws -> Void) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.title3.bold())
                 .foregroundStyle(AppTheme.ink)
             field
-                .font(.title3)
-                .padding(16)
-                .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             TextField("Your nickname (what others see)", text: $nickname)
                 .font(.title3)
                 .padding(16)

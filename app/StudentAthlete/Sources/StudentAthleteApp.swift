@@ -20,6 +20,13 @@ struct StudentAthleteApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                // Links and QR codes (aos://…, api.lejacob.dev/fitness/…) open
+                // the team, league or workout they point to — after setup, if
+                // it isn't done yet.
+                .onOpenURL { DeepLinkCenter.shared.open($0) }
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                    if let url = activity.webpageURL { DeepLinkCenter.shared.open(url) }
+                }
                 .tint(AppTheme.accent)
                 // Big by default: one step above the system's standard text
                 // size (and everything larger the athlete chooses still works).

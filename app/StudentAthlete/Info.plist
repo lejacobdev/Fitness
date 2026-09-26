@@ -75,6 +75,18 @@
 	  required to work fully with every permission denied anyway.
 	-->
 
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.studentathlete.app.codes</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>aos</string>
+				<string>athleteos</string>
+			</array>
+		</dict>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

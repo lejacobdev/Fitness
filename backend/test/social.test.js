@@ -9,7 +9,7 @@ const SESSION_SECRET = 'test-session-secret';
 
 /** A tiny in-memory stand-in for the Prisma calls these routes make. */
 function fakePrisma() {
-  const db = { league: [], leagueMember: [], weeklyXP: [], team: [], teamMember: [], assignment: [], parentLink: [], checkIn: [], session: [], syncedState: [] };
+  const db = { league: [], leagueMember: [], weeklyXP: [], team: [], teamMember: [], assignment: [], parentLink: [], checkIn: [], session: [], syncedState: [], sharedWorkout: [] };
 
   const matches = (row, where = {}) => Object.entries(where).every(([field, cond]) => {
     if (cond && typeof cond === 'object' && !(cond instanceof Date)) {

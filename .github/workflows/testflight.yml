@@ -140,6 +140,10 @@ jobs:
           serial=$(security find-certificate -c "Apple Distribution" -p "$RUNNER_TEMP/signing.keychain-db" \
             | openssl x509 -noout -serial | cut -d= -f2)
           echo "distribution certificate serial: $serial"
+          # Links (https://api.lejacob.dev/fitness/…) open the app: the App ID
+          # needs Associated Domains before its profile is made. Idempotent.
+          node tools/asc.mjs enable-capability "$BUNDLE_ID" ASSOCIATED_DOMAINS \
+            || echo "::warning::could not enable ASSOCIATED_DOMAINS (see above)"
           out="$RUNNER_TEMP/profiles"
           node tools/asc.mjs app-store-profiles "$serial" "$out" \
             "$BUNDLE_ID" "$BUNDLE_ID.widget" "$BUNDLE_ID.watchkitapp" "$BUNDLE_ID.watchkitapp.watchface"

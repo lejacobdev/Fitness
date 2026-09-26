@@ -586,7 +586,8 @@ public enum ExamWeek {
                     dose.sets = max(1, dose.sets - 1)
                     return GeneratedPlannedItem(itemSlug: item.itemSlug, order: item.order, dose: dose, restSec: item.restSec,
                                                 rationale: item.rationale, quality: item.quality)
-                }
+                },
+                slot: session.slot
             )
         }
         return GeneratedWeek(phase: week.phase, weekStart: week.weekStart, sessions: lighter)

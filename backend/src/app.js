@@ -10,10 +10,12 @@ import { authRouter } from './routes/auth.js';
 import { billingRouter } from './routes/billing.js';
 import { leaguesRouter } from './routes/leagues.js';
 import { legalRouter } from './routes/legal.js';
+import { linksRouter } from './routes/links.js';
 import { parentRouter } from './routes/parent.js';
 import { stateRouter } from './routes/state.js';
 import { syncRouter } from './routes/sync.js';
 import { teamsRouter } from './routes/teams.js';
+import { workoutsRouter } from './routes/workouts.js';
 import { createAppleRevoker } from './lib/appleRevoke.js';
 
 // §19: this must run before any route is registered. Installing it here, at
@@ -71,7 +73,14 @@ export function createApp({
     app.use('/athlete', athleteRouter({ prisma, sessionSecret, appleRevoker }));
     app.use('/leagues', leaguesRouter({ prisma, sessionSecret }));
     app.use('/teams', teamsRouter({ prisma, sessionSecret }));
+    app.use('/workouts', workoutsRouter({ prisma, sessionSecret }));
     app.use(parentRouter({ prisma, sessionSecret }));
+  }
+
+  // Codes as links: Apple's app-links file, the code lookup, and the pages a
+  // link opens when the app isn't installed. Public; no sign-in.
+  if (prisma) {
+    app.use(linksRouter({ prisma, packsDir }));
   }
 
   // §3: "content packs, per-sport bundles, versioned and served over HTTPS

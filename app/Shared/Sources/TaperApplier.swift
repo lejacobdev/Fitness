@@ -85,7 +85,7 @@ public enum TaperApplier {
         GeneratedSession(
             date: session.date, title: title, focusQualities: session.focusQualities,
             estimatedMinutes: items.reduce(0) { $0 + PlanGenerator.estimatedMinutes(dose: $1.dose, restSec: $1.restSec) },
-            items: items
+            items: items, slot: session.slot
         )
     }
 

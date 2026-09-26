@@ -24,14 +24,18 @@ public struct PlanGeneratorInput: Sendable {
     public let sportSlug: String?
     public let positionSlug: String?
     public let formatSlug: String?
+    /// The athlete's own number of gym days (nil: what the season calls for).
+    public let sessionsPerWeek: Int?
 
     public init(
         sportProfile: [String: Double], positionProfile: [String: Double]? = nil,
         seasonStart: Date, seasonEnd: Date, weekStart: Date, birthDate: Date,
         trainsUnderCoach: Bool = false, equipmentAvailable: Set<String> = [],
         catalogue: Catalogue, seed: String, timeBudgetMinutesPerSession: Int = 60,
-        now: Date = .now, sportSlug: String? = nil, positionSlug: String? = nil, formatSlug: String? = nil
+        now: Date = .now, sportSlug: String? = nil, positionSlug: String? = nil, formatSlug: String? = nil,
+        sessionsPerWeek: Int? = nil
     ) {
+        self.sessionsPerWeek = sessionsPerWeek
         self.sportSlug = sportSlug
         self.positionSlug = positionSlug
         self.formatSlug = formatSlug
@@ -62,6 +66,10 @@ public struct GeneratedSession: Sendable, Equatable {
     public let focusQualities: [String]
     public let estimatedMinutes: Int
     public let items: [GeneratedPlannedItem]
+    /// Which of the week's gym days this is (0 = the first) — stable while
+    /// days move around, so the athlete's own version of "day 1" always
+    /// replaces day 1. Nil for workouts outside the weekly plan.
+    public var slot: Int? = nil
 }
 
 public struct GeneratedPlannedItem: Sendable, Equatable {
@@ -87,18 +95,21 @@ public enum PlanGenerator {
         let age = ageInYears(birthDate: input.birthDate, now: input.now)
         let isYouthEnvelope = age < 18
 
-        let dates = trainingDates(count: sessionsPerWeek(for: phase), weekStart: input.weekStart)
+        let count = input.sessionsPerWeek.map { min(max($0, 1), 6) } ?? sessionsPerWeek(for: phase)
+        let dates = trainingDates(count: count, weekStart: input.weekStart)
         let qualityOrder = rankedQualities(sportProfile: input.sportProfile, positionProfile: input.positionProfile)
 
         var weeklyContacts = 0
         var sessions: [GeneratedSession] = []
         for (index, date) in dates.enumerated() {
             let targetQualities = roundRobinSlice(qualityOrder, offset: index, count: 3)
-            sessions.append(buildSession(
+            var session = buildSession(
                 date: date, targetQualities: targetQualities, input: input,
                 isYouthEnvelope: isYouthEnvelope, age: age,
                 weeklyContacts: &weeklyContacts, rng: &rng
-            ))
+            )
+            session.slot = index
+            sessions.append(session)
         }
 
         return GeneratedWeek(phase: phase, weekStart: input.weekStart, sessions: sessions)
@@ -123,7 +134,9 @@ public enum PlanGenerator {
     /// sessions, Mon/Thu for two — rather than a scheduling solver, since
     /// §10 doesn't ask for anything more elaborate than "nonconsecutive."
     private static func trainingDates(count: Int, weekStart: Date, calendar: Calendar = .current) -> [Date] {
-        let offsets: [Int] = count >= 3 ? [0, 2, 4] : (count == 2 ? [0, 3] : [0])
+        // More than three (the athlete's choice): spread through Mon–Sat.
+        let offsets: [Int] = count > 3 ? (0..<count).map { $0 * 6 / count }
+            : count == 3 ? [0, 2, 4] : (count == 2 ? [0, 3] : [0])
         return offsets.prefix(max(count, 1)).compactMap {
             calendar.date(byAdding: .day, value: $0, to: weekStart)
         }

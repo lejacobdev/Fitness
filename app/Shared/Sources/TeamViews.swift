@@ -43,6 +43,8 @@ enum CoachAssignments {
 
 /// Join your coach's team with the code they give you.
 struct MyTeamView: View {
+    /// From a team link or QR code: already filled in.
+    var initialCode: String? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var teams: APIClient.Teams?
     @State private var code = ""
@@ -80,10 +82,7 @@ struct MyTeamView: View {
                     }
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Join a team").font(.title3.bold()).foregroundStyle(AppTheme.ink)
-                        TextField("Team code from your coach", text: $code)
-                            .font(.title3)
-                            .padding(16)
-                            .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        CodeField(placeholder: "Team code from your coach", text: $code)
                         TextField("Your name on the team", text: $nickname)
                             .font(.title3)
                             .padding(16)
@@ -103,6 +102,7 @@ struct MyTeamView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
             }
             .task { await load() }
+            .onAppear { if let initialCode, code.isEmpty { code = initialCode } }
             .confirmationDialog("Leave this team?", isPresented: Binding(
                 get: { teamToLeave != nil }, set: { if !$0 { teamToLeave = nil } }
             ), titleVisibility: .visible) {
@@ -263,6 +263,7 @@ struct TeamBoardView: View {
     @State private var assigning = false
     @State private var confirmDelete = false
     @State private var failed = false
+    @State private var inviting = false
 
     private let apiClient = APIClient(baseURL: AppConfig.backendBaseURL)
 
@@ -271,12 +272,10 @@ struct TeamBoardView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     ScreenTitle(team.name, subtitle: "Code \(team.code) — give it to your athletes to join.")
-                    #if os(iOS) && !APP_EXTENSION
-                    ShareLink(item: "Join our team \"\(team.name)\" in Athlete OS: Me → My team → enter the code \(team.code).") {
-                        Label("Send the code", systemImage: "square.and.arrow.up")
+                    Button { inviting = true } label: {
+                        Label("Invite athletes: code, link or QR code", systemImage: "qrcode")
                     }
                     .buttonStyle(.secondary)
-                    #endif
                     if failed {
                         Text("Couldn't load the team — check your connection.").foregroundStyle(AppTheme.red)
                     }
@@ -296,6 +295,10 @@ struct TeamBoardView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
             }
             .task { await load() }
+            .sheet(isPresented: $inviting) {
+                CodeShareSheet(title: "Invite athletes", subtitle: "They scan the QR code, open the link, or enter the code in Me → My team.",
+                               link: .team(team.code), message: "Join our team “\(team.name)” in Athlete OS")
+            }
             .sheet(isPresented: $assigning, onDismiss: { Task { await load() } }) {
                 AssignWorkoutSheet(teamID: team.id)
             }

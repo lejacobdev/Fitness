@@ -19,6 +19,7 @@ public enum ProFeature: String, CaseIterable, Sendable {
     case multipleSports
     case muscleWorkouts
     case exerciseProgress
+    case shareWorkouts
 
     /// Available to every athlete regardless of subscription.
     public var isFreeForever: Bool {
@@ -41,6 +42,7 @@ public enum ProFeature: String, CaseIterable, Sendable {
         case .multipleSports: "Play several sports — switch between them any time"
         case .muscleWorkouts: "Unlimited muscle-group workouts"
         case .exerciseProgress: "Progress charts for every exercise"
+        case .shareWorkouts: "Share your workouts with a code, link or QR code"
         default: ""
         }
     }

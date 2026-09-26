@@ -1020,6 +1020,10 @@ struct PreviewBox: Identifiable {
     let id = UUID()
     let session: GeneratedSession
     var kind: WorkoutKind? = nil
+    /// Where the workout comes from, so it can be edited: a planned workout…
+    var slot: PlanSlot? = nil
+    /// …or one of the athlete's own.
+    var myWorkoutID: UUID? = nil
 }
 
 /// Today's quote, big and simple.
@@ -1120,6 +1124,9 @@ struct SessionPreviewSheet: View {
     let session: GeneratedSession
     let catalogue: Catalogue
     let onStart: () -> Void
+    /// Offered when the workout can be changed / shared.
+    var onEdit: (() -> Void)? = nil
+    var onShare: (() -> Void)? = nil
     @State private var detailItem: CatalogueItem?
     @Environment(\.dismiss) private var dismiss
 
@@ -1136,6 +1143,18 @@ struct SessionPreviewSheet: View {
                     Button { onStart() } label: { Label("Start", systemImage: "play.fill") }
                         .buttonStyle(.primary)
                         .padding(.top, 8)
+                    if onEdit != nil || onShare != nil {
+                        ButtonRow {
+                            if let onEdit {
+                                Button { onEdit() } label: { Label("Change it", systemImage: "slider.horizontal.3") }
+                                    .buttonStyle(.secondary)
+                            }
+                            if let onShare {
+                                Button { onShare() } label: { Label("Share", systemImage: "qrcode") }
+                                    .buttonStyle(.secondary)
+                            }
+                        }
+                    }
                 }
                 .padding(20)
             }

@@ -1,21 +1,13 @@
-import crypto from 'node:crypto';
-
 import express from 'express';
 
+import { CODE, uniqueCode } from '../lib/codes.js';
 import { requireAuth } from '../lib/requireAuth.js';
 
-/** Codes are 6 characters without look-alikes (no 0/O, 1/I/L). */
-const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-const CODE = /^[A-HJ-KM-NP-Z2-9]{6}$/;
+export { makeCode } from '../lib/codes.js';
 const WEEK = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_LEAGUES_PER_ATHLETE = 5;
 const MAX_MEMBERS = 50;
 const MAX_WEEKLY_XP = 5000;
-
-export function makeCode() {
-  const bytes = crypto.randomBytes(6);
-  return Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
-}
 
 /** A nickname: 2–20 letters, digits, spaces, dots, dashes or underscores. */
 export function cleanNickname(value) {
@@ -85,7 +77,7 @@ export function leaguesRouter({ prisma, sessionSecret }) {
       return;
     }
     const league = await prisma.league.create({
-      data: { name, code: makeCode(), members: { create: { athleteId: req.athleteId, nickname } } },
+      data: { name, code: await uniqueCode(prisma), members: { create: { athleteId: req.athleteId, nickname } } },
     });
     res.status(201).json({ league: { id: league.id, name: league.name, code: league.code } });
   });

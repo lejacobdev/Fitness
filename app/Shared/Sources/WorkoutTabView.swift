@@ -18,6 +18,15 @@ struct WorkoutTabView: View {
     @State private var detailItem: CatalogueItem?
     @State private var showingImprove = false
     @State private var showingGuide = false
+    // Making it yours: edit any workout, the week's shape, own workouts, sharing.
+    @State private var editing: EditorTarget?
+    @State private var sharing: ShareTarget?
+    @State private var showingPlanSettings = false
+    @State private var importing = false
+    @State private var startAfterImport: CustomWorkout?
+    @State private var afterPreview: AfterPreview?
+    @State private var myWorkouts = MyWorkoutsStore.load()
+    @State private var custom = PlanCustomizationStore.load()
     @State private var confirmingNewPlan = false
     @State private var readinessOverridden = false
     @AppStorage(PlanVariant.key) private var planVariant = 0
@@ -88,6 +97,8 @@ struct WorkoutTabView: View {
                     modeCard(.travel, session: WorkoutModeBuilder.build(.travel, context), note: "No equipment: hotel room, bus stop, holiday.")
                     personalization
                     weekSection
+                    customizeSection
+                    myWorkoutsSection
                     moreSection
                     planOptions
                 }
@@ -103,11 +114,57 @@ struct WorkoutTabView: View {
                 catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
                 status = DayStatusStore.status()
             }
-            .sheet(item: $preview) { box in
-                SessionPreviewSheet(session: box.session, catalogue: catalogue) {
-                    preview = nil
-                    liveLaunch = LiveSessionLaunch(planned: box.session, kind: box.kind)
+            // Workouts added from a link, or restored from the backup, show up.
+            .onAppear {
+                myWorkouts = MyWorkoutsStore.load()
+                custom = PlanCustomizationStore.load()
+            }
+            .sheet(item: $preview, onDismiss: { runAfterPreview() }) { box in
+                SessionPreviewSheet(
+                    session: box.session, catalogue: catalogue,
+                    onStart: {
+                        preview = nil
+                        liveLaunch = LiveSessionLaunch(planned: box.session, kind: box.kind)
+                    },
+                    onEdit: editAction(for: box),
+                    onShare: {
+                        afterPreview = .share(box)
+                        preview = nil
+                    }
+                )
+            }
+            .sheet(item: $editing) { target in
+                WorkoutEditorView(heading: target.heading, workout: target.workout, sportSlug: athlete.activeSport?.sportSlug,
+                                  onReset: resetAction(for: target)) { saved in
+                    save(saved, for: target)
                 }
+            }
+            .sheet(item: $sharing) { target in
+                ShareWorkoutSheet(workout: target.workout, athlete: athlete) { code in
+                    guard let id = target.myWorkoutID, var mine = myWorkouts.first(where: { $0.id == id }) else { return }
+                    mine.shareCode = code
+                    MyWorkoutsStore.upsert(mine)
+                    myWorkouts = MyWorkoutsStore.load()
+                }
+            }
+            .sheet(isPresented: $showingPlanSettings) {
+                PlanSettingsSheet {
+                    custom = PlanCustomizationStore.load()
+                    onPlanInputsChanged()
+                }
+            }
+            .sheet(isPresented: $importing, onDismiss: {
+                if let workout = startAfterImport {
+                    startAfterImport = nil
+                    liveLaunch = LiveSessionLaunch(planned: workout.session(date: .now, catalogue: catalogue), kind: .gym)
+                }
+            }) {
+                SharedWorkoutSheet(onSaved: { workout in
+                    MyWorkoutsStore.upsert(workout)
+                    myWorkouts = MyWorkoutsStore.load()
+                }, onStart: { workout in
+                    startAfterImport = workout
+                })
             }
             .sheet(item: $detailItem) { item in
                 NavigationStack { ItemDetailView(item: item) }
@@ -199,7 +256,7 @@ struct WorkoutTabView: View {
                     .font(.caption)
                     .foregroundStyle(AppTheme.secondaryText)
                 ButtonRow {
-                    Button { preview = PreviewBox(session: session, kind: kind(mode)) } label: {
+                    Button { preview = PreviewBox(session: session, kind: kind(mode), slot: slot(for: mode, session: session)) } label: {
                         Label("See it", systemImage: "list.bullet")
                     }
                         .buttonStyle(.secondary)
@@ -270,7 +327,7 @@ struct WorkoutTabView: View {
                 SectionHeader("Your gym days this week", subtitle: "Placed on days without team practice or games. Tap one to see it.")
                 VStack(spacing: 0) {
                     ForEach(Array(week.sessions.enumerated()), id: \.offset) { index, session in
-                        Button { preview = PreviewBox(session: adjusted(session), kind: .gym) } label: {
+                        Button { preview = PreviewBox(session: adjusted(session), kind: .gym, slot: session.slot.map { PlanSlot.gym($0) }) } label: {
                             HStack(spacing: 12) {
                                 Text(session.date.formatted(.dateTime.weekday(.abbreviated)))
                                     .font(.headline)
@@ -278,7 +335,10 @@ struct WorkoutTabView: View {
                                     .frame(width: 52, height: 40)
                                     .background(calendar.isDateInToday(session.date) ? AppTheme.accent : AppTheme.fill, in: Capsule())
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(session.title).font(.headline).foregroundStyle(AppTheme.ink)
+                                    HStack(spacing: 6) {
+                                        Text(session.title).font(.headline).foregroundStyle(AppTheme.ink)
+                                        if let slot = session.slot, custom.workout(for: .gym(slot)) != nil { Tag("Yours", color: AppTheme.brand) }
+                                    }
                                     Text("About \(session.estimatedMinutes) min · \(session.items.count) exercises")
                                         .font(.caption).foregroundStyle(AppTheme.secondaryText)
                                 }
@@ -318,6 +378,222 @@ struct WorkoutTabView: View {
             .buttonStyle(.plain)
             SportGuideCard(athlete: athlete) { showingGuide = true }
         }
+    }
+
+    // MARK: - Making it yours
+
+    /// A workout being changed: a planned one (its slot) or one of the athlete's own.
+    struct EditorTarget: Identifiable {
+        let id = UUID()
+        let heading: String
+        let workout: CustomWorkout
+        var slot: PlanSlot? = nil
+    }
+
+    struct ShareTarget: Identifiable {
+        let id = UUID()
+        let workout: CustomWorkout
+        var myWorkoutID: UUID? = nil
+    }
+
+    /// What to open once the preview sheet has gone.
+    enum AfterPreview {
+        case edit(PreviewBox)
+        case share(PreviewBox)
+    }
+
+    private func slot(for mode: WorkoutMode, session: GeneratedSession) -> PlanSlot? {
+        mode == .gymDay ? session.slot.map { PlanSlot.gym($0) } : PlanSlot.mode(mode)
+    }
+
+    private func editAction(for box: PreviewBox) -> (() -> Void)? {
+        guard box.slot != nil || box.myWorkoutID != nil else { return nil }
+        return {
+            afterPreview = .edit(box)
+            preview = nil
+        }
+    }
+
+    private func resetAction(for target: EditorTarget) -> (() -> Void)? {
+        guard let slot = target.slot else { return nil }
+        return { resetEdits(slot) }
+    }
+
+    private func runAfterPreview() {
+        guard let next = afterPreview else { return }
+        afterPreview = nil
+        switch next {
+        case .edit(let box):
+            if let id = box.myWorkoutID, let mine = myWorkouts.first(where: { $0.id == id }) {
+                editing = EditorTarget(heading: "Change workout", workout: mine)
+            } else if let slot = box.slot {
+                editSlot(slot)
+            }
+        case .share(let box):
+            if let id = box.myWorkoutID, let mine = myWorkouts.first(where: { $0.id == id }) {
+                sharing = ShareTarget(workout: mine, myWorkoutID: id)
+            } else {
+                sharing = ShareTarget(workout: CustomWorkout(session: box.session))
+            }
+        }
+    }
+
+    /// Opens the editor on the athlete's version of a planned workout (or the app's, to start from).
+    private func editSlot(_ slot: PlanSlot) {
+        let heading: String
+        let base: GeneratedSession?
+        switch slot {
+        case .gym(let index):
+            heading = "Gym day \(index + 1)"
+            base = week?.sessions.first { $0.slot == index }
+        case .mode(let mode):
+            heading = mode.title
+            base = WorkoutModeBuilder.build(mode, context)
+        }
+        let workout = custom.workout(for: slot) ?? base.map { CustomWorkout(session: $0) }
+        guard let workout else { return }
+        editing = EditorTarget(heading: heading, workout: workout, slot: slot)
+    }
+
+    private func save(_ workout: CustomWorkout, for target: EditorTarget) {
+        if let slot = target.slot {
+            PlanCustomizationStore.setWorkout(workout, for: slot)
+            custom = PlanCustomizationStore.load()
+            onPlanInputsChanged()
+        } else {
+            MyWorkoutsStore.upsert(workout)
+            myWorkouts = MyWorkoutsStore.load()
+        }
+    }
+
+    private func resetEdits(_ slot: PlanSlot) {
+        PlanCustomizationStore.setWorkout(nil, for: slot)
+        custom = PlanCustomizationStore.load()
+        onPlanInputsChanged()
+    }
+
+    /// The week's shape, and which workouts the athlete has made their own.
+    private var customizeSection: some View {
+        let settings = custom.settings
+        let dayNames = Calendar.current.shortWeekdaySymbols
+        let days = settings.weekdays.sorted { ($0 + 5) % 7 < ($1 + 5) % 7 }.map { dayNames[$0 - 1] }.joined(separator: ", ")
+        let summary = [
+            settings.weekdays.isEmpty ? (settings.sessionsPerWeek.map { "\($0) gym days a week" } ?? "Gym days picked for you") : days,
+            settings.minutesPerSession.map { "\($0) min each" } ?? "length picked for you",
+        ].joined(separator: " · ")
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Make it yours", subtitle: "Change anything: your gym days and their length, and every exercise in every workout — tap “See it”, then “Change it”.")
+            Button { showingPlanSettings = true } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(AppTheme.onAccent)
+                        .frame(width: 48, height: 48)
+                        .background(AppTheme.accent, in: Circle())
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Your week").font(.headline).foregroundStyle(AppTheme.ink)
+                        Text(summary).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right").foregroundStyle(AppTheme.secondaryText)
+                }
+                .cardStyle(padding: 14)
+            }
+            .buttonStyle(.plain)
+            let edited = custom.sessions.keys.sorted()
+            if !edited.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Workouts you changed").font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.secondaryText)
+                    ForEach(edited, id: \.self) { key in
+                        if let slot = slotFromKey(key), let workout = custom.sessions[key] {
+                            HStack(spacing: 10) {
+                                Text(label(slot)).font(.headline).foregroundStyle(AppTheme.ink)
+                                Text(workout.title).font(.subheadline).foregroundStyle(AppTheme.secondaryText).lineLimit(1)
+                                Spacer()
+                                Button("Change") { editSlot(slot) }
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppTheme.accent)
+                            }
+                        }
+                    }
+                }
+                .cardStyle(padding: 14)
+            }
+        }
+    }
+
+    private func slotFromKey(_ key: String) -> PlanSlot? {
+        if key.hasPrefix("gym-"), let index = Int(key.dropFirst(4)) { return .gym(index) }
+        if key.hasPrefix("mode-"), let mode = WorkoutMode(rawValue: String(key.dropFirst(5))) { return .mode(mode) }
+        return nil
+    }
+
+    private func label(_ slot: PlanSlot) -> String {
+        switch slot {
+        case .gym(let index): "Gym day \(index + 1)"
+        case .mode(let mode): mode.title
+        }
+    }
+
+    /// Workouts the athlete built, or added with a code.
+    private var myWorkoutsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("My workouts", subtitle: "Build your own from the exercise library, or add one a teammate or coach shared with a code, link or QR code.")
+            ForEach(myWorkouts) { workout in
+                myWorkoutCard(workout)
+            }
+            ButtonRow {
+                Button {
+                    editing = EditorTarget(heading: "New workout", workout: CustomWorkout(title: "My workout", items: []))
+                } label: { Label("New workout", systemImage: "plus") }
+                .buttonStyle(.secondary)
+                Button { importing = true } label: { Label("Add with a code", systemImage: "qrcode.viewfinder") }
+                    .buttonStyle(.secondary)
+            }
+        }
+    }
+
+    private func myWorkoutCard(_ workout: CustomWorkout) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(workout.title).font(.title3.bold()).foregroundStyle(AppTheme.ink)
+                    Text("\(workout.items.count) exercises · about \(workout.estimatedMinutes) min\(workout.shareCode.map { " · shared as \($0)" } ?? "")")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+                Spacer()
+                #if os(iOS)
+                Menu {
+                    Button { editing = EditorTarget(heading: "Change workout", workout: workout) } label: { Label("Change it", systemImage: "slider.horizontal.3") }
+                    Button { sharing = ShareTarget(workout: workout, myWorkoutID: workout.id) } label: { Label("Share", systemImage: "qrcode") }
+                    Button(role: .destructive) {
+                        MyWorkoutsStore.delete(workout.id)
+                        myWorkouts = MyWorkoutsStore.load()
+                    } label: { Label("Delete", systemImage: "trash") }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.ink)
+                        .frame(width: 44, height: 44)
+                        .background(AppTheme.fill, in: Circle())
+                }
+                .accessibilityLabel("More for \(workout.title)")
+                #endif
+            }
+            ButtonRow {
+                Button {
+                    preview = PreviewBox(session: workout.session(date: .now, catalogue: catalogue), kind: .gym, myWorkoutID: workout.id)
+                } label: { Label("See it", systemImage: "list.bullet") }
+                .buttonStyle(.secondary)
+                Button {
+                    liveLaunch = LiveSessionLaunch(planned: workout.session(date: .now, catalogue: catalogue), kind: .gym)
+                } label: { Label("Start", systemImage: "play.fill") }
+                .buttonStyle(.primary)
+            }
+        }
+        .cardStyle(padding: 18)
     }
 
     private var planOptions: some View {

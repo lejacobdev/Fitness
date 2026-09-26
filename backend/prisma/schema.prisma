@@ -74,6 +74,7 @@ model Athlete {
   coachedTeams      Team[]         @relation("TeamCoach")
   teamMemberships   TeamMember[]
   parentLink        ParentLink?
+  sharedWorkouts    SharedWorkout[]
 }
 
 /// Everything else the app keeps per athlete — sports, games, profile, skill
@@ -352,4 +353,20 @@ model ParentLink {
   createdAt DateTime @default(now())
 
   athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+}
+
+/// A workout shared under a code (Pro, in the app). Anyone with the code can
+/// open it — the code is the key; the owner can stop sharing it.
+model SharedWorkout {
+  code      String   @id
+  ownerId   String
+  title     String
+  /// [{ itemSlug, dose: { kind, sets, reps?, seconds?, metres?, contacts?, load?, tempo?, perSide? }, restSec }]
+  items     Json
+  sportSlug String?
+  createdAt DateTime @default(now())
+
+  owner Athlete @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
 }

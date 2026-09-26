@@ -131,7 +131,17 @@ public enum WorkoutModeBuilder {
     ]
     static let travel = ["bodyweight-squat", "push-up", "split-squat", "single-leg-glute-bridge", "dead-bug", "side-plank", "worlds-greatest-stretch"]
 
+    /// The athlete's own version of this workout when they made one,
+    /// otherwise the one built for today.
     public static func build(_ mode: WorkoutMode, _ context: WorkoutModeContext) -> GeneratedSession? {
+        if let mine = PlanCustomizationStore.load().workout(for: .mode(mode)), !mine.items.isEmpty {
+            return mine.session(date: context.date, catalogue: context.catalogue)
+        }
+        return standard(mode, context)
+    }
+
+    /// The workout the app builds for this mode, ignoring the athlete's edits.
+    public static func standard(_ mode: WorkoutMode, _ context: WorkoutModeContext) -> GeneratedSession? {
         var used: Set<String> = []
         var picks: [(CatalogueItem, String)] = []
         let rotation = Calendar.current.ordinality(of: .day, in: .era, for: context.date) ?? 0

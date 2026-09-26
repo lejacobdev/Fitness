@@ -94,6 +94,10 @@ targets:
         com.apple.security.application-groups:
           - group.com.studentathlete.app
         aps-environment: production
+        # Links like https://api.lejacob.dev/fitness/team/ABC234 open the app
+        # (the server's /.well-known/apple-app-site-association lists them).
+        com.apple.developer.associated-domains:
+          - applinks:api.lejacob.dev
     dependencies:
       - target: StudentAthleteWatch
         embed: true

@@ -52,6 +52,7 @@ const PRIVACY = page('Privacy Policy', `
 <li><strong>Your app progress and settings</strong> — Campus lessons, XP and badges, test results, season goals, evening reflections, day status, practice days, meals you logged and reminder times — so they come back on a new phone.</li>
 <li><strong>Calendar links you connect</strong> — the link to a team or school calendar, so your phone can read games, practices and exams from it.</li>
 <li><strong>Leagues and teams you join</strong> — the nickname you choose and which league or team you're in. League members see your nickname and weekly Campus XP; a coach whose team you join sees your nickname, whether you checked in, your readiness band and how many workouts and minutes you logged that week. Never anything you wrote.</li>
+<li><strong>Workouts you share</strong> — when you share a workout with a code, its name and exercises are stored under that code, and anyone who has the code, link or QR code can open it. Nothing else about you is attached. Stop sharing it any time, or delete your account.</li>
 <li><strong>A parent summary link</strong>, if you make one — a private link to a page with this week's numbers (training, sleep, check-ins, upcoming games, Campus and Mindset counts). You can switch it off at any time.</li>
 </ul></section>
 <section><h2>What we never collect</h2>
@@ -63,7 +64,7 @@ const PRIVACY = page('Privacy Policy', `
 <section><h2>Where your data lives</h2>
 <p>Everything is stored on your device first and works offline. When you are online it is backed up to our own server so it survives a new phone. The server is operated by the developer; no third-party processors are used.</p></section>
 <section><h2>Deleting your data</h2>
-<p>You can delete your account at any time in the app: <strong>Me → Delete account</strong>. This permanently deletes your account and every check-in, session, set, plan, game, backup, league and team membership and parent link stored on our server, revokes Sign in with Apple, and removes the copy on your device. It is free and never behind a subscription. <strong>Me → Log out</strong> backs everything up and removes it from the device without deleting your account.</p></section>
+<p>You can delete your account at any time in the app: <strong>Me → Delete account</strong>. This permanently deletes your account and every check-in, session, set, plan, game, backup, league and team membership, shared workout and parent link stored on our server, revokes Sign in with Apple, and removes the copy on your device. It is free and never behind a subscription. <strong>Me → Log out</strong> backs everything up and removes it from the device without deleting your account.</p></section>
 <section><h2>Not medical advice</h2>
 <p>Athlete OS provides general training information. It never predicts injury, diagnoses anything, or clears anyone to return to play — its concussion page explains the usual steps and says a doctor decides. Always follow your coach, athletic trainer or doctor.</p></section>
 <section><h2>Changes</h2><p>If this policy changes, the new version will be posted here with a new date.</p></section>

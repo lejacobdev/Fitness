@@ -120,7 +120,7 @@ struct AppTourView: View {
         Page(icon: "figure.strengthtraining.traditional", color: AppTheme.brand, tab: "Workout",
              title: "Three kinds of workout",
              body: "After practice: short and smart. Gym day: your full session on days without practice. Stretching & mobility: good every day. Each one is built for your sport, schedule and what you want to fix.",
-             steps: ["The one for today is marked", "See it, then press Start", "More: skill plans and muscle workouts"]),
+             steps: ["The one for today is marked", "See it, then press Start", "Change it: swap, add or remove exercises, pick your days"]),
         Page(icon: "calendar", color: AppTheme.orange, tab: "Progress",
              title: "See how far you've come",
              body: "A calendar of everything you did and what's coming: red workouts, orange practices, yellow after-practice sessions, blue mobility. Zoom out to your whole season.",

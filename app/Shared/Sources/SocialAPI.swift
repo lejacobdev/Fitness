@@ -171,7 +171,69 @@ public extension APIClient {
         let _: Ignored = try await social("DELETE", "parent-link", sessionToken: sessionToken)
     }
 
+    // MARK: Shared workouts and codes
+
+    /// A workout shared under a code (backend/src/routes/workouts.js).
+    struct SharedWorkout: Codable, Sendable, Equatable {
+        public struct Item: Codable, Sendable, Equatable {
+            public let itemSlug: String
+            public let dose: Dose
+            public let restSec: Int
+        }
+        public let code: String
+        public let title: String
+        public let items: [Item]
+        public let sportSlug: String?
+
+        /// A copy the athlete owns.
+        public var workout: CustomWorkout {
+            CustomWorkout(title: title, items: items.map { CustomItem(itemSlug: $0.itemSlug, dose: $0.dose, restSec: $0.restSec) })
+        }
+    }
+
+    /// Shares a workout (Pro) and returns its code.
+    func shareWorkout(_ workout: CustomWorkout, sportSlug: String?, sessionToken: String) async throws -> String {
+        struct Body: Encodable, Sendable { let title: String; let items: [SharedWorkout.Item]; let sportSlug: String? }
+        struct Wire: Decodable, Sendable { let code: String }
+        let body = Body(title: workout.title, items: workout.items.map { SharedWorkout.Item(itemSlug: $0.itemSlug, dose: $0.dose, restSec: $0.restSec) },
+                        sportSlug: sportSlug)
+        let wire: Wire = try await social("POST", "workouts/shared", json: try JSONEncoder().encode(body), sessionToken: sessionToken)
+        return wire.code
+    }
+
+    /// Anyone with the code can open it — no account needed.
+    func sharedWorkout(code: String) async throws -> SharedWorkout {
+        try await open("workouts/shared/\(code)")
+    }
+
+    func stopSharing(code: String, sessionToken: String) async throws {
+        let _: Ignored = try await social("DELETE", "workouts/shared/\(code)", sessionToken: sessionToken)
+    }
+
+    /// What a code is — "team", "league" or "workout" — and its name.
+    struct CodeInfo: Decodable, Sendable, Equatable {
+        public let kind: String
+        public let name: String?
+    }
+
+    func lookUpCode(_ code: String) async throws -> CodeInfo {
+        try await open("codes/\(code)")
+    }
+
     // MARK: Plumbing
+
+    /// A request that needs no sign-in.
+    private func open<T: Decodable & Sendable>(_ path: String) async throws -> T {
+        let (data, response) = try await perform(URLRequest(url: baseURL.appending(path: path)))
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw apiError(from: response, data: data)
+        }
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            throw APIError.decoding
+        }
+    }
 
     /// A response whose body doesn't matter.
     struct Ignored: Decodable, Sendable {}
