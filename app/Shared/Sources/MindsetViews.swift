@@ -337,7 +337,7 @@ struct ReflectionSheet: View {
             areas("What needs work?", selection: $needsWork)
         case .learned:
             QuestionPage(progress: progress, question: "What did you learn today?", hint: "Optional. One line is plenty.",
-                         buttonTitle: "Save", onClose: { dismiss() }, onBack: back, onButton: save) {
+                         buttonTitle: "Save", onClose: { dismiss() }, onBack: { back() }, onButton: { save() }) {
                 TextField("e.g. Call for the ball earlier", text: $learned, axis: .vertical)
                     .lineLimit(2...4)
                     .font(.body)
@@ -370,15 +370,24 @@ struct ReflectionSheet: View {
 
     private func scale(_ question: String, _ options: [String], selection: Binding<Int?>) -> some View {
         let current = step
-        return QuestionPage(progress: progress, question: question, buttonTitle: selection.wrappedValue == nil ? nil : "Next",
-                            onClose: { dismiss() }, onBack: current == .hardness ? nil : back, onButton: { next(from: current) }) {
-            ChoiceGrid(Array(options.indices), title: { options[$0] }, isSelected: { selection.wrappedValue == $0 + 1 }) { index in
-                selection.wrappedValue = index + 1
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(220))
-                    next(from: current)
-                }
+        let backAction: (() -> Void)? = current == .hardness ? nil : { back() }
+        let buttonTitle: String? = selection.wrappedValue == nil ? nil : "Next"
+        let values: [Int] = Array(1...options.count)
+        return QuestionPage(progress: progress, question: question, buttonTitle: buttonTitle,
+                            onClose: { dismiss() }, onBack: backAction, onButton: { next(from: current) }) {
+            ChoiceGrid(values, title: { (value: Int) -> String in options[value - 1] },
+                       isSelected: { (value: Int) -> Bool in selection.wrappedValue == value }) { (value: Int) in
+                selection.wrappedValue = value
+                advance(from: current)
             }
+        }
+    }
+
+    /// After a tap: a moment to see the choice, then the next question.
+    private func advance(from current: Step) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(220))
+            next(from: current)
         }
     }
 
@@ -386,8 +395,9 @@ struct ReflectionSheet: View {
         let current = step
         return QuestionPage(progress: progress, question: question, hint: "Tap any that fit.",
                             buttonTitle: selection.wrappedValue.isEmpty ? "Skip" : "Next",
-                            onClose: { dismiss() }, onBack: back, onButton: { next(from: current) }) {
-            ChoiceGrid(EveningOptions.areas, title: { $0 }, isSelected: { selection.wrappedValue.contains($0) }) { area in
+                            onClose: { dismiss() }, onBack: { back() }, onButton: { next(from: current) }) {
+            ChoiceGrid(EveningOptions.areas, title: { (area: String) -> String in area },
+                       isSelected: { (area: String) -> Bool in selection.wrappedValue.contains(area) }) { (area: String) in
                 if selection.wrappedValue.contains(area) { selection.wrappedValue.remove(area) } else { selection.wrappedValue.insert(area) }
             }
         }

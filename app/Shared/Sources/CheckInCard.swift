@@ -119,8 +119,9 @@ struct CheckInSheet: View {
             question("How sore are you?", hint: "Normal muscle soreness from training.", options: CheckInOptions.soreness, selection: $soreness)
         case .pain:
             QuestionPage(progress: progress, question: "Any pain or discomfort?", hint: "Something that hurts — not normal soreness.",
-                         buttonTitle: hasPain == nil ? nil : "Next", onClose: { dismiss() }, onBack: back, onButton: { next(from: .pain) }) {
-                ChoiceGrid([false, true], title: { $0 ? "Yes" : "No" }, isSelected: { $0 == hasPain }) { answer in
+                         buttonTitle: hasPain == nil ? nil : "Next", onClose: { dismiss() }, onBack: { back() }, onButton: { next(from: .pain) }) {
+                ChoiceGrid([false, true], title: { (answer: Bool) -> String in answer ? "Yes" : "No" },
+                           isSelected: { (answer: Bool) -> Bool in answer == hasPain }) { (answer: Bool) in
                     hasPain = answer
                     if !answer {
                         painAreas = []
@@ -132,15 +133,17 @@ struct CheckInSheet: View {
         case .painDetail:
             QuestionPage(progress: progress, question: "Where does it hurt?", hint: "Tap every place, then how much.",
                          buttonEnabled: !painAreas.isEmpty && painLevel != nil,
-                         onClose: { dismiss() }, onBack: back, onButton: { next(from: .painDetail) }) {
-                ChoiceGrid(PainArea.allCases, title: \.title, isSelected: { painAreas.contains($0) }) { area in
+                         onClose: { dismiss() }, onBack: { back() }, onButton: { next(from: .painDetail) }) {
+                ChoiceGrid(PainArea.allCases, title: { (area: PainArea) -> String in area.title },
+                           isSelected: { (area: PainArea) -> Bool in painAreas.contains(area) }) { (area: PainArea) in
                     if painAreas.contains(area) { painAreas.remove(area) } else { painAreas.insert(area) }
                 }
                 Text("How much?")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(AppTheme.ink)
                     .padding(.top, 6)
-                ChoiceGrid(PainLevel.allCases, title: \.title, isSelected: { $0 == painLevel }) { painLevel = $0 }
+                ChoiceGrid(PainLevel.allCases, title: { (level: PainLevel) -> String in level.title },
+                           isSelected: { (level: PainLevel) -> Bool in level == painLevel }) { (level: PainLevel) in painLevel = level }
                 if painAreas.contains(.head) {
                     HeadKnockNote()
                 }
@@ -149,14 +152,15 @@ struct CheckInSheet: View {
             question("How do you feel today?", hint: "Mood and stress — school, home, anything.", options: CheckInOptions.mood, selection: $mood)
         case .schedule:
             QuestionPage(progress: progress, question: "Today's schedule", hint: "Is this right? Your plan is built around it.",
-                         buttonTitle: "Save", onClose: { dismiss() }, onBack: back, onButton: save) {
+                         buttonTitle: "Save", onClose: { dismiss() }, onBack: { back() }, onButton: { save() }) {
                 if let game = athlete.competitions.first(where: { Calendar.current.isDateInToday($0.date) }) {
                     ListRow(systemImage: "sportscourt.fill", color: AppTheme.green, title: game.kind == .tournament ? "Tournament" : "Game",
                             detail: game.date.formatted(date: .omitted, time: .shortened)) { EmptyView() }
                         .cardStyle(padding: 12)
                 }
-                ChoiceGrid([true, false], title: { $0 ? practiceLabel : "No practice today" }, isSelected: { $0 == practiceToday }) {
-                    practiceToday = $0
+                ChoiceGrid([true, false], title: { (practice: Bool) -> String in practice ? practiceLabel : "No practice today" },
+                           isSelected: { (practice: Bool) -> Bool in practice == practiceToday }) { (practice: Bool) in
+                    practiceToday = practice
                 }
             }
         case .result:
@@ -180,9 +184,12 @@ struct CheckInSheet: View {
         @ViewBuilder extra: () -> Extra
     ) -> some View {
         let current = step
-        return QuestionPage(progress: progress, question: text, hint: hint, buttonTitle: selection.wrappedValue == nil ? nil : "Next",
-                            onClose: { dismiss() }, onBack: current == .sleepHours ? nil : back, onButton: { next(from: current) }) {
-            ChoiceGrid(options, title: \.title, isSelected: { $0 == selection.wrappedValue }) { option in
+        let backAction: (() -> Void)? = current == .sleepHours ? nil : { back() }
+        let buttonTitle: String? = selection.wrappedValue == nil ? nil : "Next"
+        return QuestionPage(progress: progress, question: text, hint: hint, buttonTitle: buttonTitle,
+                            onClose: { dismiss() }, onBack: backAction, onButton: { next(from: current) }) {
+            ChoiceGrid(options, title: { (option: CheckInOption) -> String in option.title },
+                       isSelected: { (option: CheckInOption) -> Bool in option == selection.wrappedValue }) { (option: CheckInOption) in
                 selection.wrappedValue = option
                 advance(from: current)
             }

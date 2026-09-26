@@ -11,6 +11,8 @@ enum ProgressColors {
     static let afterPractice = Color(hex: "#FACC15")
     /// Stretching and mobility.
     static let mobility = AppTheme.water
+    /// A game or competition.
+    static let game = AppTheme.green
 }
 
 /// Everything on one day of the calendar.
@@ -21,6 +23,8 @@ struct DayMarks: Equatable {
     var afterPractice = 0
     var mobility = 0
     var game = false
+    /// A game still to come (outlined).
+    var gameUpcoming = false
     var plannedWorkout = false
 
     /// Filled segments: things that happened.
@@ -30,6 +34,7 @@ struct DayMarks: Equatable {
         if practiceDone { colors.append(ProgressColors.practice) }
         if afterPractice > 0 { colors.append(ProgressColors.afterPractice) }
         if mobility > 0 { colors.append(ProgressColors.mobility) }
+        if game { colors.append(ProgressColors.game) }
         return colors
     }
 
@@ -38,14 +43,16 @@ struct DayMarks: Equatable {
         var colors: [Color] = []
         if plannedWorkout && workouts == 0 { colors.append(ProgressColors.workout) }
         if practiceScheduled && !practiceDone { colors.append(ProgressColors.practice) }
+        if gameUpcoming { colors.append(ProgressColors.game) }
         return colors
     }
 
-    var isEmpty: Bool { done.isEmpty && planned.isEmpty && !game }
+    var isEmpty: Bool { done.isEmpty && planned.isEmpty }
 }
 
-/// A dot split into one slice per thing that happened that day; planned
-/// things are outlined, and a game day gets a ring.
+/// A dot split into one slice per thing that happened that day (red gym,
+/// orange practice, yellow after practice, blue mobility, green game);
+/// planned things are outlined.
 struct PieDot: View {
     let marks: DayMarks
     var size: CGFloat = 16
@@ -53,7 +60,7 @@ struct PieDot: View {
     var body: some View {
         let done = marks.done
         let planned = marks.planned
-        let ring = marks.game
+        let ring = false
         let ringColor = AppTheme.ink
         Canvas { context, canvasSize in
             let inset: CGFloat = ring ? 3 : 1
@@ -158,7 +165,14 @@ struct ProgressTabView: View {
             }
         }
         for log in PracticeLogStore.logs { marks[log.day, default: DayMarks()].practiceDone = true }
-        for game in athlete.competitions { marks[DayKey.of(game.date, calendar: calendar), default: DayMarks()].game = true }
+        for game in athlete.competitions {
+            let key = DayKey.of(game.date, calendar: calendar)
+            if calendar.startOfDay(for: game.date) > calendar.startOfDay(for: .now) {
+                marks[key, default: DayMarks()].gameUpcoming = true
+            } else {
+                marks[key, default: DayMarks()].game = true
+            }
+        }
         for session in week?.sessions ?? [] where session.date >= calendar.startOfDay(for: .now) {
             marks[DayKey.of(session.date, calendar: calendar), default: DayMarks()].plannedWorkout = true
         }
@@ -184,10 +198,11 @@ struct ProgressTabView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Progress", subtitle: "Every workout, practice and game — what you've done and what's coming.")
+                    ScreenTitle("Progress")
                     summaryCard
                     calendarCard
                     practiceSection
+                    thirtyDaysSection
                     statsSection
                     scheduleSection
                     workoutsSection
@@ -230,50 +245,110 @@ struct ProgressTabView: View {
 
     // MARK: Summary
 
+    /// This week at a glance: how many of each, Monday to Sunday.
     private var summaryCard: some View {
         let all = marksByDay
-        let thisMonth = monthTotals(for: .now, all)
-        let lastMonth = monthTotals(for: calendar.date(byAdding: .month, value: -1, to: .now) ?? .now, all)
+        let week = weekTotals(all)
         let streak = AthleteStats.streak(checkInDates: athlete.checkIns.map(\.date), sessionDates: sessions.map(\.startedAt))
-        let total = thisMonth.workouts + thisMonth.practices + thisMonth.mobility
-        let lastTotal = lastMonth.workouts + lastMonth.practices + lastMonth.mobility
-        let message: String = {
-            if total == 0 { return "A fresh month. The first workout is the hardest — start today." }
-            if total > lastTotal, lastTotal > 0 { return "Already more than all of last month. Keep it rolling!" }
-            if lastTotal > total { return "\(lastTotal - total) more to beat last month." }
-            return "Every session counts. Keep showing up."
-        }()
         return VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("This month")
-                    .font(.headline)
+                Text("This Week")
+                    .font(.title3.weight(.semibold))
                     .foregroundStyle(AppTheme.ink)
                 Spacer()
-                Label("\(streak) day streak", systemImage: "flame.fill")
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.orange)
+                Label("\(streak)", systemImage: "flame.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .accessibilityLabel("\(streak) day streak")
             }
-            HStack(spacing: 10) {
-                stat(thisMonth.workouts, "workouts", ProgressColors.workout)
-                stat(thisMonth.practices, "practices", ProgressColors.practice)
-                stat(thisMonth.mobility, "mobility", ProgressColors.mobility)
+            HStack(spacing: 6) {
+                stat(week.gym, "Gym", ProgressColors.workout)
+                stat(week.practices, "Practice", ProgressColors.practice)
+                stat(week.afterPractice, "After", ProgressColors.afterPractice)
+                stat(week.mobility, "Mobility", ProgressColors.mobility)
+                stat(week.games, "Games", ProgressColors.game)
             }
-            Text(message)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
         }
-        .cardStyle()
+        .cardStyle(padding: 20)
     }
 
     private func stat(_ value: Int, _ label: String, _ color: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("\(value)")
-                .font(.system(size: 30, weight: .heavy))
+                .font(.system(size: 26, weight: .bold))
                 .foregroundStyle(AppTheme.ink)
-            HStack(spacing: 6) {
-                Circle().fill(color).frame(width: 10, height: 10)
-                Text(label).font(.caption.weight(.semibold)).foregroundStyle(AppTheme.secondaryText)
+            HStack(spacing: 4) {
+                Circle().fill(color).frame(width: 8, height: 8)
+                Text(label).font(.caption).foregroundStyle(AppTheme.secondaryText).lineLimit(1).minimumScaleFactor(0.8)
             }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func weekTotals(_ all: [String: DayMarks]) -> (gym: Int, practices: Int, afterPractice: Int, mobility: Int, games: Int) {
+        guard let interval = calendar.dateInterval(of: .weekOfYear, for: .now) else { return (0, 0, 0, 0, 0) }
+        var result = (gym: 0, practices: 0, afterPractice: 0, mobility: 0, games: 0)
+        var day = interval.start
+        while day < interval.end {
+            if let marks = all[DayKey.of(day, calendar: calendar)] {
+                result.gym += marks.workouts
+                result.practices += marks.practiceDone ? 1 : 0
+                result.afterPractice += marks.afterPractice
+                result.mobility += marks.mobility
+                result.games += marks.game ? 1 : 0
+            }
+            day = calendar.date(byAdding: .day, value: 1, to: day) ?? interval.end
+        }
+        return result
+    }
+
+    // MARK: Last 30 days
+
+    private var thirtyDaysSection: some View {
+        _ = revision
+        let summary = ProgressInsights.lastThirtyDays(
+            sessions: sessions.map { (date: $0.startedAt, minutes: $0.minutes) },
+            practiceDays: PracticeLogStore.logs.map(\.day),
+            checkIns: athlete.checkIns.map { ProgressInsights.CheckInPoint(date: $0.date, sleepHours: $0.sleepHours, energy: $0.energy, soreness: $0.soreness) },
+            needsWork: MindsetStore.reflections.compactMap(\.needsWork),
+            calendar: calendar
+        )
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Last 30 days")
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 6) {
+                    figure("\(summary.trainingDays)", "training days")
+                    figure("\(summary.minutes / 60)h \(summary.minutes % 60)m", "in workouts")
+                    figure(summary.averageSleep.map { String(format: "%.1f h", $0) } ?? "–", "avg sleep")
+                }
+                if !summary.insights.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(summary.insights, id: \.self) { insight in
+                            Label(insight, systemImage: "circle.fill")
+                                .labelStyle(InsightLabelStyle())
+                        }
+                    }
+                    Text("Patterns, not causes.")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardStyle(padding: 20)
+        }
+    }
+
+    private func figure(_ value: String, _ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(AppTheme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(AppTheme.secondaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -339,8 +414,9 @@ struct ProgressTabView: View {
     }
 
     private var legend: some View {
-        let items: [(Color, String)] = [(ProgressColors.workout, "Workout"), (ProgressColors.practice, "Team practice"),
-                                          (ProgressColors.afterPractice, "After practice"), (ProgressColors.mobility, "Mobility")]
+        let items: [(Color, String)] = [(ProgressColors.workout, "Gym"), (ProgressColors.practice, "Team practice"),
+                                          (ProgressColors.afterPractice, "After practice"), (ProgressColors.mobility, "Mobility"),
+                                          (ProgressColors.game, "Game")]
         return VStack(alignment: .leading, spacing: 6) {
             LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)], spacing: 6) {
                 ForEach(items, id: \.1) { item in
@@ -350,7 +426,7 @@ struct ProgressTabView: View {
                     }
                 }
             }
-            Text("Outlined: planned. Ring: game. Tap a day to see it; pinch or use the buttons to zoom.")
+            Text("Outlined: planned. Tap a day for details.")
                 .font(.caption2)
                 .foregroundStyle(AppTheme.secondaryText)
         }
@@ -493,7 +569,7 @@ struct ProgressTabView: View {
         let loggedToday = PracticeLogStore.log(on: todayKey, sportSlug: sportSlug) != nil
         let practiceToday = PracticeSchedule.hasPractice(on: .now, calendar: calendar)
         return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Team practice", subtitle: "Log what you did at practice — as simply or as exactly as you like. Then you'll see what you practise most and least.")
+            SectionHeader("Practice Log")
             HStack(spacing: 8) {
                 ForEach(TrackingLevel.allCases, id: \.self) { level in
                     let locked = level == .exact && !ProAccess.isPro
@@ -507,7 +583,7 @@ struct ProgressTabView: View {
                     } label: {
                         VStack(spacing: 2) {
                             Text(level.title).font(.headline)
-                            Text(level == .easy ? "Time, effort, mood, result" : "+ each part of your game")
+                            Text(level == .easy ? "Time, effort, mood, result" : "+ each part of your sport")
                                 .font(.caption2)
                                 .multilineTextAlignment(.center)
                         }
@@ -528,9 +604,6 @@ struct ProgressTabView: View {
                 Label(loggedToday ? "Edit today's practice" : (practiceToday ? "Log today's practice" : "Log a practice"), systemImage: "square.and.pencil")
             }
             .buttonStyle(.primary)
-            Text("To log an earlier practice, tap its day in the calendar.")
-                .font(.caption)
-                .foregroundStyle(AppTheme.secondaryText)
         }
     }
 
@@ -550,7 +623,7 @@ struct ProgressTabView: View {
         let top = counts.first?.count ?? 1
         let insight = PracticeStats.insight(counts, allTypes: SportPractice.types(for: sportSlug))
         return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("What you practised", subtitle: "From your practice logs. See where your time goes.")
+            SectionHeader("What you practised")
             WrapLayout(spacing: 8) {
                 ForEach(StatsPeriod.allCases) { period in
                     // The last 30 days are free; longer is Pro.
@@ -564,7 +637,7 @@ struct ProgressTabView: View {
                 }
             }
             if counts.isEmpty {
-                Text("Nothing logged yet. After your next practice, tap “Log today's practice” and pick what you did.")
+                Text("Nothing logged yet. Log a practice and pick what you worked on.")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -633,7 +706,7 @@ struct ProgressTabView: View {
         let upcomingGames = AthleteStats.upcomingCompetitions(athlete).prefix(4)
         let extras = ExtraPractices.all.filter { $0.day >= DayKey.of(.now, calendar: calendar) }.prefix(4)
         return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Schedule & events", subtitle: "Your practice times and your games — workouts are planned around them.")
+            SectionHeader("Schedule & events")
             row("Practice days & times", PracticeSchedule.weekdays.isEmpty ? "Not set" : practiceSummary, icon: "clock.fill") { sheet = .schedule }
             row("Team & school calendars", ScheduleStore.feeds.isEmpty ? "Connect TeamSnap, Google or Apple" : "\(ScheduleStore.feeds.count) connected", icon: "link") { sheet = .calendars }
             ButtonRow {
@@ -708,7 +781,7 @@ struct ProgressTabView: View {
     private var workoutsSection: some View {
         let kinds = SessionKinds.all
         return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Your workouts", subtitle: "\(sessions.count) done so far.")
+            SectionHeader("Training History", subtitle: "\(sessions.count) workouts so far.")
             ForEach(sessions.prefix(5)) { session in
                 let kind = kinds[session.clientId] ?? .gym
                 HStack(spacing: 12) {
@@ -751,6 +824,19 @@ struct ProgressTabView: View {
     }
 }
 
+/// A small dot before a line of text.
+private struct InsightLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Circle().fill(AppTheme.ink).frame(width: 6, height: 6).alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
+            configuration.title
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
 // MARK: - A day
 
 struct DayDetailSheet: View {
@@ -787,13 +873,13 @@ struct DayDetailSheet: View {
                         item("Team practice\(time)", isFuture ? "Scheduled" : "Not logged yet", color: ProgressColors.practice, outlined: true)
                     }
                     ForEach(athlete.competitions.filter { calendar.isDate($0.date, inSameDayAs: date) }, id: \.id) { game in
-                        item(game.kind.rawValue.capitalized, "\(game.isHome ? "Home" : "Away")\(game.notes.map { " · \($0)" } ?? "")", color: AppTheme.ink, outlined: true)
+                        item(game.kind.rawValue.capitalized, "\(game.isHome ? "Home" : "Away")\(game.notes.map { " · \($0)" } ?? "")", color: ProgressColors.game, outlined: isFuture)
                     }
                     if let planned = week?.sessions.first(where: { calendar.isDate($0.date, inSameDayAs: date) }), isFuture || done.isEmpty {
                         item("Planned: \(planned.title)", "About \(planned.estimatedMinutes) min · \(planned.items.count) exercises", color: ProgressColors.workout, outlined: true)
                     }
                     if let checkIn = athlete.checkIns.first(where: { calendar.isDate($0.date, inSameDayAs: date) }) {
-                        item("Check-in", "Sleep \(checkIn.sleepQuality)/5 · energy \(checkIn.energy)/5 · soreness \(checkIn.soreness)/5", color: AppTheme.green)
+                        item("Check-in", checkInSummary(checkIn), color: AppTheme.ink)
                     }
                     if marks.isEmpty && done.isEmpty {
                         Text(isFuture ? "Nothing planned yet." : "Nothing logged on this day.")
@@ -821,7 +907,16 @@ struct DayDetailSheet: View {
 
     private func practiceSummary(_ log: PracticeLog) -> String {
         let types = log.types.isEmpty ? "" : log.types.joined(separator: ", ") + " · "
-        return "\(types)hard \(log.hard)/5 · went \(log.went)/5 · mood \(log.mood)/5"
+        let minutes = log.minutes.map { "\($0) min · " } ?? ""
+        return "\(types)\(minutes)effort \(log.hard)/5 · result \(log.went)/5"
+    }
+
+    private func checkInSummary(_ checkIn: CheckIn) -> String {
+        var parts: [String] = []
+        if let hours = checkIn.sleepHours { parts.append("Sleep \(SleepMath.label(hours))") }
+        if let energy = CheckInOptions.nearest(Double(checkIn.energy), in: CheckInOptions.energy) { parts.append("energy \(energy.title.lowercased())") }
+        if let soreness = CheckInOptions.nearest(Double(checkIn.soreness), in: CheckInOptions.soreness) { parts.append("soreness \(soreness.title.lowercased())") }
+        return parts.joined(separator: " · ")
     }
 
     private func item(_ title: String, _ detail: String, color: Color, outlined: Bool = false) -> some View {
@@ -886,7 +981,7 @@ struct PracticeLogSheet: View {
     var body: some View {
         StepScaffold(
             title: "Team practice",
-            subtitle: date.formatted(.dateTime.weekday(.wide).month().day()) + " — log it your way. Easy takes 10 seconds.",
+            subtitle: date.formatted(.dateTime.weekday(.wide).month().day()),
             buttonTitle: "Save", onBack: { dismiss() },
             onContinue: save
         ) {
@@ -917,19 +1012,11 @@ struct PracticeLogSheet: View {
                 }
             }
 
-            section("What did you do?") {
-                WrapLayout(spacing: 8) {
-                    ForEach(SportPractice.types(for: sportSlug), id: \.self) { type in
-                        Button {
-                            if types.contains(type) { types.remove(type) } else { types.insert(type) }
-                        } label: { Chip(type, isSelected: types.contains(type)) }
-                            .buttonStyle(.plain)
-                    }
-                }
+            section("How long? \(minutes) min") {
+                Stepper("", value: $minutes, in: 15...300, step: 15).labelsHidden()
             }
-            scale("How hard was it?", low: "Easy", high: "Exhausting", value: $hard)
-            scale("How did it go?", low: "Badly", high: "Great", value: $went)
-            section("How do you feel now?") {
+            scale("Effort", low: "Easy", high: "Max", value: $hard)
+            section("Mood afterwards") {
                 HStack(spacing: 8) {
                     ForEach(1...5, id: \.self) { value in
                         let faces = ["😣", "😕", "😐", "🙂", "😄"]
@@ -944,8 +1031,16 @@ struct PracticeLogSheet: View {
                     }
                 }
             }
-            section("How long? \(minutes) min") {
-                Stepper("", value: $minutes, in: 15...300, step: 15).labelsHidden()
+            scale("Result: how did it go?", low: "Badly", high: "Great", value: $went)
+            section("Worked on (optional)") {
+                WrapLayout(spacing: 8) {
+                    ForEach(SportPractice.types(for: sportSlug), id: \.self) { type in
+                        Button {
+                            if types.contains(type) { types.remove(type) } else { types.insert(type) }
+                        } label: { Chip(type, isSelected: types.contains(type)) }
+                            .buttonStyle(.plain)
+                    }
+                }
             }
 
             if level == .exact {
