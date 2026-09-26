@@ -20,15 +20,16 @@ public enum CampusStep: Hashable, Sendable {
 public extension CampusLesson {
     var questions: [CampusQuestion] { campusQuestions[id] ?? [] }
 
-    /// Teaching cards and exercises interleaved: learn a bit, use it straight away.
+    static let meansForYouHeading = "What this means for you"
+
+    /// A 2–5 minute lesson (V3): the teaching cards (the hook, the idea, an
+    /// athlete's example), what it means for you, then a quiz of up to three.
     var steps: [CampusStep] {
-        var out: [CampusStep] = []
-        var qs = questions[...]
-        for section in sections {
-            out.append(.teach(section))
-            if let q = qs.popFirst() { out.append(.question(q)) }
+        var out = sections.map { CampusStep.teach($0) }
+        if !takeaways.isEmpty {
+            out.append(.teach(CampusSection(heading: Self.meansForYouHeading, body: takeaways.map { "• \($0)" }.joined(separator: "\n"))))
         }
-        out += qs.map { CampusStep.question($0) }
+        out += questions.prefix(3).map { CampusStep.question($0) }
         return out
     }
 }

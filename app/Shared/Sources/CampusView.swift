@@ -115,6 +115,11 @@ struct CampusProgress {
 
     static func learned(_ raw: String) -> Set<String> { Set(raw.split(separator: ",").map(String.init)) }
 
+    /// A quiet level: one every 150 XP.
+    static func level(xp: Int) -> (level: Int, progress: Double) {
+        (1 + max(0, xp) / 150, Double(max(0, xp) % 150) / 150)
+    }
+
     static func dayString(_ date: Date = .now) -> String {
         let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
         return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
@@ -234,159 +239,202 @@ struct CampusView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                statsBar
-                ScrollView {
-                    VStack(spacing: 28) {
-                        SportGuideCard(athlete: athlete) { showingGuide = true }
-                        dailyAllowance
-                        if !dueForReview.isEmpty { reviewCard }
-                        ForEach(Array(campusTopics.enumerated()), id: \.element.id) { unitIndex, topic in
-                            unit(topic, index: unitIndex)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    header
+                    recommendedCard
+                    dailyAllowance
+                    if !dueForReview.isEmpty { reviewCard }
+                    SectionHeader("Know Your Sport")
+                    SportGuideCard(athlete: athlete) { showingGuide = true }
+                    SectionHeader("Learning Areas")
+                    VStack(spacing: 0) {
+                        ForEach(Array(campusTopics.enumerated()), id: \.element.id) { index, topic in
+                            NavigationLink(value: topic) { areaRow(topic, index: index) }
+                                .buttonStyle(.plain)
+                            if index < campusTopics.count - 1 {
+                                Divider().padding(.leading, 54)
+                            }
                         }
-                        Color.clear.frame(height: 30)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                    .cardStyle(padding: 12)
                 }
-                .scrollIndicators(.hidden)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
             }
-            .background(AppTheme.background.ignoresSafeArea())
-            .sheet(isPresented: $showingLibrary) {
-                LibraryView(athlete: athlete)
+            .scrollIndicators(.hidden)
+            .appScreen()
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: CampusTopic.self) { topic in
+                LearningAreaView(topic: topic, color: Self.color(for: topic)) { lesson in start(lesson) }
             }
-            .fullScreenCover(item: $playing) { lesson in
-                CampusLessonPlayer(lesson: lesson) { earned in finish(lesson, xp: earned) }
-            }
-            .fullScreenCover(item: $reviewing) { session in
-                CampusLessonPlayer(
-                    lesson: CampusLesson(id: "review", title: "Review", minutes: 3, sections: [], takeaways: []),
-                    customSteps: session.steps,
-                    onMistakes: { wrong in
-                        let wrongLessons = Set(wrong.compactMap { CampusReview.lesson(of: $0) })
-                        CampusReview.record(reviewed: session.lessonIDs, wrong: wrongLessons)
-                    }
-                ) { earned in finishReview(xp: earned) }
-            }
-            .sheet(isPresented: $showingLeagues, onDismiss: { revision += 1 }) {
-                LeaguesView(stats: stats)
-            }
-            .sheet(isPresented: $showingBadges) {
-                BadgesView()
-            }
-            .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .unlimitedLessons)
-            .sheet(isPresented: $showingGuide, onDismiss: { revision += 1 }) {
-                SportGuideView(athlete: athlete)
-            }
-            .sheet(item: $newBadges) { celebration in
-                BadgeCelebrationView(badges: celebration.badges)
-                    .presentationDetents([.medium])
-            }
-            .task { await LeagueSync.report() }
+        }
+        .sheet(isPresented: $showingLibrary) {
+            LibraryView(athlete: athlete)
+        }
+        .fullScreenCover(item: $playing) { lesson in
+            CampusLessonPlayer(lesson: lesson) { earned in finish(lesson, xp: earned) }
+        }
+        .fullScreenCover(item: $reviewing) { session in
+            CampusLessonPlayer(
+                lesson: CampusLesson(id: "review", title: "Review", minutes: 3, sections: [], takeaways: []),
+                customSteps: session.steps,
+                onMistakes: { wrong in
+                    let wrongLessons = Set(wrong.compactMap { CampusReview.lesson(of: $0) })
+                    CampusReview.record(reviewed: session.lessonIDs, wrong: wrongLessons)
+                }
+            ) { earned in finishReview(xp: earned) }
+        }
+        .sheet(isPresented: $showingLeagues, onDismiss: { revision += 1 }) {
+            LeaguesView(stats: stats)
+        }
+        .sheet(isPresented: $showingBadges) {
+            BadgesView()
+        }
+        .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .unlimitedLessons)
+        .sheet(isPresented: $showingGuide, onDismiss: { revision += 1 }) {
+            SportGuideView(athlete: athlete)
+        }
+        .sheet(item: $newBadges) { celebration in
+            BadgeCelebrationView(badges: celebration.badges)
+                .presentationDetents([.medium])
+        }
+        .task { await LeagueSync.report() }
+    }
+
+    /// Unit colours, as accents only.
+    static func color(for topic: CampusTopic) -> Color {
+        let index = campusTopics.firstIndex(of: topic) ?? 0
+        return Duo.units[index % Duo.units.count].0
+    }
+
+    /// Plays a lesson: replays are always free; new lessons have a daily allowance on free.
+    private func start(_ lesson: CampusLesson) {
+        if learned.contains(lesson.id) {
+            playing = lesson
+        } else if isUnlocked(lesson) {
+            if CampusProgress.lessonsLeftToday() == 0 { showingPaywall = true } else { playing = lesson }
         }
     }
 
-    private var statsBar: some View {
-        // One row when it fits; on narrow phones or big text the buttons
-        // move under the numbers instead of squeezing them.
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 16) {
-                statNumbers
+    // MARK: Header: title and the quiet numbers
+
+    private var header: some View {
+        let level = CampusProgress.level(xp: xp)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Athlete Campus")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundStyle(AppTheme.ink)
+                    .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 8)
-                statsButtons
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                statNumbers
-                HStack {
-                    Spacer()
-                    statsButtons
+                HStack(spacing: 2) {
+                    iconButton("trophy", "Leagues with your teammates") { showingLeagues = true }
+                    iconButton("medal", "Your badges") { showingBadges = true }
+                    iconButton("books.vertical", "Exercise library") { showingLibrary = true }
                 }
             }
+            HStack(spacing: 14) {
+                Label("\(CampusProgress.currentStreak(streak: streak, lastDay: lastDay))", systemImage: "flame.fill")
+                Text("Level \(level.level)")
+                Text("\(xp) XP")
+                Text("\(learned.count)/\(totalLessons) lessons")
+            }
+            .font(.subheadline)
+            .foregroundStyle(AppTheme.secondaryText)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
         }
-        .font(.headline.weight(.heavy))
-        .padding(.horizontal, 20)
+    }
+
+    private func iconButton(_ systemImage: String, _ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+                .frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
+    // MARK: Recommended lesson
+
+    private var recommended: (lesson: CampusLesson, topic: CampusTopic)? {
+        guard let id = currentLessonID else { return nil }
+        for topic in campusTopics {
+            if let lesson = topic.lessons.first(where: { $0.id == id }) { return (lesson, topic) }
+        }
+        return nil
+    }
+
+    @ViewBuilder
+    private var recommendedCard: some View {
+        if let next = recommended {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("RECOMMENDED · \(next.lesson.minutes) MIN")
+                    .font(.caption.weight(.bold))
+                    .tracking(0.8)
+                    .foregroundStyle(AppTheme.secondaryText)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(next.lesson.title)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(AppTheme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Label(next.topic.title, systemImage: next.topic.systemImage)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+                Button(learned.isEmpty ? "Start" : "Continue") { start(next.lesson) }
+                    .buttonStyle(.primary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardStyle(padding: 20)
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Every lesson done")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                Text("Reviews keep it fresh. Replay any lesson from its area.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardStyle(padding: 20)
+        }
+    }
+
+    // MARK: Learning areas
+
+    private func areaRow(_ topic: CampusTopic, index: Int) -> some View {
+        let done = topic.lessons.filter { learned.contains($0.id) }.count
+        let next = topic.lessons.first { !learned.contains($0.id) }
+        let color = Self.color(for: topic)
+        return HStack(spacing: 14) {
+            Image(systemName: topic.systemImage)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 40, height: 40)
+                .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            VStack(alignment: .leading, spacing: 6) {
+                Text(topic.title)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .multilineTextAlignment(.leading)
+                ProgressView(value: Double(done), total: Double(max(1, topic.lessons.count)))
+                    .tint(color)
+                Text("\(done)/\(topic.lessons.count) lessons\(next.map { " · Next: \($0.title)" } ?? " · Done")")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+        }
         .padding(.vertical, 10)
-        .overlay(alignment: .bottom) { Rectangle().fill(Duo.border).frame(height: 2) }
-    }
-
-    private var statNumbers: some View {
-        HStack(spacing: 16) {
-            Label("\(CampusProgress.currentStreak(streak: streak, lastDay: lastDay))", systemImage: "flame.fill")
-                .foregroundStyle(Duo.orange)
-            Label("\(xp) XP", systemImage: "bolt.fill")
-                .foregroundStyle(Duo.goldLip)
-            Label("\(learned.count)/\(totalLessons)", systemImage: "graduationcap.fill")
-                .foregroundStyle(AppTheme.accent)
-        }
-        .lineLimit(1)
-        .fixedSize()
-    }
-
-    private var statsButtons: some View {
-        HStack(spacing: 4) {
-            Button { showingLeagues = true } label: {
-                Image(systemName: "trophy.fill")
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(Duo.goldLip)
-                    .frame(width: 44, height: 44)
-            }
-            .accessibilityLabel("Leagues with your teammates")
-            Button { showingBadges = true } label: {
-                Image(systemName: "medal.fill")
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(Duo.orange)
-                    .frame(width: 44, height: 44)
-            }
-            .accessibilityLabel("Your badges")
-            Button { showingLibrary = true } label: {
-                Image(systemName: "books.vertical.fill")
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(Duo.blue)
-                    .frame(width: 44, height: 44)
-            }
-            .accessibilityLabel("Exercise library")
-        }
-        .fixedSize()
-    }
-
-    private func unit(_ topic: CampusTopic, index: Int) -> some View {
-        let colors = Duo.units[index % Duo.units.count]
-        return VStack(spacing: 22) {
-            UnitBanner(number: index + 1, topic: topic, fill: colors.0, lip: colors.1)
-            ForEach(Array(topic.lessons.enumerated()), id: \.element.id) { lessonIndex, lesson in
-                let done = learned.contains(lesson.id)
-                let open = isUnlocked(lesson)
-                PathNode(
-                    systemImage: done ? "checkmark" : (open ? "star.fill" : "lock.fill"),
-                    fill: done ? Duo.gold : (open ? colors.0 : Duo.lockedFill),
-                    lip: done ? Duo.goldLip : (open ? colors.1 : Duo.lockedLip),
-                    glyph: open || done ? .white : Duo.lockedGlyph,
-                    isCurrent: lesson.id == currentLessonID,
-                    title: lesson.title
-                ) {
-                    // Replays are always free; new lessons have a daily allowance on free.
-                    if done {
-                        playing = lesson
-                    } else if open {
-                        if CampusProgress.lessonsLeftToday() == 0 { showingPaywall = true } else { playing = lesson }
-                    }
-                }
-                .offset(x: pathOffset(lessonIndex))
-            }
-            // The unit trophy: gold once every lesson in the unit is done.
-            let unitDone = topic.lessons.allSatisfy { learned.contains($0.id) }
-            Image(systemName: "trophy.fill")
-                .font(.system(size: 34, weight: .bold))
-                .foregroundStyle(unitDone ? Duo.gold : Duo.lockedFill)
-                .frame(width: 70, height: 70)
-                .offset(x: pathOffset(topic.lessons.count))
-                .accessibilityLabel(unitDone ? "Unit complete" : "Unit trophy, locked")
-        }
-    }
-
-    /// Duolingo's winding path: nodes swing left and right.
-    private func pathOffset(_ i: Int) -> CGFloat {
-        [0, 44, 66, 44, 0, -44, -66, -44][i % 8]
+        .contentShape(Rectangle())
     }
 
     private func finish(_ lesson: CampusLesson, xp earned: Int) {
@@ -419,7 +467,7 @@ struct CampusView: View {
             if left > 0 {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
-                    Text("\(left) new lesson\(left == 1 ? "" : "s") left today · replays and reviews are unlimited")
+                    Text("\(left) new lesson\(left == 1 ? "" : "s") left today")
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                 }
@@ -427,7 +475,7 @@ struct CampusView: View {
                 .foregroundStyle(AppTheme.secondaryText)
             } else {
                 ProLockCard(feature: .unlimitedLessons, title: "That's today's \(ProLimits.freeLessonsPerDay) new lessons",
-                            message: "Great work. Come back tomorrow for more, replay or review any lesson now — or keep going with unlimited lessons in Pro.")
+                            message: "Come back tomorrow, replay any lesson now, or keep learning with Pro.")
             }
         }
     }
@@ -435,115 +483,79 @@ struct CampusView: View {
     /// "Review: 3 lessons" — spaced repetition keeps what was learned.
     private var reviewCard: some View {
         let due = dueForReview
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.title2.weight(.heavy))
-                    .foregroundStyle(.white)
-                    .frame(width: 52, height: 52)
-                    .background(Duo.orange, in: Circle())
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Time to review")
-                        .font(.title3.weight(.heavy))
-                        .foregroundStyle(AppTheme.ink)
-                    Text("\(due.count) lesson\(due.count == 1 ? "" : "s") to refresh — 2 minutes keeps it in your head for good.")
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            Button("Start review") {
-                let ids = Array(due.prefix(CampusReview.lessonsPerReview))
-                let steps = CampusReview.questions(for: ids).map { CampusStep.question($0) }
-                if !steps.isEmpty { reviewing = ReviewSession(lessonIDs: ids, steps: steps) }
-            }
-            .buttonStyle(ChunkyButtonStyle(fill: Duo.orange, lip: Color(hex: "#CC7900")))
+        return Button {
+            let ids = Array(due.prefix(CampusReview.lessonsPerReview))
+            let steps = CampusReview.questions(for: ids).map { CampusStep.question($0) }
+            if !steps.isEmpty { reviewing = ReviewSession(lessonIDs: ids, steps: steps) }
+        } label: {
+            ListRow(systemImage: "arrow.triangle.2.circlepath", color: AppTheme.orange, title: "Review · 2 min",
+                    detail: "\(due.count) lesson\(due.count == 1 ? "" : "s") to refresh")
+                .cardStyle(padding: 12)
         }
-        .padding(18)
-        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Duo.border, lineWidth: 2))
+        .buttonStyle(.plain)
     }
 }
 
-private struct UnitBanner: View {
-    let number: Int
+/// One learning area: its lessons in order. Done ones replay; the next one
+/// starts; later ones open one by one (shown quietly, no locks).
+struct LearningAreaView: View {
     let topic: CampusTopic
-    let fill: Color
-    let lip: Color
+    let color: Color
+    let onPlay: (CampusLesson) -> Void
+    @AppStorage(CampusProgress.learnedKey) private var learnedRaw = ""
+
+    private var learned: Set<String> { CampusProgress.learned(learnedRaw) }
 
     var body: some View {
-        HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Unit \(number)")
-                    .font(.subheadline.weight(.heavy))
-                    .textCase(.uppercase)
-                    .foregroundStyle(.white.opacity(0.85))
-                Text(topic.title)
-                    .font(.title3.weight(.heavy))
-                    .foregroundStyle(.white)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(topic.subtitle)
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-            Image(systemName: topic.systemImage)
-                .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(.white)
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(fill, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .background(lip.clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous)).offset(y: 5))
-        .padding(.bottom, 5)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-private struct PathNode: View {
-    let systemImage: String
-    let fill: Color
-    let lip: Color
-    let glyph: Color
-    let isCurrent: Bool
-    let title: String
-    let action: () -> Void
-    @State private var bounce = false
-
-    var body: some View {
-        VStack(spacing: 6) {
-            if isCurrent {
-                Text("Start")
-                    .font(.subheadline.weight(.heavy))
-                    .textCase(.uppercase)
-                    .foregroundStyle(fill)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(AppTheme.background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Duo.border, lineWidth: 2))
-                    .offset(y: bounce ? -4 : 2)
-                    .onAppear {
-                        withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { bounce = true }
-                    }
-            }
-            Button(action: action) {
-                ZStack {
-                    Ellipse().fill(lip).frame(width: 78, height: 70).offset(y: 7)
-                    Ellipse().fill(fill).frame(width: 78, height: 70)
-                    Image(systemName: systemImage)
-                        .font(.system(size: 30, weight: .black))
-                        .foregroundStyle(glyph)
-                }
-                .frame(width: 90, height: 84)
-                .overlay {
-                    if isCurrent {
-                        Ellipse().strokeBorder(Duo.border, lineWidth: 6).frame(width: 100, height: 92).offset(y: 3)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                ScreenTitle(topic.title, subtitle: topic.subtitle)
+                VStack(spacing: 0) {
+                    ForEach(Array(topic.lessons.enumerated()), id: \.element.id) { index, lesson in
+                        let done = learned.contains(lesson.id)
+                        let open = index == 0 || learned.contains(topic.lessons[index - 1].id)
+                        Button { onPlay(lesson) } label: {
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    Circle().fill(done ? color : (open ? AppTheme.accent : AppTheme.fill))
+                                    if done {
+                                        Image(systemName: "checkmark").font(.footnote.weight(.bold)).foregroundStyle(.white)
+                                    } else {
+                                        Text("\(index + 1)").font(.subheadline.weight(.bold))
+                                            .foregroundStyle(open ? AppTheme.onAccent : AppTheme.secondaryText)
+                                    }
+                                }
+                                .frame(width: 36, height: 36)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(lesson.title)
+                                        .font(.body.weight(.semibold))
+                                        .foregroundStyle(open || done ? AppTheme.ink : AppTheme.secondaryText)
+                                        .multilineTextAlignment(.leading)
+                                    Text(done ? "Done · replay any time" : (open ? "\(lesson.minutes) min · next up" : "\(lesson.minutes) min"))
+                                        .font(.footnote)
+                                        .foregroundStyle(AppTheme.secondaryText)
+                                }
+                                Spacer(minLength: 4)
+                                if open && !done {
+                                    Image(systemName: "play.fill").font(.footnote).foregroundStyle(AppTheme.ink)
+                                }
+                            }
+                            .frame(minHeight: 56)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!open && !done)
+                        if index < topic.lessons.count - 1 {
+                            Divider().padding(.leading, 50)
+                        }
                     }
                 }
+                .cardStyle(padding: 12)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(title)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
         }
+        .appScreen()
     }
 }
 
@@ -789,30 +801,31 @@ private struct TeachCard: View {
     let lessonTitle: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        let forYou = section.heading == CampusLesson.meansForYouHeading
+        VStack(alignment: .leading, spacing: 16) {
             Text(lessonTitle)
-                .font(.subheadline.weight(.heavy))
+                .font(.caption.weight(.bold))
+                .tracking(0.8)
                 .textCase(.uppercase)
-                .foregroundStyle(Duo.blue)
-            Text(section.heading)
-                .font(.largeTitle.weight(.heavy))
-                .foregroundStyle(AppTheme.ink)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "figure.run")
-                    .font(.system(size: 30, weight: .bold))
-                    .foregroundStyle(AppTheme.onAccent)
-                    .frame(width: 60, height: 60)
-                    .background(AppTheme.accent, in: Circle())
-                Text(section.body)
-                    .font(.title3)
+                .foregroundStyle(AppTheme.secondaryText)
+            if forYou {
+                Label(section.heading, systemImage: "person.fill.checkmark")
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(AppTheme.ink)
-                    .lineSpacing(4)
+            } else {
+                Text(section.heading)
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(AppTheme.ink)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(16)
-                    .background(AppTheme.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Duo.border, lineWidth: 2))
             }
+            Text(section.body)
+                .font(.body)
+                .foregroundStyle(AppTheme.ink)
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(forYou ? 16 : 0)
+                .background(forYou ? AppTheme.card : Color.clear, in: RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

@@ -1,10 +1,10 @@
 import SwiftData
 import SwiftUI
 
-/// The Workout section: the three kinds of workout — after practice, a gym
-/// day, stretching and mobility — each built for the athlete's sport,
-/// schedule and development goals, plus this week's gym plan and the other ways to
-/// train (a skill, a muscle group).
+/// Workout (V3): TODAY'S TRAINING — one recommended workout with its purpose,
+/// length, focus and the reason for it — then the other modes as a compact
+/// list, this week's gym days, the athlete's own workouts and the other ways
+/// to train (a skill, a muscle group).
 struct WorkoutTabView: View {
     let athlete: Athlete
     let apiClient: APIClient
@@ -15,9 +15,7 @@ struct WorkoutTabView: View {
     @State private var status: DayStatus = DayStatusStore.status()
     @State private var liveLaunch: LiveSessionLaunch?
     @State private var preview: PreviewBox?
-    @State private var detailItem: CatalogueItem?
     @State private var showingImprove = false
-    @State private var showingGuide = false
     // Making it yours: edit any workout, the week's shape, own workouts, sharing.
     @State private var editing: EditorTarget?
     @State private var sharing: ShareTarget?
@@ -64,17 +62,14 @@ struct WorkoutTabView: View {
     /// What to do today, and why.
     private var recommendation: (mode: WorkoutMode?, reason: String) {
         switch status {
-        case .sick: return (nil, "You're marked as sick — rest today. Everything is here when you're back.")
-        case .concussion: return (nil, "Head knock: no training until a doctor clears you.")
-        case .travel, .holiday: return (.travel, "\(status.title): a short workout you can do anywhere, if you feel like it.")
+        case .sick: return (nil, "You're resting today, so there's no training.")
+        case .concussion: return (nil, "Training is paused until a doctor clears you.")
+        case .travel, .holiday: return (.travel, "A short workout you can do anywhere, only if you feel like it.")
         case .active:
-            if gameToday != nil { return (.mobility, "Game day: no workout — just loosen up with mobility.") }
-            if practiceToday {
-                let time = PracticeSchedule.time(on: .now).map { " (\($0.label))" } ?? ""
-                return (.afterPractice, "You have team practice today\(time), so a short workout afterwards.")
-            }
-            if gymSession?.isToday == true { return (.gymDay, "No team practice today: your full gym session.") }
-            return (.mobility, "A rest day in your plan — 10 minutes of mobility keeps you moving well.")
+            if gameToday != nil { return (.mobility, "Game day: just loosen up and save your energy.") }
+            if practiceToday { return (.afterPractice, "You have practice today, so the gym work is short.") }
+            if gymSession?.isToday == true { return (.gymDay, "No team practice today, so this is your main session.") }
+            return (.mobility, "A rest day: a few minutes of movement keeps you fresh.")
         }
     }
 
@@ -82,26 +77,17 @@ struct WorkoutTabView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Workout", subtitle: "Built for your sport, your schedule and your goals.")
-                    recommendationCard
-                    if band != nil || readinessOverridden {
-                        Button(readinessOverridden ? "Use the lighter versions from my check-in" : "Lighter because of your check-in — I feel fine, give me the full ones") {
-                            readinessOverridden.toggle()
-                        }
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(AppTheme.accent)
-                    }
-                    modeCard(.afterPractice, session: WorkoutModeBuilder.build(.afterPractice, context).map { adjusted($0) },
-                             note: practiceToday ? "You have practice today." : "Use it on days with team practice.")
-                    gymCard
-                    modeCard(.mobility, session: WorkoutModeBuilder.build(.mobility, context), note: "Good every day — even game days.")
-                    modeCard(.travel, session: WorkoutModeBuilder.build(.travel, context), note: "No equipment: hotel room, bus stop, holiday.")
-                    personalization
+                    ScreenTitle("Workout")
+                    Text("TODAY'S TRAINING")
+                        .font(.caption.weight(.bold))
+                        .tracking(0.8)
+                        .foregroundStyle(AppTheme.secondaryText)
+                    recommendedCard
+                    otherModes
                     weekSection
-                    customizeSection
                     myWorkoutsSection
                     moreSection
-                    planOptions
+                    customizeSection
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
@@ -170,14 +156,8 @@ struct WorkoutTabView: View {
                     startAfterImport = workout
                 })
             }
-            .sheet(item: $detailItem) { item in
-                NavigationStack { ItemDetailView(item: item) }
-            }
             .sheet(isPresented: $showingImprove) {
                 ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged)
-            }
-            .sheet(isPresented: $showingGuide) {
-                SportGuideView(athlete: athlete)
             }
             .fullScreenCover(item: $liveLaunch) { launch in
                 LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind)
@@ -196,23 +176,159 @@ struct WorkoutTabView: View {
 
     // MARK: - Today
 
-    private var recommendationCard: some View {
+    /// The recommended workout for today (nil: rest).
+    private var recommendedSession: GeneratedSession? {
+        guard let mode = recommendation.mode else { return nil }
+        return session(for: mode)
+    }
+
+    private func session(for mode: WorkoutMode) -> GeneratedSession? {
+        switch mode {
+        case .gymDay: gymSession?.session
+        case .afterPractice: WorkoutModeBuilder.build(.afterPractice, context).map { adjusted($0) }
+        case .mobility, .travel: WorkoutModeBuilder.build(mode, context)
+        }
+    }
+
+    private var daysToNextGame: Int? {
+        AthleteStats.upcomingCompetitions(athlete).first.map { AthleteStats.daysUntil($0.date) }
+    }
+
+    /// Why this workout, in one sentence.
+    private var reason: String {
         let rec = recommendation
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("TODAY")
-                .font(.caption.weight(.heavy))
-                .tracking(0.8)
-                .foregroundStyle(AppTheme.brand)
-            Text(rec.mode.map { "We recommend: \($0.title)" } ?? "Rest today")
-                .font(.title2.bold())
-                .foregroundStyle(AppTheme.ink)
-            Text(rec.reason)
+        if rec.mode == .mobility, status == .active, gameToday == nil, !practiceToday, gymSession?.isToday != true {
+            return rec.reason
+        }
+        return DailyLoop.whyThisPlan(status: status, mode: rec.mode, practiceToday: practiceToday, gameToday: gameToday != nil,
+                                     daysToNextGame: daysToNextGame, readiness: readinessOverridden ? nil : DailyLoop.today(athlete))
+    }
+
+    /// Short tags: what today's workout is shaped around.
+    private var focusTags: [String] {
+        var tags: [String] = []
+        if gameToday != nil {
+            tags.append("Game day")
+        } else if let days = daysToNextGame, days >= 1, days <= 3 {
+            tags.append(days == 1 ? "Game tomorrow" : "Game in \(days) days")
+        }
+        if band != nil { tags.append("Lighter today") }
+        if ScheduleStore.isExamWeek(.now) { tags.append("Exam week") }
+        tags += Struggles.selected.prefix(2).map(\.title)
+        return tags
+    }
+
+    private func purpose(_ mode: WorkoutMode) -> String {
+        switch mode {
+        case .afterPractice: "Strength and injury prevention, short enough to recover."
+        case .gymDay: "Your main strength and power session."
+        case .mobility: "Loosen up before training, or calm down after."
+        case .travel: "No equipment: hotel room, bus, holiday."
+        }
+    }
+
+    @ViewBuilder
+    private var recommendedCard: some View {
+        let rec = recommendation
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(rec.mode.map { $0 == .gymDay ? (gymSession?.session.title ?? $0.title) : $0.title } ?? "Rest today")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(AppTheme.ink)
+                Text(rec.mode.map(purpose) ?? "Recovery is part of the plan.")
+                    .font(.body)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let session = recommendedSession {
+                Text("\(session.estimatedMinutes) min · \(session.items.count) exercises")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.ink)
+            }
+            if !focusTags.isEmpty {
+                WrapLayout(spacing: 8) {
+                    ForEach(focusTags, id: \.self) { tag in
+                        Text(tag)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(AppTheme.fill, in: Capsule())
+                    }
+                }
+            }
+            Text(reason)
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
+            if let mode = rec.mode, let session = recommendedSession {
+                Button { liveLaunch = LiveSessionLaunch(planned: session, kind: kind(mode)) } label: {
+                    Label("Start", systemImage: "play.fill")
+                }
+                .buttonStyle(.primary)
+                Button("View workout") {
+                    preview = PreviewBox(session: session, kind: kind(mode), slot: slot(for: mode, session: session))
+                }
+                .font(.headline)
+                .foregroundStyle(AppTheme.ink)
+                .frame(maxWidth: .infinity, minHeight: 44)
+            } else if rec.mode != nil {
+                Text(catalogue.itemsBySlug.isEmpty ? "Loading your exercises…" : "Nothing fits your equipment yet. Add some in Me → Equipment.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            if band != nil || readinessOverridden {
+                Button(readinessOverridden ? "Use the lighter version" : "Train as planned instead") {
+                    readinessOverridden.toggle()
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+                .frame(maxWidth: .infinity, minHeight: 44)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle(padding: 18)
+        .cardStyle(padding: 20)
+    }
+
+    /// The modes not recommended today, one line each.
+    private var otherModes: some View {
+        let others = [WorkoutMode.afterPractice, .gymDay, .mobility, .travel].filter { $0 != recommendation.mode }
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Other modes")
+            VStack(spacing: 0) {
+                ForEach(others, id: \.self) { mode in
+                    let modeSession = session(for: mode)
+                    Button {
+                        if let modeSession { preview = PreviewBox(session: modeSession, kind: kind(mode), slot: slot(for: mode, session: modeSession)) }
+                    } label: {
+                        ListRow(systemImage: icon(mode), color: color(mode), title: mode.title, detail: detail(mode, modeSession))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(modeSession == nil)
+                    if mode != others.last {
+                        Divider().padding(.leading, 54)
+                    }
+                }
+            }
+            .cardStyle(padding: 12)
+        }
+    }
+
+    private func detail(_ mode: WorkoutMode, _ session: GeneratedSession?) -> String {
+        guard let session else { return "Nothing fits your equipment yet" }
+        if mode == .gymDay, let gym = gymSession, !gym.isToday {
+            return "\(session.estimatedMinutes) min · next on \(gym.session.date.formatted(.dateTime.weekday(.wide)))"
+        }
+        return "\(session.estimatedMinutes) min · \(session.items.count) exercises"
+    }
+
+    private func icon(_ mode: WorkoutMode) -> String {
+        switch mode {
+        case .afterPractice: "bolt.fill"
+        case .gymDay: "dumbbell.fill"
+        case .mobility: "figure.flexibility"
+        case .travel: "suitcase.fill"
+        }
     }
 
     private func kind(_ mode: WorkoutMode) -> WorkoutKind {
@@ -233,102 +349,13 @@ struct WorkoutTabView: View {
         }
     }
 
-    private func modeCard(_ mode: WorkoutMode, session: GeneratedSession?, note: String, titleOverride: String? = nil) -> some View {
-        let recommended = recommendation.mode == mode
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                Circle().fill(color(mode)).frame(width: 14, height: 14)
-                Text(titleOverride ?? mode.title)
-                    .font(.title3.bold())
-                    .foregroundStyle(AppTheme.ink)
-                Spacer()
-                if recommended { Tag("For today", color: AppTheme.brand) }
-            }
-            Text(mode.explanation)
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-            if let session {
-                HStack(spacing: 16) {
-                    Label("About \(session.estimatedMinutes) min", systemImage: "clock")
-                    Label("\(session.items.count) exercises", systemImage: "list.bullet")
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-                thumbnails(session)
-                Text(note)
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.secondaryText)
-                ButtonRow {
-                    Button { preview = PreviewBox(session: session, kind: kind(mode), slot: slot(for: mode, session: session)) } label: {
-                        Label("See it", systemImage: "list.bullet")
-                    }
-                        .buttonStyle(.secondary)
-                    Button { liveLaunch = LiveSessionLaunch(planned: session, kind: kind(mode)) } label: {
-                        Label("Start", systemImage: "play.fill")
-                    }
-                    .buttonStyle(.primary)
-                }
-            } else {
-                Text(catalogue.itemsBySlug.isEmpty ? "Loading your exercise library…" : "Nothing fits your equipment yet — add some in Me → Equipment.")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
-            }
-        }
-        .cardStyle(padding: 18)
-        .overlay(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous)
-            .strokeBorder(recommended ? AppTheme.accent : Color.clear, lineWidth: 2))
-    }
-
-    @ViewBuilder
-    private var gymCard: some View {
-        if let gym = gymSession {
-            modeCard(.gymDay, session: gym.session,
-                     note: gym.isToday ? "Planned for today." : "Planned for \(gym.session.date.formatted(.dateTime.weekday(.wide))) — you can do it now.",
-                     titleOverride: "Gym day: \(gym.session.title)")
-        } else {
-            modeCard(.gymDay, session: nil, note: "")
-        }
-    }
-
-    private func thumbnails(_ session: GeneratedSession) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(session.items, id: \.order) { item in
-                    let catalogueItem = catalogue.item(item.itemSlug)
-                    Button { detailItem = catalogueItem } label: { ItemThumbnail(item: catalogueItem, size: 56) }
-                        .buttonStyle(.plain)
-                        .disabled(catalogueItem == nil)
-                        .accessibilityLabel(catalogueItem?.name ?? displayName(forSlug: item.itemSlug))
-                }
-            }
-        }
-    }
-
-    // MARK: - Personal, week, more
-
-    private var personalization: some View {
-        let struggles = Struggles.selected
-        return HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "person.crop.circle.badge.checkmark")
-                .font(.title2)
-                .foregroundStyle(AppTheme.ink)
-            Text(struggles.isEmpty
-                 ? "Set your development goals in Me and your training leans towards them."
-                 : "Leaning towards your goals: \(struggles.map { $0.title.lowercased() }.joined(separator: ", ")).")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.ink)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle(padding: 16)
-    }
+    // MARK: - Week, more
 
     @ViewBuilder
     private var weekSection: some View {
         if let week, !week.sessions.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
-                SectionHeader("Your gym days this week", subtitle: "Placed on days without team practice or games. Tap one to see it.")
+                SectionHeader("This week's gym days")
                 VStack(spacing: 0) {
                     ForEach(Array(week.sessions.enumerated()), id: \.offset) { index, session in
                         Button { preview = PreviewBox(session: adjusted(session), kind: .gym, slot: session.slot.map { PlanSlot.gym($0) }) } label: {
@@ -362,7 +389,7 @@ struct WorkoutTabView: View {
 
     private var moreSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("More ways to train", subtitle: "Go after one skill before a game, train the muscles you choose, or learn what your sport asks of you.")
+            SectionHeader("More ways to train")
             Button { showingImprove = true } label: {
                 HStack(spacing: 14) {
                     Image(systemName: "target")
@@ -372,7 +399,7 @@ struct WorkoutTabView: View {
                         .background(AppTheme.accent, in: Circle())
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Skill plans & muscle workouts").font(.headline).foregroundStyle(AppTheme.ink)
-                        Text("\"I want to get better at…\" or pick body parts").font(.subheadline).foregroundStyle(AppTheme.secondaryText)
+                        Text("One skill before a game, or chosen muscles").font(.subheadline).foregroundStyle(AppTheme.secondaryText)
                     }
                     Spacer()
                     Image(systemName: "chevron.right").foregroundStyle(AppTheme.secondaryText)
@@ -380,7 +407,6 @@ struct WorkoutTabView: View {
                 .cardStyle(padding: 14)
             }
             .buttonStyle(.plain)
-            SportGuideCard(athlete: athlete) { showingGuide = true }
         }
     }
 
@@ -486,7 +512,7 @@ struct WorkoutTabView: View {
             settings.minutesPerSession.map { "\($0) min each" } ?? "length picked for you",
         ].joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Make it yours", subtitle: "Change anything: your gym days and their length, and every exercise in every workout — tap “See it”, then “Change it”.")
+            SectionHeader("Make it yours", subtitle: "Your gym days, their length, and any exercise (View workout → Change it).")
             Button { showingPlanSettings = true } label: {
                 HStack(spacing: 14) {
                     Image(systemName: "calendar.badge.clock")
@@ -505,6 +531,22 @@ struct WorkoutTabView: View {
                 .cardStyle(padding: 14)
             }
             .buttonStyle(.plain)
+            Button { confirmingNewPlan = true } label: {
+                ListRow(systemImage: "arrow.triangle.2.circlepath", color: AppTheme.ink, title: "Build a new gym plan",
+                        detail: "Same rules, different exercises")
+                    .cardStyle(padding: 12)
+            }
+            .buttonStyle(.plain)
+            if planVariant > 0 {
+                Button {
+                    PlanVariant.backToOriginal()
+                    onPlanInputsChanged()
+                } label: {
+                    ListRow(systemImage: "arrow.uturn.backward", color: AppTheme.ink, title: "Back to my first plan")
+                        .cardStyle(padding: 12)
+                }
+                .buttonStyle(.plain)
+            }
             let edited = custom.sessions.keys.sorted()
             if !edited.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -543,9 +585,7 @@ struct WorkoutTabView: View {
     /// Workouts the athlete built, or added with a code.
     private var myWorkoutsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("My workouts", subtitle: ProAccess.isPro
-                          ? "Build your own from the exercise library, or add one a teammate or coach shared with a code, link or QR code."
-                          : "Build your own, or add one a teammate or coach shared. Free keeps \(ProLimits.freeMyWorkouts); Pro keeps as many as you like.")
+            SectionHeader("My workouts", subtitle: "Your own, or one a teammate or coach shared.")
             ForEach(myWorkouts) { workout in
                 myWorkoutCard(workout)
             }
@@ -595,7 +635,7 @@ struct WorkoutTabView: View {
             ButtonRow {
                 Button {
                     preview = PreviewBox(session: workout.session(date: .now, catalogue: catalogue), kind: .gym, myWorkoutID: workout.id)
-                } label: { Label("See it", systemImage: "list.bullet") }
+                } label: { Label("View", systemImage: "list.bullet") }
                 .buttonStyle(.secondary)
                 Button {
                     liveLaunch = LiveSessionLaunch(planned: workout.session(date: .now, catalogue: catalogue), kind: .gym)
@@ -604,32 +644,5 @@ struct WorkoutTabView: View {
             }
         }
         .cardStyle(padding: 18)
-    }
-
-    private var planOptions: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Don't like your gym plan?", subtitle: "Delete it and get a new one: same rules for your sport and season, different exercises.")
-            Button { confirmingNewPlan = true } label: {
-                Label("Delete plan and build a new one", systemImage: "arrow.triangle.2.circlepath")
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.red)
-                    .frame(maxWidth: .infinity, minHeight: 52)
-                    .background(AppTheme.red.opacity(0.1), in: Capsule())
-            }
-            .buttonStyle(.plain)
-            if planVariant > 0 {
-                Button {
-                    PlanVariant.backToOriginal()
-                    onPlanInputsChanged()
-                } label: {
-                    Label("Back to my first plan", systemImage: "arrow.uturn.backward")
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.ink)
-                        .frame(maxWidth: .infinity, minHeight: 52)
-                        .background(AppTheme.fill, in: Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-        }
     }
 }

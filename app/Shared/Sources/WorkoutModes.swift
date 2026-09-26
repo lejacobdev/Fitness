@@ -52,7 +52,7 @@ public enum WorkoutMode: String, Sendable {
         switch self {
         case .afterPractice: "After-practice workout"
         case .gymDay: "Gym day"
-        case .mobility: "Daily mobility"
+        case .mobility: "Mobility & movement prep"
         case .travel: "Travel workout"
         }
     }
