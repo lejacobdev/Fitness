@@ -589,18 +589,11 @@ struct HomeView: View {
                 .background(status == .active ? AppTheme.card : AppTheme.accent, in: Capsule())
             }
             .buttonStyle(.plain)
+            // Always readable in full: search gives way (down to its icon).
+            .fixedSize()
+            .layoutPriority(1)
             .accessibilityLabel("Today is: \(status.title). Change what kind of day it is.")
             searchButton
-            HStack(spacing: 6) {
-                Image(systemName: "flame.fill").foregroundStyle(AppTheme.orange)
-                Text("\(streak)").foregroundStyle(AppTheme.ink).contentTransition(.numericText())
-            }
-            .font(.subheadline.weight(.semibold))
-            .padding(.horizontal, 14)
-            .frame(height: 44)
-            .background(AppTheme.card, in: Capsule())
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(streak) day streak")
             Button { activeSheet = .quickActions } label: {
                 Image(systemName: "plus")
                     .font(.headline.weight(.bold))
@@ -613,7 +606,20 @@ struct HomeView: View {
         }
     }
 
-    /// Search everything: fills the space between the day and the streak.
+    private var streakBadge: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "flame.fill").foregroundStyle(AppTheme.orange)
+            Text("\(streak)").foregroundStyle(AppTheme.ink).contentTransition(.numericText())
+        }
+        .font(.subheadline.weight(.semibold))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(AppTheme.card, in: Capsule())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(streak) day streak")
+    }
+
+    /// Search everything: fills the space between the day and the "+".
     private var searchButton: some View {
         Button { activeSheet = .search } label: {
             ViewThatFits(in: .horizontal) {
@@ -657,9 +663,12 @@ struct HomeView: View {
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
             }
-            // Which sport the plan follows: switch or add one in a tap.
-            HStack {
+            // Which sport the plan follows (switch or add one in a tap), and
+            // the streak beside it — the top bar keeps its room for the kind
+            // of day and search.
+            HStack(spacing: 10) {
                 SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
+                streakBadge
                 Spacer(minLength: 0)
             }
             QuoteCard(quote: DailyQuotes.short())
