@@ -51,8 +51,9 @@ The repo is public: no secrets, key IDs or server internals go in this file.
 ## Working rules
 - Every milestone ships with real, reachable UI — no headless engine code, no
   placeholder or debug text.
-- After a batch goes green in `check.yml`, dispatch `testflight.yml` on master and watch
-  it to a real upload; then carry on without waiting for permission.
+- **Always build TestFlight** (owner, 2026-09-27): after every push that goes green in
+  `check.yml`, dispatch `testflight.yml` on that same ref (master, or the working branch
+  when the work is in a PR) and watch it to a real upload; then carry on without waiting.
 - "UPLOAD SUCCEEDED" ≠ in TestFlight. Apple can process for an hour; check with
   `asc-inspect.yml` ("Recent uploads": PROCESSING / COMPLETE / FAILED) before diagnosing.
 - There is no local Swift toolchain; CI is the only compiler (~8 min per round). So:
