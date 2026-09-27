@@ -29,6 +29,14 @@ public enum DemoData {
         }
     }
 
+    /// `-sheet <name>` opens one of the starting tab's sheets (Home's or Me's,
+    /// by its name), so the screenshots can cover every screen.
+    static var initialSheet: String? {
+        let args = ProcessInfo.processInfo.arguments
+        guard isEnabled, let index = args.firstIndex(of: "-sheet"), args.indices.contains(index + 1) else { return nil }
+        return args[index + 1]
+    }
+
     /// Seeds one soccer midfielder with three weeks of check-ins, logged
     /// sessions and two upcoming games — only if the store is empty.
     public static func seedIfNeeded(context: ModelContext, now: Date = .now) {

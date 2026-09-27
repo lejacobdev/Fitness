@@ -25,9 +25,84 @@ public struct CampusTopic: Identifiable, Hashable, Sendable {
     public let lessons: [CampusLesson]
 }
 
+/// Every lesson reads the same way (V3): a hook, the explanation, an
+/// athlete's example, then what it means for you (the takeaways).
 private func lesson(_ id: String, _ title: String, _ minutes: Int, _ sections: [(String, String)], _ takeaways: [String]) -> CampusLesson {
-    CampusLesson(id: id, title: title, minutes: minutes, sections: sections.map { CampusSection(heading: $0.0, body: $0.1) }, takeaways: takeaways)
+    var all: [CampusSection] = []
+    if let hook = campusHooks[id] { all.append(CampusSection(heading: hook.0, body: hook.1)) }
+    all += sections.map { CampusSection(heading: $0.0, body: $0.1) }
+    if let example = campusExamples[id] { all.append(CampusSection(heading: CampusLesson.exampleHeading, body: example)) }
+    return CampusLesson(id: id, title: title, minutes: minutes, sections: all, takeaways: takeaways)
 }
+
+/// The hook: one question or surprise that makes the lesson worth reading.
+let campusHooks: [String: (String, String)] = [
+    "adaptation": ("Why rest days make you faster", "You don't get fitter during a workout. You get fitter after it."),
+    "qualities": ("Strong isn't the same as fast", "Two athletes can squat the same weight and still be very different on the field. Here's why."),
+    "warm-up": ("Ten minutes that change your whole practice", "A good warm-up makes you faster in practice and less likely to get hurt. A lazy one does neither."),
+    "fuel-basics": ("Your body runs on three fuels", "Carbs, protein and fat each do a different job. Skip one and your training feels it."),
+    "hydration": ("Thirst shows up late", "By the time you feel really thirsty in a hot session, you're already behind."),
+    "recovery-eating": ("What you eat after practice counts", "The meal after training starts your recovery. Skipping it slows everything down."),
+    "body-basics": ("Muscles get strong fast. Tendons don't.", "That gap explains a lot of teenage sports injuries."),
+    "pain": ("Sore or hurt?", "One means you trained hard. The other means stop. Knowing the difference protects your season."),
+    "technique-load": ("Most injuries aren't bad luck", "Many follow a sudden jump in training or sloppy technique under load. Both are fixable."),
+    "sleep-power": ("The best recovery tool is free", "Nothing you can buy helps recovery as much as a full night of sleep."),
+    "rest-days": ("Doing less can make you better", "Rest isn't skipping training. It's the part where your body turns work into progress."),
+    "overtraining": ("When more stops working", "Training harder usually helps, until it doesn't. Learn the signs before it costs you weeks."),
+    "confidence": ("Confidence isn't a feeling you wait for", "You build it, rep by rep, and you can point to the proof."),
+    "pressure": ("Butterflies mean you're ready", "Nerves are your body preparing to perform. You can use them."),
+    "mistakes": ("Everyone makes mistakes. The best reset fast.", "What you do in the five seconds after a mistake matters more than the mistake."),
+    "force": ("Speed starts at the ground", "Fast athletes don't move their legs faster. They push the ground harder."),
+    "landing": ("Most knee injuries happen without contact", "They happen in awkward landings and cuts, which you can train."),
+    "feedback": ("You can't see yourself move", "What you feel and what you actually do are often different. Video shows the truth."),
+    "reading": ("Great players know before the ball arrives", "The difference is often where they looked a second earlier."),
+    "positioning": ("Being in the right place beats being fast", "Good angles make the game easier for you and harder for your opponent."),
+    "game-plan": ("A plan you can remember under pressure", "Two clear focus points beat ten you'll forget in the first minute."),
+    "what-matters": ("Track less, learn more", "A few good numbers tell you more than a hundred random ones."),
+    "check-ins": ("Ten seconds every morning", "Your check-in is how the plan knows when to push and when to ease off."),
+    "healthy-data": ("Numbers are a tool, not a grade", "Data should help you train, not make you anxious."),
+    "coach": ("Your coach can't read your mind", "The athletes who improve fastest are often the ones who ask and speak up."),
+    "teammates": ("Great teams talk", "The most common mistake in team sports is silence."),
+    "leadership": ("You don't need a C on your jersey", "Leadership shows in what you do every day, not in a title."),
+    "years": ("Your best years are probably ahead", "Most athletes peak in their twenties. What you build now is the foundation."),
+    "specialise": ("One sport all year isn't the fastest path", "Playing more than one sport often builds a better, healthier athlete."),
+    "balance": ("Sport, school and life, all in one week", "Balancing them isn't a distraction from sport. It's what keeps you in it."),
+]
+
+/// An athlete's example: a made-up student athlete, to show the idea in
+/// a real week. Never a claim about a real person.
+let campusExamples: [String: String] = [
+    "adaptation": "Maya, a 16-year-old midfielder, used to lift hard every day and felt flat by Friday. She switched to three gym days with rest in between, and her sprint times improved within a month.",
+    "qualities": "Jordan, a 15-year-old basketball guard, got stronger in the gym but not quicker on court. Adding a few short jump sets at the start of each session, while fresh, made his first step faster.",
+    "warm-up": "Lena, a 17-year-old soccer player, used to jog one lap and stretch. Her team now does a 12-minute warm-up that ends with fast strides, and she feels sharp from the first drill.",
+    "fuel-basics": "Sam, a 16-year-old swimmer, skipped carbs to \"eat clean\" and started fading in the second half of practice. Adding rice or oats back to meals brought his energy back.",
+    "hydration": "Aisha, a 15-year-old tennis player, got headaches after summer matches. Drinking with breakfast and lunch, and bringing a salty snack for long matches, fixed it.",
+    "recovery-eating": "Chris, a 17-year-old wrestler, often skipped dinner after late practice and felt drained the next day. A quick yoghurt, fruit and a sandwich after practice changed that.",
+    "body-basics": "Noah, 14, grew 8 cm in a year and started feeling pain below his knee after jumping. He told his coach, eased off jumps for a few weeks, and kept playing through his growth spurt.",
+    "pain": "Emma, a 16-year-old volleyball player, felt a sharp pain in her ankle after landing on a teammate's foot. She stopped, told her trainer, and missed one week instead of the season.",
+    "technique-load": "Liam, a 17-year-old football player, went from no running to daily conditioning in one week of camp and got shin pain. Building up over three weeks the next year, he stayed healthy.",
+    "sleep-power": "Zoe, a 16-year-old runner, slept six hours on school nights. Moving her phone out of her room and going to bed 45 minutes earlier made her easy runs feel easier.",
+    "rest-days": "Ben, a 15-year-old baseball pitcher, threw every day of the week. Taking a full rest day and a lighter week each month, his arm felt fresher and his velocity held.",
+    "overtraining": "Mia, a 17-year-old cross-country runner, got slower for three weeks, slept badly and caught two colds. Her check-ins showed it early; a lighter week and more sleep got her back.",
+    "confidence": "Ethan, a 16-year-old goalkeeper, kept a note of every hard session he finished. Before big games he reads it and remembers he's prepared.",
+    "pressure": "Sofia, a 15-year-old basketball player, used to rush free throws. Now she takes one slow breath, says \"smooth\", and uses the same routine every time.",
+    "mistakes": "Leo, a 16-year-old hockey player, used to replay his turnovers for the rest of the shift. Now he taps his stick on the ice, says \"next\", and is back in the play.",
+    "force": "Ava, a 16-year-old sprinter, focused on pushing the ground back instead of moving her legs quickly. Her first ten metres got noticeably faster.",
+    "landing": "Olivia, a 15-year-old basketball player, practised jump-and-stick landings twice a week. Her coach noticed her knees stopped caving in when she came down from rebounds.",
+    "feedback": "Jake, a 17-year-old pitcher, filmed his delivery from the side and saw his front shoulder opening early. One cue, \"stay closed\", fixed it over a few weeks.",
+    "reading": "Nina, a 16-year-old soccer defender, started checking her shoulder before every pass arrived. She began intercepting balls she used to chase.",
+    "positioning": "Marcus, a 17-year-old basketball player, stopped going for risky steals and focused on cutting off the easy pass. His team gave up fewer open shots.",
+    "game-plan": "Chloe, a 16-year-old tennis player, writes two focus points before each match: \"deep returns\" and \"breathe between points\". She checks them at every change of ends.",
+    "what-matters": "Owen, a 16-year-old lacrosse player, tracked only three things: his 10 m sprint, his jump, and his morning check-in. Seeing steady progress kept him motivated.",
+    "check-ins": "Grace, a 15-year-old swimmer, checked in every morning for two weeks. When exams hit and her sleep dropped, the plan lightened her sessions before she felt run down.",
+    "healthy-data": "Ryan, a 17-year-old runner, checked his watch after every run and felt bad on slow days. Looking at weekly trends instead helped him relax and train better.",
+    "coach": "Hannah, a 16-year-old softball player, asked her coach, \"What's one thing I should work on?\" She got a clear answer and a drill, and her hitting improved that season.",
+    "teammates": "Daniel, a 15-year-old volleyball player, started calling \"mine\" loudly on every ball. His team stopped letting easy balls drop between players.",
+    "leadership": "Isabella, a 16-year-old field hockey player, isn't captain, but she's always first to warm-ups and helps the new players. Her teammates follow her lead.",
+    "years": "Tom, 14, was one of the smallest on his team and rarely started. He kept training steadily, grew later than his friends, and by 17 he was one of the best players in the league.",
+    "specialise": "Lily, a 15-year-old soccer player, also plays basketball in winter. The different movements keep her fresh, and she comes back to soccer season excited.",
+    "balance": "Max, a 17-year-old wrestler, puts training, school and exams in one calendar. During finals week he and his coach planned lighter sessions, and he got through both.",
+]
 
 public let campusTopics: [CampusTopic] = [
     CampusTopic(

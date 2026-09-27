@@ -46,7 +46,8 @@ struct FuelView: View {
 
     private var timeline: [FuelTip] {
         if let gameToday {
-            return FuelEngine.gameDayTimeline(gameStart: time(fromMinutes: gameStartMinutes), isTournament: gameToday.kind == .tournament)
+            return FuelEngine.gameDayTimeline(gameStart: FuelEngine.gameStart(gameToday.date, usualMinutes: gameStartMinutes),
+                                              isTournament: gameToday.kind == .tournament)
         }
         if let todaysSession {
             return FuelEngine.sessionTimeline(start: time(fromMinutes: trainingStartMinutes), minutes: todaysSession.estimatedMinutes)
@@ -72,9 +73,9 @@ struct FuelView: View {
                     .buttonStyle(.primary)
 
                     timelineSection
+                    if let travel = travelTips { travelSection(travel) }
                     if !meals.isEmpty { mealsSection }
                     plateGuideCard
-                    noteCard
                 }
                 .padding(20)
             }
@@ -82,11 +83,7 @@ struct FuelView: View {
             .appScreen()
             .sensoryFeedback(.increase, trigger: waterTaps)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .fontWeight(.semibold)
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
             .sheet(isPresented: $showingLogMeal) {
                 MealLogSheet(athlete: athlete, suggestedSlot: suggestedSlot)
@@ -181,6 +178,25 @@ struct FuelView: View {
     // MARK: - Timeline
 
     @ViewBuilder
+    /// Travel days, and the day of (or before) an away game.
+    private var travelTips: [FuelTip]? {
+        let soon = athlete.competitions.first { !$0.isHome && ($0.date > .now.addingTimeInterval(-6 * 3600)) && $0.date < .now.addingTimeInterval(36 * 3600) }
+        guard DayStatusStore.status() == .travel || soon != nil else { return nil }
+        return FuelEngine.travelTips(awayGame: soon != nil)
+    }
+
+    private func travelSection(_ tips: [FuelTip]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionTitle("On the road")
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(tips.enumerated()), id: \.element.id) { index, tip in
+                    tipRow(tip, isLast: index == tips.count - 1)
+                }
+            }
+            .cardStyle(padding: 16)
+        }
+    }
+
     private var timelineSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -199,7 +215,7 @@ struct FuelView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "moon.zzz.fill")
                         .foregroundStyle(AppTheme.purple)
-                    Text("Rest day: regular meals with protein at each one help you recover. No need to eat less just because you're not training.")
+                    Text("Rest day: protein at each meal helps you recover.")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
@@ -327,17 +343,6 @@ struct FuelView: View {
             }
         }
     }
-
-    private var noteCard: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "stethoscope")
-                .foregroundStyle(AppTheme.secondaryText)
-            Text(FuelEngine.standingNote)
-                .font(.caption)
-                .foregroundStyle(AppTheme.secondaryText)
-        }
-        .cardStyle(padding: 16)
-    }
 }
 
 /// Log one meal: when, and how many simple portions of each part.
@@ -356,7 +361,7 @@ struct MealLogSheet: View {
     var body: some View {
         StepScaffold(
             title: "Log a meal", subtitle: "Count portions, not calories: a palm of protein, a fist of carbs, a fist of fruit or veg.",
-            buttonTitle: "Save meal", onBack: { dismiss() }, onContinue: save
+            onClose: { dismiss() }, onConfirm: save
         ) {
             FlowLayout(spacing: 8) {
                 ForEach(MealSlot.mealSlots, id: \.self) { value in

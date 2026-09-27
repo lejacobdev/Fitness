@@ -7,6 +7,7 @@ final class BenchmarkTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
+        UserDefaults.standard.set(WeightUnit.kg.rawValue, forKey: WeightUnit.storageKey)
         UserDefaults.standard.removeObject(forKey: "benchmark.results")
     }
 
@@ -62,5 +63,43 @@ final class BenchmarkTests: XCTestCase {
         XCTAssertEqual(BenchmarkRunView.parse("4,52", unit: .seconds), 4.52)
         XCTAssertNil(BenchmarkRunView.parse("11", unit: .outOf10))
         XCTAssertNil(BenchmarkRunView.parse("abc", unit: .centimeters))
+    }
+}
+
+/// Personal bests, measurable goals and the season chart.
+final class BenchmarkGoalTests: XCTestCase {
+    private func result(_ value: Double, _ day: Int) -> BenchmarkResult {
+        BenchmarkResult(testID: BenchmarkCatalog.jump.id, value: value, date: Date(timeIntervalSince1970: Double(day) * 86_400))
+    }
+
+    func testANewBestBeatsEveryEarlierResultButAFirstResultIsJustAStart() {
+        let jump = BenchmarkCatalog.jump
+        XCTAssertFalse(BenchmarkMath.isPersonalBest(40, test: jump, before: []))
+        XCTAssertTrue(BenchmarkMath.isPersonalBest(46, test: jump, before: [result(40, 1), result(45, 50)]))
+        XCTAssertFalse(BenchmarkMath.isPersonalBest(45, test: jump, before: [result(40, 1), result(45, 50)]))
+        let sprint = BenchmarkCatalog.sprint10
+        let times = [BenchmarkResult(testID: sprint.id, value: 1.95, date: .now)]
+        XCTAssertTrue(BenchmarkMath.isPersonalBest(1.90, test: sprint, before: times), "faster is better")
+    }
+
+    func testGoalProgressCountsFromWhereTheAthleteStarted() {
+        let goal = BenchmarkGoal(testID: "jump", target: 50, by: .now, start: 40)
+        let halfway = goal.progress(best: 45, higherIsBetter: true)
+        XCTAssertEqual(halfway.fraction, 0.5, accuracy: 0.001)
+        XCTAssertEqual(halfway.toGo, 5, accuracy: 0.001)
+        XCTAssertTrue(goal.progress(best: 51, higherIsBetter: true).reached)
+        let sprint = BenchmarkGoal(testID: "sprint", target: 1.80, by: .now, start: 2.00)
+        XCTAssertEqual(sprint.progress(best: 1.90, higherIsBetter: false).fraction, 0.5, accuracy: 0.001)
+        XCTAssertEqual(BenchmarkGoals.suggestedTarget(best: 40, test: BenchmarkCatalog.jump), 42)
+    }
+
+    func testTheSeasonChartPutsEveryTestOnOneBetterIsUpScale() {
+        let sprint = BenchmarkCatalog.sprint10
+        let results = [result(40, 1), result(44, 50),
+                       BenchmarkResult(testID: sprint.id, value: 2.0, date: .now), BenchmarkResult(testID: sprint.id, value: 1.9, date: .now.addingTimeInterval(86_400))]
+        let series = BenchmarkMath.seasonSeries(results, tests: [BenchmarkCatalog.jump, sprint])
+        XCTAssertEqual(series.count, 4)
+        XCTAssertEqual(series.last(where: { $0.test == BenchmarkCatalog.jump.name })?.percent ?? 0, 10, accuracy: 0.001)
+        XCTAssertEqual(series.last(where: { $0.test == sprint.name })?.percent ?? 0, 5, accuracy: 0.001, "a faster sprint goes up")
     }
 }

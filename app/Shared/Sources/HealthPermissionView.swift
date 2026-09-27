@@ -16,7 +16,7 @@ struct HealthPermissionView: View {
             subtitle: "Optional. Everything in AthleteOS works without it.",
             buttonTitle: isRequesting ? "Connecting…" : "Continue",
             buttonEnabled: !isRequesting,
-            onBack: { finish() },
+            onClose: { finish() },
             onContinue: request
         ) {
             VStack(alignment: .leading, spacing: 18) {

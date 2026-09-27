@@ -30,7 +30,7 @@ struct MindsetView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Mindset", subtitle: "Strong in your head too: reflect for 2 minutes each evening, work on your season goals, and have a routine for game day.")
+                    ScreenTitle("Mindset", subtitle: "Evening reflection, season goals and a game-day routine.")
                     weekCard
                     reflectionSection
                     goalsSection
@@ -45,9 +45,7 @@ struct MindsetView: View {
             .scrollIndicators(.hidden)
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.fontWeight(.semibold)
-                }
+                CloseToolbarItem { dismiss() }
             }
             .sheet(isPresented: $reflecting) {
                 ReflectionSheet {
@@ -149,7 +147,7 @@ struct MindsetView: View {
         _ = revision
         return VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Season goals", subtitle: goals.isEmpty
-                ? "Up to three goals for this season. Each week you get one small, concrete thing to do for each."
+                ? "Up to three goals. One small step for each, every week."
                 : "This week's focus for each goal — tick it off when you've done it.")
             ForEach(focus) { point in
                 focusRow(point)
@@ -281,7 +279,22 @@ struct ReflectionSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    enum Step: Hashable { case hardness, body, practice, wentWell, needsWork, learned, done }
+    enum Step: Hashable { case hardness, body, practice, wentWell, needsWork, learned, review, done }
+
+    /// One Campus review question at the end (spaced repetition without a
+    /// separate screen): the lesson that's most overdue.
+    private let review: (lessonID: String, question: CampusQuestion)? = {
+        let learned = CampusProgress.learned(UserDefaults.standard.string(forKey: CampusProgress.learnedKey) ?? "")
+        for id in CampusReview.due(learned: learned) {
+            if let question = CampusReview.questions(for: [id]).first(where: {
+                if case .choice = $0 { return true }
+                if case .trueFalse = $0 { return true }
+                return false
+            }) { return (id, question) }
+        }
+        return nil
+    }()
+    @State private var reviewAnswer: Int?
 
     @State private var step: Step = .hardness
     @State private var hardness: Int?
@@ -344,9 +357,11 @@ struct ReflectionSheet: View {
                     .padding(16)
                     .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
             }
+        case .review:
+            if let review { reviewPage(review) }
         case .done:
             QuestionPage(progress: 1, question: "Today completed", hint: "Tomorrow's plan adapts to how today went.",
-                         buttonTitle: "Done", onClose: { dismiss() }, onButton: { dismiss() }) {
+                         buttonTitle: nil, onClose: { dismiss() }) {
                 if let completion {
                     VStack(spacing: 0) {
                         ForEach(completion.items) { item in
@@ -364,6 +379,44 @@ struct ReflectionSheet: View {
                     }
                     .cardStyle(padding: 16)
                 }
+            }
+        }
+    }
+
+    private func reviewPage(_ review: (lessonID: String, question: CampusQuestion)) -> some View {
+        let (prompt, options, answer, explain): (String, [String], Int, String) = {
+            switch review.question {
+            case .choice(let prompt, let options, let answer, let explain): return (prompt, options, answer, explain)
+            case .trueFalse(let statement, let answer, let explain): return (statement, ["True", "False"], answer ? 0 : 1, explain)
+            default: return ("", [], 0, "")
+            }
+        }()
+        return QuestionPage(progress: 1, question: "One quick question", hint: prompt,
+                            buttonTitle: reviewAnswer == nil ? nil : "Next", onClose: { dismiss() }, onButton: { finishReview(review, right: reviewAnswer == answer) }) {
+            VStack(alignment: .leading, spacing: 12) {
+                ChoiceGrid(Array(options.indices), title: { (index: Int) -> String in options[index] },
+                           isSelected: { (index: Int) -> Bool in reviewAnswer == index }) { (index: Int) in
+                    if reviewAnswer == nil { reviewAnswer = index }
+                }
+                if let reviewAnswer {
+                    Label(reviewAnswer == answer ? "Right. " + explain : "The answer: \(options[answer]). " + explain,
+                          systemImage: reviewAnswer == answer ? "checkmark.circle.fill" : "arrow.uturn.backward.circle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private func finishReview(_ review: (lessonID: String, question: CampusQuestion), right: Bool) {
+        CampusReview.record(reviewed: [review.lessonID], wrong: right ? [] : [review.lessonID])
+        if completion == nil {
+            dismiss()
+        } else {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                completion?.reflected = true
+                step = .done
             }
         }
     }
@@ -425,7 +478,9 @@ struct ReflectionSheet: View {
             learned: learned
         )
         onSaved()
-        if completion == nil {
+        if review != nil {
+            withAnimation(.easeInOut(duration: 0.25)) { step = .review }
+        } else if completion == nil {
             dismiss()
         } else {
             withAnimation(.easeInOut(duration: 0.25)) {
@@ -451,7 +506,7 @@ struct SeasonGoalsSheet: View {
         StepScaffold(
             title: "Season goals",
             subtitle: "Up to three. Each week you get one small thing to do for each goal.",
-            buttonTitle: "Save", onBack: { dismiss() }, onContinue: { onSave(goals) }
+            onClose: { dismiss() }, onConfirm: { onSave(goals) }
         ) {
             if !goals.isEmpty {
                 VStack(spacing: 10) {
@@ -549,10 +604,8 @@ struct BreathingView: View {
     var body: some View {
         VStack(spacing: 24) {
             HStack {
+                CircleIconButton(systemImage: "xmark", accessibilityLabel: "Close") { dismiss() }
                 Spacer()
-                Button("Close") { dismiss() }
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.secondaryText)
             }
             if let startedAt, !finished {
                 TimelineView(.animation) { context in
@@ -607,8 +660,6 @@ struct BreathingView: View {
                     .foregroundStyle(AppTheme.secondaryText)
                     .multilineTextAlignment(.center)
                 Spacer()
-                Button("Done") { dismiss() }
-                    .buttonStyle(.primary)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
@@ -673,12 +724,10 @@ struct VisualizationView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            HStack {
+            HStack(spacing: 14) {
+                CircleIconButton(systemImage: "xmark", accessibilityLabel: "Close") { dismiss() }
                 if let step { StepProgressBar(progress: Double(step + 1) / Double(steps.count)) }
-                Spacer()
-                Button("Close") { dismiss() }
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.secondaryText)
+                Spacer(minLength: 0)
             }
             if let step, step < steps.count {
                 let current = steps[step]
@@ -732,12 +781,10 @@ struct VisualizationView: View {
                     .foregroundStyle(AppTheme.secondaryText)
                     .multilineTextAlignment(.center)
                 Spacer()
-                Button("Done") { dismiss() }
-                    .buttonStyle(.primary)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        ScreenTitle("Game-day visualization", subtitle: "About 5 minutes. Find a quiet spot — the locker room, the bus, your bed. You'll picture the game going well, and how you bounce back from a mistake.")
+                        ScreenTitle("Game-day visualization", subtitle: "About 5 minutes, somewhere quiet. Picture the game going well, and bouncing back from a mistake.")
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Your reset word")
                                 .font(.headline)

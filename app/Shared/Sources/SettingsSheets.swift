@@ -49,6 +49,24 @@ struct RemindersSheet: View {
                         }
                         .tint(AppTheme.green)
                         .padding(.vertical, 8)
+                        Divider().overlay(AppTheme.hairline)
+                        Toggle(isOn: $settings.bedtimeEnabled) {
+                            row("Bedtime", "Silent, 30 min before a 9-hour night", "bed.double.fill", AppTheme.purple)
+                        }
+                        .tint(AppTheme.green)
+                        .padding(.vertical, 8)
+                        Divider().overlay(AppTheme.hairline)
+                        Toggle(isOn: $settings.hydrationEnabled) {
+                            row("Drink up", "2 hours before a game or long practice", "drop.fill", AppTheme.water)
+                        }
+                        .tint(AppTheme.green)
+                        .padding(.vertical, 8)
+                        Divider().overlay(AppTheme.hairline)
+                        Toggle(isOn: $settings.smartTiming) {
+                            row("Smart timing", "Later check-in at weekends, reflection after practice", "wand.and.stars", AppTheme.ink)
+                        }
+                        .tint(AppTheme.green)
+                        .padding(.vertical, 8)
                     }
                     .cardStyle(padding: 16)
 
@@ -63,17 +81,13 @@ struct RemindersSheet: View {
                         .cardStyle(padding: 16)
                     }
 
-                    Button("Save", action: save)
-                        .buttonStyle(.primary)
                 }
                 .padding(20)
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
+                ConfirmToolbarItem(action: save)
             }
             .onAppear {
                 time = Calendar.current.date(bySettingHour: settings.checkInHour, minute: settings.checkInMinute, second: 0, of: .now) ?? .now
@@ -196,10 +210,7 @@ struct DownloadsSheet: View {
             .appScreen()
             .task { catalogueCount = CatalogueLoader.load(from: AppConfig.packsDirectory()).itemsBySlug.count }
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
         }
     }
@@ -211,7 +222,6 @@ struct DownloadsSheet: View {
                 Text("Every sport, offline")
                     .font(.headline)
                     .foregroundStyle(AppTheme.ink)
-                if !ProAccess.isPro { ProBadge() }
             }
             Text("Download all exercises and drills from all \(allSports.count) sports, so you can browse and train any of them with no signal.")
                 .font(.footnote)

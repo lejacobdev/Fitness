@@ -26,6 +26,14 @@ public struct PlanGeneratorInput: Sendable {
     public let formatSlug: String?
     /// The athlete's own number of gym days (nil: what the season calls for).
     public let sessionsPerWeek: Int?
+    /// How long the athlete has been lifting: sets, reps, jumps and which
+    /// variants are picked.
+    public let experience: TrainingExperience
+    /// Exercises to leave out when there's another choice (a new plan is
+    /// really new: not last plan's exercises again).
+    public let avoid: Set<String>
+    /// Body areas with pain today: nothing that loads them (PainFilter).
+    public let painAreas: Set<PainArea>
 
     public init(
         sportProfile: [String: Double], positionProfile: [String: Double]? = nil,
@@ -33,9 +41,13 @@ public struct PlanGeneratorInput: Sendable {
         trainsUnderCoach: Bool = false, equipmentAvailable: Set<String> = [],
         catalogue: Catalogue, seed: String, timeBudgetMinutesPerSession: Int = 60,
         now: Date = .now, sportSlug: String? = nil, positionSlug: String? = nil, formatSlug: String? = nil,
-        sessionsPerWeek: Int? = nil
+        sessionsPerWeek: Int? = nil, experience: TrainingExperience = .intermediate, avoid: Set<String> = [],
+        painAreas: Set<PainArea> = []
     ) {
+        self.painAreas = painAreas
         self.sessionsPerWeek = sessionsPerWeek
+        self.experience = experience
+        self.avoid = avoid
         self.sportSlug = sportSlug
         self.positionSlug = positionSlug
         self.formatSlug = formatSlug
@@ -104,7 +116,8 @@ public enum PlanGenerator {
         for (index, date) in dates.enumerated() {
             let targetQualities = roundRobinSlice(qualityOrder, offset: index, count: 3)
             var session = buildSession(
-                date: date, targetQualities: targetQualities, input: input,
+                date: date, targetQualities: targetQualities, fillQualities: roundRobinSlice(qualityOrder, offset: index, count: qualityOrder.count),
+                input: input, phase: phase,
                 isYouthEnvelope: isYouthEnvelope, age: age,
                 weeklyContacts: &weeklyContacts, rng: &rng
             )
@@ -213,20 +226,24 @@ public enum PlanGenerator {
     /// that ordering — Speed/Power items always precede Strength, which
     /// always precedes Endurance, which always precedes Control.
     private static func buildSession(
-        date: Date, targetQualities: [String], input: PlanGeneratorInput,
+        date: Date, targetQualities: [String], fillQualities: [String], input: PlanGeneratorInput, phase: SeasonPhase,
         isYouthEnvelope: Bool, age: Int, weeklyContacts: inout Int, rng: inout SeededGenerator
     ) -> GeneratedSession {
         var candidates: [(quality: String, item: CatalogueItem)] = []
-        let fits = { (item: CatalogueItem) -> Bool in
-            fitsAthlete(item, input: input)
-                && isEligibleForEquipment(item, available: input.equipmentAvailable)
-                && (input.trainsUnderCoach || !item.isCoached)
-                && item.minAge <= age
+        let fits = { (item: CatalogueItem) -> Bool in isEligible(item, input: input, age: age) }
+        /// The best few for this quality that aren't in the session yet.
+        func choices(_ quality: String) -> [CatalogueItem] {
+            let all = input.catalogue.itemsBySlug.values
+                .filter { item in (item.qualities[quality] ?? 0) >= 0.7 && fits(item) && !candidates.contains { $0.item.slug == item.slug } }
+                .sorted { $0.slug < $1.slug }
+            // A new plan leaves out the last one's exercises when it can.
+            let fresh = all.filter { !input.avoid.contains($0.slug) }
+            // The ones that matter most for this sport and position first;
+            // the plan picks among the best few, so it varies but stays on point.
+            return Array(rankedForSport(fresh.isEmpty ? all : fresh, input: input).prefix(sportPoolSize))
         }
         for quality in targetQualities {
-            let eligible = input.catalogue.itemsBySlug.values
-                .filter { item in (item.qualities[quality] ?? 0) >= 0.7 && fits(item) }
-                .sorted { $0.slug < $1.slug }
+            let eligible = choices(quality)
 
             guard !eligible.isEmpty else { continue }
             // Drills written for this athlete's position win when there are any.
@@ -247,23 +264,36 @@ public enum PlanGenerator {
                 candidates.append((quality, picked))
             }
         }
+        // A gym day is the main session of the day: fill it up to a full
+        // workout — the sport's other qualities next, then a second exercise
+        // for each (never more than two per quality, so ♻︎ keeps a choice).
+        for round in 0..<2 {
+            for quality in fillQualities {
+                guard candidates.count < gymExercises else { break }
+                guard candidates.filter({ $0.quality == quality }).count <= round else { continue }
+                let eligible = choices(quality)
+                guard !eligible.isEmpty else { continue }
+                candidates.append((quality, eligible[Int(rng.next() % UInt64(eligible.count))]))
+            }
+        }
 
         let blockRank: [QualityGroup: Int] = [.speed: 0, .power: 0, .strength: 1, .endurance: 2, .control: 3]
-        let ordered = candidates.sorted { lhs, rhs in
-            let lhsRank = qualitiesBySlug[lhs.quality].flatMap { blockRank[$0.group] } ?? 4
-            let rhsRank = qualitiesBySlug[rhs.quality].flatMap { blockRank[$0.group] } ?? 4
-            return lhsRank != rhsRank ? lhsRank < rhsRank : lhs.item.slug < rhs.item.slug
-        }
+        // Block order; inside a block, the order they were picked in.
+        let ordered = candidates.enumerated().sorted { lhs, rhs in
+            let lhsRank = qualitiesBySlug[lhs.element.quality].flatMap { blockRank[$0.group] } ?? 4
+            let rhsRank = qualitiesBySlug[rhs.element.quality].flatMap { blockRank[$0.group] } ?? 4
+            return lhsRank != rhsRank ? lhsRank < rhsRank : lhs.offset < rhs.offset
+        }.map(\.element)
 
         var items: [GeneratedPlannedItem] = []
         var totalMinutes = 0
         var order = 0
         for (quality, item) in ordered {
-            let dose = clampedDose(item.defaultDose, isYouthEnvelope: isYouthEnvelope)
+            let dose = plannedDose(item, input: input, phase: phase, isYouthEnvelope: isYouthEnvelope)
 
             if dose.kind == plyometricDoseKind {
                 let contactsThisItem = dose.sets * (dose.contacts ?? 0)
-                if weeklyContacts + contactsThisItem > weeklyContactCap(age: age) {
+                if weeklyContacts + contactsThisItem > input.experience.contactCap(weeklyContactCap(age: age)) {
                     continue // would exceed the weekly ground-contact cap (§10)
                 }
             }
@@ -287,6 +317,85 @@ public enum PlanGenerator {
         return GeneratedSession(
             date: date, title: sessionTitle(for: targetQualities),
             focusQualities: targetQualities, estimatedMinutes: totalMinutes, items: items
+        )
+    }
+
+    /// How many of the best-fitting items a pick chooses from.
+    static let sportPoolSize = 6
+
+    /// Main exercises in a gym day (the warm-up comes on top): the longest
+    /// workout of the day types, as the one day without practice.
+    static let gymExercises = 7
+
+    /// How much an item trains what this sport (and position) needs: its
+    /// qualities weighted by the sport's profile, the position's on top, and
+    /// a bonus for the sport's own drills.
+    static func sportRelevance(_ item: CatalogueItem, input: PlanGeneratorInput) -> Double {
+        var score = 0.0
+        for (quality, amount) in item.qualities {
+            score += amount * ((input.sportProfile[quality] ?? 0) + (input.positionProfile?[quality] ?? 0))
+        }
+        if let sport = input.sportSlug, item.itemSportSlug == sport { score += 0.5 }
+        return score
+    }
+
+    /// Best fit for the sport first; ties by name, so it stays deterministic.
+    static func rankedForSport(_ items: [CatalogueItem], input: PlanGeneratorInput) -> [CatalogueItem] {
+        items.map { ($0, sportRelevance($0, input: input)) }
+            .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.slug < $1.0.slug }
+            .map(\.0)
+    }
+
+    /// Everything that decides whether this athlete may get this item: their
+    /// sport and position, their equipment, coaching, age and experience.
+    static func isEligible(_ item: CatalogueItem, input: PlanGeneratorInput, age: Int) -> Bool {
+        fitsAthlete(item, input: input)
+            && isEligibleForEquipment(item, available: input.equipmentAvailable)
+            && (input.trainsUnderCoach || !item.isCoached)
+            && item.minAge <= age
+            && input.experience.allows(item)
+            && !PainFilter.loads(item, areas: input.painAreas)
+    }
+
+    /// The dose an item gets in this athlete's plan: the youth envelope,
+    /// their experience, and two sets at most in and after the season.
+    static func plannedDose(_ item: CatalogueItem, input: PlanGeneratorInput, phase: SeasonPhase, isYouthEnvelope: Bool) -> Dose {
+        var dose = input.experience.adjusted(clampedDose(item.defaultDose, isYouthEnvelope: isYouthEnvelope),
+                                             isYouthEnvelope: isYouthEnvelope)
+        if phase == .inSeason || phase == .postSeason { dose.sets = min(dose.sets, 2) }
+        return dose
+    }
+
+    /// Another exercise for the same place in a workout: it trains the same
+    /// quality (so the session keeps its order and purpose), fits the athlete
+    /// (sport, position, equipment, age, experience, coaching) and isn't in
+    /// the workout already. Choices come best-for-the-sport first; `turn`
+    /// walks through them, one per tap; nil when nothing else fits.
+    public static func replacement(for planned: GeneratedPlannedItem, in session: GeneratedSession,
+                                   input: PlanGeneratorInput, turn: Int) -> GeneratedPlannedItem? {
+        let age = ageInYears(birthDate: input.birthDate, now: input.now)
+        let inSession = Set(session.items.map(\.itemSlug))
+        let current = input.catalogue.item(planned.itemSlug)
+        var pool = rankedForSport(input.catalogue.itemsBySlug.values
+            .filter { ($0.qualities[planned.quality] ?? 0) >= 0.7 && !inSession.contains($0.slug) && isEligible($0, input: input, age: age) },
+            input: input)
+        // A position drill is swapped for another drill for the position.
+        if let current, isForPosition(current, input: input) {
+            let forPosition = pool.filter { isForPosition($0, input: input) }
+            if !forPosition.isEmpty { pool = forPosition }
+        }
+        // Plyometrics stay plyometrics, so the weekly jump count still holds.
+        if let current {
+            let sameKind = pool.filter { ($0.defaultDose.kind == plyometricDoseKind) == (current.defaultDose.kind == plyometricDoseKind) }
+            if !sameKind.isEmpty { pool = sameKind }
+        }
+        guard !pool.isEmpty else { return nil }
+        let item = pool[((turn % pool.count) + pool.count) % pool.count]
+        let phase = PhaseCalculator.phase(today: input.weekStart, seasonStart: input.seasonStart, seasonEnd: input.seasonEnd)
+        return GeneratedPlannedItem(
+            itemSlug: item.slug, order: planned.order,
+            dose: plannedDose(item, input: input, phase: phase, isYouthEnvelope: age < 18),
+            restSec: item.restSeconds, rationale: rationale(for: item, quality: planned.quality), quality: planned.quality
         )
     }
 
@@ -330,9 +439,9 @@ public enum PlanGenerator {
     }
 
     /// §10: the weekly ceiling "scales with age and training history."
-    /// Training history isn't a modeled field yet, so this scales by age
-    /// only — conservative, named constants, the one place to change per
-    /// §23's "each is changeable later by editing the noted constant."
+    /// This is the age part — conservative, named constants, the one place
+    /// to change per §23's "each is changeable later by editing the noted
+    /// constant." Training history scales it in `TrainingExperience.contactCap`.
     /// Not `private`: `SkillMenuEngine` reuses this same age-scaled ceiling
     /// as a per-block plyometric budget (§10's cap, applied over a shorter
     /// window than a full week — see that file's own comment).

@@ -132,14 +132,10 @@ struct CoachReportSheet: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .fontWeight(.semibold)
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
             .sheet(item: $detailItem) { item in
-                NavigationStack { ItemDetailView(item: item) }
+                NavigationStack { ItemDetailView(item: item, closes: true) }
             }
         }
     }
@@ -183,7 +179,7 @@ struct MuscleBalanceCard: View {
                     .foregroundStyle(AppTheme.secondaryText)
             }
             if balance.isEmpty {
-                Text("Log a few sessions and this fills in — you'll see exactly which muscles you've been training and which you've skipped.")
+                Text("Log a few sessions to see which muscles you train and which you skip.")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
             } else {

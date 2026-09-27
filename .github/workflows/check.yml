@@ -79,6 +79,12 @@ jobs:
         working-directory: app
         run: xcodegen generate --spec project.yml
 
+      # Keep compiling after the first error, so one run lists every broken
+      # file instead of one per ~8-minute round. xcodebuild reads this Xcode
+      # default too.
+      - name: Continue building after errors
+        run: defaults write com.apple.dt.Xcode IDEBuildingContinueBuildingAfterErrors -bool YES
+
       # ── Evidence, not pass/fail (§19) ─────────────────────────────────────
       # These three checks each correspond to a trap that has shipped a broken
       # build before. They fail the job, loudly, rather than being discovered in
@@ -155,6 +161,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
       - name: 'Run iOS unit tests (§21: age gate, model cascade rules, API decoding, offline pack behaviour)'
+        if: ${{ !cancelled() }}
         working-directory: app
         run: |
           set -o pipefail
@@ -165,6 +172,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
       - name: Build Watch app (unsigned, simulator)
+        if: ${{ !cancelled() }}
         working-directory: app
         run: |
           set -o pipefail

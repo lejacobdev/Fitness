@@ -108,7 +108,7 @@ struct PlanView: View {
                 ScheduleSheet(athlete: athlete, onChanged: onPlanInputsChanged)
             }
             .sheet(item: $detailItem) { item in
-                NavigationStack { ItemDetailView(item: item) }
+                NavigationStack { ItemDetailView(item: item, closes: true) }
             }
             .confirmationDialog(
                 "Remove this game?", isPresented: Binding(
@@ -470,10 +470,7 @@ struct AddGameSheet: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
         }
     }

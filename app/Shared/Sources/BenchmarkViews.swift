@@ -1,6 +1,7 @@
 import Charts
 import SwiftUI
 #if os(iOS)
+import StoreKit
 import UIKit
 #endif
 
@@ -21,8 +22,9 @@ struct BenchmarksView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Tests", subtitle: "Every 6–8 weeks, the same tests done the same way — so you can see how much faster, stronger and better you've become.")
+                    ScreenTitle("Tests", subtitle: "The same tests every 6–8 weeks show how far you've come.")
                     statusCard
+                    seasonChart
                     SectionHeader("Body", subtitle: "Power, speed, strength.")
                     ForEach(tests.filter { $0.level == .body }) { testRow($0) }
                     if let sportTest = tests.first(where: { $0.level == .sport }) {
@@ -40,9 +42,7 @@ struct BenchmarksView: View {
             .scrollIndicators(.hidden)
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.fontWeight(.semibold)
-                }
+                CloseToolbarItem { dismiss() }
             }
             .sheet(item: $running, onDismiss: { results = BenchmarkStore.results }) { test in
                 BenchmarkRunView(test: test)
@@ -80,6 +80,33 @@ struct BenchmarksView: View {
         .cardStyle()
     }
 
+    /// Jump, sprint and strength over the season on one chart: each test's
+    /// change since its first result, better always up.
+    @ViewBuilder
+    private var seasonChart: some View {
+        let series = BenchmarkMath.seasonSeries(results, tests: tests)
+        if Set(series.map(\.test)).count >= 1 {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Your season").font(.headline).foregroundStyle(AppTheme.ink)
+                Chart(series) { point in
+                    LineMark(x: .value("Date", point.date), y: .value("Change", point.percent))
+                        .foregroundStyle(by: .value("Test", point.test))
+                    PointMark(x: .value("Date", point.date), y: .value("Change", point.percent))
+                        .foregroundStyle(by: .value("Test", point.test))
+                }
+                .chartYAxis { AxisMarks { value in
+                    AxisGridLine()
+                    AxisValueLabel { if let v = value.as(Double.self) { Text("\(Int(v))%") } }
+                } }
+                .frame(height: 180)
+                Text("Change since your first test. Up is better for every test.")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            .cardStyle()
+        }
+    }
+
     private func testRow(_ test: BenchmarkTest) -> some View {
         let change = BenchmarkMath.change(results, test: test)
         return HStack(spacing: 14) {
@@ -102,6 +129,12 @@ struct BenchmarksView: View {
                                 Text(test.unit.formatChange(delta, higherIsBetter: test.higherIsBetter) + " than last time")
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(improved ? AppTheme.green : AppTheme.secondaryText)
+                            }
+                            if let goal = BenchmarkGoals.goal(for: test.id) {
+                                let progress = goal.progress(best: BenchmarkMath.best(results, test: test)?.value, higherIsBetter: test.higherIsBetter)
+                                Text(progress.reached ? "Goal reached" : "Goal: \(test.unit.format(progress.toGo)) to go")
+                                    .font(.caption)
+                                    .foregroundStyle(AppTheme.secondaryText)
                             }
                         } else {
                             Text("Not tested yet")
@@ -135,6 +168,68 @@ struct BenchmarkHistoryView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var results: [BenchmarkResult] = []
     @State private var pendingDelete: BenchmarkResult?
+    @State private var goal: BenchmarkGoal?
+    @State private var editingGoal = false
+    @State private var target: Double = 0
+    @State private var targetDate = Calendar.current.date(byAdding: .month, value: 3, to: .now) ?? .now
+
+    private var best: Double? { BenchmarkMath.best(results, test: test)?.value }
+
+    /// A measurable goal: a number and a date, tracked from the tests.
+    @ViewBuilder
+    private var goalCard: some View {
+        if editingGoal {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Your goal").font(.headline).foregroundStyle(AppTheme.ink)
+                BigStepper(label: "Target", value: test.unit.format(target),
+                           onMinus: { target = max(test.unit.goalStep(near: target), target - test.unit.goalStep(near: target)) },
+                           onPlus: { target += test.unit.goalStep(near: target) })
+                DatePicker("By", selection: $targetDate, in: Date.now..., displayedComponents: .date)
+                    .font(.headline)
+                ButtonRow {
+                    Button("Cancel") { editingGoal = false }.buttonStyle(.secondary)
+                    Button("Save goal") {
+                        let saved = BenchmarkGoal(testID: test.id, target: target, by: targetDate, start: best)
+                        BenchmarkGoals.set(saved, for: test.id)
+                        goal = saved
+                        editingGoal = false
+                    }
+                    .buttonStyle(.primary)
+                }
+            }
+            .cardStyle()
+        } else if let goal {
+            let progress = goal.progress(best: best, higherIsBetter: test.higherIsBetter)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Label("Goal: \(test.unit.format(goal.target)) by \(goal.by.formatted(.dateTime.month(.abbreviated).day()))", systemImage: "flag.fill")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.ink)
+                    Spacer()
+                    Button("Remove") {
+                        BenchmarkGoals.set(nil, for: test.id)
+                        self.goal = nil
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+                }
+                ProgressView(value: progress.fraction)
+                    .tint(progress.reached ? AppTheme.green : AppTheme.accent)
+                Text(progress.reached ? "Reached. Set a new one when you're ready." : "\(test.unit.format(progress.toGo)) to go")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            .cardStyle()
+        } else if let best {
+            Button {
+                target = BenchmarkGoals.suggestedTarget(best: best, test: test)
+                editingGoal = true
+            } label: {
+                Label("Set a goal", systemImage: "flag")
+            }
+            .buttonStyle(.secondary)
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -157,6 +252,7 @@ struct BenchmarkHistoryView: View {
                             .font(.headline)
                             .foregroundStyle(AppTheme.amber)
                     }
+                    goalCard
                     VStack(spacing: 0) {
                         ForEach(results.reversed()) { result in
                             HStack {
@@ -187,11 +283,12 @@ struct BenchmarkHistoryView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.fontWeight(.semibold)
-                }
+                CloseToolbarItem { dismiss() }
             }
-            .task { results = BenchmarkStore.results.filter { $0.testID == test.id } }
+            .task {
+                results = BenchmarkStore.results.filter { $0.testID == test.id }
+                goal = BenchmarkGoals.goal(for: test.id)
+            }
             .confirmationDialog("Delete this result?", isPresented: Binding(
                 get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }
             ), titleVisibility: .visible) {
@@ -243,6 +340,10 @@ struct BenchmarkRunView: View {
     @State private var saved: Double?
     /// The test the saved result belongs to (the sprint saves 10 m and 30 m).
     @State private var savedTest: BenchmarkTest?
+    @State private var newBest = false
+    #if os(iOS)
+    @Environment(\.requestReview) private var requestReview
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -269,9 +370,7 @@ struct BenchmarkRunView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(saved == nil ? "Cancel" : "Done") { dismiss() }
-                }
+                CloseToolbarItem { dismiss() }
             }
         }
     }
@@ -286,7 +385,7 @@ struct BenchmarkRunView: View {
             } else {
                 // Free: type the result in; the camera measurement is Pro.
                 ProLockCard(feature: .videoJumpTest, title: "Measure it with the camera",
-                            message: "Film your jump in slow motion and the app works out your height from the flight time. Or type in a result you measured another way.")
+                            message: "Film your jump in slow motion, or type in a result.")
                 entry
             }
             #else
@@ -308,7 +407,7 @@ struct BenchmarkRunView: View {
 
     private var unitLabel: String {
         switch test.unit {
-        case .centimeters: "cm"
+        case .centimeters: Measure.imperial ? "inches" : "cm"
         case .seconds: "seconds"
         case .reps: "reps"
         case .outOf10: "out of 10"
@@ -333,7 +432,9 @@ struct BenchmarkRunView: View {
                     .foregroundStyle(AppTheme.secondaryText)
             }
             Button("Save") {
-                if let value = Self.parse(typed, unit: test.unit) { save(value) }
+                if let value = Self.parse(typed, unit: test.unit) {
+                    save(test.unit == .centimeters ? Measure.centimetres(fromTyped: value) : value)
+                }
             }
             .buttonStyle(.primary)
             .disabled(Self.parse(typed, unit: test.unit) == nil)
@@ -354,6 +455,7 @@ struct BenchmarkRunView: View {
     }
 
     private func save(_ value: Double, as target: BenchmarkTest? = nil) {
+        newBest = BenchmarkMath.isPersonalBest(value, test: target ?? test, before: BenchmarkStore.results)
         BenchmarkStore.record(value, for: target ?? test)
         savedTest = target ?? test
         saved = value
@@ -361,10 +463,18 @@ struct BenchmarkRunView: View {
 
     private func savedCard(_ value: Double, test: BenchmarkTest) -> some View {
         let change = BenchmarkMath.change(BenchmarkStore.results, test: test)
+        let goal = BenchmarkGoals.goal(for: test.id)
+        let goalReached = goal.map { $0.progress(best: value, higherIsBetter: test.higherIsBetter).reached } ?? false
         return VStack(spacing: 14) {
-            Image(systemName: "checkmark.circle.fill")
+            Image(systemName: newBest ? "trophy.fill" : "checkmark.circle.fill")
                 .font(.system(size: 64))
-                .foregroundStyle(AppTheme.green)
+                .foregroundStyle(newBest ? AppTheme.amber : AppTheme.green)
+                .sensoryFeedback(.success, trigger: newBest)
+            if newBest {
+                Text(goalReached ? "New personal best. Goal reached!" : "New personal best!")
+                    .font(.title3.bold())
+                    .foregroundStyle(AppTheme.ink)
+            }
             Text(test.name)
                 .font(.headline)
                 .foregroundStyle(AppTheme.secondaryText)
@@ -376,7 +486,7 @@ struct BenchmarkRunView: View {
                     .font(.title3.bold())
                     .foregroundStyle(improved ? AppTheme.green : AppTheme.secondaryText)
                 if !improved {
-                    Text("Tests go up and down — sleep, food and tiredness all count. Look at the trend over months, not one day.")
+                    Text("Look at the trend over months, not one day.")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.secondaryText)
                         .multilineTextAlignment(.center)
@@ -386,8 +496,15 @@ struct BenchmarkRunView: View {
                     .font(.title3.bold())
                     .foregroundStyle(AppTheme.ink)
             }
-            Button("Done") { dismiss() }
-                .buttonStyle(.primary)
+            ConfirmCircleButton {
+                #if os(iOS)
+                // A good moment (a new best) is the only time we ask for a rating.
+                if newBest, RatingMoment.consume(firstUse: RatingMoment.firstUse) {
+                    requestReview()
+                }
+                #endif
+                dismiss()
+            }
         }
         .frame(maxWidth: .infinity)
         .cardStyle()

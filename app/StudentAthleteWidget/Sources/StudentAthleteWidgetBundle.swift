@@ -1,3 +1,4 @@
+import ActivityKit
 import SwiftUI
 import WidgetKit
 
@@ -6,6 +7,76 @@ struct StudentAthleteWidgetBundle: WidgetBundle {
     var body: some Widget {
         TodayWidget()
         StreakWidget()
+        WorkoutLiveActivity()
+    }
+}
+
+/// The running workout on the Lock Screen and in the Dynamic Island.
+struct WorkoutLiveActivity: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: WorkoutActivityAttributes.self) { context in
+            HStack(spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(context.attributes.title.uppercased())
+                        .font(.caption2.bold())
+                        .foregroundStyle(.secondary)
+                    Text(context.state.exercise)
+                        .font(.headline)
+                        .lineLimit(1)
+                    Text(context.state.detail)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                if let rest = context.state.restEndsAt, rest > .now {
+                    Text(timerInterval: Date.now...rest, countsDown: true)
+                        .font(.system(size: 32, weight: .bold).monospacedDigit())
+                        .frame(width: 96)
+                        .multilineTextAlignment(.trailing)
+                } else {
+                    WidgetRing(progress: context.state.progress, lineWidth: 6)
+                        .frame(width: 44, height: 44)
+                }
+            }
+            .padding(16)
+            .activityBackgroundTint(Color.black.opacity(0.85))
+            .activitySystemActionForegroundColor(.white)
+        } dynamicIsland: { context in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    Label(context.state.exercise, systemImage: "figure.strengthtraining.traditional")
+                        .font(.headline)
+                        .lineLimit(1)
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    if let rest = context.state.restEndsAt, rest > .now {
+                        Text(timerInterval: Date.now...rest, countsDown: true)
+                            .font(.title3.bold().monospacedDigit())
+                            .frame(width: 64)
+                    } else {
+                        Text("\(context.state.setsDone)/\(context.state.setsTotal)")
+                            .font(.title3.bold())
+                    }
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    Text(context.state.detail)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            } compactLeading: {
+                Image(systemName: "figure.strengthtraining.traditional")
+            } compactTrailing: {
+                if let rest = context.state.restEndsAt, rest > .now {
+                    Text(timerInterval: Date.now...rest, countsDown: true)
+                        .monospacedDigit()
+                        .frame(width: 44)
+                } else {
+                    Text("\(context.state.setsDone)/\(context.state.setsTotal)")
+                }
+            } minimal: {
+                Image(systemName: "figure.strengthtraining.traditional")
+            }
+        }
     }
 }
 
@@ -35,7 +106,7 @@ struct TodayProvider: TimelineProvider {
 private enum WidgetInk {
     static let ink = Color.primary
     static let muted = Color.secondary
-    static let orange = Color(red: 1, green: 0.54, blue: 0.24)
+    static let orange = Color.primary
     static let red = Color(red: 0.9, green: 0.22, blue: 0.23)
 }
 
@@ -63,6 +134,16 @@ struct TodayWidgetView: View {
     private var snapshot: WidgetSnapshot? {
         guard let snapshot = entry.snapshot, snapshot.isCurrent else { return nil }
         return snapshot
+    }
+
+    /// Today's readiness in words (never a score); "Check in" before it.
+    private var readinessWord: String {
+        guard let snapshot, snapshot.checkedIn else { return "Check in" }
+        switch snapshot.readiness {
+        case "AMBER": return "Reduced"
+        case "RED": return "Recovery focus"
+        default: return "Normal"
+        }
     }
 
     private var headline: String {
@@ -96,9 +177,9 @@ struct TodayWidgetView: View {
                     .font(.caption2.bold())
                     .foregroundStyle(WidgetInk.muted)
                 Spacer()
-                Label("\(snapshot?.streak ?? 0)", systemImage: "flame.fill")
+                Text(readinessWord)
                     .font(.caption2.bold())
-                    .foregroundStyle(WidgetInk.orange)
+                    .foregroundStyle(WidgetInk.ink)
             }
             Spacer(minLength: 0)
             Text(bigNumber)
@@ -109,10 +190,11 @@ struct TodayWidgetView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(WidgetInk.muted)
                 .lineLimit(2)
-            if let snapshot, !snapshot.checkedIn {
-                Label("Check in", systemImage: "sun.max.fill")
+            if let next = snapshot?.nextGameDate {
+                let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: .now), to: Calendar.current.startOfDay(for: next)).day ?? 0
+                Text(days == 0 ? "Game today" : "Game in \(days)d")
                     .font(.caption2.bold())
-                    .foregroundStyle(WidgetInk.ink)
+                    .foregroundStyle(WidgetInk.red)
             }
         }
     }
@@ -133,7 +215,7 @@ struct TodayWidgetView: View {
                 Spacer(minLength: 0)
                 HStack(spacing: 10) {
                     if let snapshot {
-                        Label(snapshot.checkedIn ? "Checked in" : "Check in", systemImage: snapshot.checkedIn ? "checkmark.circle.fill" : "sun.max.fill")
+                        Label(readinessWord, systemImage: snapshot.checkedIn ? "checkmark.circle.fill" : "sun.max.fill")
                         if let next = snapshot.nextGameDate {
                             let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: .now), to: Calendar.current.startOfDay(for: next)).day ?? 0
                             Label(days == 0 ? "Game today" : "Game in \(days)d", systemImage: "sportscourt.fill")
@@ -148,10 +230,11 @@ struct TodayWidgetView: View {
             ZStack {
                 WidgetRing(progress: weekProgress, lineWidth: 9)
                 VStack(spacing: 0) {
-                    Image(systemName: "flame.fill")
-                        .foregroundStyle(WidgetInk.orange)
                     Text("\(snapshot?.sessionsThisWeek ?? 0)/\(snapshot?.plannedThisWeek ?? 0)")
                         .font(.caption.bold())
+                    Text("this week")
+                        .font(.system(size: 9))
+                        .foregroundStyle(WidgetInk.muted)
                 }
             }
             .frame(width: 92, height: 92)
@@ -166,7 +249,7 @@ struct TodayWidget: Widget {
                 .containerBackground(.background, for: .widget)
         }
         .configurationDisplayName("Today")
-        .description("Today's session, your check-in and your next game.")
+        .description("Today's readiness and training, and your next game.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }

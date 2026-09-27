@@ -66,6 +66,16 @@ struct ImproveView: View {
     @State private var searchText = ""
     @State private var mode: Mode = .skill
 
+    /// Opened from search: straight to muscle workouts, or to one skill's plan.
+    init(athlete: Athlete, apiClient: APIClient, onPlanInputsChanged: @escaping () -> Void,
+         initialMode: Mode = .skill, initialSkillSlug: String? = nil) {
+        self.athlete = athlete
+        self.apiClient = apiClient
+        self.onPlanInputsChanged = onPlanInputsChanged
+        _mode = State(initialValue: initialMode)
+        _path = State(initialValue: initialSkillSlug.map { [.setup(skillSlug: $0)] } ?? [])
+    }
+
     private var sportSlug: String? { athlete.activeSport?.sportSlug }
     private var sportInfo: SportInfo? { sportSlug.flatMap { allSportsBySlug[$0] } }
 
@@ -100,7 +110,7 @@ struct ImproveView: View {
                         skillGrid
                     } else {
                         TipCard(id: "muscles", icon: "figure.stand", title: "Build a workout by muscle",
-                                message: "Tap a quick pick or the body areas you want to train, choose how long you have, then press Start workout.")
+                                message: "Pick what to train and how long you have.")
                         MuscleBuilderView(athlete: athlete, apiClient: apiClient)
                     }
                 }
@@ -354,7 +364,7 @@ struct SkillSetupView: View {
     var body: some View {
         StepScaffold(
             progress: 0.66, title: skill.name, subtitle: "When is your next game?",
-            buttonTitle: "Build my plan", onBack: { dismiss() }, onContinue: { onBuild(gameDate) }
+            buttonTitle: "Build my plan", onClose: { dismiss() }, onContinue: { onBuild(gameDate) }
         ) {
             VStack(alignment: .leading, spacing: 12) {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -441,7 +451,7 @@ struct SkillSetupView: View {
         .toolbar(.hidden, for: .navigationBar)
         .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
         .sheet(item: $detailItem) { item in
-            NavigationStack { ItemDetailView(item: item) }
+            NavigationStack { ItemDetailView(item: item, closes: true) }
         }
     }
 
@@ -503,7 +513,7 @@ struct SkillBlockView: View {
                             .foregroundStyle(AppTheme.green)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                        Button("Done", action: onFinished)
+                        Button("Back to your skills", action: onFinished)
                             .buttonStyle(.secondary)
                     } else {
                         VStack(spacing: 8) {
@@ -527,7 +537,7 @@ struct SkillBlockView: View {
         .appScreen()
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $detailItem) { item in
-            NavigationStack { ItemDetailView(item: item) }
+            NavigationStack { ItemDetailView(item: item, closes: true) }
         }
         .skillPlanPaywall(isPresented: $showingPaywall, athlete: athlete)
         .task {

@@ -110,6 +110,41 @@ public enum FuelEngine {
         return tips
     }
 
+    // MARK: Travel days
+
+    /// Away games and travel days: plan the food, because the bus and the
+    /// service station won't.
+    public static func travelTips(awayGame: Bool) -> [FuelTip] {
+        var tips = [
+            FuelTip(id: "travel-before", time: nil, title: "Eat before you leave",
+                    detail: "A proper meal with carbs and some protein before the trip, so you don't arrive hungry.",
+                    systemImage: "fork.knife"),
+            FuelTip(id: "travel-pack", time: nil, title: "Pack your own snacks",
+                    detail: "Bananas, sandwiches, crackers, yoghurt drinks and a full water bottle. Easy to carry, easy on the stomach.",
+                    systemImage: "bag.fill"),
+            FuelTip(id: "travel-stop", time: nil, title: "At a food stop",
+                    detail: "Pick grilled over fried: a sandwich, a rice or pasta bowl, a wrap. Add fruit or juice.",
+                    systemImage: "takeoutbag.and.cup.and.straw.fill"),
+            FuelTip(id: "travel-drink", time: nil, title: "Keep sipping",
+                    detail: "Long rides and air conditioning dry you out. Drink a little every half hour.",
+                    systemImage: "drop.fill"),
+        ]
+        if awayGame {
+            tips.append(FuelTip(id: "travel-after", time: nil, title: "On the way home",
+                                detail: "Recover on the bus: chocolate milk, a sandwich or yoghurt with fruit, then a full meal at home.",
+                                systemImage: "arrow.clockwise.heart.fill"))
+        }
+        return tips
+    }
+
+    /// When a game starts: the calendar's time when it has one, otherwise
+    /// the athlete's usual game time.
+    public static func gameStart(_ game: Date, usualMinutes: Int, calendar: Calendar = .current) -> Date {
+        let parts = calendar.dateComponents([.hour, .minute], from: game)
+        if (parts.hour ?? 0) != 0 || (parts.minute ?? 0) != 0 { return game }
+        return calendar.date(bySettingHour: usualMinutes / 60, minute: usualMinutes % 60, second: 0, of: game) ?? game
+    }
+
     // MARK: Game day (§13's "one genuinely high-value piece")
 
     public static func gameDayTimeline(gameStart: Date, isTournament: Bool) -> [FuelTip] {
@@ -156,7 +191,7 @@ public enum FuelEngine {
         let morning = Calendar.current.date(bySettingHour: 7, minute: 0, second: 0, of: reference) ?? reference
         let afternoon = Calendar.current.date(bySettingHour: 16, minute: 0, second: 0, of: reference) ?? reference
         let tips = sessionTimeline(start: morning, minutes: 45) + sessionTimeline(start: afternoon, minutes: 90)
-            + gameDayTimeline(gameStart: afternoon, isTournament: true)
+            + gameDayTimeline(gameStart: afternoon, isTournament: true) + travelTips(awayGame: true)
         return tips.flatMap { [$0.title, $0.detail] } + [standingNote]
     }
 

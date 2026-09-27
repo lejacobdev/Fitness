@@ -207,7 +207,7 @@ struct SeasonEditor: View {
             HStack(spacing: 10) {
                 Image(systemName: "calendar")
                     .foregroundStyle(AppTheme.blue)
-                Text("\(weeks) weeks of season. You'll get stronger before it, stay fresh during it, and recover after it.")
+                Text("\(weeks) weeks of season: build before, stay fresh during, recover after.")
                     .font(.footnote)
                     .foregroundStyle(AppTheme.secondaryText)
             }

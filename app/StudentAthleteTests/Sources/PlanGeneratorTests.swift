@@ -227,6 +227,27 @@ final class PlanGeneratorTests: XCTestCase {
         }
     }
 
+    // MARK: - A full gym day
+
+    func testAGymDayIsAFullWorkoutNotThreeExercises() {
+        let qualities = ["acceleration", "lower-body-strength", "upper-body-push", "upper-body-pull", "core-stability"]
+        let items = qualities.flatMap { quality in
+            (0..<3).map { makeItem(slug: "\(quality)-\($0)", qualities: [quality: 1.0], defaultDose: Dose(kind: "reps", sets: 3, reps: 8)) }
+        }
+        let profile = Dictionary(uniqueKeysWithValues: qualities.enumerated().map { ($0.element, 1.0 - Double($0.offset) * 0.1) })
+        let week = PlanGenerator.generate(baseInput(sportProfile: profile, catalogue: catalogue(items)))
+
+        for session in week.sessions {
+            XCTAssertEqual(session.items.count, PlanGenerator.gymExercises)
+            XCTAssertGreaterThanOrEqual(session.estimatedMinutes, 30)
+            XCTAssertLessThanOrEqual(session.estimatedMinutes, 60)
+            XCTAssertEqual(Set(session.items.map(\.itemSlug)).count, session.items.count, "no exercise twice")
+            XCTAssertEqual(session.items.map(\.order), Array(0..<session.items.count))
+            let perQuality = Dictionary(grouping: session.items, by: \.quality).mapValues(\.count)
+            XCTAssertTrue(perQuality.values.allSatisfy { $0 <= 2 }, "two per quality at most, so ♻︎ keeps a choice")
+        }
+    }
+
     // MARK: - Ground-contact cap
 
     func testWeeklyGroundContactsNeverExceedTheAgeBasedCap() {

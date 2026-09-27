@@ -194,5 +194,11 @@ final class AthleteStatsTests: XCTestCase {
         XCTAssertEqual(AthleteStats.streak(checkInDates: days, sessionDates: [], now: now), 4)
         XCTAssertEqual(AthleteStats.streak(checkInDates: [now] + days, sessionDates: [], now: now), 5)
         XCTAssertEqual(AthleteStats.streak(checkInDates: [calendar.date(byAdding: .day, value: -3, to: now)!], sessionDates: [], now: now), 0)
+        // Sick or travel days in between neither count nor break it.
+        let twoAgo = calendar.date(byAdding: .day, value: -2, to: now)!
+        let threeAgo = calendar.date(byAdding: .day, value: -3, to: now)!
+        let frozen: Set<String> = [DayKey.of(calendar.date(byAdding: .day, value: -1, to: now)!, calendar: calendar)]
+        XCTAssertEqual(AthleteStats.streak(checkInDates: [now, twoAgo, threeAgo], sessionDates: [], frozen: frozen, now: now, calendar: calendar), 3)
+        XCTAssertEqual(AthleteStats.streak(checkInDates: [now, twoAgo, threeAgo], sessionDates: [], frozen: [], now: now, calendar: calendar), 1)
     }
 }

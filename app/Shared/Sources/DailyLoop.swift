@@ -9,7 +9,7 @@ import Foundation
 // MARK: - Pain
 
 public enum PainArea: String, Codable, Sendable, CaseIterable, Identifiable {
-    case head, neck, shoulder, arm, back, hip, knee, ankle, other
+    case head, neck, shoulder, chest, arm, back, core, hip, leg, knee, ankle, other
     public var id: String { rawValue }
 
     public var title: String {
@@ -17,9 +17,12 @@ public enum PainArea: String, Codable, Sendable, CaseIterable, Identifiable {
         case .head: "Head"
         case .neck: "Neck"
         case .shoulder: "Shoulder"
+        case .chest: "Chest"
         case .arm: "Arm / wrist"
         case .back: "Back"
+        case .core: "Stomach / sides"
         case .hip: "Hip / groin"
+        case .leg: "Thigh / calf"
         case .knee: "Knee"
         case .ankle: "Ankle / foot"
         case .other: "Somewhere else"
@@ -76,6 +79,53 @@ public enum PainStore {
         if let report { reports.append(report) }
         reports = Array(reports.sorted { $0.day < $1.day }.suffix(60))
         defaults.set(try? JSONEncoder().encode(reports), forKey: key)
+    }
+}
+
+/// Coming back after reported pain: a gentle ramp, never a diagnosis. Once
+/// a day passes without pain, training stays lighter for a week after "a
+/// little" pain and two weeks after more, building up day by day. A head
+/// injury isn't ramped here — the concussion steps and a doctor decide.
+public enum ReturnRamp {
+    public struct Day: Sendable, Equatable {
+        /// 1 = the first pain-free day.
+        public let day: Int
+        public let of: Int
+
+        /// The first half of the ramp is lighter; the second half trains as
+        /// planned but keeps saying where you are.
+        public var isLighter: Bool { day * 2 <= of }
+
+        public var reason: String {
+            isLighter
+                ? "Coming back after pain: day \(day) of \(of), lighter on purpose. If it hurts again, stop and tell an adult."
+                : "Coming back after pain: day \(day) of \(of). Building back up; if it hurts again, stop and tell an adult."
+        }
+    }
+
+    public static func length(after report: PainReport) -> Int {
+        report.level == .little ? 7 : 14
+    }
+
+    public static func day(reports: [PainReport], today: Date, calendar: Calendar = .current) -> Day? {
+        let todayKey = DayKey.of(today, calendar: calendar)
+        guard !reports.contains(where: { $0.day == todayKey }),
+              let last = reports.filter({ $0.day < todayKey }).max(by: { $0.day < $1.day }),
+              !last.involvesHead,
+              let lastDate = date(last.day, calendar: calendar),
+              let days = calendar.dateComponents([.day], from: lastDate, to: calendar.startOfDay(for: today)).day
+        else { return nil }
+        // The ramp covers the biggest recent report, not only the last one.
+        let recent = reports.filter { $0.day < todayKey && $0.day >= DayKey.of(calendar.date(byAdding: .day, value: -14, to: today) ?? today, calendar: calendar) }
+        let length = recent.map(Self.length(after:)).max() ?? Self.length(after: last)
+        guard days >= 1, days <= length else { return nil }
+        return Day(day: days, of: length)
+    }
+
+    private static func date(_ key: String, calendar: Calendar) -> Date? {
+        let parts = key.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
     }
 }
 
@@ -152,16 +202,24 @@ public struct DayCompletion: Sendable, Equatable {
         self.reflected = reflected
     }
 
+    public enum Kind: String, Sendable, Hashable {
+        case checkIn, training, lesson, reflection
+    }
+
     public struct Item: Sendable, Hashable, Identifiable {
+        public let kind: Kind
         public let title: String
         public let done: Bool
-        public var id: String { title }
+        public var id: String { kind.rawValue }
     }
 
     public var items: [Item] {
-        [Item(title: "Morning check-in", done: checkedIn), Item(title: "Training", done: trained),
-         Item(title: "Campus lesson", done: learned), Item(title: "Evening reflection", done: reflected)]
+        [Item(kind: .checkIn, title: "Morning check-in", done: checkedIn), Item(kind: .training, title: "Training", done: trained),
+         Item(kind: .lesson, title: "Campus lesson", done: learned), Item(kind: .reflection, title: "Evening reflection", done: reflected)]
     }
+
+    /// The first thing still to do today (nil: all done).
+    public var nextToDo: Kind? { items.first { !$0.done }?.kind }
 
     public var doneCount: Int { items.filter(\.done).count }
 }
@@ -240,12 +298,19 @@ public enum DailyLoop {
     /// answers themselves (from day one), reported pain, and how hard
     /// yesterday was.
     public static func readiness(
-        answers: MorningAnswers?, personalBand: ReadinessBand?, pain: PainReport?, yesterday: EveningSignal?
+        answers: MorningAnswers?, personalBand: ReadinessBand?, pain: PainReport?, yesterday: EveningSignal?,
+        ramp: ReturnRamp.Day? = nil, wearable: String? = nil
     ) -> (level: TodayReadiness, reason: String)? {
         var candidates: [(TodayReadiness, String)] = []
         if let pain {
             let level: TodayReadiness = pain.involvesHead || pain.level != .little ? .recovery : .reduced
             candidates.append((level, "Because you reported pain, your training is reduced today."))
+        }
+        if let ramp {
+            candidates.append((ramp.isLighter ? .reduced : .normal, ramp.reason))
+        }
+        if let wearable {
+            candidates.append((.reduced, wearable))
         }
         if let answers {
             var flags = 0

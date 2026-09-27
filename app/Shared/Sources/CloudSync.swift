@@ -308,7 +308,8 @@ public enum CloudSync {
         switch key {
         case "profile":
             return encode(ProfileDoc(
-                displayName: athlete.displayName, birthDate: athlete.birthDate, unitSystem: athlete.unitSystem.rawValue,
+                // The first name stays on this phone (it's only for the greeting).
+                displayName: nil, birthDate: athlete.birthDate, unitSystem: athlete.unitSystem.rawValue,
                 trainsUnderCoach: athlete.trainsUnderCoach, equipmentAvailable: athlete.equipmentAvailable.sorted()
             ))
         case "sports":
@@ -377,7 +378,7 @@ public enum CloudSync {
         switch key {
         case "profile":
             guard let doc = try? decoder.decode(ProfileDoc.self, from: json) else { return }
-            athlete.displayName = doc.displayName
+            if let name = doc.displayName { athlete.displayName = name }
             athlete.birthDate = doc.birthDate
             athlete.unitSystem = UnitSystem(rawValue: doc.unitSystem) ?? athlete.unitSystem
             athlete.trainsUnderCoach = doc.trainsUnderCoach

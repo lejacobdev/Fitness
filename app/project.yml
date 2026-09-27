@@ -195,6 +195,22 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.studentathlete.app.tests
         GENERATE_INFOPLIST_FILE: YES
 
+  # ─────────────────────────────────────── iOS UI tests (the real app)
+  # Launches the app in the simulator with -demoData and taps through the
+  # flows that broke on a phone before (a lesson opening the Me tab).
+  StudentAthleteUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: StudentAthleteUITests
+    dependencies:
+      - target: StudentAthlete
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.studentathlete.app.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: StudentAthlete
+
   # ────────────────────────────────────── Watch complication (WidgetKit)
   StudentAthleteWatchWidget:
     type: app-extension
@@ -240,9 +256,11 @@ schemes:
       targets:
         StudentAthlete: all
         StudentAthleteTests: [test]
+        StudentAthleteUITests: [test]
     test:
       targets:
         - StudentAthleteTests
+        - StudentAthleteUITests
     run:
       config: Debug
     archive:

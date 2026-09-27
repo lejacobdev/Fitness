@@ -67,9 +67,9 @@ enum WidgetSnapshotWriter {
         let today = Date.now
         let session = week?.sessions.first { calendar.isDateInToday($0.date) }
         let checkIn = AthleteStats.todaysCheckIn(athlete)
-        var adjusted = session
-        if let session, let band = DailyLoop.todayBand(athlete) {
-            adjusted = ReadinessApplier.apply(to: session, band: band).session
+        var adjusted = session.map { TodaysPain.apply($0, athlete: athlete, catalogue: CatalogueLoader.load(from: AppConfig.packsDirectory())) }
+        if let safe = adjusted, let band = DailyLoop.todayBand(athlete) {
+            adjusted = ReadinessApplier.apply(to: safe, band: band).session
         }
         let weekInterval = calendar.dateInterval(of: .weekOfYear, for: today)
         let sessionsThisWeek = athlete.sessions.filter { weekInterval?.contains($0.startedAt) ?? false }.count

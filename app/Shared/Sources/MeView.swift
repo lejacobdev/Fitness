@@ -49,7 +49,7 @@ struct MeView: View {
     private var apiClient: APIClient { APIClient(baseURL: AppConfig.backendBaseURL) }
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, safety, struggles, trends, mindset, schedule
+        case sport, season, equipment, experience, name, reports, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, safety, struggles, trends, mindset, schedule
         var id: String { rawValue }
     }
 
@@ -104,6 +104,9 @@ struct MeView: View {
                         menuDivider
                         menuRow("Equipment", icon: "dumbbell.fill", tint: AppTheme.purple,
                                 detail: athlete.equipmentAvailable.isEmpty ? "Bodyweight only" : "\(athlete.equipmentAvailable.count) items") { activeSheet = .equipment }
+                        menuDivider
+                        menuRow("Training experience", icon: "figure.strengthtraining.traditional", tint: AppTheme.coral,
+                                detail: TrainingExperience.saved?.title ?? "Not set") { activeSheet = .experience }
                         menuDivider
                         coachToggleRow
                     }
@@ -165,6 +168,8 @@ struct MeView: View {
 
                     SectionHeader("Your data", subtitle: "It's yours: export it any time.")
                     menuCard {
+                        menuRow("Reports", icon: "doc.richtext", tint: AppTheme.brand, detail: "Season, PDF, recruiting") { activeSheet = .reports }
+                        menuDivider
                         menuRow("Export my data", icon: "square.and.arrow.up", tint: AppTheme.green, detail: "JSON") { activeSheet = .dataExport }
                         menuDivider
                         HStack(spacing: 14) {
@@ -234,12 +239,26 @@ struct MeView: View {
             .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
             .appScreen()
             .toolbar(.hidden, for: .navigationBar)
-            .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
+            .task {
+                catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
+                if DemoData.initialTab == .me, let name = DemoData.initialSheet { activeSheet = MeSheet(rawValue: name) }
+            }
+            .onChange(of: activeSheet) { _, sheet in
+                if let sheet { UsageCounts.count("me.\(sheet.rawValue)") }
+            }
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
                 case .sport: SportEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
                 case .season: SeasonEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
                 case .equipment: EquipmentEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
+                case .experience: ExperienceEditorSheet(onSaved: onPlanInputsChanged)
+                case .name: NameEditorSheet(athlete: athlete)
+                case .reports:
+                    #if os(iOS)
+                    ReportsSheet(athlete: athlete, sessions: sessions, catalogue: catalogue)
+                    #else
+                    EmptyView()
+                    #endif
                 case .history: SessionHistoryView()
                 case .checkIns: CheckInHistoryView(checkIns: athlete.checkIns)
                 case .exercises: ExerciseProgressListView(sessions: sessions, catalogue: catalogue)
@@ -306,10 +325,14 @@ struct MeView: View {
                 .frame(width: 72, height: 72)
                 .background(AppTheme.accent, in: Circle())
             VStack(alignment: .leading, spacing: 4) {
-                Text(athlete.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? sportInfo?.name ?? "Athlete")
-                    .font(.title2.bold())
-                    .foregroundStyle(AppTheme.ink)
-                Text([athlete.displayName?.isEmpty == false ? sportInfo?.name : nil, positionName, "Age \(age)"].compactMap { $0 }.joined(separator: " · "))
+                Button { activeSheet = .name } label: {
+                    Text(athlete.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? "Add your name")
+                        .font(.title2.bold())
+                        .foregroundStyle(athlete.displayName?.isEmpty == false ? AppTheme.ink : AppTheme.secondaryText)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Edit your first name")
+                Text([sportInfo?.name, positionName, "Age \(age)"].compactMap { $0 }.joined(separator: " · "))
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
                 Tag(AthleteStats.phaseLabel(phase), color: AppTheme.ink)
@@ -604,7 +627,7 @@ struct TrendsSheet: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
+                CloseToolbarItem { dismiss() }
             }
         }
     }
@@ -753,12 +776,12 @@ struct SportEditorSheet: View {
     var body: some View {
         Group {
             if choosingPosition, let sport {
-                StepScaffold(title: sport.positions.isEmpty ? "How you play" : "Position", subtitle: sport.name, buttonTitle: "Save", onBack: { choosingPosition = false }, onContinue: save) {
+                StepScaffold(title: sport.positions.isEmpty ? "How you play" : "Position", subtitle: sport.name, onBack: { choosingPosition = false }, onConfirm: save) {
                     PositionChooser(sport: sport, selection: $positionSlug, format: $formatSlug)
                 }
             } else {
                 StepScaffold(title: "Your sport", buttonTitle: sport?.hasRoleChoice == true ? "Next" : "Save", buttonEnabled: sportSlug != nil,
-                             onBack: { dismiss() }, onContinue: {
+                             onClose: { dismiss() }, onContinue: {
                     if sport?.hasRoleChoice == true {
                         if sportSlug != athlete.activeSport?.sportSlug { positionSlug = nil; formatSlug = nil }
                         choosingPosition = true
@@ -811,8 +834,8 @@ struct SeasonEditorSheet: View {
     @State private var end = Date.now
 
     var body: some View {
-        StepScaffold(title: "Season dates", subtitle: "Your plan changes through the season — getting stronger before it, staying fresh during it, recovering after — based on these dates.", buttonTitle: "Save",
-                     onBack: { dismiss() }, onContinue: save) {
+        StepScaffold(title: "Season dates", subtitle: "Your plan changes through the season — getting stronger before it, staying fresh during it, recovering after — based on these dates.", 
+                     onClose: { dismiss() }, onConfirm: save) {
             SeasonEditor(start: $start, end: $end)
         }
         .onAppear {
@@ -838,8 +861,8 @@ struct EquipmentEditorSheet: View {
     @State private var selection: Set<String> = []
 
     var body: some View {
-        StepScaffold(title: "Equipment", subtitle: "Your plan only ever uses what you pick here.", buttonTitle: "Save",
-                     onBack: { dismiss() }, onContinue: save) {
+        StepScaffold(title: "Equipment", subtitle: "Your plan only ever uses what you pick here.", 
+                     onClose: { dismiss() }, onConfirm: save) {
             EquipmentChooser(selection: $selection)
         }
         .onAppear { selection = Set(athlete.equipmentAvailable) }
@@ -849,6 +872,64 @@ struct EquipmentEditorSheet: View {
         athlete.equipmentAvailable = Array(selection).sorted()
         try? modelContext.save()
         onSaved()
+        dismiss()
+    }
+}
+
+/// How long the athlete has been lifting: changes sets, reps and jumps.
+struct ExperienceEditorSheet: View {
+    let onSaved: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var selection: TrainingExperience = .current
+
+    var body: some View {
+        StepScaffold(title: "Training experience", subtitle: "Your plan's sets, reps and jumps follow this.", 
+                     onClose: { dismiss() }, onConfirm: save) {
+            VStack(spacing: 10) {
+                ForEach(TrainingExperience.allCases, id: \.self) { level in
+                    Button { selection = level } label: {
+                        OptionRow(title: level.title, subtitle: level.detail, isSelected: selection == level)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func save() {
+        TrainingExperience.saved = selection
+        onSaved()
+        dismiss()
+    }
+}
+
+/// An optional first name, only for the greeting on Home. It stays on this
+/// phone: it isn't backed up or sent anywhere.
+struct NameEditorSheet: View {
+    let athlete: Athlete
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+
+    var body: some View {
+        StepScaffold(title: "Your first name", subtitle: "Optional. Only used to greet you, and it stays on this phone.",
+                     onClose: { dismiss() }, onConfirm: save) {
+            TextField("First name", text: $name)
+                .font(.title3.weight(.semibold))
+                .autocorrectionDisabled()
+                .submitLabel(.done)
+                .onSubmit(save)
+                .padding(.horizontal, 18)
+                .frame(height: 56)
+                .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
+        }
+        .onAppear { name = athlete.displayName ?? "" }
+    }
+
+    private func save() {
+        let first = name.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ").first.map(String.init) ?? ""
+        athlete.displayName = first.isEmpty ? nil : String(first.prefix(30))
+        try? modelContext.save()
         dismiss()
     }
 }
@@ -897,10 +978,7 @@ struct CheckInHistoryView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
         }
     }
@@ -999,10 +1077,7 @@ struct ExerciseProgressListView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
         }
     }
@@ -1202,6 +1277,12 @@ struct DataExportView: View {
                         exportStat("\(sessions.reduce(0) { $0 + $1.sets.count })", "sets")
                         exportStat("\(athlete.checkIns.count)", "check-ins")
                     }
+                    if !UsageCounts.all.isEmpty {
+                        ShareLink(item: "AthleteOS app usage (counted on this phone only)\n\n" + UsageCounts.summary) {
+                            Label("Share app usage with support", systemImage: "chart.bar")
+                        }
+                        .buttonStyle(.secondary)
+                    }
                     ShareLink(item: exportText, preview: SharePreview("AthleteOS export")) {
                         Label("Share export", systemImage: "square.and.arrow.up")
                             .font(.headline)
@@ -1214,10 +1295,7 @@ struct DataExportView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
         }
     }

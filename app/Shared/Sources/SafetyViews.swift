@@ -9,7 +9,7 @@ struct ConcussionGuideView: View {
         NavigationStack {
             ConcussionGuideContent()
                 .toolbar {
-                    ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
+                    CloseToolbarItem { dismiss() }
                 }
         }
     }
@@ -309,7 +309,7 @@ struct SafetyCenterView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
+                CloseToolbarItem { dismiss() }
             }
             .onAppear {
                 status = DayStatusStore.status()

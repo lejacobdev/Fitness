@@ -71,10 +71,7 @@ public struct SessionHistoryView: View {
             .appScreen()
             .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
         }
     }

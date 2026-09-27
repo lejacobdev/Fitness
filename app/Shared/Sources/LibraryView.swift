@@ -55,8 +55,13 @@ public struct LibraryView: View {
     private var sportSlug: String? { athlete?.activeSport?.sportSlug }
     private var sportName: String? { sportSlug.flatMap { allSportsBySlug[$0]?.name } }
 
+    /// General exercises and the athlete's own sport's drills (every sport
+    /// they play on Pro); other sports' drills stay hidden.
     private var allItems: [CatalogueItem] {
-        catalogue.itemsBySlug.values.sorted { $0.name < $1.name }
+        let sports = athlete.map { SportVisibility.sports(for: $0) }
+        return catalogue.itemsBySlug.values
+            .filter { item in sports.map { SportVisibility.isVisible(item, sports: $0) } ?? true }
+            .sorted { $0.name < $1.name }
     }
 
     private var surfaces: [String] {
@@ -86,7 +91,7 @@ public struct LibraryView: View {
                 LazyVStack(alignment: .leading, spacing: 14, pinnedViews: []) {
                     ScreenTitle("Library", subtitle: "\(allItems.count) exercises and drills, all offline.")
                     TipCard(id: "library", icon: "play.rectangle.fill", title: "Every move, animated",
-                            message: "Tap any exercise to watch how it's done and see the muscles it works in red. Press Try it now to do it on its own.")
+                            message: "Tap an exercise to see how it's done.")
                     searchRow
                     groupChips
                     if let region {
@@ -289,19 +294,15 @@ struct MusclePickerSheet: View {
                             .buttonStyle(.plain)
                         }
                     }
-                    Button("Show results") {
-                        selection = pending
-                        dismiss()
-                    }
-                    .buttonStyle(.primary)
                 }
                 .padding(20)
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
+                CloseToolbarItem { dismiss() }
+                ConfirmToolbarItem(accessibilityLabel: "Show results") {
+                    selection = pending
+                    dismiss()
                 }
             }
             .onAppear { pending = selection }
@@ -350,13 +351,15 @@ struct LibraryFilterSheet: View {
                             surface = nil
                         }
                         .buttonStyle(.secondary)
-                        Button("Done") { dismiss() }
-                            .buttonStyle(.primary)
                     }
                 }
                 .padding(20)
             }
             .appScreen()
+            .toolbar {
+                CloseToolbarItem { dismiss() }
+                ConfirmToolbarItem(accessibilityLabel: "Show results") { dismiss() }
+            }
         }
     }
 
@@ -416,6 +419,8 @@ struct FlowLayout: Layout {
 /// §7 field in its own card.
 struct ItemDetailView: View {
     let item: CatalogueItem
+    /// Opened on its own (a popup): ✕ closes it. Pushed from a list: ‹ goes back.
+    var closes = false
     @Environment(\.dismiss) private var dismiss
     @AppStorage("libraryOpened") private var libraryOpened = false
 
@@ -436,7 +441,7 @@ struct ItemDetailView: View {
                         }
                     }
                     .frame(height: 280)
-                    CircleIconButton(systemImage: "chevron.left", accessibilityLabel: "Back") { dismiss() }
+                    CircleIconButton(systemImage: closes ? "xmark" : "chevron.left", accessibilityLabel: closes ? "Close" : "Back") { dismiss() }
                         .padding(14)
                 }
 

@@ -67,13 +67,11 @@ struct SportGuideView: View {
             .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
+                CloseToolbarItem { dismiss() }
             }
             .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
             .sheet(item: $detailItem) { item in
-                NavigationStack { ItemDetailView(item: item) }
+                NavigationStack { ItemDetailView(item: item, closes: true) }
             }
             .fullScreenCover(item: $quizzing) { guide in
                 CampusLessonPlayer(
@@ -280,7 +278,7 @@ struct SportGuideView: View {
 
     private func injuries(_ guide: SportGuide) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Stay healthy", subtitle: "The injuries this sport sees most, and what prevents them. Pain that doesn't go away: tell your coach or athletic trainer.")
+            SectionHeader("Stay healthy", subtitle: "Common injuries and what prevents them.")
             ForEach(guide.injuries, id: \.self) { injury in
                 VStack(alignment: .leading, spacing: 10) {
                     Label(injury.area, systemImage: "cross.case.fill")
@@ -391,9 +389,6 @@ struct SportGuideView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Text("General education, not medical advice. For pain, illness or injury, see a doctor or athletic trainer.")
-                .font(.footnote)
-                .foregroundStyle(AppTheme.secondaryText)
         }
     }
 }

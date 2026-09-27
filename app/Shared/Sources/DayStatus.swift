@@ -94,5 +94,28 @@ public enum DayStatusStore {
         let today = calendar.startOfDay(for: now)
         let until = days.flatMap { calendar.date(byAdding: .day, value: max(0, $0 - 1), to: today) }
         stored = Stored(status: status, until: until, from: today)
+        StreakFreeze.protect(today, calendar: calendar)
+    }
+}
+
+/// Sick, travel, holiday and head-injury days don't break the streak: they
+/// are remembered here (backed up with progress) and skipped when counting.
+public enum StreakFreeze {
+    static let key = "progress.frozenDays"
+
+    public static func days(_ defaults: UserDefaults = .standard) -> Set<String> {
+        Set(defaults.stringArray(forKey: key) ?? [])
+    }
+
+    public static func protect(_ date: Date, calendar: Calendar = .current, _ defaults: UserDefaults = .standard) {
+        var all = days(defaults)
+        all.insert(DayKey.of(date, calendar: calendar))
+        defaults.set(Array(all.sorted().suffix(400)), forKey: key)
+    }
+
+    /// Called when the app opens: a day spent sick, travelling or on holiday
+    /// is protected, even when the status was set days ago.
+    public static func protectTodayIfResting(now: Date = .now, calendar: Calendar = .current) {
+        if DayStatusStore.status(on: now, calendar: calendar) != .active { protect(now, calendar: calendar) }
     }
 }

@@ -12,7 +12,11 @@ extension DailyLoop {
             MorningAnswers(sleepQuality: $0.sleepQuality, sleepHours: $0.sleepHours, energy: $0.energy, soreness: $0.soreness, stress: $0.stress)
         }
         return readiness(answers: answers, personalBand: checkIn?.readinessBand, pain: PainStore.report(on: now),
-                         yesterday: MindsetStore.yesterdaySignal(now: now))
+                         yesterday: MindsetStore.yesterdaySignal(now: now),
+                         ramp: ReturnRamp.day(reports: PainStore.all(), today: now),
+                         wearable: WearableLoad.reason(ExternalWorkoutStore.recent, now: now,
+                                                       age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: now),
+                                                       practiceToday: PracticeSchedule.hasPractice(on: now) ? PracticeSchedule.time(on: now) : nil))
     }
 
     /// How today's training is adjusted (nil: as planned).
@@ -405,7 +409,7 @@ struct CheckInSheet: View {
     // MARK: Result
 
     private var resultPage: some View {
-        QuestionPage(progress: 1, question: "Today's readiness", buttonTitle: "Done", onClose: { dismiss() }, onButton: { dismiss() }) {
+        QuestionPage(progress: 1, question: "Today's readiness", buttonTitle: nil, onClose: { dismiss() }) {
             if let readiness = DailyLoop.today(athlete) {
                 ReadinessBlock(level: readiness.level, reason: readiness.reason)
             }

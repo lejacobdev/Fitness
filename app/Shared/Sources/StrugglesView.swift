@@ -11,8 +11,8 @@ struct StrugglesSheet: View {
         StepScaffold(
             title: "My Development Goals",
             subtitle: "Pick up to \(Struggles.maximum). Your training leans towards them.",
-            buttonTitle: "Save", onBack: { dismiss() },
-            onContinue: {
+            onClose: { dismiss() },
+            onConfirm: {
                 Struggles.selected = selected
                 onSaved()
                 dismiss()
@@ -36,7 +36,7 @@ struct StrugglesSheet: View {
                 }
             }
             if selected.count >= Struggles.maximum {
-                Text("That's \(Struggles.maximum) — tap one to swap it. Focusing on a few things works better than on everything.")
+                Text("That's \(Struggles.maximum). Tap one to swap it.")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
             }

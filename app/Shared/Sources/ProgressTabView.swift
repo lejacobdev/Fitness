@@ -456,6 +456,7 @@ struct ProgressTabView: View {
                 Button { month = calendar.date(byAdding: .month, value: -1, to: month) ?? month } label: {
                     Image(systemName: "chevron.left").font(.headline).frame(width: 44, height: 44)
                 }
+                .accessibilityLabel("Previous month")
                 Spacer()
                 Text(month.formatted(.dateTime.month(.wide).year()))
                     .font(.title3.bold())
@@ -464,6 +465,7 @@ struct ProgressTabView: View {
                 Button { month = calendar.date(byAdding: .month, value: 1, to: month) ?? month } label: {
                     Image(systemName: "chevron.right").font(.headline).frame(width: 44, height: 44)
                 }
+                .accessibilityLabel("Next month")
             }
             .foregroundStyle(AppTheme.ink)
             LazyVGrid(columns: columns, spacing: 6) {
@@ -522,12 +524,14 @@ struct ProgressTabView: View {
                     Button { month = calendar.date(byAdding: .year, value: -1, to: month) ?? month } label: {
                         Image(systemName: "chevron.left").font(.headline).frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel("Previous year")
                     Spacer()
                     Text(String(calendar.component(.year, from: month))).font(.title3.bold())
                     Spacer()
                     Button { month = calendar.date(byAdding: .year, value: 1, to: month) ?? month } label: {
                         Image(systemName: "chevron.right").font(.headline).frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel("Next year")
                 }
                 .foregroundStyle(AppTheme.ink)
             } else {
@@ -899,7 +903,7 @@ struct DayDetailSheet: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
+                CloseToolbarItem { dismiss() }
             }
         }
         .presentationDetents([.medium, .large])
@@ -982,8 +986,8 @@ struct PracticeLogSheet: View {
         StepScaffold(
             title: "Team practice",
             subtitle: date.formatted(.dateTime.weekday(.wide).month().day()),
-            buttonTitle: "Save", onBack: { dismiss() },
-            onContinue: save
+            onClose: { dismiss() },
+            onConfirm: save
         ) {
             if athlete.sports.count > 1 {
                 WrapLayout(spacing: 8) {
@@ -1020,14 +1024,25 @@ struct PracticeLogSheet: View {
                 HStack(spacing: 8) {
                     ForEach(1...5, id: \.self) { value in
                         let faces = ["😣", "😕", "😐", "🙂", "😄"]
+                        // Selected: a solid ring, the others faded — a
+                        // tinted fill alone looked the same as unselected
+                        // on black and white.
+                        let selected = mood == value
                         Button { mood = value } label: {
                             Text(faces[value - 1])
                                 .font(.system(size: 30))
+                                .opacity(selected ? 1 : 0.45)
                                 .frame(maxWidth: .infinity, minHeight: 54)
-                                .background(mood == value ? AppTheme.accent.opacity(0.15) : AppTheme.fill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .strokeBorder(AppTheme.accent, lineWidth: selected ? 3 : 0)
+                                }
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Mood \(value) of 5")
+                        .accessibilityAddTraits(selected ? .isSelected : [])
                     }
                 }
             }
@@ -1153,7 +1168,7 @@ struct PracticeScheduleSheet: View {
 
     var body: some View {
         StepScaffold(title: "Practice days & times", subtitle: "Tap the days you have team practice and set when it is. Workouts are planned around it.",
-                     buttonTitle: "Save", onBack: { dismiss() }, onContinue: save) {
+                     onClose: { dismiss() }, onConfirm: save) {
             VStack(spacing: 10) {
                 ForEach([2, 3, 4, 5, 6, 7, 1], id: \.self) { weekday in
                     dayRow(weekday)
@@ -1222,7 +1237,7 @@ struct ExtraPracticeSheet: View {
 
     var body: some View {
         StepScaffold(title: "Add a training", subtitle: "An extra team session. It counts as a practice day, so your gym workout moves off it.",
-                     buttonTitle: "Save", onBack: { dismiss() }, onContinue: save) {
+                     onClose: { dismiss() }, onConfirm: save) {
             DatePicker("Day", selection: $date, displayedComponents: .date)
                 .font(.headline)
                 .tint(AppTheme.accent)

@@ -21,6 +21,7 @@ public extension CampusLesson {
     var questions: [CampusQuestion] { campusQuestions[id] ?? [] }
 
     static let meansForYouHeading = "What this means for you"
+    static let exampleHeading = "Athlete example"
 
     /// A 2–5 minute lesson (V3): the teaching cards (the hook, the idea, an
     /// athlete's example), what it means for you, then a quiz of up to three.

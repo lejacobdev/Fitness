@@ -41,13 +41,17 @@ struct WorkoutTabView: View {
             catalogue: catalogue, sport: sportInfo, positionSlug: athlete.activeSport?.positionSlug,
             formatSlug: athlete.activeSport?.formatSlug, equipment: Set(athlete.equipmentAvailable),
             trainsUnderCoach: athlete.trainsUnderCoach, age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now),
-            struggles: Struggles.selected
+            struggles: Struggles.selected,
+            prepMoment: PrepMoment.at(.now, gameToday: gameToday != nil)
         )
     }
 
+    /// Today's pain first (nothing that loads a sore area), then readiness.
     private func adjusted(_ session: GeneratedSession) -> GeneratedSession {
-        guard let band else { return session }
-        return ReadinessApplier.apply(to: session, band: band).session
+        let safe = calendar.isDateInToday(session.date) || session.slot == nil
+            ? TodaysPain.apply(session, athlete: athlete, catalogue: catalogue) : session
+        guard let band else { return safe }
+        return ReadinessApplier.apply(to: safe, band: band).session
     }
 
     /// Today's gym session, or the next one this week.
@@ -162,14 +166,12 @@ struct WorkoutTabView: View {
             .fullScreenCover(item: $liveLaunch) { launch in
                 LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind)
             }
-            .confirmationDialog("Delete this plan?", isPresented: $confirmingNewPlan, titleVisibility: .visible) {
-                Button("Delete and build a new one", role: .destructive) {
-                    PlanVariant.buildNew()
+            // A new plan: generate it (randomize, swap single exercises) or build it yourself.
+            .sheet(isPresented: $confirmingNewPlan) {
+                NewGymPlanSheet(athlete: athlete, gymDays: week?.sessions.count ?? 3) {
+                    custom = PlanCustomizationStore.load()
                     onPlanInputsChanged()
                 }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Your gym days get new exercises. Workouts you already logged stay.")
             }
         }
     }
@@ -186,7 +188,7 @@ struct WorkoutTabView: View {
         switch mode {
         case .gymDay: gymSession?.session
         case .afterPractice: WorkoutModeBuilder.build(.afterPractice, context).map { adjusted($0) }
-        case .mobility, .travel: WorkoutModeBuilder.build(mode, context)
+        case .mobility, .travel: WorkoutModeBuilder.build(mode, context).map { TodaysPain.apply($0, athlete: athlete, catalogue: catalogue) }
         }
     }
 
@@ -357,7 +359,8 @@ struct WorkoutTabView: View {
     private var weekSection: some View {
         if let week, !week.sessions.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
-                SectionHeader("This week's gym days")
+                SectionHeader("This week's gym days", subtitle: isDeloadWeek(week)
+                              ? "Deload week: lighter on purpose, so you come back stronger." : week.phase.focus)
                 VStack(spacing: 0) {
                     ForEach(Array(week.sessions.enumerated()), id: \.offset) { index, session in
                         Button { preview = PreviewBox(session: adjusted(session), kind: .gym, slot: session.slot.map { PlanSlot.gym($0) }) } label: {
@@ -387,6 +390,10 @@ struct WorkoutTabView: View {
                 .cardStyle(padding: 14)
             }
         }
+    }
+
+    private func isDeloadWeek(_ week: GeneratedWeek) -> Bool {
+        Deload.isDeloadWeek(weekStart: week.weekStart, anchor: athlete.createdAt, phase: week.phase)
     }
 
     private var moreSection: some View {
@@ -511,7 +518,7 @@ struct WorkoutTabView: View {
         let days = settings.weekdays.sorted { ($0 + 5) % 7 < ($1 + 5) % 7 }.map { dayNames[$0 - 1] }.joined(separator: ", ")
         let summary = [
             settings.weekdays.isEmpty ? (settings.sessionsPerWeek.map { "\($0) gym days a week" } ?? "Gym days picked for you") : days,
-            settings.minutesPerSession.map { "\($0) min each" } ?? "length picked for you",
+            settings.effectiveMinutesPerSession.map { "\($0) min each" } ?? "length picked for you",
         ].joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Make it yours", subtitle: "Your gym days, their length, and any exercise (View workout → Change it).")
@@ -535,7 +542,7 @@ struct WorkoutTabView: View {
             .buttonStyle(.plain)
             Button { confirmingNewPlan = true } label: {
                 ListRow(systemImage: "arrow.triangle.2.circlepath", color: AppTheme.ink, title: "Build a new gym plan",
-                        detail: "Same rules, different exercises")
+                        detail: "Generate one or build it yourself")
                     .cardStyle(padding: 12)
             }
             .buttonStyle(.plain)

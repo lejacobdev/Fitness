@@ -66,6 +66,9 @@ public struct MainTabView: View {
                 .tag(AppTab.me)
         }
         .tint(AppTheme.accent)
+        // Counted after the switch, never inside the tab bar's own binding
+        // (a hand-made binding there sent lesson taps to the Me tab).
+        .onChange(of: selectedTab) { _, tab in UsageCounts.count("tab.\(tab)") }
         .modifier(CompactTabBar())
         .environment(\.workoutContext, workoutContext)
         .sheet(isPresented: $showingHealthPermission) {
@@ -121,11 +124,20 @@ public struct MainTabView: View {
             if phase == .background || phase == .active {
                 Task { await backUp() }
             }
+            if phase == .active {
+                StreakFreeze.protectTodayIfResting()
+                Task { await ExternalWorkoutStore.refresh(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate) }
+            }
             if phase == .active, !DemoData.isEnabled {
                 Task { await refreshAnimations() }
             }
         }
         .task {
+            _ = RatingMoment.firstUse
+            StreakFreeze.protectTodayIfResting()
+            if !DemoData.isEnabled {
+                await ExternalWorkoutStore.refresh(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate)
+            }
             workoutContext = WorkoutContext(athlete: athlete, apiClient: apiClient)
             #if os(iOS) && !APP_EXTENSION
             ProStore.shared.start(athlete: athlete)
@@ -250,13 +262,44 @@ enum PlanVariant {
     static let key = "plans.variant"
     static var current: Int { UserDefaults.standard.integer(forKey: key) }
     static func buildNew() { UserDefaults.standard.set(current + 1, forKey: key) }
+    static func set(_ variant: Int) { UserDefaults.standard.set(variant, forKey: key) }
     static func backToOriginal() { UserDefaults.standard.removeObject(forKey: key) }
-    static func seed(_ base: String) -> String { current == 0 ? base : "\(base)-v\(current)" }
+    static func seed(_ base: String, variant: Int = current) -> String { variant == 0 ? base : "\(base)-v\(variant)" }
 }
 
 /// Shared by the Today and Plan tabs so the two can never disagree about
 /// what "this week" is.
 enum WeeklyPlan {
+    /// What this week's plan is generated from (a plan variant other than the
+    /// current one when building a new plan, and exercises to leave out).
+    @MainActor
+    static func input(for athlete: Athlete, variant: Int = PlanVariant.current, avoid: Set<String> = [],
+                      catalogue: Catalogue? = nil, painAreas: Set<PainArea> = []) -> PlanGeneratorInput? {
+        guard let athleteSport = athlete.activeSport, let sportInfo = allSportsBySlug[athleteSport.sportSlug] else { return nil }
+        let calendar = Calendar.current
+        let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: .now)) ?? .now
+        let basePosition = athleteSport.positionSlug.flatMap { slug in
+            sportInfo.positions.first { $0.slug == slug }?.qualityProfile
+        }
+        let struggles = Struggles.selected
+        let positionProfile = struggles.isEmpty ? basePosition
+            : Struggles.profile(base: basePosition ?? sportInfo.qualityProfile, struggles: struggles)
+        let custom = PlanCustomizationStore.load()
+        return PlanGeneratorInput(
+            sportProfile: sportInfo.qualityProfile, positionProfile: positionProfile,
+            seasonStart: athleteSport.seasonStart, seasonEnd: athleteSport.seasonEnd,
+            weekStart: weekStart, birthDate: athlete.birthDate,
+            trainsUnderCoach: athlete.trainsUnderCoach,
+            equipmentAvailable: Set(athlete.equipmentAvailable),
+            catalogue: catalogue ?? CatalogueLoader.load(from: AppConfig.packsDirectory()),
+            seed: PlanVariant.seed("\(athlete.id)-\(Int(weekStart.timeIntervalSince1970))", variant: variant),
+            timeBudgetMinutesPerSession: custom.settings.effectiveMinutesPerSession ?? 60,
+            sportSlug: athleteSport.sportSlug, positionSlug: athleteSport.positionSlug, formatSlug: athleteSport.formatSlug,
+            sessionsPerWeek: custom.settings.effectiveSessionsPerWeek,
+            experience: TrainingExperience.current, avoid: avoid, painAreas: painAreas
+        )
+    }
+
     @MainActor
     static func generate(for athlete: Athlete) -> GeneratedWeek? {
         guard
@@ -269,31 +312,26 @@ enum WeeklyPlan {
             from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: .now)
         ) ?? .now
 
-        let basePosition = athleteSport.positionSlug.flatMap { slug in
-            sportInfo.positions.first { $0.slug == slug }?.qualityProfile
-        }
-        // The athlete's development goals (Me) lean the plan towards them.
-        let struggles = Struggles.selected
-        let positionProfile = struggles.isEmpty ? basePosition
-            : Struggles.profile(base: basePosition ?? sportInfo.qualityProfile, struggles: struggles)
-
         // The athlete's own say: how many gym days, which days, how long, and
         // their own version of any gym day.
         let custom = PlanCustomizationStore.load()
-        let catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
-        let input = PlanGeneratorInput(
-            sportProfile: sportInfo.qualityProfile, positionProfile: positionProfile,
-            seasonStart: athleteSport.seasonStart, seasonEnd: athleteSport.seasonEnd,
-            weekStart: weekStart, birthDate: athlete.birthDate,
-            trainsUnderCoach: athlete.trainsUnderCoach,
-            equipmentAvailable: Set(athlete.equipmentAvailable),
-            catalogue: catalogue,
-            seed: PlanVariant.seed("\(athlete.id)-\(Int(weekStart.timeIntervalSince1970))"),
-            timeBudgetMinutesPerSession: custom.settings.minutesPerSession ?? 60,
-            sportSlug: athleteSport.sportSlug, positionSlug: athleteSport.positionSlug, formatSlug: athleteSport.formatSlug,
-            sessionsPerWeek: custom.settings.effectiveSessionsPerWeek
+        guard let planInput = Self.input(for: athlete) else { return nil }
+        let catalogue = planInput.catalogue
+        let customized = PlanCustomizer.apply(custom, to: PlanGenerator.generate(planInput), catalogue: catalogue)
+        // Every fifth week of the building phases is a planned deload.
+        let deloaded = Deload.isDeloadWeek(weekStart: weekStart, anchor: athlete.createdAt, phase: customized.phase, calendar: calendar)
+            ? Deload.apply(to: customized) : customized
+        // Every gym day the app built starts with a warm-up for the sport
+        // (the athlete's own versions stay exactly as they made them).
+        let warmUpContext = WorkoutModeContext(
+            catalogue: catalogue, sport: sportInfo, positionSlug: athleteSport.positionSlug, formatSlug: athleteSport.formatSlug,
+            equipment: Set(athlete.equipmentAvailable), trainsUnderCoach: athlete.trainsUnderCoach,
+            age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now), prepMoment: .beforePractice
         )
-        let generated = PlanCustomizer.apply(custom, to: PlanGenerator.generate(input), catalogue: catalogue)
+        let generated = GeneratedWeek(phase: deloaded.phase, weekStart: deloaded.weekStart, sessions: deloaded.sessions.map { session in
+            if let slot = session.slot, custom.workout(for: .gym(slot)) != nil { return session }
+            return WorkoutModeBuilder.withWarmUp(session, warmUpContext)
+        })
         // Every game counts, whatever sport it's for: the body that plays a
         // basketball game on Friday shouldn't squat heavy on Thursday.
         // Free tapers for the next game; Pro for every game in the week.
@@ -372,16 +410,22 @@ enum AthleteStats {
     /// Consecutive days, ending today (or yesterday, so the streak doesn't
     /// read zero before the morning check-in), with a check-in or a logged
     /// session — the daily-habit number Cal AI shows as its flame.
-    static func streak(checkInDates: [Date], sessionDates: [Date], now: Date = .now) -> Int {
-        let calendar = Calendar.current
+    /// Days in a row with a check-in or a workout. Sick, travel and holiday
+    /// days (StreakFreeze) are skipped: they neither count nor break it.
+    static func streak(checkInDates: [Date], sessionDates: [Date], frozen: Set<String> = StreakFreeze.days(),
+                       now: Date = .now, calendar: Calendar = .current) -> Int {
         let active = Set((checkInDates + sessionDates).map { calendar.startOfDay(for: $0) })
         var day = calendar.startOfDay(for: now)
         if !active.contains(day) {
             day = calendar.date(byAdding: .day, value: -1, to: day) ?? day
         }
         var count = 0
-        while active.contains(day) {
-            count += 1
+        for _ in 0..<3650 {
+            if active.contains(day) {
+                count += 1
+            } else if !frozen.contains(DayKey.of(day, calendar: calendar)) {
+                break
+            }
             guard let previous = calendar.date(byAdding: .day, value: -1, to: day) else { break }
             day = previous
         }

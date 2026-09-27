@@ -44,6 +44,12 @@ public struct LiveSessionView: View {
     @State private var loggedCount = 0
     @State private var restEndedCount = 0
     @State private var startedAt = Date.now
+    /// Why today's target differs from last time (progressive overload).
+    @State private var targetNote: String?
+    /// "New best: 45 kg" after a set heavier than ever before.
+    @State private var bestNote: String?
+    @State private var bestCount = 0
+    @State private var heartRate: HeartRateSummary?
     @AppStorage(WeightUnit.storageKey) private var unitRaw = WeightUnit.current.rawValue
 
     private var unit: WeightUnit { WeightUnit(rawValue: unitRaw) ?? .kg }
@@ -84,7 +90,7 @@ public struct LiveSessionView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         if loggedCount == 0 {
                             TipCard(id: "live", icon: "hand.tap.fill", title: "How a workout works",
-                                    message: "Watch the move, do one set, set the numbers to what you did and tap Log set. Rest starts on its own, then do the next set. Tap Finish when you're done.")
+                                    message: "Do a set, log it, rest. Tap Finish when you're done.")
                         }
                         if allDone {
                             doneCard
@@ -117,12 +123,21 @@ public struct LiveSessionView: View {
             setIdleTimerDisabled(false)
         }
         .sheet(isPresented: $showingPicker) {
-            ExercisePickerSheet(catalogue: catalogue) { item in
+            ExercisePickerSheet(catalogue: catalogue, sports: SportVisibility.sports(for: athlete)) { item in
                 add(item)
             }
         }
         .sheet(isPresented: $showingRPE) {
-            RPEPromptView(rpe: $rpe) { finish() }
+            RPEPromptView(rpe: $rpe, heartRate: heartRate) { finish() }
+                .task {
+                    guard let session else { return }
+                    heartRate = await HealthKitManager.shared.heartRate(from: session.startedAt, to: .now)
+                    // A watch saw the effort: start the question from there.
+                    if let heartRate {
+                        rpe = WearableLoad.effort(averageHeartRate: Double(heartRate.average), minutes: Int(Date.now.timeIntervalSince(session.startedAt) / 60),
+                                                  age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now))
+                    }
+                }
                 .presentationDetents([.large])
                 .interactiveDismissDisabled()
         }
@@ -204,6 +219,17 @@ public struct LiveSessionView: View {
                 Tag(done >= current.dose.sets ? "All sets done" : "Set \(min(done + 1, current.dose.sets)) of \(current.dose.sets)",
                     color: done >= current.dose.sets ? AppTheme.green : AppTheme.orange)
             }
+            if let bestNote {
+                Label(bestNote, systemImage: "trophy.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.amber)
+                    .sensoryFeedback(.success, trigger: bestCount)
+            }
+            if let targetNote, done == 0 {
+                Label(targetNote, systemImage: "arrow.up.right")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
         }
     }
 
@@ -231,7 +257,7 @@ public struct LiveSessionView: View {
             case "time":
                 BigStepper(label: "Seconds", value: "\(seconds)", onMinus: { seconds = max(5, seconds - 5) }, onPlus: { seconds = min(900, seconds + 5) })
             case "distance":
-                BigStepper(label: "Metres", value: "\(Int(distanceM))", onMinus: { distanceM = max(5, distanceM - 5) }, onPlus: { distanceM = min(2000, distanceM + 5) })
+                BigStepper(label: "Distance", value: Measure.distance(m: distanceM), onMinus: { distanceM = max(5, distanceM - 5) }, onPlus: { distanceM = min(2000, distanceM + 5) })
             case "contacts":
                 BigStepper(label: "Contacts", value: "\(contacts)", onMinus: { contacts = max(1, contacts - 1) }, onPlus: { contacts = min(100, contacts + 1) })
             default:
@@ -424,6 +450,28 @@ public struct LiveSessionView: View {
             prefill()
         }
         setIdleTimerDisabled(true)
+        updateActivity()
+    }
+
+    /// Keeps the Lock Screen / Dynamic Island in step with the workout.
+    private func updateActivity() {
+        #if os(iOS) && !APP_EXTENSION
+        guard let current else { return }
+        let done = setsLogged[current.itemSlug, default: 0]
+        let state = WorkoutActivityAttributes.ContentState(
+            exercise: currentItem?.name ?? displayName(forSlug: current.itemSlug),
+            detail: restRemaining > 0 ? "Rest" : "Set \(min(done + 1, current.dose.sets)) of \(current.dose.sets)",
+            restEndsAt: restRemaining > 0 ? Date.now.addingTimeInterval(Double(restRemaining)) : nil,
+            setsDone: totalLogged, setsTotal: totalTargetSets
+        )
+        WorkoutActivity.show(title: planned?.title ?? "Workout", state: state)
+        #endif
+    }
+
+    private func endActivity() {
+        #if os(iOS) && !APP_EXTENSION
+        WorkoutActivity.end()
+        #endif
     }
 
     private func add(_ item: CatalogueItem) {
@@ -440,28 +488,57 @@ public struct LiveSessionView: View {
         endRest(silently: true)
         showingCues = false
         prefill()
+        updateActivity()
     }
 
     /// §15: "prefilled targets from last time" — the most recent logged set
-    /// of this item wins; otherwise the plan's own dose.
+    /// of this item wins; otherwise the plan's own dose. When last time went
+    /// well, the target moves on a step (ProgressionEngine).
     private func prefill() {
         guard let current else { return }
         let slug = current.itemSlug
         let descriptor = FetchDescriptor<SetLog>(predicate: #Predicate { $0.itemSlug == slug })
-        let previous = ((try? modelContext.fetch(descriptor)) ?? [])
-            .filter { $0.session?.id != session?.id }
-            .max { ($0.session?.startedAt ?? .distantPast) < ($1.session?.startedAt ?? .distantPast) }
+        let earlier = ((try? modelContext.fetch(descriptor)) ?? []).filter { $0.session?.id != session?.id }
+        let previous = earlier.max { ($0.session?.startedAt ?? .distantPast) < ($1.session?.startedAt ?? .distantPast) }
 
         reps = previous?.reps ?? current.dose.reps ?? 8
         weightKg = previous?.weightKg ?? 0
         seconds = previous?.seconds ?? current.dose.seconds ?? 30
         distanceM = previous?.distanceM ?? current.dose.metres ?? 20
         contacts = previous?.contacts ?? current.dose.contacts ?? 10
+        targetNote = nil
+
+        guard let lastSession = previous?.session else { return }
+        let lastSets = earlier.filter { $0.session?.id == lastSession.id }
+            .map { LoggedSet(reps: $0.reps, weightKg: $0.weightKg, seconds: $0.seconds) }
+        let age = PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now)
+        let calendar = Calendar.current
+        let deload = athlete.activeSport.map { sport -> Bool in
+            let weekStart = calendar.dateInterval(of: .weekOfYear, for: .now)?.start ?? .now
+            let phase = PhaseCalculator.phase(today: .now, seasonStart: sport.seasonStart, seasonEnd: sport.seasonEnd)
+            return Deload.isDeloadWeek(weekStart: weekStart, anchor: athlete.createdAt, phase: phase)
+        } ?? false
+        if let target = ProgressionEngine.next(last: lastSets, dose: current.dose, sessionRPE: lastSession.sessionRPE,
+                                               isYouth: age < 18, stepKg: unit.stepKg, deload: deload) {
+            if let value = target.reps { reps = value }
+            if let value = target.weightKg { weightKg = value }
+            if let value = target.seconds { seconds = value }
+            targetNote = target.note
+        }
     }
 
     private func logSet(_ current: GeneratedPlannedItem) {
         guard let session else { return }
         let kind = current.dose.kind
+        if kind == "reps", weightKg > 0 {
+            let slug = current.itemSlug
+            let descriptor = FetchDescriptor<SetLog>(predicate: #Predicate { $0.itemSlug == slug })
+            let heaviest = ((try? modelContext.fetch(descriptor)) ?? []).compactMap(\.weightKg).max()
+            if let heaviest, weightKg > heaviest + 0.01 {
+                bestNote = "New best on \(currentItem?.name ?? displayName(forSlug: slug)): \(unit.format(kg: weightKg))"
+                bestCount += 1
+            }
+        }
         let setIndex = setsLogged[current.itemSlug, default: 0]
         _ = try? SessionLogger(modelContext: modelContext).logSet(
             session: session, itemSlug: current.itemSlug, setIndex: setIndex,
@@ -487,6 +564,7 @@ public struct LiveSessionView: View {
         restTask?.cancel()
         restTotal = max(duration, 1)
         restRemaining = duration
+        updateActivity()
         restTask = Task {
             while restRemaining > 0 {
                 try? await Task.sleep(for: .seconds(1))
@@ -494,6 +572,7 @@ public struct LiveSessionView: View {
                 restRemaining -= 1
             }
             restEndedCount += 1
+            updateActivity()
         }
     }
 
@@ -504,6 +583,7 @@ public struct LiveSessionView: View {
     }
 
     private func finish() {
+        endActivity()
         guard let session else { return }
         try? SessionLogger(modelContext: modelContext).finishSession(session, sessionRPE: rpe)
         WidgetSnapshotWriter.write(for: athlete, week: WeeklyPlan.generate(for: athlete))
@@ -527,6 +607,7 @@ public struct LiveSessionView: View {
     }
 
     private func discard() {
+        endActivity()
         if let session {
             modelContext.delete(session)
             try? modelContext.save()
@@ -591,6 +672,8 @@ struct BigStepper: View {
 /// Search the downloaded library and add an exercise to the session.
 struct ExercisePickerSheet: View {
     let catalogue: Catalogue
+    /// Whose drills may show (SportVisibility): never another sport's.
+    let sports: [SportVisibility.Sport]
     let onPick: (CatalogueItem) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
@@ -598,7 +681,7 @@ struct ExercisePickerSheet: View {
 
     private var items: [CatalogueItem] {
         let filtered = catalogue.itemsBySlug.values
-            .filter { group == nil || $0.primaryQuality?.group == group }
+            .filter { (group == nil || $0.primaryQuality?.group == group) && SportVisibility.isVisible($0, sports: sports) }
             .sorted { $0.name < $1.name }
         return CatalogueSearch.rank(filtered, query: searchText)
     }
@@ -639,10 +722,7 @@ struct ExercisePickerSheet: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
         }
     }
@@ -652,6 +732,7 @@ struct ExercisePickerSheet: View {
 /// was that, 1–10?"
 struct RPEPromptView: View {
     @Binding var rpe: Int
+    var heartRate: HeartRateSummary? = nil
     let onDone: () -> Void
 
     private func description(_ value: Int) -> String {
@@ -668,6 +749,12 @@ struct RPEPromptView: View {
     var body: some View {
         StepScaffold(title: "How hard was that?", subtitle: "1 = very easy, 10 = the hardest you could do. It tells us how to plan your next days.", buttonTitle: "Save session", onContinue: onDone) {
             VStack(spacing: 18) {
+                if let heartRate {
+                    Label("Heart rate \(heartRate.average) bpm on average, \(heartRate.max) at the top", systemImage: "heart.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.red)
+                        .frame(maxWidth: .infinity)
+                }
                 Text("\(rpe)")
                     .font(.system(size: 80, weight: .bold))
                     .foregroundStyle(AppTheme.ink)

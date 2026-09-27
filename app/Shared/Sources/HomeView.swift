@@ -1,3 +1,6 @@
+#if os(iOS)
+import StoreKit
+#endif
 import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
@@ -27,12 +30,25 @@ struct HomeView: View {
     @State private var liveLaunch: LiveSessionLaunch?
     @State private var activeSheet: HomeSheet?
     @State private var pendingAction: QuickAction?
+    /// Picked in "Today completed": opens once that popup has closed.
+    @State private var pendingToDo: DayCompletion.Kind?
+    /// Picked in search: opens once the search has closed.
+    @State private var pendingSearch: AppSearchTarget?
+    @State private var searchDestination: SearchBox?
+    @State private var proFeature: ProFeature?
+    @State private var showingUpgrade = false
+    /// A workout started from a sheet opened by search: starts once it closes.
+    @State private var pendingLive: LiveSessionLaunch?
+    @Environment(\.openURL) private var openURL
     @State private var preview: PreviewBox?
     @State private var loaded = false
     @State private var routine: MindsetRoutine?
     @State private var lowEnergySnoozed = LowEnergyCheck.isSnoozed
     /// Bumped when a sheet closes, so what it changed (reflection, pain, day status) redraws.
     @State private var revision = 0
+    #if os(iOS)
+    @Environment(\.requestReview) private var requestReview
+    #endif
     @State private var layout = HomeLayout.load()
     @State private var editingLayout = false
     @State private var wiggle = false
@@ -40,7 +56,7 @@ struct HomeView: View {
     @State private var drag = HomeDragState()
 
     enum HomeSheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, reflection, safety, mindset, tests
+        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, reflection, today, search, safety, mindset, tests
         var id: String { rawValue }
     }
 
@@ -61,7 +77,8 @@ struct HomeView: View {
             catalogue: catalogue, sport: sportInfo, positionSlug: athlete.activeSport?.positionSlug,
             formatSlug: athlete.activeSport?.formatSlug, equipment: Set(athlete.equipmentAvailable),
             trainsUnderCoach: athlete.trainsUnderCoach, age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: .now),
-            struggles: Struggles.selected
+            struggles: Struggles.selected,
+            prepMoment: PrepMoment.at(.now, gameToday: gameToday != nil)
         )
     }
 
@@ -83,7 +100,9 @@ struct HomeView: View {
         switch status {
         case .sick, .concussion: return nil
         case .travel, .holiday:
-            return WorkoutModeBuilder.build(.travel, modeContext).map { (mode: WorkoutMode.travel, session: $0) }
+            return WorkoutModeBuilder.build(.travel, modeContext).map {
+                (mode: WorkoutMode.travel, session: TodaysPain.apply($0, athlete: athlete, catalogue: catalogue))
+            }
         case .active:
             if gameToday != nil { return nil }
             if practiceToday {
@@ -97,13 +116,123 @@ struct HomeView: View {
     }
 
     /// A low-readiness day lightens the workout (the athlete can undo it).
+    /// Today's pain first (nothing that loads a sore area), then readiness.
     private func adjusted(_ session: GeneratedSession) -> GeneratedSession {
-        guard let readinessBand else { return session }
-        return ReadinessApplier.apply(to: session, band: readinessBand).session
+        let safe = TodaysPain.apply(session, athlete: athlete, catalogue: catalogue)
+        guard let readinessBand else { return safe }
+        return ReadinessApplier.apply(to: safe, band: readinessBand).session
     }
 
     private var movementPrep: GeneratedSession? {
-        isTrainingDay ? WorkoutModeBuilder.build(.mobility, modeContext) : nil
+        isTrainingDay ? WorkoutModeBuilder.build(.mobility, modeContext).map { TodaysPain.apply($0, athlete: athlete, catalogue: catalogue) } : nil
+    }
+
+    // MARK: - Food around practice and games
+
+    @AppStorage("gameStartMinutes") private var gameStartMinutes = 17 * 60
+    @State private var prePracticeAnswer: Bool?
+
+    /// Game day: the next two fuel steps, timed from the game.
+    private var gameFuelTips: [FuelTip]? {
+        guard let game = gameToday, status == .active else { return nil }
+        let start = FuelEngine.gameStart(game.date, usualMinutes: gameStartMinutes, calendar: calendar)
+        return Array(FuelEngine.gameDayTimeline(gameStart: start, isTournament: game.kind == .tournament)
+            .filter { ($0.time ?? .distantFuture) > .now.addingTimeInterval(-15 * 60) && $0.time != nil }
+            .prefix(2))
+    }
+
+    private func gameFuelCard(_ tips: [FuelTip]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Game-day fuel").font(.title3.weight(.semibold)).foregroundStyle(AppTheme.ink)
+            ForEach(tips) { tip in
+                HStack(alignment: .top, spacing: 10) {
+                    Text(tip.time?.formatted(date: .omitted, time: .shortened) ?? "")
+                        .font(.subheadline.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(AppTheme.ink)
+                        .frame(width: 64, alignment: .leading)
+                    Text(tip.title).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle()
+    }
+
+    /// In the three hours before practice: one question, not a food diary.
+    private var askPrePracticeFuel: Bool {
+        guard status == .active, practiceToday, prePracticeAnswer != true,
+              let time = PracticeSchedule.time(on: .now) else { return false }
+        let now = calendar.component(.hour, from: .now) * 60 + calendar.component(.minute, from: .now)
+        guard now >= time.start - 180, now <= time.start + 15 else { return false }
+        return !MealStore.meals(of: athlete, on: .now).contains { $0.slot == .preTraining }
+    }
+
+    private var prePracticeFuelCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Did you eat before practice?").font(.title3.weight(.semibold)).foregroundStyle(AppTheme.ink)
+            if prePracticeAnswer == false {
+                Text("A banana, toast or a cereal bar now gives you energy for practice.")
+                    .font(.subheadline).foregroundStyle(AppTheme.secondaryText)
+            }
+            ButtonRow {
+                Button("Yes") {
+                    _ = try? MealStore(modelContext: modelContext).logMeal(athlete: athlete, slot: .preTraining, protein: 0, carbs: 1, colour: 0)
+                    prePracticeAnswer = true
+                }
+                .buttonStyle(.primary)
+                Button("Not yet") { prePracticeAnswer = false }
+                    .buttonStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle()
+    }
+
+    /// Sundays: the week in review (what you did, one highlight, next week's focus).
+    private var weeklyReview: WeeklyReview? {
+        guard calendar.component(.weekday, from: .now) == 1 else { return nil }
+        let weekAgo = calendar.date(byAdding: .day, value: -7, to: .now) ?? .now
+        let results = BenchmarkStore.results
+        let newBests = BenchmarkCatalog.tests(for: athlete.activeSport?.sportSlug).compactMap { test -> String? in
+            guard let latest = results.filter({ $0.testID == test.id && $0.date > weekAgo }).last,
+                  BenchmarkMath.isPersonalBest(latest.value, test: test, before: results.filter { $0.testID == test.id && $0.date < latest.date })
+            else { return nil }
+            return "\(test.name) \(test.unit.format(latest.value))"
+        }
+        let nextWeekEnd = calendar.date(byAdding: .day, value: 8, to: calendar.startOfDay(for: .now)) ?? .now
+        let games = athlete.competitions.filter { $0.date > .now && $0.date < nextWeekEnd }.count
+        let nextMonday = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: .now)) ?? .now
+        let phase = athlete.activeSport.map { PhaseCalculator.phase(today: nextMonday, seasonStart: $0.seasonStart, seasonEnd: $0.seasonEnd) }
+        let nextWeekStart = calendar.dateInterval(of: .weekOfYear, for: nextMonday)?.start ?? nextMonday
+        let goal = BenchmarkGoals.all.first.flatMap { goal -> String? in
+            guard let test = BenchmarkCatalog.tests(for: athlete.activeSport?.sportSlug).first(where: { $0.id == goal.testID }) else { return nil }
+            return "\(test.name) \(test.unit.format(goal.target))"
+        }
+        return WeeklyReview.make(WeeklyReview.Input(
+            sessionDates: allSessions.map(\.startedAt), sessionMinutes: allSessions.map(\.minutes),
+            checkInDates: athlete.checkIns.map(\.date),
+            lessonsThisWeek: CampusProgress.newLessonDates().filter { $0 > weekAgo }.count,
+            newBests: newBests, streak: streak, gamesNextWeek: games,
+            deloadNextWeek: phase.map { Deload.isDeloadWeek(weekStart: nextWeekStart, anchor: athlete.createdAt, phase: $0) } ?? false,
+            phase: phase, goal: goal
+        ), now: .now)
+    }
+
+    /// From 6 pm: tonight's bedtime for 9 hours before tomorrow's start, and
+    /// last week's sleep when it's been short.
+    private var bedtimeTonight: (minutes: Int, detail: String)? {
+        guard calendar.component(.hour, from: .now) >= 18, status != .sick else { return nil }
+        let settings = ReminderScheduler.settings
+        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: .now) else { return nil }
+        let early = Bedtime.firstSessionStart(on: tomorrow, games: athlete.competitions.map(\.date), calendar: calendar)
+        let wake = ReminderScheduler.nextWake(after: .now, settings: settings, calendar: calendar)
+        let minutes = Bedtime.suggested(wakeMinutes: wake, firstSessionTomorrow: early)
+        let week = athlete.checkIns.filter { $0.date > calendar.date(byAdding: .day, value: -7, to: .now) ?? .now }.compactMap(\.sleepHours)
+        let average = week.isEmpty ? nil : week.reduce(0, +) / Double(week.count)
+        if let average, average < 8 {
+            return (minutes, "You've averaged \(average.formatted(.number.precision(.fractionLength(1)))) h this week")
+        }
+        return (minutes, early != nil ? "Early start tomorrow: 9 h of sleep" : "9 h before tomorrow")
     }
 
     private var streak: Int {
@@ -123,6 +252,13 @@ struct HomeView: View {
 
     private var nextLesson: (lesson: CampusLesson, topic: CampusTopic)? {
         let learned = CampusProgress.learned(campusLearnedRaw)
+        // A lesson for today's situation first (a short night, a game…).
+        let context = LessonPicker.Context(
+            sleepHours: todaysCheckIn?.sleepHours, sleepQuality: todaysCheckIn?.sleepQuality, soreness: todaysCheckIn?.soreness,
+            energy: todaysCheckIn?.energy, daysToGame: daysToNextGame, pain: PainStore.report() != nil, examWeek: examWeek
+        )
+        if let pick = LessonPicker.forToday(context), !(learnedToday && learned.contains(pick.id)),
+           let found = LessonPicker.lesson(pick.id) { return found }
         for topic in campusTopics {
             if let lesson = topic.lessons.first(where: { !learned.contains($0.id) }) { return (lesson, topic) }
         }
@@ -170,6 +306,9 @@ struct HomeView: View {
                     if !scheduleIsSet && status == .active { scheduleCard }
                     todaySection
                     if gameToday != nil && status == .active { gameRoutinesCard }
+                    if let tips = gameFuelTips, !tips.isEmpty { gameFuelCard(tips) }
+                    if askPrePracticeFuel { prePracticeFuelCard }
+                    if let weeklyReview { WeeklyReviewCard(review: weeklyReview) }
                     widgetsSection
                 }
                 .padding(.horizontal, 20)
@@ -180,14 +319,23 @@ struct HomeView: View {
             .appScreen()
             .toolbar(.hidden, for: .navigationBar)
             .task(id: allSessions.count + athlete.checkIns.count) {
+                #if os(iOS)
+                // A streak milestone is a good moment to ask for a rating.
+                if loaded, RatingMoment.streakMilestones.contains(streak), RatingMoment.consume(firstUse: RatingMoment.firstUse) {
+                    requestReview()
+                }
+                #endif
                 catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
                 status = DayStatusStore.status()
+                if !loaded, DemoData.initialTab == .today, let name = DemoData.initialSheet { activeSheet = HomeSheet(rawValue: name) }
                 loaded = true
             }
             .sheet(item: $activeSheet, onDismiss: {
                 status = DayStatusStore.status()
                 revision += 1
                 runPendingAction()
+                runPendingToDo()
+                runPendingSearch()
             }) { sheet in
                 switch sheet {
                 case .quickActions:
@@ -219,6 +367,18 @@ struct HomeView: View {
                     BenchmarksView(sportSlug: athlete.activeSport?.sportSlug)
                 case .reflection:
                     ReflectionSheet(completion: completion, practiceToday: practiceToday) { revision += 1 }
+                case .today:
+                    TodayChecklistSheet(completion: completion,
+                                        details: Dictionary(uniqueKeysWithValues: completion.items.map { ($0.kind, toDoDetail($0)) })) { kind in
+                        pendingToDo = kind
+                        activeSheet = nil
+                    }
+                    .presentationDetents([.medium, .large])
+                case .search:
+                    AppSearchSheet(entries: searchEntries, exercises: searchableExercises) { target in
+                        pendingSearch = target
+                        activeSheet = nil
+                    }
                 case .schedule:
                     ScheduleSheet(athlete: athlete) {
                         practiceDays = PracticeSchedule.weekdays
@@ -242,6 +402,159 @@ struct HomeView: View {
             .fullScreenCover(item: $liveLaunch) { launch in
                 LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind)
             }
+            .sheet(item: $searchDestination, onDismiss: {
+                revision += 1
+                if let launch = pendingLive {
+                    pendingLive = nil
+                    liveLaunch = launch
+                }
+            }) { box in
+                searchView(box.target)
+            }
+            .proFeature(item: $proFeature, athlete: athlete)
+            .proPaywall(isPresented: $showingUpgrade, athlete: athlete, feature: .multipleSports)
+        }
+    }
+
+    // MARK: - Search
+
+    struct SearchBox: Identifiable {
+        let id = UUID()
+        let target: AppSearchTarget
+    }
+
+    /// Everything search can find right now.
+    private var searchEntries: [AppSearchEntry] {
+        AppSearch.functions + AppSearch.skills(sportInfo) + AppSearch.workoutModes() + AppSearch.gymDays(week)
+            + AppSearch.myWorkouts(MyWorkoutsStore.load()) + AppSearch.lessons(learned: CampusProgress.learned(campusLearnedRaw))
+    }
+
+    /// General exercises and the drills of the athlete's own sport(s) only.
+    private var searchableExercises: [CatalogueItem] {
+        let sports = SportVisibility.sports(for: athlete)
+        return catalogue.itemsBySlug.values
+            .filter { SportVisibility.isVisible($0, sports: sports) }
+            .sorted { $0.name < $1.name }
+    }
+
+    private func runPendingSearch() {
+        guard let target = pendingSearch else { return }
+        pendingSearch = nil
+        switch target {
+        case .checkIn: activeSheet = .checkIn
+        case .addGame: activeSheet = .addGame
+        case .history: activeSheet = .history
+        case .fuel: activeSheet = .fuel
+        case .dayStatus: activeSheet = .dayStatus
+        case .schedule: activeSheet = .schedule
+        case .reflection: activeSheet = .reflection
+        case .today: activeSheet = .today
+        case .safety: activeSheet = .safety
+        case .mindset: activeSheet = .mindset
+        case .tests: activeSheet = .tests
+        case .logWorkout: liveLaunch = LiveSessionLaunch(planned: nil)
+        case .breathing: routine = .breathing
+        case .visualization: routine = .visualization
+        case .tab(let tab): selectedTab = tab
+        case .lesson(let id):
+            CampusLaunch.shared.pendingLessonID = id
+            selectedTab = .campus
+        case .workoutMode(let mode):
+            if let session = searchSession(mode) {
+                preview = PreviewBox(session: session, kind: workoutKind(mode))
+            } else {
+                selectedTab = .workout
+            }
+        case .gymDay(let index):
+            if let sessions = week?.sessions, sessions.indices.contains(index) {
+                preview = PreviewBox(session: adjusted(sessions[index]), kind: .gym)
+            }
+        case .myWorkout(let id):
+            if let workout = MyWorkoutsStore.load().first(where: { $0.id == id }) {
+                preview = PreviewBox(session: TodaysPain.apply(workout.session(date: .now, catalogue: catalogue), athlete: athlete, catalogue: catalogue),
+                                     kind: .gym)
+            }
+        case .exerciseProgress:
+            if ProAccess.isPro { searchDestination = SearchBox(target: target) } else { proFeature = .exerciseProgress }
+        case .upgrade: showingUpgrade = true
+        case .link(let path): openURL(AppConfig.backendBaseURL.appending(path: path))
+        case .editHome:
+            editingLayout = true
+            wiggle = true
+        case .newWorkout:
+            if ProGate.canKeepAnotherWorkout(isPro: ProAccess.isPro, myWorkoutCount: MyWorkoutsStore.load().count) {
+                searchDestination = SearchBox(target: target)
+            } else {
+                proFeature = .myWorkouts
+            }
+        default: searchDestination = SearchBox(target: target)
+        }
+    }
+
+    /// A workout type found in search, built for today like Home's own.
+    private func searchSession(_ mode: WorkoutMode) -> GeneratedSession? {
+        if mode == .gymDay {
+            let planned = week?.sessions.first { calendar.isDateInToday($0.date) } ?? week?.sessions.first
+            return planned.map { adjusted($0) }
+        }
+        return WorkoutModeBuilder.build(mode, modeContext).map { TodaysPain.apply($0, athlete: athlete, catalogue: catalogue) }
+    }
+
+    @ViewBuilder
+    private func searchView(_ target: AppSearchTarget) -> some View {
+        switch target {
+        case .practiceLog: PracticeLogSheet(athlete: athlete, date: .now)
+        case .sports: SportsManagerSheet(athlete: athlete, onChanged: onPlanInputsChanged)
+        case .season: SeasonEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
+        case .equipment: EquipmentEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
+        case .experience: ExperienceEditorSheet(onSaved: onPlanInputsChanged)
+        case .name: NameEditorSheet(athlete: athlete)
+        case .reports:
+            #if os(iOS)
+            ReportsSheet(athlete: athlete, sessions: allSessions, catalogue: catalogue)
+            #else
+            EmptyView()
+            #endif
+        case .checkIns: CheckInHistoryView(checkIns: athlete.checkIns)
+        case .exerciseProgress: ExerciseProgressListView(sessions: allSessions, catalogue: catalogue)
+        case .dataExport: DataExportView(athlete: athlete, sessions: allSessions)
+        case .reminders: RemindersSheet(athlete: athlete)
+        case .downloads: DownloadsSheet(athlete: athlete)
+        case .health: HealthPermissionView()
+        case .help: HelpCenterView()
+        case .team: MyTeamView()
+        case .coach: CoachView()
+        case .parent: ParentSummaryView()
+        case .goals: StrugglesSheet(onSaved: onPlanInputsChanged)
+        case .trends:
+            TrendsSheet(athlete: athlete, sessions: allSessions, balance: CoachEngine.muscleBalance(sessions: allSessions.map { session in
+                CoachSession(date: session.startedAt, minutes: session.minutes, rpe: session.sessionRPE,
+                             sets: session.sets.map { CoachSet(itemSlug: $0.itemSlug, reps: $0.reps, weightKg: $0.weightKg) })
+            }, catalogue: catalogue))
+        case .library: LibraryView(athlete: athlete)
+        case .sportGuide: SportGuideView(athlete: athlete)
+        case .leagues: LeaguesView(stats: CampusProgress.stats())
+        case .badges: BadgesView()
+        case .newGymPlan: NewGymPlanSheet(athlete: athlete, gymDays: week?.sessions.count ?? 3, onChanged: onPlanInputsChanged)
+        case .skillPlans: ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged)
+        case .skill(let slug):
+            ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged, initialSkillSlug: slug)
+        case .muscleWorkouts:
+            ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged, initialMode: .muscles)
+        case .planSettings: PlanSettingsSheet(onChanged: onPlanInputsChanged)
+        case .newWorkout:
+            WorkoutEditorView(heading: "New workout", workout: CustomWorkout(title: "My workout", items: []),
+                              sportSlug: athlete.activeSport?.sportSlug) { saved in
+                MyWorkoutsStore.upsert(saved)
+            }
+        case .addWithCode:
+            SharedWorkoutSheet(onSaved: { MyWorkoutsStore.upsert($0) }, onStart: { workout in
+                pendingLive = LiveSessionLaunch(planned: workout.session(date: .now, catalogue: catalogue), kind: .gym)
+            })
+        case .addTraining: ExtraPracticeSheet { onPlanInputsChanged() }
+        case .calendars: ScheduleSheet(athlete: athlete, onChanged: onPlanInputsChanged)
+        case .sportPosition: SportEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
+        default: EmptyView()
         }
     }
 
@@ -255,6 +568,41 @@ struct HomeView: View {
         case .improve: selectedTab = .workout
         case .history: activeSheet = .history
         case .fuel: activeSheet = .fuel
+        }
+    }
+
+    /// "Today completed": finish what's open, or change what's done.
+    private func runPendingToDo() {
+        guard let kind = pendingToDo else { return }
+        pendingToDo = nil
+        switch kind {
+        case .checkIn: activeSheet = .checkIn
+        case .reflection: activeSheet = .reflection
+        case .lesson: selectedTab = .campus
+        case .training:
+            if loggedToday {
+                activeSheet = .history
+            } else if let workout = todaysWorkout {
+                preview = PreviewBox(session: workout.session, kind: workoutKind(workout.mode))
+            } else {
+                selectedTab = .workout
+            }
+        }
+    }
+
+    /// One line under each item in "Today completed".
+    private func toDoDetail(_ item: DayCompletion.Item) -> String {
+        switch item.kind {
+        case .checkIn:
+            return item.done ? readiness.map { "Readiness: \($0.level.title)" } ?? "Done" : "30 seconds"
+        case .training:
+            if item.done { return "Logged · see or change it" }
+            return todaysWorkout.map { "\($0.mode.title) · \($0.session.estimatedMinutes) min" } ?? "Pick a workout"
+        case .lesson:
+            if item.done { return "Learned today · open Campus" }
+            return nextLesson.map { "\($0.lesson.title) · \($0.lesson.minutes) min" } ?? "Open Campus"
+        case .reflection:
+            return item.done ? "Done" : "1 minute"
         }
     }
 
@@ -278,18 +626,11 @@ struct HomeView: View {
                 .background(status == .active ? AppTheme.card : AppTheme.accent, in: Capsule())
             }
             .buttonStyle(.plain)
+            // Always readable in full: search gives way (down to its icon).
+            .fixedSize()
+            .layoutPriority(1)
             .accessibilityLabel("Today is: \(status.title). Change what kind of day it is.")
-            Spacer(minLength: 0)
-            HStack(spacing: 6) {
-                Image(systemName: "flame.fill").foregroundStyle(AppTheme.orange)
-                Text("\(streak)").foregroundStyle(AppTheme.ink).contentTransition(.numericText())
-            }
-            .font(.subheadline.weight(.semibold))
-            .padding(.horizontal, 14)
-            .frame(height: 44)
-            .background(AppTheme.card, in: Capsule())
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(streak) day streak")
+            searchButton
             Button { activeSheet = .quickActions } label: {
                 Image(systemName: "plus")
                     .font(.headline.weight(.bold))
@@ -300,6 +641,43 @@ struct HomeView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Add: log a workout, add a game, food or past workouts")
         }
+    }
+
+    private var streakBadge: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "flame.fill").foregroundStyle(AppTheme.orange)
+            Text("\(streak)").foregroundStyle(AppTheme.ink).contentTransition(.numericText())
+        }
+        .font(.subheadline.weight(.semibold))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(AppTheme.card, in: Capsule())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(streak) day streak")
+    }
+
+    /// Search everything: fills the space between the day and the "+".
+    private var searchButton: some View {
+        Button { activeSheet = .search } label: {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                    Text("Search")
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                Image(systemName: "magnifyingglass")
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(AppTheme.secondaryText)
+            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity, minHeight: 44, maxHeight: 44)
+            .background(AppTheme.card, in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Search")
+        .accessibilityHint("Find any part of the app, a workout, a lesson or an exercise")
     }
 
     private var greeting: String {
@@ -322,9 +700,12 @@ struct HomeView: View {
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
             }
-            // Which sport the plan follows: switch or add one in a tap.
-            HStack {
+            // Which sport the plan follows (switch or add one in a tap), and
+            // the streak beside it — the top bar keeps its room for the kind
+            // of day and search.
+            HStack(spacing: 10) {
                 SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
+                streakBadge
                 Spacer(minLength: 0)
             }
             QuoteCard(quote: DailyQuotes.short())
@@ -391,7 +772,11 @@ struct HomeView: View {
             if let pain = PainStore.report() {
                 Button { activeSheet = .safety } label: {
                     ListRow(systemImage: "bandage.fill", color: AppTheme.coral, title: "You reported pain",
-                            detail: pain.involvesHead ? "Hit your head? Stop training and tell an adult." : "Skip anything that hurts. Safety Center")
+                            detail: pain.involvesHead ? "Hit your head? Stop training and tell an adult."
+                                : pain.areas.contains(.other) ? "Only gentle mobility today. Tell an adult if it doesn't ease."
+                                : (pain.areas.contains { !PainFilter.muscles(for: $0).isEmpty }
+                                   ? "Today's workout leaves your \(pain.areas.map { $0.title.lowercased() }.joined(separator: ", ")) alone."
+                                   : "Skip anything that hurts. Safety Center"))
                         .cardStyle(padding: 12)
                 }
                 .buttonStyle(.plain)
@@ -513,9 +898,13 @@ struct HomeView: View {
         }
         if let movementPrep {
             rows.append(AnyView(Button { preview = PreviewBox(session: movementPrep, kind: .mobility) } label: {
-                ListRow(systemImage: "figure.flexibility", color: AppTheme.water, title: "Movement prep",
-                        detail: "\(movementPrep.estimatedMinutes) min · loosen up")
+                ListRow(systemImage: "figure.flexibility", color: AppTheme.water, title: movementPrep.title,
+                        detail: "\(movementPrep.estimatedMinutes) min")
             }.buttonStyle(.plain)))
+        }
+        if let bedtime = bedtimeTonight {
+            rows.append(AnyView(ListRow(systemImage: "bed.double.fill", color: AppTheme.purple,
+                                        title: "Bed by \(Bedtime.label(bedtime.minutes))", detail: bedtime.detail) { EmptyView() }))
         }
         if let next = nextLesson {
             rows.append(AnyView(Button { selectedTab = .campus } label: {
@@ -613,7 +1002,7 @@ struct HomeView: View {
     @ViewBuilder
     private var eveningCard: some View {
         if reflectedToday {
-            Button { activeSheet = .reflection } label: {
+            Button { activeSheet = .today } label: {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text("Today completed")
@@ -781,11 +1170,13 @@ struct HomeView: View {
                     }
                     .cardStyle(padding: 12)
                 }
-                Button("Done") {
+                Button {
                     editingLayout = false
                     wiggle = false
                     drag = HomeDragState()
                     layout.save()
+                } label: {
+                    Label("Save Home", systemImage: "checkmark")
                 }
                 .buttonStyle(.primary)
             }
@@ -950,7 +1341,7 @@ struct DayStatusSheet: View {
 
     var body: some View {
         StepScaffold(title: "What kind of day is it?", subtitle: "Your plan and reminders follow it.",
-                     buttonTitle: "Save", onBack: { dismiss() }, onContinue: { onSave(choice, choice == .active ? nil : days) }) {
+                     onClose: { dismiss() }, onConfirm: { onSave(choice, choice == .active ? nil : days) }) {
             VStack(spacing: 10) {
                 ForEach(DayStatus.menu) { status in
                     Button { choice = status } label: {
@@ -985,7 +1376,7 @@ struct PracticeDaysSheet: View {
 
     var body: some View {
         StepScaffold(title: "Your practice days", subtitle: "Tap every day you have team practice. Practice days get a short after-practice workout; gym days go on the others.",
-                     buttonTitle: "Save", onBack: { dismiss() }, onContinue: { onSave(selection) }) {
+                     onClose: { dismiss() }, onConfirm: { onSave(selection) }) {
             let calendar = Calendar.current
             // Monday first.
             let order = [2, 3, 4, 5, 6, 7, 1]
@@ -1047,10 +1438,10 @@ struct SessionPreviewSheet: View {
             .navigationTitle(session.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
+                CloseToolbarItem { dismiss() }
             }
             .sheet(item: $detailItem) { item in
-                NavigationStack { ItemDetailView(item: item) }
+                NavigationStack { ItemDetailView(item: item, closes: true) }
             }
         }
     }

@@ -82,9 +82,10 @@ final class HomeLogicTests: XCTestCase {
         return Catalogue(itemsBySlug: Dictionary(uniqueKeysWithValues: items.map { ($0.slug, $0) }))
     }
 
-    private func context(_ sport: String = "soccer") -> WorkoutModeContext {
+    private func context(_ sport: String = "soccer", moment: PrepMoment = .anytime,
+                         experience: TrainingExperience = .intermediate) -> WorkoutModeContext {
         WorkoutModeContext(catalogue: catalogue, sport: allSportsBySlug[sport], positionSlug: nil, formatSlug: nil,
-                           equipment: [], trainsUnderCoach: false, age: 16)
+                           equipment: [], trainsUnderCoach: false, age: 16, experience: experience, prepMoment: moment)
     }
 
     func testAfterPracticeIsShortStrengthAndPreventionWithNoJumping() throws {
@@ -102,6 +103,58 @@ final class HomeLogicTests: XCTestCase {
         let travel = try XCTUnwrap(WorkoutModeBuilder.build(.travel, context()))
         XCTAssertGreaterThanOrEqual(travel.items.count, 5)
         XCTAssertNil(WorkoutModeBuilder.build(.gymDay, context()), "gym days use the weekly plan")
+    }
+
+    func testMovementPrepWakesYouUpBeforePracticeAndCalmsYouDownInTheEvening() throws {
+        let before = try XCTUnwrap(WorkoutModeBuilder.build(.mobility, context(moment: .beforePractice)))
+        XCTAssertEqual(before.title, "Movement prep")
+        XCTAssertFalse(before.items.contains { $0.itemSlug == "breathing-90-90" }, "no wind-down before practice")
+        XCTAssertTrue(before.items.allSatisfy { $0.dose.sets == 1 }, "one quick round of each")
+        XCTAssertTrue((5...15).contains(before.estimatedMinutes))
+
+        let evening = try XCTUnwrap(WorkoutModeBuilder.build(.mobility, context(moment: .evening)))
+        XCTAssertEqual(evening.title, "Evening mobility")
+        XCTAssertEqual(evening.items.last?.itemSlug, "breathing-90-90")
+        XCTAssertTrue((5...15).contains(evening.estimatedMinutes))
+        XCTAssertNotEqual(before.items.map(\.itemSlug), evening.items.map(\.itemSlug))
+    }
+
+    func testThePrepMomentFollowsThePracticeTime() {
+        let day = calendar.date(from: DateComponents(year: 2026, month: 9, day: 25))!
+        func at(_ hour: Int) -> Date { calendar.date(byAdding: .hour, value: hour, to: day)! }
+        XCTAssertEqual(PrepMoment.at(at(14), sessionToday: true, startMinutes: 16 * 60, calendar: calendar), .beforePractice)
+        XCTAssertEqual(PrepMoment.at(at(19), sessionToday: true, startMinutes: 16 * 60, calendar: calendar), .evening)
+        XCTAssertEqual(PrepMoment.at(at(10), sessionToday: false, startMinutes: nil, calendar: calendar), .anytime)
+        XCTAssertEqual(PrepMoment.at(at(20), sessionToday: false, startMinutes: nil, calendar: calendar), .evening)
+    }
+
+    func testNewLiftersGetLessVolumeAfterPractice() throws {
+        let new = try XCTUnwrap(WorkoutModeBuilder.build(.afterPractice, context(experience: .beginner)))
+        XCTAssertTrue(new.items.allSatisfy { $0.dose.kind != "reps" || (8...12).contains($0.dose.reps ?? 0) })
+        XCTAssertTrue(new.items.allSatisfy { $0.dose.sets <= 2 })
+    }
+
+    func testEveryGymDayGetsAWarmUpInFrontWithoutRepeats() {
+        let main = GeneratedPlannedItem(itemSlug: "worlds-greatest-stretch", order: 0, dose: Dose(kind: "reps", sets: 3, reps: 8),
+                                        restSec: 90, rationale: "", quality: "hip-mobility")
+        let gym = GeneratedSession(date: .now, title: "Strength session", focusQualities: [], estimatedMinutes: 30,
+                                   items: [main, GeneratedPlannedItem(itemSlug: "split-squat", order: 1, dose: Dose(kind: "reps", sets: 3, reps: 8), restSec: 90, rationale: "", quality: "lower-body-strength")],
+                                   slot: 1)
+        let warmed = WorkoutModeBuilder.withWarmUp(gym, context())
+        XCTAssertGreaterThan(warmed.items.count, gym.items.count)
+        XCTAssertEqual(warmed.items.last?.itemSlug, "split-squat", "the warm-up goes first")
+        XCTAssertEqual(Set(warmed.items.map(\.itemSlug)).count, warmed.items.count, "no exercise twice")
+        XCTAssertEqual(warmed.items.map(\.order), Array(0..<warmed.items.count))
+        XCTAssertEqual(warmed.slot, 1)
+        XCTAssertGreaterThan(warmed.estimatedMinutes, 30)
+    }
+
+    func testFreeTimeBecomesASessionThatFits() {
+        XCTAssertEqual(PlanSettings.sessionMinutes(freeMinutes: 60), 25, "an hour free after school")
+        XCTAssertEqual(PlanSettings.sessionMinutes(freeMinutes: 90), 55)
+        XCTAssertEqual(PlanSettings.sessionMinutes(freeMinutes: 30), 15, "never shorter than 15")
+        XCTAssertEqual(PlanSettings(freeMinutes: 75).effectiveMinutesPerSession, 40)
+        XCTAssertEqual(PlanSettings(minutesPerSession: 45).effectiveMinutesPerSession, 45, "older settings still work")
     }
 
     func testTheDailyQuoteIsStableForADay() {

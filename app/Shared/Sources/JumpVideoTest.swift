@@ -161,7 +161,7 @@ struct JumpFrameMarker: View {
                             .foregroundStyle(AppTheme.red)
                     } else {
                         Button { onResult((height * 10).rounded() / 10) } label: {
-                            Text("Save \(Int(height.rounded())) cm")
+                            Text("Save \(Measure.length(cm: height))")
                         }
                         .buttonStyle(.primary)
                         // Guideline 1.4.1: say how it's worked out and that it's an estimate.
@@ -242,12 +242,17 @@ struct JumpCameraView: View {
             }
             VStack {
                 HStack {
-                    Button("Cancel") {
+                    Button {
                         camera.shutDown()
                         onDone(nil)
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 46, height: 46)
+                            .background(.black.opacity(0.45), in: Circle())
                     }
-                    .font(.headline)
-                    .foregroundStyle(.white)
+                    .accessibilityLabel("Close")
                     .padding()
                     Spacer()
                     if ready {
