@@ -21,8 +21,26 @@ public enum WorkoutKind: String, Codable, Sendable, CaseIterable {
 public enum SessionKinds {
     static let key = "progress.sessionKinds"
 
+    /// The decoded table, kept until it changes: Home asks for many
+    /// sessions' kinds on every redraw, and decoding each time was slow.
+    private final class Cache: @unchecked Sendable {
+        let lock = NSLock()
+        var data: Data?
+        var map: [String: WorkoutKind] = [:]
+    }
+    private static let cache = Cache()
+
     public static var all: [String: WorkoutKind] {
-        get { UserDefaults.standard.data(forKey: key).flatMap { try? JSONDecoder().decode([String: WorkoutKind].self, from: $0) } ?? [:] }
+        get {
+            let data = UserDefaults.standard.data(forKey: key)
+            return cache.lock.withLock {
+                if data != cache.data {
+                    cache.map = data.flatMap { try? JSONDecoder().decode([String: WorkoutKind].self, from: $0) } ?? [:]
+                    cache.data = data
+                }
+                return cache.map
+            }
+        }
         set {
             // Keep it from growing forever: the newest 1500 are plenty.
             let kept = newValue.count > 1500 ? Dictionary(uniqueKeysWithValues: newValue.sorted { $0.key < $1.key }.suffix(1500).map { ($0.key, $0.value) }) : newValue
