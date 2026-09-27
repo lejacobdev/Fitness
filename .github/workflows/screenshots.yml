@@ -120,7 +120,7 @@ jobs:
             # Every Home and Me sheet, for the layout check (not uploaded).
             if [ "${pattern#iPad}" = "$pattern" ]; then
               xcrun simctl ui "$UDID" appearance light
-              for sheet in checkIn quickActions addGame fuel dayStatus schedule reflection safety mindset tests; do
+              for sheet in checkIn quickActions addGame fuel dayStatus schedule reflection today safety mindset tests; do
                 xcrun simctl launch "$UDID" "$BUNDLE" -demoData -tab today -sheet "$sheet" >/dev/null
                 sleep 6
                 xcrun simctl io "$UDID" screenshot "screenshots/all/${NAME}-home-${sheet}.png"

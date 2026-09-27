@@ -30,6 +30,8 @@ struct HomeView: View {
     @State private var liveLaunch: LiveSessionLaunch?
     @State private var activeSheet: HomeSheet?
     @State private var pendingAction: QuickAction?
+    /// Picked in "Today completed": opens once that popup has closed.
+    @State private var pendingToDo: DayCompletion.Kind?
     @State private var preview: PreviewBox?
     @State private var loaded = false
     @State private var routine: MindsetRoutine?
@@ -46,7 +48,7 @@ struct HomeView: View {
     @State private var drag = HomeDragState()
 
     enum HomeSheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, reflection, safety, mindset, tests
+        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, reflection, today, safety, mindset, tests
         var id: String { rawValue }
     }
 
@@ -324,6 +326,7 @@ struct HomeView: View {
                 status = DayStatusStore.status()
                 revision += 1
                 runPendingAction()
+                runPendingToDo()
             }) { sheet in
                 switch sheet {
                 case .quickActions:
@@ -355,6 +358,13 @@ struct HomeView: View {
                     BenchmarksView(sportSlug: athlete.activeSport?.sportSlug)
                 case .reflection:
                     ReflectionSheet(completion: completion, practiceToday: practiceToday) { revision += 1 }
+                case .today:
+                    TodayChecklistSheet(completion: completion,
+                                        details: Dictionary(uniqueKeysWithValues: completion.items.map { ($0.kind, toDoDetail($0)) })) { kind in
+                        pendingToDo = kind
+                        activeSheet = nil
+                    }
+                    .presentationDetents([.medium, .large])
                 case .schedule:
                     ScheduleSheet(athlete: athlete) {
                         practiceDays = PracticeSchedule.weekdays
@@ -391,6 +401,41 @@ struct HomeView: View {
         case .improve: selectedTab = .workout
         case .history: activeSheet = .history
         case .fuel: activeSheet = .fuel
+        }
+    }
+
+    /// "Today completed": finish what's open, or change what's done.
+    private func runPendingToDo() {
+        guard let kind = pendingToDo else { return }
+        pendingToDo = nil
+        switch kind {
+        case .checkIn: activeSheet = .checkIn
+        case .reflection: activeSheet = .reflection
+        case .lesson: selectedTab = .campus
+        case .training:
+            if loggedToday {
+                activeSheet = .history
+            } else if let workout = todaysWorkout {
+                preview = PreviewBox(session: workout.session, kind: workoutKind(workout.mode))
+            } else {
+                selectedTab = .workout
+            }
+        }
+    }
+
+    /// One line under each item in "Today completed".
+    private func toDoDetail(_ item: DayCompletion.Item) -> String {
+        switch item.kind {
+        case .checkIn:
+            return item.done ? readiness.map { "Readiness: \($0.level.title)" } ?? "Done" : "30 seconds"
+        case .training:
+            if item.done { return "Logged · see or change it" }
+            return todaysWorkout.map { "\($0.mode.title) · \($0.session.estimatedMinutes) min" } ?? "Pick a workout"
+        case .lesson:
+            if item.done { return "Learned today · open Campus" }
+            return nextLesson.map { "\($0.lesson.title) · \($0.lesson.minutes) min" } ?? "Open Campus"
+        case .reflection:
+            return item.done ? "Done" : "1 minute"
         }
     }
 
@@ -757,7 +802,7 @@ struct HomeView: View {
     @ViewBuilder
     private var eveningCard: some View {
         if reflectedToday {
-            Button { activeSheet = .reflection } label: {
+            Button { activeSheet = .today } label: {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text("Today completed")

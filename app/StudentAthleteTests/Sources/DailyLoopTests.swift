@@ -109,6 +109,8 @@ final class DailyLoopTests: XCTestCase {
         let day = DayCompletion(checkedIn: true, trained: true, learned: false, reflected: true)
         XCTAssertEqual(day.doneCount, 3)
         XCTAssertEqual(day.items.map(\.title), ["Morning check-in", "Training", "Campus lesson", "Evening reflection"])
+        XCTAssertEqual(day.nextToDo, .lesson)
+        XCTAssertNil(DayCompletion(checkedIn: true, trained: true, learned: true, reflected: true).nextToDo)
     }
 
     // MARK: - Coming back after pain

@@ -202,16 +202,24 @@ public struct DayCompletion: Sendable, Equatable {
         self.reflected = reflected
     }
 
+    public enum Kind: String, Sendable, Hashable {
+        case checkIn, training, lesson, reflection
+    }
+
     public struct Item: Sendable, Hashable, Identifiable {
+        public let kind: Kind
         public let title: String
         public let done: Bool
-        public var id: String { title }
+        public var id: String { kind.rawValue }
     }
 
     public var items: [Item] {
-        [Item(title: "Morning check-in", done: checkedIn), Item(title: "Training", done: trained),
-         Item(title: "Campus lesson", done: learned), Item(title: "Evening reflection", done: reflected)]
+        [Item(kind: .checkIn, title: "Morning check-in", done: checkedIn), Item(kind: .training, title: "Training", done: trained),
+         Item(kind: .lesson, title: "Campus lesson", done: learned), Item(kind: .reflection, title: "Evening reflection", done: reflected)]
     }
+
+    /// The first thing still to do today (nil: all done).
+    public var nextToDo: Kind? { items.first { !$0.done }?.kind }
 
     public var doneCount: Int { items.filter(\.done).count }
 }
