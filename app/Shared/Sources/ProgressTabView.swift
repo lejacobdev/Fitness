@@ -1024,14 +1024,25 @@ struct PracticeLogSheet: View {
                 HStack(spacing: 8) {
                     ForEach(1...5, id: \.self) { value in
                         let faces = ["😣", "😕", "😐", "🙂", "😄"]
+                        // Selected: a solid ring, the others faded — a
+                        // tinted fill alone looked the same as unselected
+                        // on black and white.
+                        let selected = mood == value
                         Button { mood = value } label: {
                             Text(faces[value - 1])
                                 .font(.system(size: 30))
+                                .opacity(selected ? 1 : 0.45)
                                 .frame(maxWidth: .infinity, minHeight: 54)
-                                .background(mood == value ? AppTheme.accent.opacity(0.15) : AppTheme.fill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .strokeBorder(AppTheme.accent, lineWidth: selected ? 3 : 0)
+                                }
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Mood \(value) of 5")
+                        .accessibilityAddTraits(selected ? .isSelected : [])
                     }
                 }
             }
