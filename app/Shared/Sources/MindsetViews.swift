@@ -341,9 +341,9 @@ struct ReflectionSheet: View {
         case .hardness:
             scale("How hard was today?", EveningOptions.hardness, selection: $hardness)
         case .body:
-            scale("How does your body feel?", EveningOptions.body, selection: $bodyFeel)
+            scale("How did your body feel?", EveningOptions.body, selection: $bodyFeel)
         case .practice:
-            scale("How was practice?", EveningOptions.practice, selection: $practice)
+            scale("How did practice or the game go?", EveningOptions.practice, selection: $practice)
         case .wentWell:
             areas("What went well?", selection: $wentWell)
         case .needsWork:
@@ -360,25 +360,35 @@ struct ReflectionSheet: View {
         case .review:
             if let review { reviewPage(review) }
         case .done:
-            QuestionPage(progress: 1, question: "Today completed", hint: "Tomorrow's plan adapts to how today went.",
-                         buttonTitle: nil, onClose: { dismiss() }) {
-                if let completion {
-                    VStack(spacing: 0) {
-                        ForEach(completion.items) { item in
-                            HStack(spacing: 14) {
-                                Image(systemName: item.done ? "checkmark.circle.fill" : "circle")
-                                    .font(.title2)
-                                    .foregroundStyle(item.done ? AppTheme.green : AppTheme.secondaryText.opacity(0.5))
-                                Text(item.title)
-                                    .font(.body.weight(.semibold))
-                                    .foregroundStyle(item.done ? AppTheme.ink : AppTheme.secondaryText)
-                                Spacer()
-                            }
-                            .frame(minHeight: 52)
-                        }
+            // Calm, not a trophy: rest days finish the same way.
+            QuestionPage(progress: 1, question: "", buttonTitle: nil, onClose: { dismiss() }) {
+                VStack(spacing: 14) {
+                    Text("DAY COMPLETE")
+                        .font(.caption.weight(.bold))
+                        .tracking(1.4)
+                        .foregroundStyle(AppTheme.secondaryText)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 30, weight: .bold))
+                        .foregroundStyle(AppTheme.brand)
+                        .frame(width: 72, height: 72)
+                        .background(Circle().stroke(AppTheme.brand.opacity(0.5), lineWidth: 2))
+                    Text("Nice work today.")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(AppTheme.ink)
+                    Text("Your answers help tomorrow's plan adapt to you.")
+                        .font(.body)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .multilineTextAlignment(.center)
+                    if bodyFeel == 4 {
+                        Text("Something hurt? Tell a coach or parent, and add it in tomorrow's check-in.")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.coral)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 6)
                     }
-                    .cardStyle(padding: 16)
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 24)
             }
         }
     }

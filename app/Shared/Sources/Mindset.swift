@@ -30,9 +30,10 @@ public struct Reflection: Codable, Sendable, Equatable, Identifiable {
 
 /// Tap answers for the evening check-in.
 public enum EveningOptions {
-    public static let hardness = ["Easy", "Moderate", "Hard", "Very hard"]
-    public static let body = ["Fresh", "Normal", "Tired", "Very sore"]
-    public static let practice = ["Tough", "Okay", "Good", "Great"]
+    public static let hardness = ["Light", "Normal", "Hard", "Very hard"]
+    /// 4 is "Something hurt": the evening says to tell a coach or parent.
+    public static let body = ["Good", "Okay", "Tired", "Something hurt"]
+    public static let practice = ["Poor", "Okay", "Good", "Great"]
     public static let areas = ["Effort", "Focus", "Technique", "Speed", "Strength", "Decisions", "Communication", "Confidence", "Recovery"]
 }
 

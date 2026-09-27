@@ -40,6 +40,10 @@ struct HomeView: View {
     /// A workout started from a sheet opened by search: starts once it closes.
     @State private var pendingLive: LiveSessionLaunch?
     @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
+    /// Now, for the part of the day (morning, day, evening, night).
+    @State private var clock = Date.now
+    @State private var showingWhy = false
     @State private var preview: PreviewBox?
     @State private var loaded = false
     @State private var routine: MindsetRoutine?
@@ -279,7 +283,6 @@ struct HomeView: View {
         DayCompletion(checkedIn: todaysCheckIn != nil, trained: loggedToday, learned: learnedToday, reflected: reflectedToday)
     }
 
-    private var isEvening: Bool { calendar.component(.hour, from: .now) >= 18 }
 
     /// Constant fatigue while training hard (see Safety.swift).
     private var lowEnergy: LowEnergyWarning? {
@@ -291,9 +294,13 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    topBar
-                    header
+                // V4: centred and open — the part of the day decides what
+                // Home is for (prepare, perform, reflect); details stay compact.
+                VStack(spacing: 36) {
+                    VStack(spacing: 22) {
+                        topBar
+                        header
+                    }
                     if !introSeen { introCard }
                     if let lowEnergy, !lowEnergySnoozed {
                         LowEnergyCard(warning: lowEnergy) {
@@ -301,22 +308,38 @@ struct HomeView: View {
                             lowEnergySnoozed = true
                         }
                     }
-                    if isEvening && isTrainingDay && status != .holiday { eveningCard }
-                    if isTrainingDay { morningCard }
+                    VStack(spacing: 36) { dayContent }
+                        .id(contentKey)
+                        .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: 16)), removal: .opacity))
                     if !scheduleIsSet && status == .active { scheduleCard }
-                    todaySection
-                    if gameToday != nil && status == .active { gameRoutinesCard }
+                    if gameToday != nil && status == .active && phase != .night { gameRoutinesCard }
                     if let tips = gameFuelTips, !tips.isEmpty { gameFuelCard(tips) }
                     if askPrePracticeFuel { prePracticeFuelCard }
+                    if loaded { HomeWeekBlock(week: weekSummary, accent: phase.red) }
                     if let weeklyReview { WeeklyReviewCard(review: weeklyReview) }
                     widgetsSection
                 }
+                .animation(.easeInOut(duration: 0.45), value: contentKey)
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
                 .padding(.bottom, 24)
             }
             .scrollIndicators(.hidden)
-            .appScreen()
+            // Home's own backdrop: the hour's light at the top (other tabs stay plain).
+            .background(HomeAmbientBackground())
+            .contentMargins(.bottom, 24, for: .scrollContent)
+            .modifier(ReadableWidth())
+            .task {
+                // Follows the day: a new part of the day shows up within a minute.
+                for _ in 0..<1440 {
+                    try? await Task.sleep(for: .seconds(60))
+                    if Task.isCancelled { break }
+                    clock = .now
+                }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { clock = .now; revision += 1 }
+            }
             .toolbar(.hidden, for: .navigationBar)
             .task(id: allSessions.count + athlete.checkIns.count) {
                 #if os(iOS)
@@ -680,36 +703,89 @@ struct HomeView: View {
         .accessibilityHint("Find any part of the app, a workout, a lesson or an exercise")
     }
 
+    private var firstName: String? {
+        guard let name = athlete.displayName?.split(separator: " ").first, !name.isEmpty else { return nil }
+        return String(name)
+    }
+
     private var greeting: String {
-        let hour = calendar.component(.hour, from: .now)
-        let part = hour < 12 ? "Good morning" : (hour < 18 ? "Good afternoon" : "Good evening")
-        guard let name = athlete.displayName?.split(separator: " ").first, !name.isEmpty else { return part }
-        return "\(part), \(name)"
+        firstName.map { "\(phase.greeting), \($0)" } ?? phase.greeting
+    }
+
+    // MARK: - The part of the day (V4)
+
+    /// Refreshed every minute and when the app comes back, so Home follows the day.
+    private var phase: DayPhase { DayPhase.at(clock) }
+
+    private var todaysSessions: [Session] { allSessions.filter { calendar.isDateInToday($0.startedAt) } }
+    private var workoutDoneToday: Bool { todaysSessions.contains { SessionKinds.kind(of: $0.clientId) != .mobility } }
+    private var mobilityDoneToday: Bool { todaysSessions.contains { SessionKinds.kind(of: $0.clientId) == .mobility } }
+    private var practiceLogToday: PracticeLog? {
+        _ = revision
+        return PracticeLogStore.log(on: DayKey.of(.now), sportSlug: athlete.activeSport?.sportSlug)
+    }
+
+    private var dayProgress: DayProgress {
+        DayProgress(practiceToday: practiceToday && status == .active && gameToday == nil, practiceLogged: practiceLogToday != nil,
+                    workoutPlanned: todaysWorkout != nil && status == .active, workoutDone: workoutDoneToday,
+                    mobilityDone: mobilityDoneToday, reflected: reflectedToday)
+    }
+
+    private var weekSummary: WeekSummary {
+        _ = revision
+        return WeekSummary.make(
+            now: clock,
+            sessions: allSessions.map { (date: $0.startedAt, mobility: SessionKinds.kind(of: $0.clientId) == .mobility) },
+            practiceDays: PracticeLogStore.logs.map(\.day),
+            checkInDates: athlete.checkIns.map(\.date)
+        )
+    }
+
+    /// What's on screen, so a change (a check-in, a reflection, the evening)
+    /// animates in instead of jumping.
+    private var contentKey: String {
+        "\(phase.rawValue)-\(todaysCheckIn != nil)-\(reflectedToday)-\(workoutDoneToday)-\(status.rawValue)"
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(greeting)
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(AppTheme.ink)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
-                    .accessibilityAddTraits(.isHeader)
-                Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                    .font(.subheadline)
+        VStack(spacing: 10) {
+            Text(greeting)
+                .font(.system(size: 32, weight: .bold))
+                .foregroundStyle(AppTheme.ink)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+                .accessibilityAddTraits(.isHeader)
+            HStack(spacing: 6) {
+                Image(systemName: phase.systemImage)
+                    .foregroundStyle(phase.red)
+                    .symbolRenderingMode(.hierarchical)
+                Text(clock.formatted(.dateTime.weekday(.wide).month(.wide).day()))
                     .foregroundStyle(AppTheme.secondaryText)
             }
-            // Which sport the plan follows (switch or add one in a tap), and
-            // the streak beside it — the top bar keeps its room for the kind
-            // of day and search.
+            .font(.subheadline)
+            // Which sport the plan follows (switch or add one in a tap), and the streak.
             HStack(spacing: 10) {
                 SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
                 streakBadge
-                Spacer(minLength: 0)
             }
-            QuoteCard(quote: DailyQuotes.short())
+            .padding(.top, 2)
+            let quote = DailyQuotes.short(for: phase, date: clock)
+            VStack(spacing: 3) {
+                Text("“\(quote.text)”")
+                    .font(.callout.italic())
+                    .foregroundStyle(AppTheme.ink.opacity(0.85))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(quote.author)
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            .padding(.top, 10)
+            .padding(.horizontal, 12)
+            .accessibilityElement(children: .combine)
         }
+        .frame(maxWidth: .infinity)
     }
 
     private var introCard: some View {
@@ -727,61 +803,574 @@ struct HomeView: View {
         .cardStyle(padding: 20)
     }
 
-    // MARK: - Morning: check-in, then readiness
+    // MARK: - The day, by its part: prepare, perform, reflect
 
     @ViewBuilder
-    private var morningCard: some View {
-        if todaysCheckIn == nil {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Morning check-in")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.ink)
-                    Spacer()
-                    Text("30 seconds")
+    private var dayContent: some View {
+        if !loaded {
+            ProgressView().frame(maxWidth: .infinity, minHeight: 120)
+        } else if status == .concussion {
+            pausedCard
+        } else {
+            switch phase {
+            case .morning:
+                if todaysCheckIn == nil {
+                    checkInHero
+                    scheduleList
+                } else {
+                    readinessHero
+                    focusHero
+                    supportingList(title: nil)
+                    whySection
+                }
+            case .day:
+                if todaysCheckIn == nil { checkInReminder }
+                focusHero
+                if todaysCheckIn != nil { readinessLine }
+                supportingList(title: "Later today")
+                whySection
+            case .evening:
+                if reflectedToday {
+                    dayCompleteView
+                } else {
+                    todayCompleteHero
+                    reflectionHero
+                }
+            case .night:
+                if reflectedToday || workoutDoneToday { dayCompleteView } else { nightView }
+            }
+        }
+    }
+
+    // Morning, before the check-in: the check-in is the one thing to do.
+
+    private var checkInHero: some View {
+        VStack(spacing: 10) {
+            HomeEyebrow("Morning check-in")
+            Text("30 seconds")
+                .font(.system(size: 30, weight: .bold))
+                .foregroundStyle(AppTheme.ink)
+            Text("Sleep · Energy · Body · Mood")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+            Button("Check in") { activeSheet = .checkIn }
+                .buttonStyle(.primary)
+                .padding(.top, 8)
+                .frame(maxWidth: 320)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// The day's fixed points, without a workout the check-in could still change.
+    @ViewBuilder
+    private var scheduleList: some View {
+        let rows = scheduleRows
+        if !rows.isEmpty {
+            VStack(spacing: 6) {
+                HomeEyebrow("Today's schedule")
+                VStack(spacing: 0) {
+                    ForEach(rows.indices, id: \.self) { index in
+                        rows[index]
+                        if index < rows.count - 1 { Divider().opacity(0.5) }
+                    }
+                }
+            }
+        }
+    }
+
+    private var scheduleRows: [AnyView] {
+        var rows: [AnyView] = []
+        if let game = gameToday, status == .active {
+            rows.append(AnyView(HomeDetailRow(systemImage: "sportscourt.fill", color: AppTheme.green, title: gameTitle(game)) {
+                Text(game.date.formatted(date: .omitted, time: .shortened))
+            }))
+        }
+        if practiceToday, status == .active, gameToday == nil {
+            rows.append(AnyView(HomeDetailRow(systemImage: "person.3.fill", color: AppTheme.orange, title: "Practice") {
+                if let start = practiceStart { Text(start.formatted(date: .omitted, time: .shortened)) }
+            }))
+        }
+        if let workout = todaysWorkout {
+            rows.append(AnyView(HomeDetailRow(systemImage: workoutIcon(workout.mode), color: phase.red, title: "Planned \(workout.mode.title.lowercased())") {
+                Text("\(workout.session.estimatedMinutes) min")
+            }))
+        }
+        return rows
+    }
+
+    /// In the day, when the morning check-in was skipped: a quiet reminder.
+    private var checkInReminder: some View {
+        Button { activeSheet = .checkIn } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "sun.max.fill").foregroundStyle(phase.red)
+                Text("Not checked in yet · 30 seconds").foregroundStyle(AppTheme.ink)
+                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(AppTheme.secondaryText)
+            }
+            .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .background(AppTheme.card, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+    }
+
+    // Readiness, centred: a state, never a score.
+
+    @ViewBuilder
+    private var readinessHero: some View {
+        if let readiness {
+            VStack(spacing: 10) {
+                HomeEyebrow("Today's readiness")
+                ZStack {
+                    Circle().stroke(AppTheme.color(for: readiness.level.band).opacity(0.25), lineWidth: 6)
+                    Circle().fill(AppTheme.color(for: readiness.level.band)).frame(width: 14, height: 14)
+                }
+                .frame(width: 46, height: 46)
+                .accessibilityHidden(true)
+                Text(readiness.level.title.uppercased())
+                    .font(.system(size: 34, weight: .bold))
+                    .tracking(1)
+                    .foregroundStyle(AppTheme.ink)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
+                Text(readiness.reason)
+                    .font(.body)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 12)
+                HStack(spacing: 18) {
+                    Button { withAnimation { showingWhy.toggle() } } label: {
+                        Label("Why?", systemImage: "arrow.right").labelStyle(TrailingIconLabel())
+                    }
+                    Button("Edit check-in") { activeSheet = .checkIn }
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+                .frame(minHeight: 44)
+                painNote
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// In the day, readiness is one line under what's next.
+    @ViewBuilder
+    private var readinessLine: some View {
+        if let readiness {
+            Button { activeSheet = .checkIn } label: {
+                HStack(spacing: 8) {
+                    Circle().fill(AppTheme.color(for: readiness.level.band)).frame(width: 9, height: 9)
+                    Text("Readiness: \(readiness.level.title)")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+                .frame(minHeight: 36)
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity)
+            painNote
+        }
+    }
+
+    @ViewBuilder
+    private var painNote: some View {
+        if let pain = PainStore.report() {
+            Button { activeSheet = .safety } label: {
+                Label(pain.involvesHead ? "Hit your head? Stop training and tell an adult."
+                      : pain.areas.contains(.other) ? "Pain reported · only gentle mobility today"
+                      : "Pain reported · today's workout leaves it alone",
+                      systemImage: "bandage.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.coral)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 40)
+                    .background(AppTheme.coral.opacity(0.12), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    // Today's focus: the one recommendation, centred and big.
+
+    @ViewBuilder
+    private var focusHero: some View {
+        VStack(spacing: 10) {
+            if let game = gameToday, status == .active {
+                HomeEyebrow("Game day")
+                heroTitle(gameTitle(game))
+                heroMeta("\(game.isHome ? "HOME" : "AWAY") · \(game.date.formatted(date: .omitted, time: .shortened))")
+                Button("What to eat before") { activeSheet = .fuel }
+                    .buttonStyle(.primary)
+                    .padding(.top, 6)
+                    .frame(maxWidth: 320)
+            } else if status == .sick {
+                HomeEyebrow("Today")
+                heroTitle("Rest and recover")
+                heroMeta("NO TRAINING · DRINK, EAT, SLEEP")
+            } else if let workout = todaysWorkout {
+                let session = workout.session
+                HomeEyebrow(workoutDoneToday ? "Today's training" : (phase == .day ? "Next up" : "Today's focus"))
+                Button { preview = PreviewBox(session: session, kind: workoutKind(workout.mode)) } label: {
+                    heroTitle(focusTitle(session, mode: workout.mode))
+                }
+                .buttonStyle(.plain)
+                if let qualities = qualityLine(session) {
+                    Text(qualities)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .multilineTextAlignment(.center)
+                }
+                heroMeta("\(session.estimatedMinutes) MIN · \(session.items.count) EXERCISES")
+                if let tag = focusTag {
+                    Text(tag)
+                        .font(.caption.weight(.bold))
+                        .tracking(1.2)
+                        .foregroundStyle(phase.red)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 26)
+                        .background(phase.red.opacity(0.12), in: Capsule())
+                }
+                if workoutDoneToday {
+                    Label("Done", systemImage: "checkmark.circle.fill")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.green)
+                        .padding(.top, 4)
+                    Text("You're done for today.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                } else {
+                    Button("Start workout") { liveLaunch = LiveSessionLaunch(planned: session, kind: workoutKind(workout.mode)) }
+                        .buttonStyle(.primary)
+                        .padding(.top, 6)
+                        .frame(maxWidth: 320)
+                }
+            } else if practiceToday, status == .active {
+                HomeEyebrow("Today's focus")
+                heroTitle("Team practice")
+                heroMeta(practiceStart.map { $0.formatted(date: .omitted, time: .shortened).uppercased() } ?? "YOUR SPORT'S TRAINING")
+            } else {
+                HomeEyebrow("Today")
+                heroTitle("Rest day")
+                Text("Recovery is part of the plan.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func heroTitle(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.system(size: 30, weight: .bold))
+            .tracking(0.5)
+            .foregroundStyle(AppTheme.ink)
+            .multilineTextAlignment(.center)
+            .lineLimit(2)
+            .minimumScaleFactor(0.7)
+    }
+
+    private func heroMeta(_ text: String) -> some View {
+        Text(text)
+            .font(.subheadline.weight(.semibold).monospacedDigit())
+            .tracking(0.8)
+            .foregroundStyle(AppTheme.ink.opacity(0.8))
+    }
+
+    /// The workout's focus in words: its main quality ("Rotational power").
+    private func focusTitle(_ session: GeneratedSession, mode: WorkoutMode) -> String {
+        session.focusQualities.first.flatMap { qualitiesBySlug[$0]?.name } ?? mode.title
+    }
+
+    private func qualityLine(_ session: GeneratedSession) -> String? {
+        var seen: Set<String> = []
+        let names = session.focusQualities.compactMap { qualitiesBySlug[$0]?.shortName }.filter { seen.insert($0).inserted }
+        return names.count > 1 ? names.prefix(3).joined(separator: " · ") : nil
+    }
+
+    private var focusTag: String? {
+        if readinessBand != nil { return "LIGHTER TODAY" }
+        if examWeek { return "EXAM WEEK" }
+        if status != .active { return "OPTIONAL" }
+        return nil
+    }
+
+    private func gameTitle(_ game: Competition) -> String {
+        game.kind == .tournament ? "Tournament" : (game.kind == .meet ? "Meet" : "Game")
+    }
+
+    // Supporting activities: compact, readable, not centred.
+
+    @ViewBuilder
+    private func supportingList(title: String?) -> some View {
+        let rows = supportingRows
+        if !rows.isEmpty {
+            VStack(spacing: 6) {
+                if let title { HomeEyebrow(title) }
+                VStack(spacing: 0) {
+                    ForEach(rows.indices, id: \.self) { index in
+                        rows[index]
+                        if index < rows.count - 1 { Divider().opacity(0.5) }
+                    }
+                }
+            }
+        }
+    }
+
+    private var supportingRows: [AnyView] {
+        var rows: [AnyView] = []
+        if practiceToday, status == .active, gameToday == nil, todaysWorkout != nil {
+            rows.append(AnyView(Button { activeSheet = .schedule } label: {
+                HomeDetailRow(systemImage: "person.3.fill", color: AppTheme.orange, title: "Practice") {
+                    if let start = practiceStart { Text(start.formatted(date: .omitted, time: .shortened)) }
+                }
+            }.buttonStyle(.plain)))
+        }
+        if isTrainingDay {
+            for assignment in CoachAssignments.today() {
+                rows.append(AnyView(HomeDetailRow(systemImage: "megaphone.fill", color: AppTheme.brand, title: assignment.title) {
+                    startButton { liveLaunch = LiveSessionLaunch(planned: CoachAssignments.session(assignment, catalogue: catalogue), kind: .coach) }
+                }))
+            }
+        }
+        if let movementPrep {
+            rows.append(AnyView(Button { preview = PreviewBox(session: movementPrep, kind: .mobility) } label: {
+                HomeDetailRow(systemImage: "figure.flexibility", color: AppTheme.water, title: "Mobility") {
+                    if mobilityDoneToday { Image(systemName: "checkmark.circle.fill").foregroundStyle(AppTheme.green) } else { Text("\(movementPrep.estimatedMinutes) min") }
+                }
+            }.buttonStyle(.plain)))
+        }
+        if let next = nextLesson {
+            rows.append(AnyView(Button { selectedTab = .campus } label: {
+                HomeDetailRow(systemImage: "graduationcap.fill", color: AppTheme.purple, title: next.lesson.title) {
+                    if learnedToday { Image(systemName: "checkmark.circle.fill").foregroundStyle(AppTheme.green) } else { Text("\(next.lesson.minutes) min") }
+                }
+            }.buttonStyle(.plain)))
+        }
+        return rows
+    }
+
+    /// The short reason stays one tap away; the plan speaks for itself.
+    @ViewBuilder
+    private var whySection: some View {
+        if todaysWorkout != nil || readinessBand != nil || gameToday != nil {
+            VStack(spacing: 8) {
+                Button { withAnimation { showingWhy.toggle() } } label: {
+                    HStack(spacing: 6) {
+                        Text("Why this plan?")
+                        Image(systemName: showingWhy ? "chevron.up" : "chevron.down").font(.caption.weight(.bold))
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                if showingWhy {
+                    Text(whyThisPlan)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 12)
+                    if readinessBand != nil, todaysWorkout != nil {
+                        Button("Train as planned instead") { readinessOverridden = true }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink)
+                            .frame(minHeight: 44)
+                    } else if readinessOverridden {
+                        Button("Use the lighter plan") { readinessOverridden = false }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.ink)
+                            .frame(minHeight: 44)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    // Evening: what happened today, and what did I learn?
+
+    private var todayCompleteHero: some View {
+        let progress = dayProgress
+        return VStack(spacing: 14) {
+            HomeEyebrow(progress.isComplete ? "Day complete" : "Today complete")
+            Button { activeSheet = .today } label: { DayCompletionRing(progress: progress) }
+                .buttonStyle(.plain)
+            VStack(spacing: 0) {
+                ForEach(progress.items) { item in
+                    Button { open(item.part) } label: {
+                        HomeDetailRow(systemImage: "circle.fill", color: item.part.color, title: item.part.title) {
+                            Image(systemName: item.done ? "checkmark" : "circle")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(item.done ? AppTheme.ink : AppTheme.secondaryText)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(item.part.title), \(item.done ? "done" : "not done")")
+                }
+            }
+            .frame(maxWidth: 360)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// A tap on a part of the day finishes or opens it.
+    private func open(_ part: DayProgress.Part) {
+        switch part {
+        case .practice: searchDestination = SearchBox(target: .practiceLog)
+        case .reflection: activeSheet = .reflection
+        case .mobility:
+            if let movementPrep { preview = PreviewBox(session: movementPrep, kind: .mobility) }
+        case .workout:
+            if workoutDoneToday { activeSheet = .history } else if let workout = todaysWorkout {
+                preview = PreviewBox(session: workout.session, kind: workoutKind(workout.mode))
+            }
+        }
+    }
+
+    private var reflectionHero: some View {
+        VStack(spacing: 10) {
+            HomeEyebrow("Evening reflection")
+            Text("How did today actually feel?")
+                .font(.system(size: 26, weight: .bold))
+                .foregroundStyle(AppTheme.ink)
+                .multilineTextAlignment(.center)
+            Text("About 45 seconds")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+            Button("Reflect") { activeSheet = .reflection }
+                .buttonStyle(.primary)
+                .padding(.top, 6)
+                .frame(maxWidth: 320)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// After the reflection: calm. What was done, one note, tomorrow, sleep.
+    private var dayCompleteView: some View {
+        VStack(spacing: 26) {
+            VStack(spacing: 10) {
+                HomeEyebrow("Day complete")
+                Image(systemName: "checkmark")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(phase.red)
+                    .frame(width: 64, height: 64)
+                    .background(Circle().stroke(phase.red.opacity(0.5), lineWidth: 2))
+                    .accessibilityHidden(true)
+            }
+            let rows = doneRows
+            if !rows.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(rows, id: \.title) { row in
+                        HomeDetailRow(systemImage: row.icon, color: row.color, title: row.title) { Text(row.value) }
+                    }
+                }
+                .frame(maxWidth: 360)
+            }
+            if let note = todaysNote {
+                VStack(spacing: 6) {
+                    HomeEyebrow("Today's note")
+                    Text(note)
+                        .font(.body)
+                        .foregroundStyle(AppTheme.ink.opacity(0.85))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            if let tomorrow = tomorrowLine {
+                VStack(spacing: 6) {
+                    HomeEyebrow("Tomorrow")
+                    Text(tomorrow.title).font(.title3.weight(.semibold)).foregroundStyle(AppTheme.ink)
+                    if let detail = tomorrow.detail {
+                        Text(detail).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
+                    }
+                }
+            }
+            VStack(spacing: 12) {
+                Text(firstName.map { "Sleep well, \($0)." } ?? "Sleep well.")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                if let bedtime = bedtimeTonight {
+                    Text("Bed by \(Bedtime.label(bedtime.minutes))")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
-                Text("Sleep, energy, soreness. With a watch or band, it's filled in for you.")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button("Check in") { activeSheet = .checkIn }
-                    .buttonStyle(.primary)
-            }
-            .cardStyle(padding: 20)
-        } else if let readiness {
-            Button { activeSheet = .checkIn } label: {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("TODAY'S READINESS")
-                            .font(.caption.weight(.bold))
-                            .tracking(0.8)
-                            .foregroundStyle(AppTheme.secondaryText)
-                        Spacer()
-                        Text("Edit")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.ink)
-                    }
-                    ReadinessBlock(level: readiness.level, reason: readiness.reason)
-                        .multilineTextAlignment(.leading)
-                }
-                .cardStyle(padding: 20)
-            }
-            .buttonStyle(.plain)
-            if let pain = PainStore.report() {
-                Button { activeSheet = .safety } label: {
-                    ListRow(systemImage: "bandage.fill", color: AppTheme.coral, title: "You reported pain",
-                            detail: pain.involvesHead ? "Hit your head? Stop training and tell an adult."
-                                : pain.areas.contains(.other) ? "Only gentle mobility today. Tell an adult if it doesn't ease."
-                                : (pain.areas.contains { !PainFilter.muscles(for: $0).isEmpty }
-                                   ? "Today's workout leaves your \(pain.areas.map { $0.title.lowercased() }.joined(separator: ", ")) alone."
-                                   : "Skip anything that hurts. Safety Center"))
-                        .cardStyle(padding: 12)
-                }
-                .buttonStyle(.plain)
+                Button { routine = .breathing } label: { Label("Wind down", systemImage: "wind") }
+                    .buttonStyle(.secondary)
+                    .frame(maxWidth: 260)
             }
         }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// After midnight without a finished day: nothing to do but sleep.
+    private var nightView: some View {
+        VStack(spacing: 12) {
+            HomeEyebrow("It's late")
+            Text("Sleep is training too.")
+                .font(.system(size: 26, weight: .bold))
+                .foregroundStyle(AppTheme.ink)
+                .multilineTextAlignment(.center)
+            Text("Everything else can wait until morning.")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.secondaryText)
+            Button { routine = .breathing } label: { Label("Wind down", systemImage: "wind") }
+                .buttonStyle(.secondary)
+                .frame(maxWidth: 260)
+                .padding(.top, 6)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private struct DoneRow {
+        let icon: String
+        let color: Color
+        let title: String
+        let value: String
+    }
+
+    private var doneRows: [DoneRow] {
+        var rows: [DoneRow] = []
+        if let log = practiceLogToday {
+            rows.append(DoneRow(icon: "person.3.fill", color: AppTheme.orange, title: "Practice", value: log.minutes.map { "\($0) min" } ?? "Logged"))
+        }
+        let workoutMinutes = todaysSessions.filter { SessionKinds.kind(of: $0.clientId) != .mobility }.reduce(0) { $0 + $1.minutes }
+        if workoutDoneToday { rows.append(DoneRow(icon: "dumbbell.fill", color: AppTheme.red, title: "Workout", value: "\(workoutMinutes) min")) }
+        let mobilityMinutes = todaysSessions.filter { SessionKinds.kind(of: $0.clientId) == .mobility }.reduce(0) { $0 + $1.minutes }
+        if mobilityDoneToday { rows.append(DoneRow(icon: "figure.flexibility", color: AppTheme.water, title: "Mobility", value: "\(mobilityMinutes) min")) }
+        if learnedToday { rows.append(DoneRow(icon: "graduationcap.fill", color: AppTheme.purple, title: "Campus", value: "Lesson done")) }
+        return rows
+    }
+
+    /// One sentence from tonight's reflection — what tomorrow's plan takes from it.
+    private var todaysNote: String? {
+        _ = revision
+        guard let reflection = MindsetStore.reflection(on: .now) else { return nil }
+        if (reflection.body ?? 0) >= 4 { return "Something hurt today. Tell a coach or parent, and add it in tomorrow's check-in." }
+        if (reflection.hardness ?? 0) >= 3 || (reflection.body ?? 0) >= 3 {
+            return "Today felt harder than usual. Tomorrow's plan will account for it."
+        }
+        if let practice = reflection.practice, practice >= 3 { return "A good practice. Tomorrow builds on it." }
+        return "A steady day. Tomorrow builds on it."
+    }
+
+    /// Tomorrow's first thing: a game, practice, a gym day or rest.
+    private var tomorrowLine: (title: String, detail: String?)? {
+        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: clock) else { return nil }
+        if let game = athlete.competitions.first(where: { calendar.isDate($0.date, inSameDayAs: tomorrow) }) {
+            return (gameTitle(game), game.date.formatted(date: .omitted, time: .shortened))
+        }
+        if PracticeSchedule.hasPractice(on: tomorrow) {
+            return ("Team practice", PracticeSchedule.time(on: tomorrow).map(\.label))
+        }
+        if let gym = week?.sessions.first(where: { calendar.isDate($0.date, inSameDayAs: tomorrow) }) {
+            return ("Gym day", "\(gym.estimatedMinutes) min")
+        }
+        return ("Rest day", "Recovery is part of the plan.")
     }
 
     private var scheduleCard: some View {
@@ -797,128 +1386,6 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle(padding: 20)
-    }
-
-    // MARK: - TODAY
-
-    private var todaySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("TODAY")
-                .font(.caption.weight(.bold))
-                .tracking(0.8)
-                .foregroundStyle(AppTheme.secondaryText)
-            if status == .concussion {
-                pausedCard
-            } else {
-                VStack(spacing: 0) {
-                    let rows = todayRows
-                    ForEach(rows.indices, id: \.self) { index in
-                        rows[index]
-                        if index < rows.count - 1 {
-                            Divider().padding(.leading, 54)
-                        }
-                    }
-                }
-                .cardStyle(padding: 12)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Why this plan?")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.ink)
-                    Text(whyThisPlan)
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if readinessBand != nil, todaysWorkout != nil {
-                        Button("Train as planned instead") { readinessOverridden = true }
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.ink)
-                            .frame(minHeight: 44)
-                    } else if readinessOverridden {
-                        Button("Use the lighter plan") { readinessOverridden = false }
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.ink)
-                            .frame(minHeight: 44)
-                    }
-                }
-                .padding(.horizontal, 4)
-            }
-        }
-    }
-
-    /// Everything on today, in the order it happens.
-    private var todayRows: [AnyView] {
-        var rows: [AnyView] = []
-        if !loaded {
-            rows.append(AnyView(ProgressView().frame(maxWidth: .infinity, minHeight: 56)))
-            return rows
-        }
-        if status == .sick {
-            rows.append(AnyView(ListRow(systemImage: "bed.double.fill", color: AppTheme.purple, title: "Rest and recover",
-                                        detail: "No training. Drink, eat and sleep.") { EmptyView() }))
-        }
-        if let game = gameToday, status == .active {
-            rows.append(AnyView(Button { activeSheet = .fuel } label: {
-                ListRow(systemImage: "sportscourt.fill", color: AppTheme.green,
-                        title: game.kind == .tournament ? "Tournament" : (game.kind == .meet ? "Meet" : "Game"),
-                        detail: "\(game.isHome ? "Home" : "Away") · What to eat before") {
-                    timeText(game.date)
-                }
-            }.buttonStyle(.plain)))
-        }
-        if practiceToday, status == .active, gameToday == nil {
-            rows.append(AnyView(Button { activeSheet = .schedule } label: {
-                ListRow(systemImage: "person.3.fill", color: AppTheme.orange, title: "Team practice", detail: practiceDetail) {
-                    if let start = practiceStart { timeText(start) }
-                }
-            }.buttonStyle(.plain)))
-        }
-        if isTrainingDay {
-            for assignment in CoachAssignments.today() {
-                rows.append(AnyView(ListRow(systemImage: "megaphone.fill", color: AppTheme.brand, title: assignment.title,
-                                            detail: "From your coach · \(assignment.items.count) exercises") {
-                    startButton { liveLaunch = LiveSessionLaunch(planned: CoachAssignments.session(assignment, catalogue: catalogue), kind: .coach) }
-                }))
-            }
-        }
-        if let workout = todaysWorkout {
-            rows.append(AnyView(Button { preview = PreviewBox(session: workout.session, kind: workoutKind(workout.mode)) } label: {
-                ListRow(systemImage: workoutIcon(workout.mode), color: AppTheme.brand,
-                        title: status == .active ? workout.mode.title : "\(workout.mode.title) (optional)",
-                        detail: workoutDetail(workout.session)) {
-                    if loggedToday {
-                        doneMark
-                    } else {
-                        startButton { liveLaunch = LiveSessionLaunch(planned: workout.session, kind: workoutKind(workout.mode)) }
-                    }
-                }
-            }.buttonStyle(.plain)))
-        } else if status == .active, gameToday == nil, !practiceToday {
-            rows.append(AnyView(ListRow(systemImage: "moon.zzz.fill", color: AppTheme.purple, title: "Rest day",
-                                        detail: "Recovery is part of the plan.") { loggedToday ? AnyView(doneMark) : AnyView(EmptyView()) }))
-        }
-        if let movementPrep {
-            rows.append(AnyView(Button { preview = PreviewBox(session: movementPrep, kind: .mobility) } label: {
-                ListRow(systemImage: "figure.flexibility", color: AppTheme.water, title: movementPrep.title,
-                        detail: "\(movementPrep.estimatedMinutes) min")
-            }.buttonStyle(.plain)))
-        }
-        if let bedtime = bedtimeTonight {
-            rows.append(AnyView(ListRow(systemImage: "bed.double.fill", color: AppTheme.purple,
-                                        title: "Bed by \(Bedtime.label(bedtime.minutes))", detail: bedtime.detail) { EmptyView() }))
-        }
-        if let next = nextLesson {
-            rows.append(AnyView(Button { selectedTab = .campus } label: {
-                ListRow(systemImage: "graduationcap.fill", color: AppTheme.purple, title: next.lesson.title,
-                        detail: "Campus · \(next.lesson.minutes) min") {
-                    if learnedToday {
-                        doneMark
-                    } else {
-                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(AppTheme.secondaryText)
-                    }
-                }
-            }.buttonStyle(.plain)))
-        }
-        return rows
     }
 
     private var practiceStart: Date? {
@@ -995,56 +1462,6 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle(padding: 20)
-    }
-
-    // MARK: - Evening
-
-    @ViewBuilder
-    private var eveningCard: some View {
-        if reflectedToday {
-            Button { activeSheet = .today } label: {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Today completed")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(AppTheme.ink)
-                        Spacer()
-                        Text("\(completion.doneCount) of \(completion.items.count)")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.secondaryText)
-                    }
-                    HStack(spacing: 8) {
-                        ForEach(completion.items) { item in
-                            Label(item.title, systemImage: item.done ? "checkmark.circle.fill" : "circle")
-                                .labelStyle(.iconOnly)
-                                .font(.title2)
-                                .foregroundStyle(item.done ? AppTheme.green : AppTheme.secondaryText.opacity(0.4))
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .cardStyle(padding: 20)
-            }
-            .buttonStyle(.plain)
-        } else {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Evening reflection")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.ink)
-                    Spacer()
-                    Text("1 minute")
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
-                Text("How today went. Tomorrow's plan adapts to it.")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
-                Button("Reflect") { activeSheet = .reflection }
-                    .buttonStyle(.primary)
-            }
-            .cardStyle(padding: 20)
-        }
     }
 
     /// Game day: get the head ready too.
