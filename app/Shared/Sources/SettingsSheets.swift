@@ -81,17 +81,13 @@ struct RemindersSheet: View {
                         .cardStyle(padding: 16)
                     }
 
-                    Button("Save", action: save)
-                        .buttonStyle(.primary)
                 }
                 .padding(20)
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
+                ConfirmToolbarItem(action: save)
             }
             .onAppear {
                 time = Calendar.current.date(bySettingHour: settings.checkInHour, minute: settings.checkInMinute, second: 0, of: .now) ?? .now
@@ -214,10 +210,7 @@ struct DownloadsSheet: View {
             .appScreen()
             .task { catalogueCount = CatalogueLoader.load(from: AppConfig.packsDirectory()).itemsBySlug.count }
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
         }
     }

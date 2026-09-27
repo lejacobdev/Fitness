@@ -42,9 +42,7 @@ struct BenchmarksView: View {
             .scrollIndicators(.hidden)
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.fontWeight(.semibold)
-                }
+                CloseToolbarItem { dismiss() }
             }
             .sheet(item: $running, onDismiss: { results = BenchmarkStore.results }) { test in
                 BenchmarkRunView(test: test)
@@ -285,9 +283,7 @@ struct BenchmarkHistoryView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.fontWeight(.semibold)
-                }
+                CloseToolbarItem { dismiss() }
             }
             .task {
                 results = BenchmarkStore.results.filter { $0.testID == test.id }
@@ -374,9 +370,7 @@ struct BenchmarkRunView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(saved == nil ? "Cancel" : "Done") { dismiss() }
-                }
+                CloseToolbarItem { dismiss() }
             }
         }
     }
@@ -502,7 +496,7 @@ struct BenchmarkRunView: View {
                     .font(.title3.bold())
                     .foregroundStyle(AppTheme.ink)
             }
-            Button("Done") {
+            ConfirmCircleButton {
                 #if os(iOS)
                 // A good moment (a new best) is the only time we ask for a rating.
                 if newBest, RatingMoment.consume(firstUse: RatingMoment.firstUse) {
@@ -511,7 +505,6 @@ struct BenchmarkRunView: View {
                 #endif
                 dismiss()
             }
-                .buttonStyle(.primary)
         }
         .frame(maxWidth: .infinity)
         .cardStyle()

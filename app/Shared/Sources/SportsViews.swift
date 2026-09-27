@@ -176,10 +176,7 @@ struct SportsManagerSheet: View {
             .scrollIndicators(.hidden)
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
             .sheet(isPresented: $showingAdd) {
                 AddSportSheet(athlete: athlete, onSaved: onChanged)
@@ -306,7 +303,7 @@ struct AddSportSheet: View {
             StepScaffold(
                 progress: 0.33, title: replacing ? "Change sport" : "Add a sport",
                 subtitle: alreadyPlays ? "You already have this sport." : (replacing ? (SportSwitchLedger.summary.map { "Your plan switches to the new sport. \($0)." } ?? "Your plan switches to the new sport.") : "Which other sport do you play?"),
-                buttonTitle: "Next", buttonEnabled: sport != nil && !alreadyPlays, onBack: { dismiss() }, onContinue: {
+                buttonTitle: "Next", buttonEnabled: sport != nil && !alreadyPlays, onClose: { dismiss() }, onContinue: {
                     guard let sport else { return }
                     let defaults = SeasonDefaults.dates(for: sport)
                     seasonStart = defaults.start
@@ -369,7 +366,7 @@ struct SportSettingsSheet: View {
 
     var body: some View {
         StepScaffold(title: info?.name ?? displayName(forSlug: sport.sportSlug), subtitle: "Position and season for this sport.",
-                     buttonTitle: "Save", onBack: { dismiss() }, onContinue: save) {
+                     onClose: { dismiss() }, onConfirm: save) {
             if let info, info.hasRoleChoice {
                 VStack(alignment: .leading, spacing: 10) {
                     if info.formatList.isEmpty {

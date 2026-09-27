@@ -132,14 +132,10 @@ struct CoachReportSheet: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .fontWeight(.semibold)
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
             .sheet(item: $detailItem) { item in
-                NavigationStack { ItemDetailView(item: item) }
+                NavigationStack { ItemDetailView(item: item, closes: true) }
             }
         }
     }

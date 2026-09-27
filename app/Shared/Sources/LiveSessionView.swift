@@ -722,10 +722,7 @@ struct ExercisePickerSheet: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
         }
     }

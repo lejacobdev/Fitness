@@ -11,8 +11,8 @@ struct StrugglesSheet: View {
         StepScaffold(
             title: "My Development Goals",
             subtitle: "Pick up to \(Struggles.maximum). Your training leans towards them.",
-            buttonTitle: "Save", onBack: { dismiss() },
-            onContinue: {
+            onClose: { dismiss() },
+            onConfirm: {
                 Struggles.selected = selected
                 onSaved()
                 dismiss()

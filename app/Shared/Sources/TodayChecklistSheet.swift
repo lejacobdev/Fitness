@@ -30,7 +30,7 @@ struct TodayChecklistSheet: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+                CloseToolbarItem { dismiss() }
             }
         }
     }

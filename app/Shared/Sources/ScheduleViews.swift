@@ -45,9 +45,7 @@ struct ScheduleSheet: View {
             .scrollIndicators(.hidden)
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.fontWeight(.semibold)
-                }
+                CloseToolbarItem { dismiss() }
             }
             .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .moreCalendars)
             .sheet(isPresented: $addingCalendar) {
@@ -366,7 +364,7 @@ struct AddCalendarSheet: View {
             subtitle: "Paste the link to your team's or school's calendar. We only read it — nothing is ever changed or shared.",
             buttonTitle: found == nil ? (checking ? "Checking…" : "Check the link") : "Connect",
             buttonEnabled: !checking && CalendarFeed.normalizedURL(link) != nil,
-            onBack: { dismiss() },
+            onClose: { dismiss() },
             onContinue: {
                 if let found, let checkedFeed, checkedFeed.url == link, checkedFeed.role == role {
                     onAdd(checkedFeed, found)

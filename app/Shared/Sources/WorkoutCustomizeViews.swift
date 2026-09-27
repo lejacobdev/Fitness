@@ -98,11 +98,17 @@ struct WorkoutEditorView: View {
                         Text("Exercises")
                         Spacer()
                         #if os(iOS)
-                        Button(editMode == .active ? "Done" : "Reorder") {
+                        Button {
                             if fullAccess {
                                 withAnimation { editMode = editMode == .active ? .inactive : .active }
                             } else {
                                 showingPaywall = true
+                            }
+                        } label: {
+                            if editMode == .active {
+                                Image(systemName: "checkmark").accessibilityLabel("Finish reordering")
+                            } else {
+                                Text("Reorder")
                             }
                         }
                         .font(.subheadline.weight(.semibold))
@@ -137,16 +143,12 @@ struct WorkoutEditorView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        var saved = draft
-                        saved.title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "My workout" : draft.title
-                        onSave(saved)
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(draft.items.isEmpty)
+                CloseToolbarItem { dismiss() }
+                ConfirmToolbarItem(enabled: !draft.items.isEmpty) {
+                    var saved = draft
+                    saved.title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "My workout" : draft.title
+                    onSave(saved)
+                    dismiss()
                 }
             }
             .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
@@ -279,12 +281,10 @@ struct DoseEditorSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        onDone(item)
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
+                CloseToolbarItem { dismiss() }
+                ConfirmToolbarItem {
+                    onDone(item)
+                    dismiss()
                 }
             }
         }
@@ -327,7 +327,7 @@ struct ExercisePickerView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                CloseToolbarItem { dismiss() }
             }
             .overlay {
                 if catalogue.itemsBySlug.isEmpty {
@@ -438,23 +438,20 @@ struct PlanSettingsSheet: View {
                             }
                         }
                     }
-
-                    Button("Save") {
-                        var saved = settings
-                        if !chooseDays { saved.weekdays = [] } else { saved.sessionsPerWeek = nil }
-                        PlanCustomizationStore.setSettings(saved)
-                        onChanged()
-                        dismiss()
-                    }
-                    .buttonStyle(.primary)
-                    .disabled(chooseDays && settings.weekdays.isEmpty)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                CloseToolbarItem { dismiss() }
+                ConfirmToolbarItem(enabled: !(chooseDays && settings.weekdays.isEmpty)) {
+                    var saved = settings
+                    if !chooseDays { saved.weekdays = [] } else { saved.sessionsPerWeek = nil }
+                    PlanCustomizationStore.setSettings(saved)
+                    onChanged()
+                    dismiss()
+                }
             }
         }
     }
@@ -528,7 +525,7 @@ struct ShareWorkoutSheet: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
+                CloseToolbarItem { dismiss() }
             }
             .onAppear { code = workout.shareCode }
             .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .shareWorkouts)
@@ -606,7 +603,7 @@ struct SharedWorkoutSheet: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+                CloseToolbarItem { dismiss() }
             }
             .task {
                 catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())

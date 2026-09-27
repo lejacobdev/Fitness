@@ -271,6 +271,81 @@ public struct FloatingActionButton: View {
     }
 }
 
+// MARK: - Popup buttons
+//
+// One rule for every popup: top left an ✕ closes it (anything not saved is
+// discarded); top right a ✓ saves and closes, only where there's something
+// to save; ‹ only goes back a page inside a flow. No "Done" or "Cancel" text.
+
+/// ✕ in a popup's navigation bar.
+public struct CloseToolbarItem: ToolbarContent {
+    let action: () -> Void
+
+    public init(action: @escaping () -> Void) {
+        self.action = action
+    }
+
+    public var body: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            Button(action: action) {
+                Image(systemName: "xmark")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+            }
+            .accessibilityLabel("Close")
+        }
+    }
+}
+
+/// ✓ in a popup's navigation bar: saves and closes.
+public struct ConfirmToolbarItem: ToolbarContent {
+    let enabled: Bool
+    let accessibilityLabel: String
+    let action: () -> Void
+
+    public init(enabled: Bool = true, accessibilityLabel: String = "Save", action: @escaping () -> Void) {
+        self.enabled = enabled
+        self.accessibilityLabel = accessibilityLabel
+        self.action = action
+    }
+
+    public var body: some ToolbarContent {
+        ToolbarItem(placement: .confirmationAction) {
+            Button(action: action) {
+                Image(systemName: "checkmark")
+                    .font(.body.weight(.bold))
+                    .foregroundStyle(enabled ? AppTheme.ink : AppTheme.secondaryText)
+            }
+            .disabled(!enabled)
+            .accessibilityLabel(accessibilityLabel)
+        }
+    }
+}
+
+/// ✓ at the top right of a full-page popup (StepScaffold): saves and closes.
+public struct ConfirmCircleButton: View {
+    let enabled: Bool
+    let action: () -> Void
+
+    public init(enabled: Bool = true, action: @escaping () -> Void) {
+        self.enabled = enabled
+        self.action = action
+    }
+
+    public var body: some View {
+        Button(action: action) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(enabled ? AppTheme.onAccent : AppTheme.secondaryText)
+                .frame(width: 46, height: 46)
+                .background(enabled ? AppTheme.accent : AppTheme.fill, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .accessibilityLabel("Save")
+    }
+}
+
 /// A round gray icon button (back chevron and toolbar icons).
 public struct CircleIconButton: View {
     let systemImage: String
@@ -948,13 +1023,19 @@ public struct StepScaffold<Content: View>: View {
     let buttonTitle: String
     let buttonEnabled: Bool
     let onBack: (() -> Void)?
-    let onContinue: () -> Void
+    let onClose: (() -> Void)?
+    let onConfirm: (() -> Void)?
+    let onContinue: (() -> Void)?
     let content: Content
 
+    /// `onBack` ‹ goes back a page; `onClose` ✕ closes the popup;
+    /// `onConfirm` ✓ saves and closes; `onContinue` is the big button at
+    /// the bottom (Next, Build my plan…), left out when ✓ saves.
     public init(
         progress: Double? = nil, title: String, subtitle: String? = nil,
         buttonTitle: String = "Continue", buttonEnabled: Bool = true,
-        onBack: (() -> Void)? = nil, onContinue: @escaping () -> Void,
+        onBack: (() -> Void)? = nil, onClose: (() -> Void)? = nil, onConfirm: (() -> Void)? = nil,
+        onContinue: (() -> Void)? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.progress = progress
@@ -963,6 +1044,8 @@ public struct StepScaffold<Content: View>: View {
         self.buttonTitle = buttonTitle
         self.buttonEnabled = buttonEnabled
         self.onBack = onBack
+        self.onClose = onClose
+        self.onConfirm = onConfirm
         self.onContinue = onContinue
         self.content = content()
     }
@@ -972,9 +1055,16 @@ public struct StepScaffold<Content: View>: View {
             HStack(spacing: 16) {
                 if let onBack {
                     CircleIconButton(systemImage: "chevron.left", accessibilityLabel: "Back", action: onBack)
+                } else if let onClose {
+                    CircleIconButton(systemImage: "xmark", accessibilityLabel: "Close", action: onClose)
                 }
                 if let progress {
                     StepProgressBar(progress: progress)
+                } else {
+                    Spacer(minLength: 0)
+                }
+                if let onConfirm {
+                    ConfirmCircleButton(enabled: buttonEnabled, action: onConfirm)
                 }
             }
             .frame(minHeight: 40)
@@ -991,11 +1081,13 @@ public struct StepScaffold<Content: View>: View {
                 .padding(.bottom, 24)
             }
 
-            Button(buttonTitle, action: onContinue)
-                .buttonStyle(.primary)
-                .disabled(!buttonEnabled)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 16)
+            if let onContinue {
+                Button(buttonTitle, action: onContinue)
+                    .buttonStyle(.primary)
+                    .disabled(!buttonEnabled)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 16)
+            }
         }
         .appScreen()
     }

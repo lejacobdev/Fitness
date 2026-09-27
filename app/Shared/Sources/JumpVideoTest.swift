@@ -242,12 +242,17 @@ struct JumpCameraView: View {
             }
             VStack {
                 HStack {
-                    Button("Cancel") {
+                    Button {
                         camera.shutDown()
                         onDone(nil)
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 46, height: 46)
+                            .background(.black.opacity(0.45), in: Circle())
                     }
-                    .font(.headline)
-                    .foregroundStyle(.white)
+                    .accessibilityLabel("Close")
                     .padding()
                     Spacer()
                     if ready {

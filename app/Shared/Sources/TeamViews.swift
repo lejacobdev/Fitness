@@ -107,7 +107,7 @@ struct MyTeamView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
+                CloseToolbarItem { dismiss() }
             }
             .task { await load() }
             .onAppear { if let initialCode, code.isEmpty { code = initialCode } }
@@ -242,7 +242,7 @@ struct CoachView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
+                CloseToolbarItem { dismiss() }
             }
             .task { await load() }
             .sheet(item: $openTeam, onDismiss: { Task { await load() } }) { team in
@@ -302,7 +302,7 @@ struct TeamBoardView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
+                CloseToolbarItem { dismiss() }
             }
             .task { await load() }
             .proFeature(isPresented: $showingPaywall, athlete: context?.athlete, feature: .coachWorkouts)
@@ -508,7 +508,7 @@ struct AssignWorkoutSheet: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                CloseToolbarItem { dismiss() }
             }
             .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
         }
@@ -595,7 +595,7 @@ struct ParentSummaryView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
+                CloseToolbarItem { dismiss() }
             }
             .task { await load() }
         }

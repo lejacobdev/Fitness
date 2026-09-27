@@ -67,13 +67,11 @@ struct SportGuideView: View {
             .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
+                CloseToolbarItem { dismiss() }
             }
             .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
             .sheet(item: $detailItem) { item in
-                NavigationStack { ItemDetailView(item: item) }
+                NavigationStack { ItemDetailView(item: item, closes: true) }
             }
             .fullScreenCover(item: $quizzing) { guide in
                 CampusLessonPlayer(

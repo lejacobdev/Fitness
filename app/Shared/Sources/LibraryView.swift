@@ -294,19 +294,15 @@ struct MusclePickerSheet: View {
                             .buttonStyle(.plain)
                         }
                     }
-                    Button("Show results") {
-                        selection = pending
-                        dismiss()
-                    }
-                    .buttonStyle(.primary)
                 }
                 .padding(20)
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
+                CloseToolbarItem { dismiss() }
+                ConfirmToolbarItem(accessibilityLabel: "Show results") {
+                    selection = pending
+                    dismiss()
                 }
             }
             .onAppear { pending = selection }
@@ -355,13 +351,15 @@ struct LibraryFilterSheet: View {
                             surface = nil
                         }
                         .buttonStyle(.secondary)
-                        Button("Done") { dismiss() }
-                            .buttonStyle(.primary)
                     }
                 }
                 .padding(20)
             }
             .appScreen()
+            .toolbar {
+                CloseToolbarItem { dismiss() }
+                ConfirmToolbarItem(accessibilityLabel: "Show results") { dismiss() }
+            }
         }
     }
 
@@ -421,6 +419,8 @@ struct FlowLayout: Layout {
 /// §7 field in its own card.
 struct ItemDetailView: View {
     let item: CatalogueItem
+    /// Opened on its own (a popup): ✕ closes it. Pushed from a list: ‹ goes back.
+    var closes = false
     @Environment(\.dismiss) private var dismiss
     @AppStorage("libraryOpened") private var libraryOpened = false
 
@@ -441,7 +441,7 @@ struct ItemDetailView: View {
                         }
                     }
                     .frame(height: 280)
-                    CircleIconButton(systemImage: "chevron.left", accessibilityLabel: "Back") { dismiss() }
+                    CircleIconButton(systemImage: closes ? "xmark" : "chevron.left", accessibilityLabel: closes ? "Close" : "Back") { dismiss() }
                         .padding(14)
                 }
 

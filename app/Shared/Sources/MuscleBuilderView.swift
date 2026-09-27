@@ -133,7 +133,7 @@ struct MuscleBuilderView: View {
         .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
         .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .muscleWorkouts)
         .sheet(item: $detailItem) { item in
-            NavigationStack { ItemDetailView(item: item) }
+            NavigationStack { ItemDetailView(item: item, closes: true) }
         }
     }
 

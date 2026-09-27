@@ -336,9 +336,7 @@ struct ReportsSheet: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.fontWeight(.semibold)
-                }
+                CloseToolbarItem { dismiss() }
             }
             .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .dataExport)
         }

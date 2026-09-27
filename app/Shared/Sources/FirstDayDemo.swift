@@ -31,9 +31,9 @@ struct FirstDayDemo: View {
     var body: some View {
         VStack(spacing: 24) {
             HStack {
+                CircleIconButton(systemImage: "xmark", accessibilityLabel: "Close") { dismiss() }
                 Text("Your first day").font(.headline).foregroundStyle(AppTheme.secondaryText)
                 Spacer()
-                Button("Close") { dismiss() }.font(.headline).foregroundStyle(AppTheme.ink)
             }
             TabView(selection: $page) {
                 ForEach(Self.moments) { moment in

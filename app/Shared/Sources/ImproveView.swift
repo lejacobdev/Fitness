@@ -354,7 +354,7 @@ struct SkillSetupView: View {
     var body: some View {
         StepScaffold(
             progress: 0.66, title: skill.name, subtitle: "When is your next game?",
-            buttonTitle: "Build my plan", onBack: { dismiss() }, onContinue: { onBuild(gameDate) }
+            buttonTitle: "Build my plan", onClose: { dismiss() }, onContinue: { onBuild(gameDate) }
         ) {
             VStack(alignment: .leading, spacing: 12) {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -441,7 +441,7 @@ struct SkillSetupView: View {
         .toolbar(.hidden, for: .navigationBar)
         .task { catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory()) }
         .sheet(item: $detailItem) { item in
-            NavigationStack { ItemDetailView(item: item) }
+            NavigationStack { ItemDetailView(item: item, closes: true) }
         }
     }
 
@@ -503,7 +503,7 @@ struct SkillBlockView: View {
                             .foregroundStyle(AppTheme.green)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                        Button("Done", action: onFinished)
+                        Button("Back to your skills", action: onFinished)
                             .buttonStyle(.secondary)
                     } else {
                         VStack(spacing: 8) {
@@ -527,7 +527,7 @@ struct SkillBlockView: View {
         .appScreen()
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $detailItem) { item in
-            NavigationStack { ItemDetailView(item: item) }
+            NavigationStack { ItemDetailView(item: item, closes: true) }
         }
         .skillPlanPaywall(isPresented: $showingPaywall, athlete: athlete)
         .task {

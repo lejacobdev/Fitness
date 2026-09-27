@@ -1124,11 +1124,13 @@ struct HomeView: View {
                     }
                     .cardStyle(padding: 12)
                 }
-                Button("Done") {
+                Button {
                     editingLayout = false
                     wiggle = false
                     drag = HomeDragState()
                     layout.save()
+                } label: {
+                    Label("Save Home", systemImage: "checkmark")
                 }
                 .buttonStyle(.primary)
             }
@@ -1293,7 +1295,7 @@ struct DayStatusSheet: View {
 
     var body: some View {
         StepScaffold(title: "What kind of day is it?", subtitle: "Your plan and reminders follow it.",
-                     buttonTitle: "Save", onBack: { dismiss() }, onContinue: { onSave(choice, choice == .active ? nil : days) }) {
+                     onClose: { dismiss() }, onConfirm: { onSave(choice, choice == .active ? nil : days) }) {
             VStack(spacing: 10) {
                 ForEach(DayStatus.menu) { status in
                     Button { choice = status } label: {
@@ -1328,7 +1330,7 @@ struct PracticeDaysSheet: View {
 
     var body: some View {
         StepScaffold(title: "Your practice days", subtitle: "Tap every day you have team practice. Practice days get a short after-practice workout; gym days go on the others.",
-                     buttonTitle: "Save", onBack: { dismiss() }, onContinue: { onSave(selection) }) {
+                     onClose: { dismiss() }, onConfirm: { onSave(selection) }) {
             let calendar = Calendar.current
             // Monday first.
             let order = [2, 3, 4, 5, 6, 7, 1]
@@ -1390,10 +1392,10 @@ struct SessionPreviewSheet: View {
             .navigationTitle(session.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
+                CloseToolbarItem { dismiss() }
             }
             .sheet(item: $detailItem) { item in
-                NavigationStack { ItemDetailView(item: item) }
+                NavigationStack { ItemDetailView(item: item, closes: true) }
             }
         }
     }

@@ -409,7 +409,7 @@ struct CheckInSheet: View {
     // MARK: Result
 
     private var resultPage: some View {
-        QuestionPage(progress: 1, question: "Today's readiness", buttonTitle: "Done", onClose: { dismiss() }, onButton: { dismiss() }) {
+        QuestionPage(progress: 1, question: "Today's readiness", buttonTitle: nil, onClose: { dismiss() }) {
             if let readiness = DailyLoop.today(athlete) {
                 ReadinessBlock(level: readiness.level, reason: readiness.reason)
             }

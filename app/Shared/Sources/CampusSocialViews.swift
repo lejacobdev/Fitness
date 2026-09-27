@@ -74,9 +74,7 @@ struct LeaguesView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.fontWeight(.semibold)
-                }
+                CloseToolbarItem { dismiss() }
             }
             .task { await load() }
             .onAppear {
@@ -308,9 +306,7 @@ struct BadgesView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.fontWeight(.semibold)
-                }
+                CloseToolbarItem { dismiss() }
             }
         }
     }

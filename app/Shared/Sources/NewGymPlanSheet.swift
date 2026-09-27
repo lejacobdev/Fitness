@@ -37,7 +37,27 @@ struct NewGymPlanSheet: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                if step == .choose {
+                    CloseToolbarItem { dismiss() }
+                } else {
+                    // ‹ back to the choice; ✓ keeps the new plan.
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button { step = .choose } label: {
+                            Image(systemName: "chevron.left")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(AppTheme.ink)
+                        }
+                        .accessibilityLabel("Back")
+                    }
+                    ConfirmToolbarItem(enabled: step == .own || week != nil, accessibilityLabel: "Use this plan") {
+                        if step == .own {
+                            onChanged()
+                            dismiss()
+                        } else {
+                            save()
+                        }
+                    }
+                }
             }
         }
         .proFeature(isPresented: $showingPaywall, athlete: athlete, feature: .workoutEditor)
@@ -109,9 +129,6 @@ struct NewGymPlanSheet: View {
                         dayCard(dayIndex, session)
                     }
                 }
-                Button("Use this plan") { save() }
-                    .buttonStyle(.primary)
-                    .disabled(week == nil)
             }
             .padding(20)
         }
@@ -161,11 +178,6 @@ struct NewGymPlanSheet: View {
                     }
                     .buttonStyle(.plain)
                 }
-                Button("Done") {
-                    onChanged()
-                    dismiss()
-                }
-                .buttonStyle(.primary)
             }
             .padding(20)
         }

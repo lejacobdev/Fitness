@@ -238,7 +238,7 @@ struct AppSearchSheet: View {
             .scrollDismissesKeyboard(.interactively)
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+                CloseToolbarItem { dismiss() }
             }
             .onAppear { focused = true }
         }

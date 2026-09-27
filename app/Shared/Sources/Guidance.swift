@@ -494,10 +494,7 @@ struct HelpCenterView: View {
             .scrollIndicators(.hidden)
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
             .fullScreenCover(isPresented: $showingTour) {
                 AppTourView { showingTour = false }

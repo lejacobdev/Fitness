@@ -83,11 +83,7 @@ struct FuelView: View {
             .appScreen()
             .sensoryFeedback(.increase, trigger: waterTaps)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .fontWeight(.semibold)
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
             .sheet(isPresented: $showingLogMeal) {
                 MealLogSheet(athlete: athlete, suggestedSlot: suggestedSlot)
@@ -365,7 +361,7 @@ struct MealLogSheet: View {
     var body: some View {
         StepScaffold(
             title: "Log a meal", subtitle: "Count portions, not calories: a palm of protein, a fist of carbs, a fist of fruit or veg.",
-            buttonTitle: "Save meal", onBack: { dismiss() }, onContinue: save
+            onClose: { dismiss() }, onConfirm: save
         ) {
             FlowLayout(spacing: 8) {
                 ForEach(MealSlot.mealSlots, id: \.self) { value in

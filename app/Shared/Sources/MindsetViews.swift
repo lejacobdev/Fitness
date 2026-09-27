@@ -45,9 +45,7 @@ struct MindsetView: View {
             .scrollIndicators(.hidden)
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.fontWeight(.semibold)
-                }
+                CloseToolbarItem { dismiss() }
             }
             .sheet(isPresented: $reflecting) {
                 ReflectionSheet {
@@ -363,7 +361,7 @@ struct ReflectionSheet: View {
             if let review { reviewPage(review) }
         case .done:
             QuestionPage(progress: 1, question: "Today completed", hint: "Tomorrow's plan adapts to how today went.",
-                         buttonTitle: "Done", onClose: { dismiss() }, onButton: { dismiss() }) {
+                         buttonTitle: nil, onClose: { dismiss() }) {
                 if let completion {
                     VStack(spacing: 0) {
                         ForEach(completion.items) { item in
@@ -508,7 +506,7 @@ struct SeasonGoalsSheet: View {
         StepScaffold(
             title: "Season goals",
             subtitle: "Up to three. Each week you get one small thing to do for each goal.",
-            buttonTitle: "Save", onBack: { dismiss() }, onContinue: { onSave(goals) }
+            onClose: { dismiss() }, onConfirm: { onSave(goals) }
         ) {
             if !goals.isEmpty {
                 VStack(spacing: 10) {
@@ -606,10 +604,8 @@ struct BreathingView: View {
     var body: some View {
         VStack(spacing: 24) {
             HStack {
+                CircleIconButton(systemImage: "xmark", accessibilityLabel: "Close") { dismiss() }
                 Spacer()
-                Button("Close") { dismiss() }
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.secondaryText)
             }
             if let startedAt, !finished {
                 TimelineView(.animation) { context in
@@ -664,8 +660,6 @@ struct BreathingView: View {
                     .foregroundStyle(AppTheme.secondaryText)
                     .multilineTextAlignment(.center)
                 Spacer()
-                Button("Done") { dismiss() }
-                    .buttonStyle(.primary)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
@@ -730,12 +724,10 @@ struct VisualizationView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            HStack {
+            HStack(spacing: 14) {
+                CircleIconButton(systemImage: "xmark", accessibilityLabel: "Close") { dismiss() }
                 if let step { StepProgressBar(progress: Double(step + 1) / Double(steps.count)) }
-                Spacer()
-                Button("Close") { dismiss() }
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.secondaryText)
+                Spacer(minLength: 0)
             }
             if let step, step < steps.count {
                 let current = steps[step]
@@ -789,8 +781,6 @@ struct VisualizationView: View {
                     .foregroundStyle(AppTheme.secondaryText)
                     .multilineTextAlignment(.center)
                 Spacer()
-                Button("Done") { dismiss() }
-                    .buttonStyle(.primary)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {

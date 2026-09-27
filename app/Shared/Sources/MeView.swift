@@ -627,7 +627,7 @@ struct TrendsSheet: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) }
+                CloseToolbarItem { dismiss() }
             }
         }
     }
@@ -776,12 +776,12 @@ struct SportEditorSheet: View {
     var body: some View {
         Group {
             if choosingPosition, let sport {
-                StepScaffold(title: sport.positions.isEmpty ? "How you play" : "Position", subtitle: sport.name, buttonTitle: "Save", onBack: { choosingPosition = false }, onContinue: save) {
+                StepScaffold(title: sport.positions.isEmpty ? "How you play" : "Position", subtitle: sport.name, onBack: { choosingPosition = false }, onConfirm: save) {
                     PositionChooser(sport: sport, selection: $positionSlug, format: $formatSlug)
                 }
             } else {
                 StepScaffold(title: "Your sport", buttonTitle: sport?.hasRoleChoice == true ? "Next" : "Save", buttonEnabled: sportSlug != nil,
-                             onBack: { dismiss() }, onContinue: {
+                             onClose: { dismiss() }, onContinue: {
                     if sport?.hasRoleChoice == true {
                         if sportSlug != athlete.activeSport?.sportSlug { positionSlug = nil; formatSlug = nil }
                         choosingPosition = true
@@ -834,8 +834,8 @@ struct SeasonEditorSheet: View {
     @State private var end = Date.now
 
     var body: some View {
-        StepScaffold(title: "Season dates", subtitle: "Your plan changes through the season — getting stronger before it, staying fresh during it, recovering after — based on these dates.", buttonTitle: "Save",
-                     onBack: { dismiss() }, onContinue: save) {
+        StepScaffold(title: "Season dates", subtitle: "Your plan changes through the season — getting stronger before it, staying fresh during it, recovering after — based on these dates.", 
+                     onClose: { dismiss() }, onConfirm: save) {
             SeasonEditor(start: $start, end: $end)
         }
         .onAppear {
@@ -861,8 +861,8 @@ struct EquipmentEditorSheet: View {
     @State private var selection: Set<String> = []
 
     var body: some View {
-        StepScaffold(title: "Equipment", subtitle: "Your plan only ever uses what you pick here.", buttonTitle: "Save",
-                     onBack: { dismiss() }, onContinue: save) {
+        StepScaffold(title: "Equipment", subtitle: "Your plan only ever uses what you pick here.", 
+                     onClose: { dismiss() }, onConfirm: save) {
             EquipmentChooser(selection: $selection)
         }
         .onAppear { selection = Set(athlete.equipmentAvailable) }
@@ -883,8 +883,8 @@ struct ExperienceEditorSheet: View {
     @State private var selection: TrainingExperience = .current
 
     var body: some View {
-        StepScaffold(title: "Training experience", subtitle: "Your plan's sets, reps and jumps follow this.", buttonTitle: "Save",
-                     onBack: { dismiss() }, onContinue: save) {
+        StepScaffold(title: "Training experience", subtitle: "Your plan's sets, reps and jumps follow this.", 
+                     onClose: { dismiss() }, onConfirm: save) {
             VStack(spacing: 10) {
                 ForEach(TrainingExperience.allCases, id: \.self) { level in
                     Button { selection = level } label: {
@@ -913,7 +913,7 @@ struct NameEditorSheet: View {
 
     var body: some View {
         StepScaffold(title: "Your first name", subtitle: "Optional. Only used to greet you, and it stays on this phone.",
-                     buttonTitle: "Save", onBack: { dismiss() }, onContinue: save) {
+                     onClose: { dismiss() }, onConfirm: save) {
             TextField("First name", text: $name)
                 .font(.title3.weight(.semibold))
                 .autocorrectionDisabled()
@@ -978,10 +978,7 @@ struct CheckInHistoryView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
         }
     }
@@ -1080,10 +1077,7 @@ struct ExerciseProgressListView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
         }
     }
@@ -1301,10 +1295,7 @@ struct DataExportView: View {
             }
             .appScreen()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(AppTheme.ink)
-                }
+                CloseToolbarItem { dismiss() }
             }
         }
     }
