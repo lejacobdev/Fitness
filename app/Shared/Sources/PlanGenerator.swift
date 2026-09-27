@@ -232,7 +232,9 @@ public enum PlanGenerator {
                 .sorted { $0.slug < $1.slug }
             // A new plan leaves out the last one's exercises when it can.
             let fresh = all.filter { !input.avoid.contains($0.slug) }
-            let eligible = fresh.isEmpty ? all : fresh
+            // The ones that matter most for this sport and position first;
+            // the plan picks among the best few, so it varies but stays on point.
+            let eligible = Array(rankedForSport(fresh.isEmpty ? all : fresh, input: input).prefix(sportPoolSize))
 
             guard !eligible.isEmpty else { continue }
             // Drills written for this athlete's position win when there are any.
@@ -296,6 +298,28 @@ public enum PlanGenerator {
         )
     }
 
+    /// How many of the best-fitting items a pick chooses from.
+    static let sportPoolSize = 6
+
+    /// How much an item trains what this sport (and position) needs: its
+    /// qualities weighted by the sport's profile, the position's on top, and
+    /// a bonus for the sport's own drills.
+    static func sportRelevance(_ item: CatalogueItem, input: PlanGeneratorInput) -> Double {
+        var score = 0.0
+        for (quality, amount) in item.qualities {
+            score += amount * ((input.sportProfile[quality] ?? 0) + (input.positionProfile?[quality] ?? 0))
+        }
+        if let sport = input.sportSlug, item.itemSportSlug == sport { score += 0.5 }
+        return score
+    }
+
+    /// Best fit for the sport first; ties by name, so it stays deterministic.
+    static func rankedForSport(_ items: [CatalogueItem], input: PlanGeneratorInput) -> [CatalogueItem] {
+        items.map { ($0, sportRelevance($0, input: input)) }
+            .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.slug < $1.0.slug }
+            .map(\.0)
+    }
+
     /// Everything that decides whether this athlete may get this item: their
     /// sport and position, their equipment, coaching, age and experience.
     static func isEligible(_ item: CatalogueItem, input: PlanGeneratorInput, age: Int) -> Bool {
@@ -315,19 +339,19 @@ public enum PlanGenerator {
         return dose
     }
 
-    /// Another exercise for the same spot in a workout: it trains the same
+    /// Another exercise for the same place in a workout: it trains the same
     /// quality (so the session keeps its order and purpose), fits the athlete
     /// (sport, position, equipment, age, experience, coaching) and isn't in
-    /// the workout already. `turn` walks through the choices, one per tap;
-    /// nil when nothing else fits.
+    /// the workout already. Choices come best-for-the-sport first; `turn`
+    /// walks through them, one per tap; nil when nothing else fits.
     public static func replacement(for planned: GeneratedPlannedItem, in session: GeneratedSession,
                                    input: PlanGeneratorInput, turn: Int) -> GeneratedPlannedItem? {
         let age = ageInYears(birthDate: input.birthDate, now: input.now)
         let inSession = Set(session.items.map(\.itemSlug))
         let current = input.catalogue.item(planned.itemSlug)
-        var pool = input.catalogue.itemsBySlug.values
-            .filter { ($0.qualities[planned.quality] ?? 0) >= 0.7 && !inSession.contains($0.slug) && isEligible($0, input: input, age: age) }
-            .sorted { $0.slug < $1.slug }
+        var pool = rankedForSport(input.catalogue.itemsBySlug.values
+            .filter { ($0.qualities[planned.quality] ?? 0) >= 0.7 && !inSession.contains($0.slug) && isEligible($0, input: input, age: age) },
+            input: input)
         // A position drill is swapped for another drill for the position.
         if let current, isForPosition(current, input: input) {
             let forPosition = pool.filter { isForPosition($0, input: input) }

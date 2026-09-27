@@ -59,4 +59,25 @@ final class NewGymPlanTests: XCTestCase {
         }
         XCTAssertGreaterThan(seen.count, 1, "tapping again gives another choice")
     }
+
+    func testTheBestFitForTheSportComesFirst() {
+        var sprintSquat = item("jump-squat-drill", "lower-body-strength")
+        sprintSquat = CatalogueItem(
+            slug: "sprint-lunge", name: "sprint-lunge", kind: "exercise", qualities: ["lower-body-strength": 1.0, "acceleration": 0.9], muscles: [:],
+            equipment: [], surface: "anywhere", minAge: 13, supervisionLevel: "SELF",
+            setup: [], execution: [], cues: [], mistakes: [], progressions: [], regressions: [], substitutes: [],
+            defaultDose: sprintSquat.defaultDose, restSeconds: 60, startPose: "hinge", endPose: "hinge",
+            unilateralEligible: nil, tempoEligible: nil, prop: nil, variant: nil, baseSlug: nil,
+            constraintAxes: nil, equipmentChain: nil, unilateralPosePattern: nil, unilateralStabilityQuality: nil,
+            itemSportSlug: nil
+        )
+        let plain = item("a-plain-squat", "lower-body-strength")
+        let catalogue = Catalogue(itemsBySlug: [plain.slug: plain, sprintSquat.slug: sprintSquat])
+        let plan = PlanGeneratorInput(
+            sportProfile: ["lower-body-strength": 1, "acceleration": 1], seasonStart: day(1), seasonEnd: day(1),
+            weekStart: day(1), birthDate: day(1).addingTimeInterval(-16 * 365 * 86_400), catalogue: catalogue, seed: "x", now: day(1)
+        )
+        let ranked = PlanGenerator.rankedForSport([plain, sprintSquat], input: plan)
+        XCTAssertEqual(ranked.first?.slug, "sprint-lunge", "it also trains the acceleration the sport needs")
+    }
 }
