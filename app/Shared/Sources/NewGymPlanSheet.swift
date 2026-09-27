@@ -91,7 +91,7 @@ struct NewGymPlanSheet: View {
                     ScreenTitle("Your new plan", subtitle: equipmentLine)
                     Spacer()
                     Button { generate(randomizing: true) } label: {
-                        Label("Randomize", systemImage: "dice.fill")
+                        Label("Randomize", systemImage: "arrow.clockwise")
                             .font(.headline)
                             .padding(.horizontal, 14)
                             .frame(minHeight: 44)
