@@ -32,6 +32,8 @@ public struct PlanGeneratorInput: Sendable {
     /// Exercises to leave out when there's another choice (a new plan is
     /// really new: not last plan's exercises again).
     public let avoid: Set<String>
+    /// Body areas with pain today: nothing that loads them (PainFilter).
+    public let painAreas: Set<PainArea>
 
     public init(
         sportProfile: [String: Double], positionProfile: [String: Double]? = nil,
@@ -39,8 +41,10 @@ public struct PlanGeneratorInput: Sendable {
         trainsUnderCoach: Bool = false, equipmentAvailable: Set<String> = [],
         catalogue: Catalogue, seed: String, timeBudgetMinutesPerSession: Int = 60,
         now: Date = .now, sportSlug: String? = nil, positionSlug: String? = nil, formatSlug: String? = nil,
-        sessionsPerWeek: Int? = nil, experience: TrainingExperience = .intermediate, avoid: Set<String> = []
+        sessionsPerWeek: Int? = nil, experience: TrainingExperience = .intermediate, avoid: Set<String> = [],
+        painAreas: Set<PainArea> = []
     ) {
+        self.painAreas = painAreas
         self.sessionsPerWeek = sessionsPerWeek
         self.experience = experience
         self.avoid = avoid
@@ -328,6 +332,7 @@ public enum PlanGenerator {
             && (input.trainsUnderCoach || !item.isCoached)
             && item.minAge <= age
             && input.experience.allows(item)
+            && !PainFilter.loads(item, areas: input.painAreas)
     }
 
     /// The dose an item gets in this athlete's plan: the youth envelope,

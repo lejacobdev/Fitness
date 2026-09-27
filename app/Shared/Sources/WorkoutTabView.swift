@@ -46,9 +46,12 @@ struct WorkoutTabView: View {
         )
     }
 
+    /// Today's pain first (nothing that loads a sore area), then readiness.
     private func adjusted(_ session: GeneratedSession) -> GeneratedSession {
-        guard let band else { return session }
-        return ReadinessApplier.apply(to: session, band: band).session
+        let safe = calendar.isDateInToday(session.date) || session.slot == nil
+            ? TodaysPain.apply(session, athlete: athlete, catalogue: catalogue) : session
+        guard let band else { return safe }
+        return ReadinessApplier.apply(to: safe, band: band).session
     }
 
     /// Today's gym session, or the next one this week.
@@ -185,7 +188,7 @@ struct WorkoutTabView: View {
         switch mode {
         case .gymDay: gymSession?.session
         case .afterPractice: WorkoutModeBuilder.build(.afterPractice, context).map { adjusted($0) }
-        case .mobility, .travel: WorkoutModeBuilder.build(mode, context)
+        case .mobility, .travel: WorkoutModeBuilder.build(mode, context).map { TodaysPain.apply($0, athlete: athlete, catalogue: catalogue) }
         }
     }
 

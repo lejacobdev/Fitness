@@ -90,7 +90,9 @@ struct HomeView: View {
         switch status {
         case .sick, .concussion: return nil
         case .travel, .holiday:
-            return WorkoutModeBuilder.build(.travel, modeContext).map { (mode: WorkoutMode.travel, session: $0) }
+            return WorkoutModeBuilder.build(.travel, modeContext).map {
+                (mode: WorkoutMode.travel, session: TodaysPain.apply($0, athlete: athlete, catalogue: catalogue))
+            }
         case .active:
             if gameToday != nil { return nil }
             if practiceToday {
@@ -104,13 +106,15 @@ struct HomeView: View {
     }
 
     /// A low-readiness day lightens the workout (the athlete can undo it).
+    /// Today's pain first (nothing that loads a sore area), then readiness.
     private func adjusted(_ session: GeneratedSession) -> GeneratedSession {
-        guard let readinessBand else { return session }
-        return ReadinessApplier.apply(to: session, band: readinessBand).session
+        let safe = TodaysPain.apply(session, athlete: athlete, catalogue: catalogue)
+        guard let readinessBand else { return safe }
+        return ReadinessApplier.apply(to: safe, band: readinessBand).session
     }
 
     private var movementPrep: GeneratedSession? {
-        isTrainingDay ? WorkoutModeBuilder.build(.mobility, modeContext) : nil
+        isTrainingDay ? WorkoutModeBuilder.build(.mobility, modeContext).map { TodaysPain.apply($0, athlete: athlete, catalogue: catalogue) } : nil
     }
 
     // MARK: - Food around practice and games
@@ -523,7 +527,10 @@ struct HomeView: View {
             if let pain = PainStore.report() {
                 Button { activeSheet = .safety } label: {
                     ListRow(systemImage: "bandage.fill", color: AppTheme.coral, title: "You reported pain",
-                            detail: pain.involvesHead ? "Hit your head? Stop training and tell an adult." : "Skip anything that hurts. Safety Center")
+                            detail: pain.involvesHead ? "Hit your head? Stop training and tell an adult."
+                                : (pain.areas.contains { !PainFilter.muscles(for: $0).isEmpty }
+                                   ? "Today's workout leaves your \(pain.areas.map { $0.title.lowercased() }.joined(separator: ", ")) alone."
+                                   : "Skip anything that hurts. Safety Center"))
                         .cardStyle(padding: 12)
                 }
                 .buttonStyle(.plain)

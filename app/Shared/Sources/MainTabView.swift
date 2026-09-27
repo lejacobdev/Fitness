@@ -274,7 +274,7 @@ enum WeeklyPlan {
     /// current one when building a new plan, and exercises to leave out).
     @MainActor
     static func input(for athlete: Athlete, variant: Int = PlanVariant.current, avoid: Set<String> = [],
-                      catalogue: Catalogue? = nil) -> PlanGeneratorInput? {
+                      catalogue: Catalogue? = nil, painAreas: Set<PainArea> = []) -> PlanGeneratorInput? {
         guard let athleteSport = athlete.activeSport, let sportInfo = allSportsBySlug[athleteSport.sportSlug] else { return nil }
         let calendar = Calendar.current
         let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: .now)) ?? .now
@@ -296,7 +296,7 @@ enum WeeklyPlan {
             timeBudgetMinutesPerSession: custom.settings.effectiveMinutesPerSession ?? 60,
             sportSlug: athleteSport.sportSlug, positionSlug: athleteSport.positionSlug, formatSlug: athleteSport.formatSlug,
             sessionsPerWeek: custom.settings.effectiveSessionsPerWeek,
-            experience: TrainingExperience.current, avoid: avoid
+            experience: TrainingExperience.current, avoid: avoid, painAreas: painAreas
         )
     }
 
