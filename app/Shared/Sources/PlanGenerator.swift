@@ -116,7 +116,8 @@ public enum PlanGenerator {
         for (index, date) in dates.enumerated() {
             let targetQualities = roundRobinSlice(qualityOrder, offset: index, count: 3)
             var session = buildSession(
-                date: date, targetQualities: targetQualities, input: input, phase: phase,
+                date: date, targetQualities: targetQualities, fillQualities: roundRobinSlice(qualityOrder, offset: index, count: qualityOrder.count),
+                input: input, phase: phase,
                 isYouthEnvelope: isYouthEnvelope, age: age,
                 weeklyContacts: &weeklyContacts, rng: &rng
             )
@@ -225,20 +226,24 @@ public enum PlanGenerator {
     /// that ordering — Speed/Power items always precede Strength, which
     /// always precedes Endurance, which always precedes Control.
     private static func buildSession(
-        date: Date, targetQualities: [String], input: PlanGeneratorInput, phase: SeasonPhase,
+        date: Date, targetQualities: [String], fillQualities: [String], input: PlanGeneratorInput, phase: SeasonPhase,
         isYouthEnvelope: Bool, age: Int, weeklyContacts: inout Int, rng: inout SeededGenerator
     ) -> GeneratedSession {
         var candidates: [(quality: String, item: CatalogueItem)] = []
         let fits = { (item: CatalogueItem) -> Bool in isEligible(item, input: input, age: age) }
-        for quality in targetQualities {
+        /// The best few for this quality that aren't in the session yet.
+        func choices(_ quality: String) -> [CatalogueItem] {
             let all = input.catalogue.itemsBySlug.values
-                .filter { item in (item.qualities[quality] ?? 0) >= 0.7 && fits(item) }
+                .filter { item in (item.qualities[quality] ?? 0) >= 0.7 && fits(item) && !candidates.contains { $0.item.slug == item.slug } }
                 .sorted { $0.slug < $1.slug }
             // A new plan leaves out the last one's exercises when it can.
             let fresh = all.filter { !input.avoid.contains($0.slug) }
             // The ones that matter most for this sport and position first;
             // the plan picks among the best few, so it varies but stays on point.
-            let eligible = Array(rankedForSport(fresh.isEmpty ? all : fresh, input: input).prefix(sportPoolSize))
+            return Array(rankedForSport(fresh.isEmpty ? all : fresh, input: input).prefix(sportPoolSize))
+        }
+        for quality in targetQualities {
+            let eligible = choices(quality)
 
             guard !eligible.isEmpty else { continue }
             // Drills written for this athlete's position win when there are any.
@@ -259,13 +264,26 @@ public enum PlanGenerator {
                 candidates.append((quality, picked))
             }
         }
+        // A gym day is the main session of the day: fill it up to a full
+        // workout — the sport's other qualities next, then a second exercise
+        // for each (never more than two per quality, so ♻︎ keeps a choice).
+        for round in 0..<2 {
+            for quality in fillQualities {
+                guard candidates.count < gymExercises else { break }
+                guard candidates.filter({ $0.quality == quality }).count <= round else { continue }
+                let eligible = choices(quality)
+                guard !eligible.isEmpty else { continue }
+                candidates.append((quality, eligible[Int(rng.next() % UInt64(eligible.count))]))
+            }
+        }
 
         let blockRank: [QualityGroup: Int] = [.speed: 0, .power: 0, .strength: 1, .endurance: 2, .control: 3]
-        let ordered = candidates.sorted { lhs, rhs in
-            let lhsRank = qualitiesBySlug[lhs.quality].flatMap { blockRank[$0.group] } ?? 4
-            let rhsRank = qualitiesBySlug[rhs.quality].flatMap { blockRank[$0.group] } ?? 4
-            return lhsRank != rhsRank ? lhsRank < rhsRank : lhs.item.slug < rhs.item.slug
-        }
+        // Block order; inside a block, the order they were picked in.
+        let ordered = candidates.enumerated().sorted { lhs, rhs in
+            let lhsRank = qualitiesBySlug[lhs.element.quality].flatMap { blockRank[$0.group] } ?? 4
+            let rhsRank = qualitiesBySlug[rhs.element.quality].flatMap { blockRank[$0.group] } ?? 4
+            return lhsRank != rhsRank ? lhsRank < rhsRank : lhs.offset < rhs.offset
+        }.map(\.element)
 
         var items: [GeneratedPlannedItem] = []
         var totalMinutes = 0
@@ -304,6 +322,10 @@ public enum PlanGenerator {
 
     /// How many of the best-fitting items a pick chooses from.
     static let sportPoolSize = 6
+
+    /// Main exercises in a gym day (the warm-up comes on top): the longest
+    /// workout of the day types, as the one day without practice.
+    static let gymExercises = 7
 
     /// How much an item trains what this sport (and position) needs: its
     /// qualities weighted by the sport's profile, the position's on top, and
