@@ -22,6 +22,8 @@ final class NewGymPlanTests: XCTestCase {
         let items = [
             item("split-squat", "lower-body-strength"), item("step-up", "lower-body-strength"),
             item("goblet-squat", "lower-body-strength"), item("back-squat", "lower-body-strength", equipment: ["barbell"]),
+            // A gym day holds up to two per quality, so ♻︎ needs a few more to choose from.
+            item("reverse-lunge", "lower-body-strength"), item("wall-sit", "lower-body-strength"),
             item("push-up", "upper-body-push"),
         ]
         return Catalogue(itemsBySlug: Dictionary(uniqueKeysWithValues: items.map { ($0.slug, $0) }))
