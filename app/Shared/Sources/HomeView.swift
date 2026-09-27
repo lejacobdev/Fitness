@@ -37,6 +37,9 @@ struct HomeView: View {
     @State private var searchDestination: SearchBox?
     @State private var proFeature: ProFeature?
     @State private var showingUpgrade = false
+    /// A workout started from a sheet opened by search: starts once it closes.
+    @State private var pendingLive: LiveSessionLaunch?
+    @Environment(\.openURL) private var openURL
     @State private var preview: PreviewBox?
     @State private var loaded = false
     @State private var routine: MindsetRoutine?
@@ -399,7 +402,13 @@ struct HomeView: View {
             .fullScreenCover(item: $liveLaunch) { launch in
                 LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind)
             }
-            .sheet(item: $searchDestination, onDismiss: { revision += 1 }) { box in
+            .sheet(item: $searchDestination, onDismiss: {
+                revision += 1
+                if let launch = pendingLive {
+                    pendingLive = nil
+                    liveLaunch = launch
+                }
+            }) { box in
                 searchView(box.target)
             }
             .proFeature(item: $proFeature, athlete: athlete)
@@ -416,7 +425,7 @@ struct HomeView: View {
 
     /// Everything search can find right now.
     private var searchEntries: [AppSearchEntry] {
-        AppSearch.functions + AppSearch.workoutModes() + AppSearch.gymDays(week)
+        AppSearch.functions + AppSearch.skills(sportInfo) + AppSearch.workoutModes() + AppSearch.gymDays(week)
             + AppSearch.myWorkouts(MyWorkoutsStore.load()) + AppSearch.lessons(learned: CampusProgress.learned(campusLearnedRaw))
     }
 
@@ -468,6 +477,16 @@ struct HomeView: View {
         case .exerciseProgress:
             if ProAccess.isPro { searchDestination = SearchBox(target: target) } else { proFeature = .exerciseProgress }
         case .upgrade: showingUpgrade = true
+        case .link(let path): openURL(AppConfig.backendBaseURL.appending(path: path))
+        case .editHome:
+            editingLayout = true
+            wiggle = true
+        case .newWorkout:
+            if ProGate.canKeepAnotherWorkout(isPro: ProAccess.isPro, myWorkoutCount: MyWorkoutsStore.load().count) {
+                searchDestination = SearchBox(target: target)
+            } else {
+                proFeature = .myWorkouts
+            }
         default: searchDestination = SearchBox(target: target)
         }
     }
@@ -517,6 +536,24 @@ struct HomeView: View {
         case .leagues: LeaguesView(stats: CampusProgress.stats())
         case .badges: BadgesView()
         case .newGymPlan: NewGymPlanSheet(athlete: athlete, gymDays: week?.sessions.count ?? 3, onChanged: onPlanInputsChanged)
+        case .skillPlans: ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged)
+        case .skill(let slug):
+            ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged, initialSkillSlug: slug)
+        case .muscleWorkouts:
+            ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged, initialMode: .muscles)
+        case .planSettings: PlanSettingsSheet(onChanged: onPlanInputsChanged)
+        case .newWorkout:
+            WorkoutEditorView(heading: "New workout", workout: CustomWorkout(title: "My workout", items: []),
+                              sportSlug: athlete.activeSport?.sportSlug) { saved in
+                MyWorkoutsStore.upsert(saved)
+            }
+        case .addWithCode:
+            SharedWorkoutSheet(onSaved: { MyWorkoutsStore.upsert($0) }, onStart: { workout in
+                pendingLive = LiveSessionLaunch(planned: workout.session(date: .now, catalogue: catalogue), kind: .gym)
+            })
+        case .addTraining: ExtraPracticeSheet { onPlanInputsChanged() }
+        case .calendars: ScheduleSheet(athlete: athlete, onChanged: onPlanInputsChanged)
+        case .sportPosition: SportEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
         default: EmptyView()
         }
     }

@@ -41,6 +41,10 @@ enum AppSearchTarget: Hashable {
     case sports, season, equipment, experience, name, reports, checkIns, exerciseProgress, dataExport
     case reminders, downloads, health, help, team, coach, parent, goals, trends, library, sportGuide
     case leagues, badges, newGymPlan, upgrade
+    case skillPlans, muscleWorkouts, planSettings, newWorkout, addWithCode, addTraining, calendars
+    case sportPosition, editHome
+    case skill(String)
+    case link(String)
     // Content
     case workoutMode(WorkoutMode)
     case gymDay(Int)
@@ -51,6 +55,7 @@ enum AppSearchTarget: Hashable {
 struct AppSearchEntry: Identifiable {
     enum Section: String, CaseIterable {
         case functions = "In the app"
+        case skills = "Skill plans"
         case workouts = "Workouts"
         case lessons = "Campus lessons"
     }
@@ -119,7 +124,34 @@ enum AppSearch {
         function("Parent summary", "A weekly summary for parents", "house.fill", ["parent", "parents", "family", "summary"], .parent),
         function("Help & app tour", "How the app works", "questionmark.circle.fill", ["help", "tour", "faq", "support", "how"], .help),
         function("AthleteOS Pro", "What Pro adds", "star.fill", ["pro", "upgrade", "subscription", "premium", "pay"], .upgrade),
+        function("Skill plans", "A dated plan to get better at one skill", "scope", ["skill", "skills", "improve", "get better", "technique", "plan", "block"], .skillPlans),
+        function("Muscle workouts", "Build a workout by muscle group", "figure.stand", ["muscle", "muscles", "body part", "arms", "legs", "chest", "back", "abs", "core", "glutes", "shoulders"], .muscleWorkouts),
+        function("Plan settings", "Gym days per week and session length", "slider.horizontal.3", ["plan settings", "days per week", "sessions", "how long", "minutes", "free time", "schedule"], .planSettings),
+        function("New workout", "Build your own workout", "plus.rectangle.on.rectangle", ["new workout", "create", "my workout", "own", "custom", "build"], .newWorkout),
+        function("Add a workout with a code", "From a teammate or coach", "qrcode.viewfinder", ["code", "qr", "import", "shared", "share", "teammate"], .addWithCode),
+        function("Share a workout", "Send one of your workouts with a code", "square.and.arrow.up", ["share", "send", "code", "qr", "friend"], .tab(.workout)),
+        function("Add a training", "An extra team session", "plus.circle", ["extra", "training", "session", "team", "add"], .addTraining),
+        function("Team & school calendars", "Connect TeamSnap, Google or Apple", "link", ["calendar", "teamsnap", "google", "apple", "school", "sync", "import", "exams"], .calendars),
+        function("Sport & position", "Your sport, position and format", "sportscourt.fill", ["position", "role", "format", "sport", "goalkeeper"], .sportPosition),
+        function("Edit Home", "Add, move or remove Home widgets", "square.grid.2x2", ["widgets", "edit home", "customize", "layout", "rearrange"], .editHome),
+        function("Weight units", "kg or lb, set in a workout", "scalemass", ["units", "kg", "lb", "pounds", "kilograms", "metric", "imperial"], .logWorkout),
+        function("Review lessons", "Questions from lessons that are due", "arrow.triangle.2.circlepath", ["review", "quiz", "questions", "repeat", "remember"], .tab(.campus)),
+        function("Know your position", "Your job on the field", "person.fill.viewfinder", ["position", "role", "job", "tactics"], .tab(.campus)),
+        function("Coach supervision", "Whether you train with a coach", "person.2.fill", ["coach", "supervised", "supervision", "trainer"], .tab(.me)),
+        function("Log out", "Back up and sign out", "rectangle.portrait.and.arrow.right", ["log out", "sign out", "logout"], .tab(.me)),
+        function("Delete account", "Remove everything for good", "trash", ["delete", "account", "remove", "erase"], .tab(.me)),
+        function("Privacy policy", "How your data is handled", "hand.raised.fill", ["privacy", "data", "policy"], .link("privacy")),
+        function("Terms of use", "The app's terms", "doc.text.fill", ["terms", "conditions", "legal"], .link("terms")),
+        function("Support", "Get help from us", "questionmark.circle.fill", ["support", "contact", "email", "bug", "problem"], .link("support")),
     ] }
+
+    /// The active sport's skills, each opening its skill plan.
+    static func skills(_ sport: SportInfo?) -> [AppSearchEntry] {
+        (sport?.skills ?? []).map { skill in
+            AppSearchEntry(id: "skill.\(skill.slug)", section: .skills, title: skill.name, detail: "Skill plan · \(sport?.name ?? "")",
+                           systemImage: "scope", keywords: ["skill", "improve", "plan", "get better"], target: .skill(skill.slug))
+        }
+    }
 
     static func workoutModes() -> [AppSearchEntry] {
         let modes: [(mode: WorkoutMode, icon: String, detail: String, keywords: [String])] = [

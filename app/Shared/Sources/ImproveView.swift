@@ -66,6 +66,16 @@ struct ImproveView: View {
     @State private var searchText = ""
     @State private var mode: Mode = .skill
 
+    /// Opened from search: straight to muscle workouts, or to one skill's plan.
+    init(athlete: Athlete, apiClient: APIClient, onPlanInputsChanged: @escaping () -> Void,
+         initialMode: Mode = .skill, initialSkillSlug: String? = nil) {
+        self.athlete = athlete
+        self.apiClient = apiClient
+        self.onPlanInputsChanged = onPlanInputsChanged
+        _mode = State(initialValue: initialMode)
+        _path = State(initialValue: initialSkillSlug.map { [.setup(skillSlug: $0)] } ?? [])
+    }
+
     private var sportSlug: String? { athlete.activeSport?.sportSlug }
     private var sportInfo: SportInfo? { sportSlug.flatMap { allSportsBySlug[$0] } }
 
