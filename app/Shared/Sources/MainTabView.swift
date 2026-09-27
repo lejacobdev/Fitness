@@ -44,10 +44,7 @@ public struct MainTabView: View {
     }
 
     public var body: some View {
-        TabView(selection: Binding(get: { selectedTab }, set: { tab in
-            selectedTab = tab
-            UsageCounts.count("tab.\(tab)")
-        })) {
+        TabView(selection: $selectedTab) {
             HomeView(athlete: athlete, apiClient: apiClient, week: week, selectedTab: $selectedTab, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Home", systemImage: "house.fill") }
                 .tag(AppTab.today)
@@ -69,6 +66,9 @@ public struct MainTabView: View {
                 .tag(AppTab.me)
         }
         .tint(AppTheme.accent)
+        // Counted after the switch, never inside the tab bar's own binding
+        // (a hand-made binding there sent lesson taps to the Me tab).
+        .onChange(of: selectedTab) { _, tab in UsageCounts.count("tab.\(tab)") }
         .modifier(CompactTabBar())
         .environment(\.workoutContext, workoutContext)
         .sheet(isPresented: $showingHealthPermission) {
