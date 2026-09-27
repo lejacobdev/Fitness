@@ -29,6 +29,9 @@ public struct PlanGeneratorInput: Sendable {
     /// How long the athlete has been lifting: sets, reps, jumps and which
     /// variants are picked.
     public let experience: TrainingExperience
+    /// Exercises to leave out when there's another choice (a new plan is
+    /// really new: not last plan's exercises again).
+    public let avoid: Set<String>
 
     public init(
         sportProfile: [String: Double], positionProfile: [String: Double]? = nil,
@@ -36,10 +39,11 @@ public struct PlanGeneratorInput: Sendable {
         trainsUnderCoach: Bool = false, equipmentAvailable: Set<String> = [],
         catalogue: Catalogue, seed: String, timeBudgetMinutesPerSession: Int = 60,
         now: Date = .now, sportSlug: String? = nil, positionSlug: String? = nil, formatSlug: String? = nil,
-        sessionsPerWeek: Int? = nil, experience: TrainingExperience = .intermediate
+        sessionsPerWeek: Int? = nil, experience: TrainingExperience = .intermediate, avoid: Set<String> = []
     ) {
         self.sessionsPerWeek = sessionsPerWeek
         self.experience = experience
+        self.avoid = avoid
         self.sportSlug = sportSlug
         self.positionSlug = positionSlug
         self.formatSlug = formatSlug
@@ -221,17 +225,14 @@ public enum PlanGenerator {
         isYouthEnvelope: Bool, age: Int, weeklyContacts: inout Int, rng: inout SeededGenerator
     ) -> GeneratedSession {
         var candidates: [(quality: String, item: CatalogueItem)] = []
-        let fits = { (item: CatalogueItem) -> Bool in
-            fitsAthlete(item, input: input)
-                && isEligibleForEquipment(item, available: input.equipmentAvailable)
-                && (input.trainsUnderCoach || !item.isCoached)
-                && item.minAge <= age
-                && input.experience.allows(item)
-        }
+        let fits = { (item: CatalogueItem) -> Bool in isEligible(item, input: input, age: age) }
         for quality in targetQualities {
-            let eligible = input.catalogue.itemsBySlug.values
+            let all = input.catalogue.itemsBySlug.values
                 .filter { item in (item.qualities[quality] ?? 0) >= 0.7 && fits(item) }
                 .sorted { $0.slug < $1.slug }
+            // A new plan leaves out the last one's exercises when it can.
+            let fresh = all.filter { !input.avoid.contains($0.slug) }
+            let eligible = fresh.isEmpty ? all : fresh
 
             guard !eligible.isEmpty else { continue }
             // Drills written for this athlete's position win when there are any.
@@ -264,10 +265,7 @@ public enum PlanGenerator {
         var totalMinutes = 0
         var order = 0
         for (quality, item) in ordered {
-            var dose = input.experience.adjusted(clampedDose(item.defaultDose, isYouthEnvelope: isYouthEnvelope),
-                                                 isYouthEnvelope: isYouthEnvelope)
-            // In and after the season the gym keeps, it doesn't build: two sets at most.
-            if phase == .inSeason || phase == .postSeason { dose.sets = min(dose.sets, 2) }
+            let dose = plannedDose(item, input: input, phase: phase, isYouthEnvelope: isYouthEnvelope)
 
             if dose.kind == plyometricDoseKind {
                 let contactsThisItem = dose.sets * (dose.contacts ?? 0)
@@ -295,6 +293,58 @@ public enum PlanGenerator {
         return GeneratedSession(
             date: date, title: sessionTitle(for: targetQualities),
             focusQualities: targetQualities, estimatedMinutes: totalMinutes, items: items
+        )
+    }
+
+    /// Everything that decides whether this athlete may get this item: their
+    /// sport and position, their equipment, coaching, age and experience.
+    static func isEligible(_ item: CatalogueItem, input: PlanGeneratorInput, age: Int) -> Bool {
+        fitsAthlete(item, input: input)
+            && isEligibleForEquipment(item, available: input.equipmentAvailable)
+            && (input.trainsUnderCoach || !item.isCoached)
+            && item.minAge <= age
+            && input.experience.allows(item)
+    }
+
+    /// The dose an item gets in this athlete's plan: the youth envelope,
+    /// their experience, and two sets at most in and after the season.
+    static func plannedDose(_ item: CatalogueItem, input: PlanGeneratorInput, phase: SeasonPhase, isYouthEnvelope: Bool) -> Dose {
+        var dose = input.experience.adjusted(clampedDose(item.defaultDose, isYouthEnvelope: isYouthEnvelope),
+                                             isYouthEnvelope: isYouthEnvelope)
+        if phase == .inSeason || phase == .postSeason { dose.sets = min(dose.sets, 2) }
+        return dose
+    }
+
+    /// Another exercise for the same spot in a workout: it trains the same
+    /// quality (so the session keeps its order and purpose), fits the athlete
+    /// (sport, position, equipment, age, experience, coaching) and isn't in
+    /// the workout already. `turn` walks through the choices, one per tap;
+    /// nil when nothing else fits.
+    public static func replacement(for planned: GeneratedPlannedItem, in session: GeneratedSession,
+                                   input: PlanGeneratorInput, turn: Int) -> GeneratedPlannedItem? {
+        let age = ageInYears(birthDate: input.birthDate, now: input.now)
+        let inSession = Set(session.items.map(\.itemSlug))
+        let current = input.catalogue.item(planned.itemSlug)
+        var pool = input.catalogue.itemsBySlug.values
+            .filter { ($0.qualities[planned.quality] ?? 0) >= 0.7 && !inSession.contains($0.slug) && isEligible($0, input: input, age: age) }
+            .sorted { $0.slug < $1.slug }
+        // A position drill is swapped for another drill for the position.
+        if let current, isForPosition(current, input: input) {
+            let forPosition = pool.filter { isForPosition($0, input: input) }
+            if !forPosition.isEmpty { pool = forPosition }
+        }
+        // Plyometrics stay plyometrics, so the weekly jump count still holds.
+        if let current {
+            let sameKind = pool.filter { ($0.defaultDose.kind == plyometricDoseKind) == (current.defaultDose.kind == plyometricDoseKind) }
+            if !sameKind.isEmpty { pool = sameKind }
+        }
+        guard !pool.isEmpty else { return nil }
+        let item = pool[((turn % pool.count) + pool.count) % pool.count]
+        let phase = PhaseCalculator.phase(today: input.weekStart, seasonStart: input.seasonStart, seasonEnd: input.seasonEnd)
+        return GeneratedPlannedItem(
+            itemSlug: item.slug, order: planned.order,
+            dose: plannedDose(item, input: input, phase: phase, isYouthEnvelope: age < 18),
+            restSec: item.restSeconds, rationale: rationale(for: item, quality: planned.quality), quality: planned.quality
         )
     }
 

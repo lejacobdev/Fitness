@@ -163,14 +163,12 @@ struct WorkoutTabView: View {
             .fullScreenCover(item: $liveLaunch) { launch in
                 LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind)
             }
-            .confirmationDialog("Delete this plan?", isPresented: $confirmingNewPlan, titleVisibility: .visible) {
-                Button("Delete and build a new one", role: .destructive) {
-                    PlanVariant.buildNew()
+            // A new plan: generate it (randomize, swap single exercises) or build it yourself.
+            .sheet(isPresented: $confirmingNewPlan) {
+                NewGymPlanSheet(athlete: athlete, gymDays: week?.sessions.count ?? 3) {
+                    custom = PlanCustomizationStore.load()
                     onPlanInputsChanged()
                 }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Your gym days get new exercises. Workouts you already logged stay.")
             }
         }
     }
@@ -541,7 +539,7 @@ struct WorkoutTabView: View {
             .buttonStyle(.plain)
             Button { confirmingNewPlan = true } label: {
                 ListRow(systemImage: "arrow.triangle.2.circlepath", color: AppTheme.ink, title: "Build a new gym plan",
-                        detail: "Same rules, different exercises")
+                        detail: "Generate one or build it yourself")
                     .cardStyle(padding: 12)
             }
             .buttonStyle(.plain)

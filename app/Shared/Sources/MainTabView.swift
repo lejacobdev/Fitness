@@ -262,13 +262,44 @@ enum PlanVariant {
     static let key = "plans.variant"
     static var current: Int { UserDefaults.standard.integer(forKey: key) }
     static func buildNew() { UserDefaults.standard.set(current + 1, forKey: key) }
+    static func set(_ variant: Int) { UserDefaults.standard.set(variant, forKey: key) }
     static func backToOriginal() { UserDefaults.standard.removeObject(forKey: key) }
-    static func seed(_ base: String) -> String { current == 0 ? base : "\(base)-v\(current)" }
+    static func seed(_ base: String, variant: Int = current) -> String { variant == 0 ? base : "\(base)-v\(variant)" }
 }
 
 /// Shared by the Today and Plan tabs so the two can never disagree about
 /// what "this week" is.
 enum WeeklyPlan {
+    /// What this week's plan is generated from (a plan variant other than the
+    /// current one when building a new plan, and exercises to leave out).
+    @MainActor
+    static func input(for athlete: Athlete, variant: Int = PlanVariant.current, avoid: Set<String> = [],
+                      catalogue: Catalogue? = nil) -> PlanGeneratorInput? {
+        guard let athleteSport = athlete.activeSport, let sportInfo = allSportsBySlug[athleteSport.sportSlug] else { return nil }
+        let calendar = Calendar.current
+        let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: .now)) ?? .now
+        let basePosition = athleteSport.positionSlug.flatMap { slug in
+            sportInfo.positions.first { $0.slug == slug }?.qualityProfile
+        }
+        let struggles = Struggles.selected
+        let positionProfile = struggles.isEmpty ? basePosition
+            : Struggles.profile(base: basePosition ?? sportInfo.qualityProfile, struggles: struggles)
+        let custom = PlanCustomizationStore.load()
+        return PlanGeneratorInput(
+            sportProfile: sportInfo.qualityProfile, positionProfile: positionProfile,
+            seasonStart: athleteSport.seasonStart, seasonEnd: athleteSport.seasonEnd,
+            weekStart: weekStart, birthDate: athlete.birthDate,
+            trainsUnderCoach: athlete.trainsUnderCoach,
+            equipmentAvailable: Set(athlete.equipmentAvailable),
+            catalogue: catalogue ?? CatalogueLoader.load(from: AppConfig.packsDirectory()),
+            seed: PlanVariant.seed("\(athlete.id)-\(Int(weekStart.timeIntervalSince1970))", variant: variant),
+            timeBudgetMinutesPerSession: custom.settings.effectiveMinutesPerSession ?? 60,
+            sportSlug: athleteSport.sportSlug, positionSlug: athleteSport.positionSlug, formatSlug: athleteSport.formatSlug,
+            sessionsPerWeek: custom.settings.effectiveSessionsPerWeek,
+            experience: TrainingExperience.current, avoid: avoid
+        )
+    }
+
     @MainActor
     static func generate(for athlete: Athlete) -> GeneratedWeek? {
         guard
@@ -281,32 +312,12 @@ enum WeeklyPlan {
             from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: .now)
         ) ?? .now
 
-        let basePosition = athleteSport.positionSlug.flatMap { slug in
-            sportInfo.positions.first { $0.slug == slug }?.qualityProfile
-        }
-        // The athlete's development goals (Me) lean the plan towards them.
-        let struggles = Struggles.selected
-        let positionProfile = struggles.isEmpty ? basePosition
-            : Struggles.profile(base: basePosition ?? sportInfo.qualityProfile, struggles: struggles)
-
         // The athlete's own say: how many gym days, which days, how long, and
         // their own version of any gym day.
         let custom = PlanCustomizationStore.load()
-        let catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
-        let input = PlanGeneratorInput(
-            sportProfile: sportInfo.qualityProfile, positionProfile: positionProfile,
-            seasonStart: athleteSport.seasonStart, seasonEnd: athleteSport.seasonEnd,
-            weekStart: weekStart, birthDate: athlete.birthDate,
-            trainsUnderCoach: athlete.trainsUnderCoach,
-            equipmentAvailable: Set(athlete.equipmentAvailable),
-            catalogue: catalogue,
-            seed: PlanVariant.seed("\(athlete.id)-\(Int(weekStart.timeIntervalSince1970))"),
-            timeBudgetMinutesPerSession: custom.settings.effectiveMinutesPerSession ?? 60,
-            sportSlug: athleteSport.sportSlug, positionSlug: athleteSport.positionSlug, formatSlug: athleteSport.formatSlug,
-            sessionsPerWeek: custom.settings.effectiveSessionsPerWeek,
-            experience: TrainingExperience.current
-        )
-        let customized = PlanCustomizer.apply(custom, to: PlanGenerator.generate(input), catalogue: catalogue)
+        guard let planInput = Self.input(for: athlete) else { return nil }
+        let catalogue = planInput.catalogue
+        let customized = PlanCustomizer.apply(custom, to: PlanGenerator.generate(planInput), catalogue: catalogue)
         // Every fifth week of the building phases is a planned deload.
         let deloaded = Deload.isDeloadWeek(weekStart: weekStart, anchor: athlete.createdAt, phase: customized.phase, calendar: calendar)
             ? Deload.apply(to: customized) : customized
