@@ -528,6 +528,7 @@ struct HomeView: View {
                 Button { activeSheet = .safety } label: {
                     ListRow(systemImage: "bandage.fill", color: AppTheme.coral, title: "You reported pain",
                             detail: pain.involvesHead ? "Hit your head? Stop training and tell an adult."
+                                : pain.areas.contains(.other) ? "Only gentle mobility today. Tell an adult if it doesn't ease."
                                 : (pain.areas.contains { !PainFilter.muscles(for: $0).isEmpty }
                                    ? "Today's workout leaves your \(pain.areas.map { $0.title.lowercased() }.joined(separator: ", ")) alone."
                                    : "Skip anything that hurts. Safety Center"))

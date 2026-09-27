@@ -9,7 +9,7 @@ import Foundation
 // MARK: - Pain
 
 public enum PainArea: String, Codable, Sendable, CaseIterable, Identifiable {
-    case head, neck, shoulder, arm, back, hip, leg, knee, ankle, other
+    case head, neck, shoulder, chest, arm, back, core, hip, leg, knee, ankle, other
     public var id: String { rawValue }
 
     public var title: String {
@@ -17,8 +17,10 @@ public enum PainArea: String, Codable, Sendable, CaseIterable, Identifiable {
         case .head: "Head"
         case .neck: "Neck"
         case .shoulder: "Shoulder"
+        case .chest: "Chest"
         case .arm: "Arm / wrist"
         case .back: "Back"
+        case .core: "Stomach / sides"
         case .hip: "Hip / groin"
         case .leg: "Thigh / calf"
         case .knee: "Knee"

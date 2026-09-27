@@ -22,13 +22,23 @@ public enum PainFilter {
         case .knee: quads.union(hamstrings).union(["gastrocnemius"])
         case .ankle: calves
         case .hip: hips.union(["rectus-femoris"])
-        case .back: ["erector-spinae", "quadratus-lumborum", "multifidus"]
+        case .back: ["erector-spinae", "quadratus-lumborum", "multifidus", "latissimus-dorsi", "rhomboids",
+                     "trapezius-middle", "trapezius-lower", "teres-major"]
         case .shoulder: ["deltoid-anterior", "deltoid-lateral", "deltoid-posterior", "infraspinatus", "teres-minor", "teres-major",
                          "serratus-anterior", "pectoralis-major", "pectoralis-minor", "trapezius-upper"]
+        case .chest: ["pectoralis-major", "pectoralis-minor", "serratus-anterior", "deltoid-anterior"]
+        case .core: ["rectus-abdominis", "obliques-external", "obliques-internal", "transverse-abdominis", "quadratus-lumborum"]
         case .arm: ["biceps-brachii", "triceps-brachii", "brachialis", "brachioradialis", "forearm-flexors", "forearm-extensors"]
         case .neck: ["neck-extensors", "sternocleidomastoid", "trapezius-upper", "levator-scapulae"]
+        // Not a muscle group: handled by `isUnplaced` (only gentle mobility).
         case .head, .other: []
         }
+    }
+
+    /// Pain we can't place on a muscle group (a head knock, "somewhere else"):
+    /// only mobility and breathing stay, nothing loaded.
+    static func isUnplaced(_ area: PainArea) -> Bool {
+        area == .head || area == .other
     }
 
     /// Pain in the lower body rules out jumping and running on it too.
@@ -39,6 +49,11 @@ public enum PainFilter {
     /// Whether the item loads any of these areas.
     public static func loads(_ item: CatalogueItem, areas: Set<PainArea>) -> Bool {
         guard !areas.isEmpty else { return false }
+        if areas.contains(where: isUnplaced) {
+            // Only easy mobility and breathing: no load, no jumps, no sprints.
+            let gentle = (item.qualities["hip-mobility"] ?? 0) >= 0.7 || item.slug.contains("breathing") || item.slug.contains("stretch")
+            return !gentle || item.defaultDose.kind == plyometricDoseKind
+        }
         let sore = areas.reduce(into: Set<String>()) { $0.formUnion(muscles(for: $1)) }
         if item.muscles.contains(where: { sore.contains($0.key) && $0.value >= threshold }) { return true }
         if areas.contains(where: isLowerBody), ["contacts", "distance"].contains(item.defaultDose.kind) { return true }

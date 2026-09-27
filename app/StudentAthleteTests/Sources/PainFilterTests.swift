@@ -69,4 +69,25 @@ final class PainFilterTests: XCTestCase {
         let slugs = Set(PlanGenerator.generate(input).sessions.flatMap { $0.items.map(\.itemSlug) })
         XCTAssertEqual(slugs, ["hip-thrust"])
     }
+
+    func testEveryAreaIsCoveredNotOnlyLegs() {
+        let row = item("row", muscles: ["latissimus-dorsi": 0.8, "rhomboids": 0.5], quality: "upper-body-pull")
+        let bench = item("bench", muscles: ["pectoralis-major": 0.8], quality: "upper-body-push")
+        let crunch = item("dead-bug", muscles: ["rectus-abdominis": 0.8], quality: "trunk-anti-rotation")
+        let curl = item("curl", muscles: ["biceps-brachii": 0.9], quality: "upper-body-pull")
+        let squat = item("squat", muscles: ["vastus-lateralis": 0.8])
+        XCTAssertTrue(PainFilter.loads(row, areas: [.back]), "upper back counts as back")
+        XCTAssertTrue(PainFilter.loads(bench, areas: [.chest]))
+        XCTAssertTrue(PainFilter.loads(crunch, areas: [.core]))
+        XCTAssertTrue(PainFilter.loads(curl, areas: [.arm]))
+        XCTAssertFalse(PainFilter.loads(squat, areas: [.chest]))
+        // Somewhere we can't place: only gentle mobility stays.
+        let stretch = item("couch-stretch", muscles: ["rectus-femoris": 0.6], quality: "hip-mobility", dose: Dose(kind: "time", sets: 2, seconds: 45))
+        XCTAssertTrue(PainFilter.loads(squat, areas: [.other]))
+        XCTAssertFalse(PainFilter.loads(stretch, areas: [.other]))
+        // Every area except the two we can't place maps to muscles.
+        for area in PainArea.allCases where area != .head && area != .other {
+            XCTAssertFalse(PainFilter.muscles(for: area).isEmpty, "\(area) maps to muscles")
+        }
+    }
 }
