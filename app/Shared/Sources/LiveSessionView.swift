@@ -123,7 +123,7 @@ public struct LiveSessionView: View {
             setIdleTimerDisabled(false)
         }
         .sheet(isPresented: $showingPicker) {
-            ExercisePickerSheet(catalogue: catalogue) { item in
+            ExercisePickerSheet(catalogue: catalogue, sports: SportVisibility.sports(for: athlete)) { item in
                 add(item)
             }
         }
@@ -672,6 +672,8 @@ struct BigStepper: View {
 /// Search the downloaded library and add an exercise to the session.
 struct ExercisePickerSheet: View {
     let catalogue: Catalogue
+    /// Whose drills may show (SportVisibility): never another sport's.
+    let sports: [SportVisibility.Sport]
     let onPick: (CatalogueItem) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
@@ -679,7 +681,7 @@ struct ExercisePickerSheet: View {
 
     private var items: [CatalogueItem] {
         let filtered = catalogue.itemsBySlug.values
-            .filter { group == nil || $0.primaryQuality?.group == group }
+            .filter { (group == nil || $0.primaryQuality?.group == group) && SportVisibility.isVisible($0, sports: sports) }
             .sorted { $0.name < $1.name }
         return CatalogueSearch.rank(filtered, query: searchText)
     }

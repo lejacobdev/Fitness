@@ -32,6 +32,11 @@ struct HomeView: View {
     @State private var pendingAction: QuickAction?
     /// Picked in "Today completed": opens once that popup has closed.
     @State private var pendingToDo: DayCompletion.Kind?
+    /// Picked in search: opens once the search has closed.
+    @State private var pendingSearch: AppSearchTarget?
+    @State private var searchDestination: SearchBox?
+    @State private var proFeature: ProFeature?
+    @State private var showingUpgrade = false
     @State private var preview: PreviewBox?
     @State private var loaded = false
     @State private var routine: MindsetRoutine?
@@ -48,7 +53,7 @@ struct HomeView: View {
     @State private var drag = HomeDragState()
 
     enum HomeSheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, reflection, today, safety, mindset, tests
+        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, reflection, today, search, safety, mindset, tests
         var id: String { rawValue }
     }
 
@@ -327,6 +332,7 @@ struct HomeView: View {
                 revision += 1
                 runPendingAction()
                 runPendingToDo()
+                runPendingSearch()
             }) { sheet in
                 switch sheet {
                 case .quickActions:
@@ -365,6 +371,11 @@ struct HomeView: View {
                         activeSheet = nil
                     }
                     .presentationDetents([.medium, .large])
+                case .search:
+                    AppSearchSheet(entries: searchEntries, exercises: searchableExercises) { target in
+                        pendingSearch = target
+                        activeSheet = nil
+                    }
                 case .schedule:
                     ScheduleSheet(athlete: athlete) {
                         practiceDays = PracticeSchedule.weekdays
@@ -388,6 +399,125 @@ struct HomeView: View {
             .fullScreenCover(item: $liveLaunch) { launch in
                 LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind)
             }
+            .sheet(item: $searchDestination, onDismiss: { revision += 1 }) { box in
+                searchView(box.target)
+            }
+            .proFeature(item: $proFeature, athlete: athlete)
+            .proPaywall(isPresented: $showingUpgrade, athlete: athlete, feature: .multipleSports)
+        }
+    }
+
+    // MARK: - Search
+
+    struct SearchBox: Identifiable {
+        let id = UUID()
+        let target: AppSearchTarget
+    }
+
+    /// Everything search can find right now.
+    private var searchEntries: [AppSearchEntry] {
+        AppSearch.functions + AppSearch.workoutModes() + AppSearch.gymDays(week)
+            + AppSearch.myWorkouts(MyWorkoutsStore.load()) + AppSearch.lessons(learned: CampusProgress.learned(campusLearnedRaw))
+    }
+
+    /// General exercises and the drills of the athlete's own sport(s) only.
+    private var searchableExercises: [CatalogueItem] {
+        let sports = SportVisibility.sports(for: athlete)
+        return catalogue.itemsBySlug.values
+            .filter { SportVisibility.isVisible($0, sports: sports) }
+            .sorted { $0.name < $1.name }
+    }
+
+    private func runPendingSearch() {
+        guard let target = pendingSearch else { return }
+        pendingSearch = nil
+        switch target {
+        case .checkIn: activeSheet = .checkIn
+        case .addGame: activeSheet = .addGame
+        case .history: activeSheet = .history
+        case .fuel: activeSheet = .fuel
+        case .dayStatus: activeSheet = .dayStatus
+        case .schedule: activeSheet = .schedule
+        case .reflection: activeSheet = .reflection
+        case .today: activeSheet = .today
+        case .safety: activeSheet = .safety
+        case .mindset: activeSheet = .mindset
+        case .tests: activeSheet = .tests
+        case .logWorkout: liveLaunch = LiveSessionLaunch(planned: nil)
+        case .breathing: routine = .breathing
+        case .visualization: routine = .visualization
+        case .tab(let tab): selectedTab = tab
+        case .lesson(let id):
+            CampusLaunch.shared.pendingLessonID = id
+            selectedTab = .campus
+        case .workoutMode(let mode):
+            if let session = searchSession(mode) {
+                preview = PreviewBox(session: session, kind: workoutKind(mode))
+            } else {
+                selectedTab = .workout
+            }
+        case .gymDay(let index):
+            if let sessions = week?.sessions, sessions.indices.contains(index) {
+                preview = PreviewBox(session: adjusted(sessions[index]), kind: .gym)
+            }
+        case .myWorkout(let id):
+            if let workout = MyWorkoutsStore.load().first(where: { $0.id == id }) {
+                preview = PreviewBox(session: TodaysPain.apply(workout.session(date: .now, catalogue: catalogue), athlete: athlete, catalogue: catalogue),
+                                     kind: .gym)
+            }
+        case .exerciseProgress:
+            if ProAccess.isPro { searchDestination = SearchBox(target: target) } else { proFeature = .exerciseProgress }
+        case .upgrade: showingUpgrade = true
+        default: searchDestination = SearchBox(target: target)
+        }
+    }
+
+    /// A workout type found in search, built for today like Home's own.
+    private func searchSession(_ mode: WorkoutMode) -> GeneratedSession? {
+        if mode == .gymDay {
+            let planned = week?.sessions.first { calendar.isDateInToday($0.date) } ?? week?.sessions.first
+            return planned.map { adjusted($0) }
+        }
+        return WorkoutModeBuilder.build(mode, modeContext).map { TodaysPain.apply($0, athlete: athlete, catalogue: catalogue) }
+    }
+
+    @ViewBuilder
+    private func searchView(_ target: AppSearchTarget) -> some View {
+        switch target {
+        case .practiceLog: PracticeLogSheet(athlete: athlete, date: .now)
+        case .sports: SportsManagerSheet(athlete: athlete, onChanged: onPlanInputsChanged)
+        case .season: SeasonEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
+        case .equipment: EquipmentEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
+        case .experience: ExperienceEditorSheet(onSaved: onPlanInputsChanged)
+        case .name: NameEditorSheet(athlete: athlete)
+        case .reports:
+            #if os(iOS)
+            ReportsSheet(athlete: athlete, sessions: allSessions, catalogue: catalogue)
+            #else
+            EmptyView()
+            #endif
+        case .checkIns: CheckInHistoryView(checkIns: athlete.checkIns)
+        case .exerciseProgress: ExerciseProgressListView(sessions: allSessions, catalogue: catalogue)
+        case .dataExport: DataExportView(athlete: athlete, sessions: allSessions)
+        case .reminders: RemindersSheet(athlete: athlete)
+        case .downloads: DownloadsSheet(athlete: athlete)
+        case .health: HealthPermissionView()
+        case .help: HelpCenterView()
+        case .team: MyTeamView()
+        case .coach: CoachView()
+        case .parent: ParentSummaryView()
+        case .goals: StrugglesSheet(onSaved: onPlanInputsChanged)
+        case .trends:
+            TrendsSheet(athlete: athlete, sessions: allSessions, balance: CoachEngine.muscleBalance(sessions: allSessions.map { session in
+                CoachSession(date: session.startedAt, minutes: session.minutes, rpe: session.sessionRPE,
+                             sets: session.sets.map { CoachSet(itemSlug: $0.itemSlug, reps: $0.reps, weightKg: $0.weightKg) })
+            }, catalogue: catalogue))
+        case .library: LibraryView(athlete: athlete)
+        case .sportGuide: SportGuideView(athlete: athlete)
+        case .leagues: LeaguesView(stats: CampusProgress.stats())
+        case .badges: BadgesView()
+        case .newGymPlan: NewGymPlanSheet(athlete: athlete, gymDays: week?.sessions.count ?? 3, onChanged: onPlanInputsChanged)
+        default: EmptyView()
         }
     }
 
@@ -460,7 +590,7 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Today is: \(status.title). Change what kind of day it is.")
-            Spacer(minLength: 0)
+            searchButton
             HStack(spacing: 6) {
                 Image(systemName: "flame.fill").foregroundStyle(AppTheme.orange)
                 Text("\(streak)").foregroundStyle(AppTheme.ink).contentTransition(.numericText())
@@ -481,6 +611,30 @@ struct HomeView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Add: log a workout, add a game, food or past workouts")
         }
+    }
+
+    /// Search everything: fills the space between the day and the streak.
+    private var searchButton: some View {
+        Button { activeSheet = .search } label: {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                    Text("Search")
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                Image(systemName: "magnifyingglass")
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(AppTheme.secondaryText)
+            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity, minHeight: 44, maxHeight: 44)
+            .background(AppTheme.card, in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Search")
+        .accessibilityHint("Find any part of the app, a workout, a lesson or an exercise")
     }
 
     private var greeting: String {

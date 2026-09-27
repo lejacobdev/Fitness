@@ -55,8 +55,13 @@ public struct LibraryView: View {
     private var sportSlug: String? { athlete?.activeSport?.sportSlug }
     private var sportName: String? { sportSlug.flatMap { allSportsBySlug[$0]?.name } }
 
+    /// General exercises and the athlete's own sport's drills (every sport
+    /// they play on Pro); other sports' drills stay hidden.
     private var allItems: [CatalogueItem] {
-        catalogue.itemsBySlug.values.sorted { $0.name < $1.name }
+        let sports = athlete.map { SportVisibility.sports(for: $0) }
+        return catalogue.itemsBySlug.values
+            .filter { item in sports.map { SportVisibility.isVisible(item, sports: $0) } ?? true }
+            .sorted { $0.name < $1.name }
     }
 
     private var surfaces: [String] {

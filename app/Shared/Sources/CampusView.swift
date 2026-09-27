@@ -307,6 +307,15 @@ struct CampusView: View {
                 .presentationDetents([.medium])
         }
         .task { await LeagueSync.report() }
+        // A lesson picked in Home's search.
+        .onAppear { openPendingLesson() }
+        .onChange(of: CampusLaunch.shared.pendingLessonID) { openPendingLesson() }
+    }
+
+    private func openPendingLesson() {
+        guard let id = CampusLaunch.shared.pendingLessonID else { return }
+        CampusLaunch.shared.pendingLessonID = nil
+        if let lesson = campusTopics.flatMap(\.lessons).first(where: { $0.id == id }) { start(lesson) }
     }
 
     /// Unit colours, as accents only.
