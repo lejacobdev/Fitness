@@ -36,14 +36,22 @@ The repo is public: no secrets, key IDs or server internals go in this file.
   lists only features that really are gated. The daily habit stays free (check-in, plan,
   all workout modes, logging, Watch, safety, Campus 3 lessons/day, sport guides, teams).
 
-## Design (V3: "calm, premium personal performance system")
-- Main colours black + white (`AppTheme.accent`); red #E5383B (`AppTheme.brand`) and coral
-  are accents only. True black #000 dark mode, neutral greys, **never blue surfaces**.
-  One real blue, `AppTheme.water` #1CB0F6, only as a meaningful accent (water, Campus
-  unit 2, mobility, breathing). Tokens: `app/Shared/Sources/DesignSystem.swift`.
-- Minimal but big: athletes use it sweaty and one-handed. Type page 32 bold / section 22
-  semibold / card 18–21 / body 15–17; buttons 52–56pt; card radius 20, controls 14.
-- ~30–40% less text; each card answers one question. No lock icons: Pro features explain
+## Design (V5: "cinematic premium sports performance")
+- Always dark (`.preferredColorScheme(.dark)`): near-black #050608 space with soft crimson
+  light fields (`AppBackground`, `.appScreen(.hero, sportSlug:)` on the main tabs). Red
+  #EF4444 / #FF5A5F / crimson #C81E2A is **light** — glows, edges, the selected tab — never
+  a flat fill. Three layers: atmosphere, frosted glass (`glassSurface`, `glassCapsule`), type.
+- Sport atmosphere = abstract geometry at 2–8% opacity (`SportAtmosphere`), never photos.
+- Big type and numbers (hero 44–88pt), tracked uppercase eyebrows, few icons, section
+  spacing 48–72. Primary button = glass lit red (`.primary`, `HeroCTALabel("…")` →);
+  secondary = outlined. Data on glass: `GlassMetric` (asymmetric heights).
+- Activity colours: gym red, practice orange, after-practice yellow, mobility cyan, game
+  green; a day with several splits the dot (`PieDot`). Campus categories have their own
+  accent (`CampusView.color(for:)`). Readiness is a word + `ReadinessScale`, never a %.
+- Strongest treatment only on Home, Workout hero, Campus hero, Progress overview, Me header;
+  settings, logging, lists and safety stay calm and readable. Motion smooth, never bouncy.
+- Tokens: `app/Shared/Sources/DesignSystem.swift`; Home pieces in `HomeDay.swift`.
+- ~30–40% less text; each block answers one question. No lock icons: Pro features explain
   the benefit with one Upgrade button (`.proFeature(...)`). Insights neutral.
 - Wording: Development Goals, Today's Focus, Recommended Training, Practice Log,
   Training History, Quick Log / Detailed Log.

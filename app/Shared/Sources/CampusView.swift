@@ -239,7 +239,7 @@ struct CampusView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 28) {
                     header
                     recommendedCard
                     dailyAllowance
@@ -270,7 +270,7 @@ struct CampusView: View {
                 .padding(.vertical, 8)
             }
             .scrollIndicators(.hidden)
-            .appScreen()
+            .appScreen(.hero)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: CampusTopic.self) { topic in
                 LearningAreaView(topic: topic, color: Self.color(for: topic)) { lesson in start(lesson) }
@@ -319,9 +319,21 @@ struct CampusView: View {
     }
 
     /// Unit colours, as accents only.
+    /// V5 category accents: Training Science red, Nutrition green, Recovery
+    /// cyan, Psychology purple, Biomechanics blue, Sport IQ orange.
     static func color(for topic: CampusTopic) -> Color {
-        let index = campusTopics.firstIndex(of: topic) ?? 0
-        return Duo.units[index % Duo.units.count].0
+        switch topic.id {
+        case "training-science": AppTheme.brand
+        case "nutrition": AppTheme.green
+        case "injury-anatomy": AppTheme.coral
+        case "sleep": AppTheme.cyan
+        case "psychology": AppTheme.purple
+        case "technique": AppTheme.water
+        case "tactics": AppTheme.orange
+        case "tracking": AppTheme.yellow
+        case "teamwork": Color(hex: "#FF86D0")
+        default: AppTheme.amber
+        }
     }
 
     /// Plays a lesson: replays are always free; new lessons have a daily allowance on free.
@@ -335,40 +347,68 @@ struct CampusView: View {
 
     // MARK: Header: title and the quiet numbers
 
+    /// V5: an editorial hero — the level huge, XP as a thin line of light.
     private var header: some View {
         let level = CampusProgress.level(xp: xp)
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Athlete Campus")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(AppTheme.ink)
+        return VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center) {
+                Text("ATHLETE CAMPUS")
+                    .font(.caption.weight(.bold))
+                    .tracking(2.4)
+                    .foregroundStyle(AppTheme.secondaryText)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 8)
-                HStack(spacing: 2) {
+                HStack(spacing: 6) {
                     iconButton("trophy", "Leagues with your teammates") { showingLeagues = true }
                     iconButton("medal", "Your badges") { showingBadges = true }
                     iconButton("books.vertical", "Exercise library") { showingLibrary = true }
                 }
             }
-            HStack(spacing: 14) {
-                Label("\(CampusProgress.currentStreak(streak: streak, lastDay: lastDay))", systemImage: "flame.fill")
-                Text("Level \(level.level)")
-                Text("\(xp) XP")
-                Text("\(learned.count)/\(totalLessons) lessons")
+            VStack(alignment: .leading, spacing: 2) {
+                Text("LEVEL")
+                    .font(.footnote.weight(.bold))
+                    .tracking(2)
+                    .foregroundStyle(AppTheme.brightRed)
+                Text(level.level < 10 ? "0\(level.level)" : "\(level.level)")
+                    .font(.system(size: 88, weight: .bold).monospacedDigit())
+                    .foregroundStyle(AppTheme.ink)
+                    .background(alignment: .leading) { HeroBloom(color: AppTheme.brand).offset(x: -40) }
             }
-            .font(.subheadline)
-            .foregroundStyle(AppTheme.secondaryText)
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Level \(level.level)")
+            VStack(alignment: .leading, spacing: 8) {
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.white.opacity(0.10))
+                        Capsule()
+                            .fill(LinearGradient(colors: [AppTheme.crimson, AppTheme.brightRed], startPoint: .leading, endPoint: .trailing))
+                            .frame(width: max(4, proxy.size.width * level.progress))
+                            .shadow(color: AppTheme.brand.opacity(0.7), radius: 6)
+                    }
+                }
+                .frame(height: 3)
+                HStack(spacing: 16) {
+                    Text("\(xp) XP")
+                    Label("\(CampusProgress.currentStreak(streak: streak, lastDay: lastDay))", systemImage: "flame.fill")
+                    Text("\(learned.count)/\(totalLessons) LESSONS")
+                }
+                .font(.caption.weight(.bold).monospacedDigit())
+                .tracking(1.2)
+                .foregroundStyle(AppTheme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            }
         }
+        .padding(.top, 8)
     }
 
     private func iconButton(_ systemImage: String, _ label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.body.weight(.semibold))
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.ink)
                 .frame(width: 44, height: 44)
+                .glassCapsule()
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
@@ -410,14 +450,14 @@ struct CampusView: View {
     @ViewBuilder
     private var recommendedCard: some View {
         if let pick = todayPick {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
                 Text("FOR TODAY · \(pick.lesson.minutes) MIN")
                     .font(.caption.weight(.bold))
-                    .tracking(0.8)
-                    .foregroundStyle(AppTheme.secondaryText)
-                VStack(alignment: .leading, spacing: 4) {
+                    .tracking(2)
+                    .foregroundStyle(Self.color(for: pick.topic))
+                VStack(alignment: .leading, spacing: 6) {
                     Text(pick.lesson.title)
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.system(size: 28, weight: .bold))
                         .foregroundStyle(AppTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(pick.reason)
@@ -425,33 +465,36 @@ struct CampusView: View {
                         .foregroundStyle(AppTheme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Button("Start") {
+                Button {
                     if learned.contains(pick.lesson.id) || CampusProgress.lessonsLeftToday() != 0 { playing = pick.lesson } else { showingPaywall = true }
-                }
+                } label: { HeroCTALabel("Start") }
                 .buttonStyle(.primary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .cardStyle(padding: 20)
+            .padding(22)
+            .glassSurface(tint: Self.color(for: pick.topic))
         } else if let next = recommended {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("RECOMMENDED · \(next.lesson.minutes) MIN")
+            VStack(alignment: .leading, spacing: 14) {
+                Text("NEXT LESSON · \(next.lesson.minutes) MIN")
                     .font(.caption.weight(.bold))
-                    .tracking(0.8)
+                    .tracking(2)
                     .foregroundStyle(AppTheme.secondaryText)
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(next.lesson.title)
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.system(size: 28, weight: .bold))
                         .foregroundStyle(AppTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
-                    Label(next.topic.title, systemImage: next.topic.systemImage)
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
+                    Text(next.topic.title.uppercased())
+                        .font(.caption.weight(.bold))
+                        .tracking(1.6)
+                        .foregroundStyle(Self.color(for: next.topic))
                 }
-                Button(learned.isEmpty ? "Start" : "Continue") { start(next.lesson) }
+                Button { start(next.lesson) } label: { HeroCTALabel(learned.isEmpty ? "Start" : "Continue") }
                     .buttonStyle(.primary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .cardStyle(padding: 20)
+            .padding(22)
+            .glassSurface(tint: Self.color(for: next.topic))
         } else {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Every lesson done")

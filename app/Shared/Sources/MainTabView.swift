@@ -47,25 +47,31 @@ public struct MainTabView: View {
         TabView(selection: $selectedTab) {
             HomeView(athlete: athlete, apiClient: apiClient, week: week, selectedTab: $selectedTab, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Home", systemImage: "house.fill") }
+                .tint(AppTheme.accent)
                 .tag(AppTab.today)
 
             CampusView(athlete: athlete)
                 .tabItem { Label("Campus", systemImage: "graduationcap.fill") }
+                .tint(AppTheme.accent)
                 .tag(AppTab.campus)
 
             WorkoutTabView(athlete: athlete, apiClient: apiClient, week: week, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Workout", systemImage: "figure.strengthtraining.traditional") }
+                .tint(AppTheme.accent)
                 .tag(AppTab.workout)
 
             ProgressTabView(athlete: athlete, week: week, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Progress", systemImage: "calendar") }
+                .tint(AppTheme.accent)
                 .tag(AppTab.progress)
 
             MeView(athlete: athlete, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Me", systemImage: "person.fill") }
+                .tint(AppTheme.accent)
                 .tag(AppTab.me)
         }
-        .tint(AppTheme.accent)
+        // V5: the selected tab is lit red; each screen keeps the white tint.
+        .tint(AppTheme.brightRed)
         // Counted after the switch, never inside the tab bar's own binding
         // (a hand-made binding there sent lesson taps to the Me tab).
         .onChange(of: selectedTab) { _, tab in UsageCounts.count("tab.\(tab)") }

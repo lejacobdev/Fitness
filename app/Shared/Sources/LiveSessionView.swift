@@ -205,20 +205,38 @@ public struct LiveSessionView: View {
         .transition(.opacity)
     }
 
+    /// V5: "03 / 08", the name big, the dose as one tracked line, rest and
+    /// why underneath.
     private func itemHeader(_ current: GeneratedPlannedItem) -> some View {
         let done = setsLogged[current.itemSlug, default: 0]
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("Exercise \(index + 1) of \(queue.count)")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(AppTheme.secondaryText)
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(String(format: "%02d / %02d", index + 1, queue.count))
+                .font(.footnote.weight(.bold).monospacedDigit())
+                .tracking(2)
+                .foregroundStyle(AppTheme.brightRed)
+                .accessibilityLabel("Exercise \(index + 1) of \(queue.count)")
             Text(currentItem?.name ?? displayName(forSlug: current.itemSlug))
-                .font(.system(size: 26, weight: .bold))
+                .font(.system(size: 32, weight: .bold))
                 .foregroundStyle(AppTheme.ink)
-            HStack(spacing: 8) {
-                Tag("Goal: \(DoseFormatter.text(current.dose))", color: AppTheme.ink)
-                Tag(done >= current.dose.sets ? "All sets done" : "Set \(min(done + 1, current.dose.sets)) of \(current.dose.sets)",
-                    color: done >= current.dose.sets ? AppTheme.green : AppTheme.orange)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(DoseFormatter.text(current.dose).uppercased())
+                .font(.title3.weight(.bold).monospacedDigit())
+                .tracking(1.2)
+                .foregroundStyle(AppTheme.ink)
+            HStack(spacing: 18) {
+                Text(done >= current.dose.sets ? "ALL SETS DONE" : "SET \(min(done + 1, current.dose.sets)) OF \(current.dose.sets)")
+                    .foregroundStyle(done >= current.dose.sets ? AppTheme.green : AppTheme.ink)
+                if current.restSec > 0 {
+                    Text("REST \(current.restSec)S")
+                }
+                if let why = whyLine {
+                    Text("WHY · \(why.uppercased())")
+                        .lineLimit(1)
+                }
             }
+            .font(.caption.weight(.bold).monospacedDigit())
+            .tracking(1.4)
+            .foregroundStyle(AppTheme.secondaryText)
             if let bestNote {
                 Label(bestNote, systemImage: "trophy.fill")
                     .font(.subheadline.weight(.semibold))
@@ -231,6 +249,12 @@ public struct LiveSessionView: View {
                     .foregroundStyle(AppTheme.secondaryText)
             }
         }
+    }
+
+    /// What the exercise is mainly for, in a word or two ("Power").
+    private var whyLine: String? {
+        guard let top = currentItem?.qualities.max(by: { $0.value < $1.value })?.key else { return nil }
+        return qualitiesBySlug[top]?.shortName
     }
 
     // MARK: - Logging
@@ -398,7 +422,7 @@ public struct LiveSessionView: View {
                     Button("Skip rest") { endRest(silently: true) }
                         .buttonStyle(.secondary)
                 } else {
-                    Button("Log set") { logSet(current) }
+                    Button { logSet(current) } label: { HeroCTALabel("Complete set") }
                         .buttonStyle(.primary)
                 }
             }
@@ -408,7 +432,8 @@ public struct LiveSessionView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-        .background(AppTheme.background)
+        .background(AppTheme.background.opacity(0.85))
+        .background(.ultraThinMaterial)
     }
 
     private var emptyState: some View {

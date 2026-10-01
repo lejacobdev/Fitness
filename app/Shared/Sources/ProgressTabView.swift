@@ -8,9 +8,9 @@ enum ProgressColors {
     /// Team practice.
     static let practice = AppTheme.orange
     /// The extra workout after practice.
-    static let afterPractice = Color(hex: "#FACC15")
+    static let afterPractice = AppTheme.yellow
     /// Stretching and mobility.
-    static let mobility = AppTheme.water
+    static let mobility = AppTheme.cyan
     /// A game or competition.
     static let game = AppTheme.green
 }
@@ -51,7 +51,7 @@ struct DayMarks: Equatable {
 }
 
 /// A dot split into one slice per thing that happened that day (red gym,
-/// orange practice, yellow after practice, blue mobility, green game);
+/// orange practice, yellow after practice, cyan mobility, green game);
 /// planned things are outlined.
 struct PieDot: View {
     let marks: DayMarks
@@ -198,8 +198,8 @@ struct ProgressTabView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Progress")
                     summaryCard
+                        .padding(.bottom, 20)
                     calendarCard
                     practiceSection
                     thirtyDaysSection
@@ -213,7 +213,7 @@ struct ProgressTabView: View {
                 .containerRelativeFrame(.horizontal)
             }
             .scrollIndicators(.hidden)
-            .appScreen()
+            .appScreen(.hero)
             .toolbar(.hidden, for: .navigationBar)
             .onAppear { revision += 1 }
             .sheet(item: $selectedDay, onDismiss: { revision += 1 }) { box in
@@ -246,41 +246,84 @@ struct ProgressTabView: View {
     // MARK: Summary
 
     /// This week at a glance: how many of each, Monday to Sunday.
+    /// V5: the week as telemetry — one big number, a line of light split
+    /// by what it was made of, and the parts underneath.
     private var summaryCard: some View {
         let all = marksByDay
         let week = weekTotals(all)
         let streak = AthleteStats.streak(checkInDates: athlete.checkIns.map(\.date), sessionDates: sessions.map(\.startedAt))
-        return VStack(alignment: .leading, spacing: 14) {
+        let parts: [(value: Int, label: String, color: Color)] = [
+            (week.gym, "Gym", ProgressColors.workout), (week.practices, "Practice", ProgressColors.practice),
+            (week.afterPractice, "After", ProgressColors.afterPractice), (week.mobility, "Mobility", ProgressColors.mobility),
+            (week.games, "Games", ProgressColors.game),
+        ]
+        let total = parts.reduce(0) { $0 + $1.value }
+        return VStack(alignment: .leading, spacing: 18) {
             HStack {
-                Text("This Week")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(AppTheme.ink)
+                Text("PROGRESS · THIS WEEK")
+                    .font(.caption.weight(.bold))
+                    .tracking(2.4)
+                    .foregroundStyle(AppTheme.mutedText)
+                    .accessibilityAddTraits(.isHeader)
                 Spacer()
                 Label("\(streak)", systemImage: "flame.fill")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.subheadline.weight(.semibold).monospacedDigit())
                     .foregroundStyle(AppTheme.ink)
+                    .padding(.horizontal, 12)
+                    .frame(height: 34)
+                    .glassCapsule()
                     .accessibilityLabel("\(streak) day streak")
             }
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(total < 10 ? "0\(total)" : "\(total)")
+                    .font(.system(size: 88, weight: .bold).monospacedDigit())
+                    .foregroundStyle(AppTheme.ink)
+                    .background(alignment: .leading) { HeroBloom(color: AppTheme.brand).offset(x: -40) }
+                Text(total == 1 ? "SESSION" : "SESSIONS")
+                    .font(.headline)
+                    .tracking(1.6)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            .accessibilityElement(children: .combine)
+            GeometryReader { proxy in
+                HStack(spacing: 3) {
+                    if total == 0 {
+                        Capsule().fill(Color.white.opacity(0.10))
+                    } else {
+                        ForEach(parts.indices, id: \.self) { index in
+                            let part = parts[index]
+                            if part.value > 0 {
+                                Capsule()
+                                    .fill(part.color)
+                                    .frame(width: max(4, (proxy.size.width - 12) * CGFloat(part.value) / CGFloat(total)))
+                                    .shadow(color: part.color.opacity(0.6), radius: 5)
+                            }
+                        }
+                    }
+                }
+            }
+            .frame(height: 4)
+            .accessibilityHidden(true)
             HStack(spacing: 6) {
-                stat(week.gym, "Gym", ProgressColors.workout)
-                stat(week.practices, "Practice", ProgressColors.practice)
-                stat(week.afterPractice, "After", ProgressColors.afterPractice)
-                stat(week.mobility, "Mobility", ProgressColors.mobility)
-                stat(week.games, "Games", ProgressColors.game)
+                ForEach(parts.indices, id: \.self) { index in
+                    stat(parts[index].value, parts[index].label, parts[index].color)
+                }
             }
         }
-        .cardStyle(padding: 20)
+        .padding(.top, 16)
     }
 
     private func stat(_ value: Int, _ label: String, _ color: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("\(value)")
-                .font(.system(size: 26, weight: .bold))
-                .foregroundStyle(AppTheme.ink)
-            HStack(spacing: 4) {
-                Circle().fill(color).frame(width: 8, height: 8)
-                Text(label).font(.caption).foregroundStyle(AppTheme.secondaryText).lineLimit(1).minimumScaleFactor(0.8)
-            }
+                .font(.system(size: 26, weight: .bold).monospacedDigit())
+                .foregroundStyle(value == 0 ? AppTheme.mutedText : AppTheme.ink)
+            Text(label.uppercased())
+                .font(.caption2.weight(.bold))
+                .tracking(1.2)
+                .foregroundStyle(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)

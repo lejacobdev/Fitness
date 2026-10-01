@@ -81,12 +81,8 @@ struct WorkoutTabView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Workout")
-                    Text("TODAY'S TRAINING")
-                        .font(.caption.weight(.bold))
-                        .tracking(0.8)
-                        .foregroundStyle(AppTheme.secondaryText)
                     recommendedCard
+                        .padding(.bottom, 24)
                     otherModes
                     weekSection
                     myWorkoutsSection
@@ -99,7 +95,7 @@ struct WorkoutTabView: View {
                 .containerRelativeFrame(.horizontal)
             }
             .scrollIndicators(.hidden)
-            .appScreen()
+            .appScreen(.hero, sportSlug: athlete.activeSport?.sportSlug)
             .toolbar(.hidden, for: .navigationBar)
             .task {
                 catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
@@ -229,67 +225,94 @@ struct WorkoutTabView: View {
         }
     }
 
+    /// V5: the cinematic top — the session's name and minutes huge, glass
+    /// numbers, one lit button. The list below stays practical.
     @ViewBuilder
     private var recommendedCard: some View {
         let rec = recommendation
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(rec.mode.map { $0 == .gymDay ? (gymSession?.session.title ?? $0.title) : $0.title } ?? "Rest today")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(AppTheme.ink)
+        VStack(spacing: 16) {
+            Text("TODAY'S TRAINING")
+                .font(.caption.weight(.bold))
+                .tracking(2.4)
+                .foregroundStyle(AppTheme.mutedText)
+                .accessibilityAddTraits(.isHeader)
+            Text((rec.mode.map { $0 == .gymDay ? (gymSession?.session.title ?? $0.title) : $0.title } ?? "Rest today").uppercased())
+                .font(.system(size: 40, weight: .bold))
+                .foregroundStyle(AppTheme.ink)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.6)
+                .background(HeroBloom(color: rec.mode.map(color) ?? AppTheme.brand))
+            if let session = recommendedSession {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(session.estimatedMinutes)")
+                        .font(.system(size: 76, weight: .bold).monospacedDigit())
+                        .foregroundStyle(AppTheme.ink)
+                    Text("MIN")
+                        .font(.title3.weight(.semibold))
+                        .tracking(1.5)
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+                .accessibilityElement(children: .combine)
+                HStack(alignment: .bottom, spacing: 10) {
+                    GlassMetric(value: "\(session.items.count)", label: "Exercises", height: 86)
+                    GlassMetric(value: band == nil ? "Normal" : "Lighter", label: "Load", height: 70,
+                                accent: band == nil ? nil : AppTheme.brand)
+                }
+                .frame(maxWidth: 380)
+            } else {
                 Text(rec.mode.map(purpose) ?? "Recovery is part of the plan.")
                     .font(.body)
                     .foregroundStyle(AppTheme.secondaryText)
+                    .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if let session = recommendedSession {
-                Text("\(session.estimatedMinutes) min · \(session.items.count) exercises")
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.ink)
-            }
             if !focusTags.isEmpty {
-                WrapLayout(spacing: 8) {
-                    ForEach(focusTags, id: \.self) { tag in
-                        Text(tag)
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(AppTheme.ink)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(AppTheme.fill, in: Capsule())
-                    }
-                }
+                Text(focusTags.map { $0.uppercased() }.joined(separator: " · "))
+                    .font(.footnote.weight(.semibold))
+                    .tracking(1.6)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .multilineTextAlignment(.center)
             }
             Text(reason)
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
+                .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 8)
             if let mode = rec.mode, let session = recommendedSession {
                 Button { liveLaunch = LiveSessionLaunch(planned: session, kind: kind(mode)) } label: {
-                    Label("Start", systemImage: "play.fill")
+                    HeroCTALabel("Start")
                 }
                 .buttonStyle(.primary)
-                Button("View workout") {
+                .frame(maxWidth: 300)
+                .padding(.top, 4)
+                Button {
                     preview = PreviewBox(session: session, kind: kind(mode), slot: slot(for: mode, session: session))
+                } label: {
+                    Text("VIEW WORKOUT").tracking(1.4)
                 }
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.ink)
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .frame(minHeight: 44)
+                .accessibilityLabel("View workout")
             } else if rec.mode != nil {
                 Text(catalogue.itemsBySlug.isEmpty ? "Loading your exercises…" : "Nothing fits your equipment yet. Add some in Me → Equipment.")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
+                    .multilineTextAlignment(.center)
             }
             if band != nil || readinessOverridden {
                 Button(readinessOverridden ? "Use the lighter version" : "Train as planned instead") {
                     readinessOverridden.toggle()
                 }
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .foregroundStyle(AppTheme.secondaryText)
+                .frame(minHeight: 44)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle(padding: 20)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 24)
     }
 
     /// The modes not recommended today, one line each.

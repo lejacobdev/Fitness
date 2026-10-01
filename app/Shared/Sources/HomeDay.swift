@@ -113,25 +113,113 @@ public struct AmbientLight: Equatable, Sendable {
     public var color: Color { Color(red: red, green: green, blue: blue) }
 }
 
-/// Home's backdrop: the usual background with the hour's light at the top.
+/// Home's backdrop (V5): near-black space, the hour's light from the top,
+/// a low crimson field on the side and the sport's geometry barely there.
 /// Checked once a minute; every change is tiny.
 struct HomeAmbientBackground: View {
-    @Environment(\.colorScheme) private var colorScheme
+    var sportSlug: String?
 
     var body: some View {
         TimelineView(.everyMinute) { context in
             let light = AmbientLight.at(context.date)
-            // On white the same light would shout: a third of it.
-            let strength = light.strength * (colorScheme == .dark ? 1 : 0.35)
             ZStack(alignment: .top) {
                 AppTheme.background
-                RadialGradient(colors: [light.color.opacity(strength), light.color.opacity(strength * 0.35), .clear],
+                RadialGradient(colors: [light.color.opacity(light.strength), light.color.opacity(light.strength * 0.3), .clear],
                                center: UnitPoint(x: 0.5, y: -0.05), startRadius: 0, endRadius: 520)
-                    .frame(height: 620)
+                    .frame(height: 640)
                     .animation(.easeInOut(duration: 2), value: light)
+                RadialGradient(colors: [AppTheme.crimson.opacity(0.16), AppTheme.atmosphere.opacity(0.10), .clear],
+                               center: UnitPoint(x: 1.0, y: 1.0), startRadius: 0, endRadius: 460)
+                if let sportSlug {
+                    SportAtmosphere(sportSlug: sportSlug)
+                }
             }
             .ignoresSafeArea()
         }
+    }
+}
+
+/// Red as light behind a hero word or number: a soft, blurred bloom that
+/// never changes the layout.
+struct HeroBloom: View {
+    var color: Color = AppTheme.brand
+
+    var body: some View {
+        Ellipse()
+            .fill(RadialGradient(colors: [color.opacity(0.32), color.opacity(0.08), .clear],
+                                 center: .center, startRadius: 0, endRadius: 150))
+            .frame(width: 320, height: 200)
+            .blur(radius: 24)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+/// A hero button's label: "CHECK IN →".
+struct HeroCTALabel: View {
+    let title: String
+    init(_ title: String) { self.title = title }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(title.uppercased()).tracking(1.6)
+            Image(systemName: "arrow.right").font(.subheadline.weight(.bold))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+    }
+}
+
+/// A glass data block: a big value, a small tracked label. Heights differ
+/// on purpose so a row of them reads like a layout, not a table.
+struct GlassMetric: View {
+    let value: String
+    let label: String
+    var height: CGFloat = 76
+    var accent: Color?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Spacer(minLength: 0)
+            Text(value)
+                .font(.system(size: 24, weight: .bold).monospacedDigit())
+                .foregroundStyle(AppTheme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+            Text(label.uppercased())
+                .font(.caption2.weight(.bold))
+                .tracking(1.4)
+                .foregroundStyle(accent ?? AppTheme.mutedText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: .bottomLeading)
+        .glassSurface(cornerRadius: 20, tint: accent)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label): \(value)")
+    }
+}
+
+/// Readiness as an instrument: a thin three-part line, the current state lit.
+/// Never a number.
+struct ReadinessScale: View {
+    let level: TodayReadiness
+
+    private static let order: [TodayReadiness] = [.recovery, .reduced, .normal]
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(Self.order, id: \.rawValue) { step in
+                let lit = step == level
+                Capsule()
+                    .fill(lit ? AppTheme.color(for: step.band) : Color.white.opacity(0.10))
+                    .frame(height: lit ? 4 : 2)
+                    .shadow(color: lit ? AppTheme.color(for: step.band).opacity(0.7) : .clear, radius: 6)
+            }
+        }
+        .frame(height: 8)
+        .accessibilityHidden(true)
     }
 }
 
@@ -185,7 +273,7 @@ public struct DayProgress: Equatable, Sendable {
             switch self {
             case .practice: AppTheme.orange
             case .workout: AppTheme.red
-            case .mobility: AppTheme.water
+            case .mobility: AppTheme.cyan
             case .reflection: AppTheme.purple
             }
         }
@@ -283,30 +371,34 @@ public struct WeekSummary: Equatable, Sendable {
     }
 }
 
-/// The week, centred: four numbers and a dot per day.
+/// The week (V5): one 2x2 of glass numbers and a dot per day. The only
+/// weekly summary on Home.
 struct HomeWeekBlock: View {
     let week: WeekSummary
     let accent: Color
 
     var body: some View {
         VStack(spacing: 14) {
-            HomeEyebrow("Your week")
-            Grid(horizontalSpacing: 28, verticalSpacing: 10) {
+            HomeEyebrow("This week")
+            Grid(horizontalSpacing: 10, verticalSpacing: 10) {
                 GridRow {
-                    stat(week.practices, week.practices == 1 ? "Practice" : "Practices")
-                    stat(week.workouts, week.workouts == 1 ? "Workout" : "Workouts")
+                    GlassMetric(value: Self.twoDigits(week.practices), label: week.practices == 1 ? "Practice" : "Practices",
+                                height: 92, accent: AppTheme.orange)
+                    GlassMetric(value: Self.twoDigits(week.workouts), label: week.workouts == 1 ? "Workout" : "Workouts",
+                                height: 92, accent: AppTheme.red)
                 }
                 GridRow {
-                    stat(week.mobility, "Mobility")
-                    Text("\(week.checkIns)/\(week.daysSoFar) ").font(.headline.monospacedDigit()).foregroundStyle(AppTheme.ink)
-                        + Text("Check-ins").font(.subheadline).foregroundStyle(AppTheme.secondaryText)
+                    GlassMetric(value: Self.twoDigits(week.mobility), label: "Mobility", height: 76, accent: AppTheme.cyan)
+                    GlassMetric(value: "\(week.checkIns)/\(week.daysSoFar)", label: "Check-ins", height: 76)
                 }
             }
+            .frame(maxWidth: 400)
             HStack(spacing: 10) {
                 ForEach(Array(week.active.enumerated()), id: \.offset) { index, active in
                     Circle()
                         .fill(active ? accent : (index < week.daysSoFar ? AppTheme.fill : AppTheme.fill.opacity(0.5)))
-                        .frame(width: 9, height: 9)
+                        .frame(width: 7, height: 7)
+                        .shadow(color: active ? accent.opacity(0.7) : .clear, radius: 4)
                 }
             }
             .accessibilityElement(children: .ignore)
@@ -315,9 +407,8 @@ struct HomeWeekBlock: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func stat(_ value: Int, _ label: String) -> some View {
-        Text("\(value) ").font(.headline.monospacedDigit()).foregroundStyle(AppTheme.ink)
-            + Text(label).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
+    static func twoDigits(_ value: Int) -> String {
+        value < 10 && value >= 0 ? "0\(value)" : "\(value)"
     }
 }
 
@@ -331,13 +422,14 @@ struct HomeEyebrow: View {
     var body: some View {
         Text(text.uppercased())
             .font(.caption.weight(.bold))
-            .tracking(1.4)
-            .foregroundStyle(AppTheme.secondaryText)
+            .tracking(2.2)
+            .foregroundStyle(AppTheme.mutedText)
             .accessibilityAddTraits(.isHeader)
     }
 }
 
-/// A compact supporting row: title left, value right, never centred.
+/// A compact supporting row: a small coloured dot, title left, value
+/// right, never centred. (V5: fewer icons — the dot carries the colour.)
 struct HomeDetailRow<Trailing: View>: View {
     let systemImage: String
     let color: Color
@@ -345,11 +437,13 @@ struct HomeDetailRow<Trailing: View>: View {
     @ViewBuilder let trailing: Trailing
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(color)
-                .frame(width: 24)
+        HStack(spacing: 14) {
+            Circle()
+                .fill(color)
+                .frame(width: 7, height: 7)
+                .shadow(color: color.opacity(0.6), radius: 4)
+                .frame(width: 14)
+                .accessibilityHidden(true)
             Text(title)
                 .font(.body.weight(.medium))
                 .foregroundStyle(AppTheme.ink)
@@ -359,7 +453,7 @@ struct HomeDetailRow<Trailing: View>: View {
                 .font(.subheadline.weight(.semibold).monospacedDigit())
                 .foregroundStyle(AppTheme.secondaryText)
         }
-        .frame(minHeight: 48)
+        .frame(minHeight: 50)
         .contentShape(Rectangle())
     }
 }

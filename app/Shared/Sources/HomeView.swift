@@ -296,7 +296,7 @@ struct HomeView: View {
             ScrollView {
                 // V4: centred and open — the part of the day decides what
                 // Home is for (prepare, perform, reflect); details stay compact.
-                VStack(spacing: 36) {
+                VStack(spacing: 56) {
                     VStack(spacing: 22) {
                         topBar
                         header
@@ -308,7 +308,7 @@ struct HomeView: View {
                             lowEnergySnoozed = true
                         }
                     }
-                    VStack(spacing: 36) { dayContent }
+                    VStack(spacing: 56) { dayContent }
                         .id(contentKey)
                         .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: 16)), removal: .opacity))
                     if !scheduleIsSet && status == .active { scheduleCard }
@@ -316,17 +316,16 @@ struct HomeView: View {
                     if let tips = gameFuelTips, !tips.isEmpty { gameFuelCard(tips) }
                     if askPrePracticeFuel { prePracticeFuelCard }
                     if loaded { HomeWeekBlock(week: weekSummary, accent: phase.red) }
-                    if let weeklyReview { WeeklyReviewCard(review: weeklyReview) }
                     widgetsSection
                 }
                 .animation(.easeInOut(duration: 0.45), value: contentKey)
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
-                .padding(.bottom, 24)
+                .padding(.bottom, 40)
             }
             .scrollIndicators(.hidden)
             // Home's own backdrop: the hour's light at the top (other tabs stay plain).
-            .background(HomeAmbientBackground())
+            .background(HomeAmbientBackground(sportSlug: athlete.activeSport?.sportSlug))
             .contentMargins(.bottom, 24, for: .scrollContent)
             .modifier(ReadableWidth())
             .task {
@@ -631,22 +630,24 @@ struct HomeView: View {
 
     // MARK: - Top
 
-    /// The kind of day on the left; the streak and "+" on the right.
+    /// Small floating glass controls: the kind of day, search, "+".
     private var topBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Button { activeSheet = .dayStatus } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: 7) {
                     Image(systemName: status.systemImage)
+                        .foregroundStyle(status == .active ? AppTheme.secondaryText : phase.red)
                     Text(status.title)
                         .lineLimit(1)
                     Image(systemName: "chevron.down")
-                        .font(.caption.weight(.bold))
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(AppTheme.mutedText)
                 }
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(status == .active ? AppTheme.ink : AppTheme.onAccent)
+                .foregroundStyle(AppTheme.ink)
                 .padding(.horizontal, 14)
-                .frame(height: 44)
-                .background(status == .active ? AppTheme.card : AppTheme.accent, in: Capsule())
+                .frame(height: 40)
+                .glassCapsule()
             }
             .buttonStyle(.plain)
             // Always readable in full: search gives way (down to its icon).
@@ -656,10 +657,12 @@ struct HomeView: View {
             searchButton
             Button { activeSheet = .quickActions } label: {
                 Image(systemName: "plus")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(AppTheme.onAccent)
-                    .frame(width: 44, height: 44)
-                    .background(AppTheme.accent, in: Circle())
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .glassCapsule()
+                    .overlay { Circle().strokeBorder(phase.red.opacity(0.5), lineWidth: 1) }
+                    .shadow(color: phase.red.opacity(0.35), radius: 10)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Add: log a workout, add a game, food or past workouts")
@@ -673,8 +676,8 @@ struct HomeView: View {
         }
         .font(.subheadline.weight(.semibold))
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(AppTheme.card, in: Capsule())
+        .frame(height: 36)
+        .glassCapsule()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(streak) day streak")
     }
@@ -694,8 +697,8 @@ struct HomeView: View {
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(AppTheme.secondaryText)
             .padding(.horizontal, 14)
-            .frame(maxWidth: .infinity, minHeight: 44, maxHeight: 44)
-            .background(AppTheme.card, in: Capsule())
+            .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 40)
+            .glassCapsule()
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -747,42 +750,67 @@ struct HomeView: View {
         "\(phase.rawValue)-\(todaysCheckIn != nil)-\(reflectedToday)-\(workoutDoneToday)-\(status.rawValue)"
     }
 
+    /// The season the active sport is in ("IN SEASON").
+    private var seasonLine: String? {
+        guard let sport = athlete.activeSport else { return nil }
+        let phase = PhaseCalculator.phase(today: clock, seasonStart: sport.seasonStart, seasonEnd: sport.seasonEnd)
+        switch phase {
+        case .offSeason: return "OFF-SEASON"
+        case .preSeason: return "PRE-SEASON"
+        case .inSeason: return "IN SEASON"
+        case .postSeason: return "POST-SEASON"
+        }
+    }
+
+    /// An editorial opening: the greeting small, the name huge, the season,
+    /// a short quote. No box around any of it.
     private var header: some View {
-        VStack(spacing: 10) {
-            Text(greeting)
-                .font(.system(size: 32, weight: .bold))
-                .foregroundStyle(AppTheme.ink)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
-                .accessibilityAddTraits(.isHeader)
-            HStack(spacing: 6) {
-                Image(systemName: phase.systemImage)
-                    .foregroundStyle(phase.red)
-                    .symbolRenderingMode(.hierarchical)
+        VStack(spacing: 14) {
+            VStack(spacing: 2) {
+                HStack(spacing: 6) {
+                    Image(systemName: phase.systemImage)
+                        .foregroundStyle(phase.red)
+                        .symbolRenderingMode(.hierarchical)
+                    Text(phase.greeting.uppercased())
+                        .tracking(2.4)
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+                .font(.footnote.weight(.semibold))
+                Text(firstName?.uppercased() ?? clock.formatted(.dateTime.weekday(.wide)).uppercased())
+                    .font(.system(size: 54, weight: .bold))
+                    .tracking(-0.5)
+                    .foregroundStyle(AppTheme.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .accessibilityAddTraits(.isHeader)
                 Text(clock.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                    .foregroundStyle(AppTheme.secondaryText)
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.mutedText)
             }
-            .font(.subheadline)
-            // Which sport the plan follows (switch or add one in a tap), and the streak.
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
                 streakBadge
             }
-            .padding(.top, 2)
+            if let seasonLine {
+                Text(seasonLine)
+                    .font(.caption.weight(.bold))
+                    .tracking(2)
+                    .foregroundStyle(phase.red.opacity(0.9))
+            }
             let quote = DailyQuotes.short(for: phase, date: clock)
-            VStack(spacing: 3) {
+            VStack(spacing: 4) {
                 Text("“\(quote.text)”")
                     .font(.callout.italic())
-                    .foregroundStyle(AppTheme.ink.opacity(0.85))
+                    .foregroundStyle(AppTheme.secondaryText)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(quote.author)
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.secondaryText)
+                Text(quote.author.uppercased())
+                    .font(.caption2.weight(.semibold))
+                    .tracking(1.5)
+                    .foregroundStyle(AppTheme.mutedText)
             }
-            .padding(.top, 10)
-            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .padding(.horizontal, 24)
             .accessibilityElement(children: .combine)
         }
         .frame(maxWidth: .infinity)
@@ -845,18 +873,28 @@ struct HomeView: View {
     // Morning, before the check-in: the check-in is the one thing to do.
 
     private var checkInHero: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             HomeEyebrow("Morning check-in")
-            Text("30 seconds")
-                .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(AppTheme.ink)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("30")
+                    .font(.system(size: 82, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.ink)
+                Text("SEC")
+                    .font(.title3.weight(.semibold))
+                    .tracking(1.5)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            .background(HeroBloom(color: phase.red))
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("30 seconds")
             Text("Sleep · Energy · Body · Mood")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
-            Button("Check in") { activeSheet = .checkIn }
+            Button { activeSheet = .checkIn } label: { HeroCTALabel("Check in") }
                 .buttonStyle(.primary)
-                .padding(.top, 8)
-                .frame(maxWidth: 320)
+                .padding(.top, 10)
+                .frame(maxWidth: 280)
         }
         .frame(maxWidth: .infinity)
     }
@@ -917,42 +955,87 @@ struct HomeView: View {
 
     // Readiness, centred: a state, never a score.
 
+    /// Readiness as an instrument: one word, a short context, the three
+    /// inputs, a quiet scale. Never a percentage.
     @ViewBuilder
     private var readinessHero: some View {
         if let readiness {
-            VStack(spacing: 10) {
+            VStack(spacing: 14) {
                 HomeEyebrow("Today's readiness")
-                ZStack {
-                    Circle().stroke(AppTheme.color(for: readiness.level.band).opacity(0.25), lineWidth: 6)
-                    Circle().fill(AppTheme.color(for: readiness.level.band)).frame(width: 14, height: 14)
-                }
-                .frame(width: 46, height: 46)
-                .accessibilityHidden(true)
+                Circle()
+                    .fill(AppTheme.color(for: readiness.level.band))
+                    .frame(width: 10, height: 10)
+                    .shadow(color: AppTheme.color(for: readiness.level.band).opacity(0.8), radius: 8)
+                    .accessibilityHidden(true)
                 Text(readiness.level.title.uppercased())
-                    .font(.system(size: 34, weight: .bold))
-                    .tracking(1)
+                    .font(.system(size: 52, weight: .bold))
+                    .tracking(0.5)
                     .foregroundStyle(AppTheme.ink)
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.6)
                     .lineLimit(1)
-                Text(readiness.reason)
-                    .font(.body)
+                Text(readinessContext(readiness.level))
+                    .font(.caption.weight(.bold))
+                    .tracking(1.8)
                     .foregroundStyle(AppTheme.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 12)
-                HStack(spacing: 18) {
-                    Button { withAnimation { showingWhy.toggle() } } label: {
+                if let checkIn = todaysCheckIn {
+                    HStack(spacing: 0) {
+                        readinessInput("Sleep", CheckInOptions.nearest(Double(checkIn.sleepQuality), in: CheckInOptions.sleepQuality)?.title)
+                        readinessInput("Energy", CheckInOptions.nearest(Double(checkIn.energy), in: CheckInOptions.energy)?.title)
+                        readinessInput("Body", CheckInOptions.nearest(Double(checkIn.soreness), in: CheckInOptions.soreness)?.title)
+                    }
+                    .padding(.top, 6)
+                    .frame(maxWidth: 360)
+                }
+                ReadinessScale(level: readiness.level)
+                    .frame(maxWidth: 240)
+                    .padding(.top, 4)
+                HStack(spacing: 22) {
+                    Button { withAnimation(.easeInOut(duration: 0.35)) { showingWhy.toggle() } } label: {
                         Label("Why?", systemImage: "arrow.right").labelStyle(TrailingIconLabel())
                     }
                     Button("Edit check-in") { activeSheet = .checkIn }
                 }
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.ink)
+                .foregroundStyle(AppTheme.secondaryText)
                 .frame(minHeight: 44)
+                if showingWhy {
+                    Text(readiness.reason)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 20)
+                        .transition(.opacity)
+                }
                 painNote
             }
             .frame(maxWidth: .infinity)
         }
+    }
+
+    /// Level 2 of the answer: a few words of context.
+    private func readinessContext(_ level: TodayReadiness) -> String {
+        if ReturnRamp.day(reports: PainStore.all(), today: clock) != nil { return "RETURNING AFTER PAIN · LOW LOAD" }
+        switch level {
+        case .normal: return "TRAIN AS PLANNED"
+        case .reduced: return "LIGHTER TODAY"
+        case .recovery: return "RECOVERY FOCUS"
+        }
+    }
+
+    private func readinessInput(_ label: String, _ value: String?) -> some View {
+        VStack(spacing: 4) {
+            Text(label.uppercased())
+                .font(.caption2.weight(.bold))
+                .tracking(1.5)
+                .foregroundStyle(AppTheme.mutedText)
+            Text((value ?? "—").uppercased())
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     /// In the day, readiness is one line under what's next.
@@ -996,44 +1079,45 @@ struct HomeView: View {
 
     // Today's focus: the one recommendation, centred and big.
 
+    // Today's session: the title and the number dominate.
+
     @ViewBuilder
     private var focusHero: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 14) {
             if let game = gameToday, status == .active {
                 HomeEyebrow("Game day")
                 heroTitle(gameTitle(game))
-                heroMeta("\(game.isHome ? "HOME" : "AWAY") · \(game.date.formatted(date: .omitted, time: .shortened))")
-                Button("What to eat before") { activeSheet = .fuel }
+                bigNumber(game.date.formatted(.dateTime.hour(.defaultDigits(amPM: .omitted)).minute()),
+                          unit: game.date.formatted(.dateTime.hour(.defaultDigits(amPM: .abbreviated))).filter(\.isLetter).uppercased())
+                heroMeta(game.isHome ? "HOME" : "AWAY")
+                Button { activeSheet = .fuel } label: { HeroCTALabel("What to eat before") }
                     .buttonStyle(.primary)
                     .padding(.top, 6)
-                    .frame(maxWidth: 320)
+                    .frame(maxWidth: 300)
             } else if status == .sick {
                 HomeEyebrow("Today")
                 heroTitle("Rest and recover")
-                heroMeta("NO TRAINING · DRINK, EAT, SLEEP")
+                heroMeta("NO TRAINING · DRINK · EAT · SLEEP")
             } else if let workout = todaysWorkout {
                 let session = workout.session
-                HomeEyebrow(workoutDoneToday ? "Today's training" : (phase == .day ? "Next up" : "Today's focus"))
+                HomeEyebrow(workoutDoneToday ? "Today's training" : (phase == .day ? "Next session" : "Today's session"))
                 Button { preview = PreviewBox(session: session, kind: workoutKind(workout.mode)) } label: {
                     heroTitle(focusTitle(session, mode: workout.mode))
                 }
                 .buttonStyle(.plain)
+                bigNumber("\(session.estimatedMinutes)", unit: "MIN")
                 if let qualities = qualityLine(session) {
-                    Text(qualities)
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .multilineTextAlignment(.center)
+                    heroMeta(qualities)
                 }
-                heroMeta("\(session.estimatedMinutes) MIN · \(session.items.count) EXERCISES")
-                if let tag = focusTag {
-                    Text(tag)
-                        .font(.caption.weight(.bold))
-                        .tracking(1.2)
-                        .foregroundStyle(phase.red)
-                        .padding(.horizontal, 12)
-                        .frame(minHeight: 26)
-                        .background(phase.red.opacity(0.12), in: Capsule())
+                HStack(alignment: .bottom, spacing: 10) {
+                    GlassMetric(value: "\(session.items.count)", label: "Exercises", height: 86)
+                    GlassMetric(value: loadWord, label: "Load", height: 70, accent: readinessBand == nil ? nil : phase.red)
+                    if let tag = focusTag, tag != "LIGHTER TODAY" {
+                        GlassMetric(value: tag.capitalized, label: "Note", height: 70)
+                    }
                 }
+                .frame(maxWidth: 380)
+                .padding(.top, 4)
                 if workoutDoneToday {
                     Label("Done", systemImage: "checkmark.circle.fill")
                         .font(.headline)
@@ -1043,15 +1127,22 @@ struct HomeView: View {
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.secondaryText)
                 } else {
-                    Button("Start workout") { liveLaunch = LiveSessionLaunch(planned: session, kind: workoutKind(workout.mode)) }
-                        .buttonStyle(.primary)
-                        .padding(.top, 6)
-                        .frame(maxWidth: 320)
+                    Button { liveLaunch = LiveSessionLaunch(planned: session, kind: workoutKind(workout.mode)) } label: {
+                        HeroCTALabel("Start training")
+                    }
+                    .buttonStyle(.primary)
+                    .padding(.top, 8)
+                    .frame(maxWidth: 300)
                 }
             } else if practiceToday, status == .active {
-                HomeEyebrow("Today's focus")
+                HomeEyebrow("Today's session")
                 heroTitle("Team practice")
-                heroMeta(practiceStart.map { $0.formatted(date: .omitted, time: .shortened).uppercased() } ?? "YOUR SPORT'S TRAINING")
+                if let start = practiceStart {
+                    bigNumber(start.formatted(.dateTime.hour(.defaultDigits(amPM: .omitted)).minute()),
+                              unit: start.formatted(.dateTime.hour(.defaultDigits(amPM: .abbreviated))).filter(\.isLetter).uppercased())
+                } else {
+                    heroMeta("YOUR SPORT'S TRAINING")
+                }
             } else {
                 HomeEyebrow("Today")
                 heroTitle("Rest day")
@@ -1063,21 +1154,47 @@ struct HomeView: View {
         .frame(maxWidth: .infinity)
     }
 
+    private var loadWord: String {
+        if readinessBand != nil { return "Lighter" }
+        if status != .active { return "Optional" }
+        return "Normal"
+    }
+
     private func heroTitle(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 30, weight: .bold))
-            .tracking(0.5)
+            .font(.system(size: 44, weight: .bold))
+            .tracking(-0.3)
             .foregroundStyle(AppTheme.ink)
             .multilineTextAlignment(.center)
             .lineLimit(2)
-            .minimumScaleFactor(0.7)
+            .minimumScaleFactor(0.6)
+            .background(HeroBloom(color: phase.red))
+    }
+
+    /// The big number: 60–82 pt, its unit small beside it.
+    private func bigNumber(_ value: String, unit: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(value)
+                .font(.system(size: 76, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(AppTheme.ink)
+                .contentTransition(.numericText())
+            if !unit.isEmpty {
+                Text(unit)
+                    .font(.title3.weight(.semibold))
+                    .tracking(1.5)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private func heroMeta(_ text: String) -> some View {
         Text(text)
-            .font(.subheadline.weight(.semibold).monospacedDigit())
-            .tracking(0.8)
-            .foregroundStyle(AppTheme.ink.opacity(0.8))
+            .font(.footnote.weight(.semibold))
+            .tracking(2)
+            .foregroundStyle(AppTheme.secondaryText)
+            .multilineTextAlignment(.center)
     }
 
     /// The workout's focus in words: its main quality ("Rotational power").
@@ -1233,75 +1350,100 @@ struct HomeView: View {
     }
 
     private var reflectionHero: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             HomeEyebrow("Evening reflection")
             Text("How did today actually feel?")
-                .font(.system(size: 26, weight: .bold))
+                .font(.system(size: 30, weight: .bold))
                 .foregroundStyle(AppTheme.ink)
                 .multilineTextAlignment(.center)
-            Text("About 45 seconds")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.secondaryText)
-            Button("Reflect") { activeSheet = .reflection }
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("45")
+                    .font(.system(size: 60, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.ink)
+                Text("SEC")
+                    .font(.headline)
+                    .tracking(1.5)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            Button { activeSheet = .reflection } label: { HeroCTALabel("Reflect") }
                 .buttonStyle(.primary)
                 .padding(.top, 6)
-                .frame(maxWidth: 320)
+                .frame(maxWidth: 280)
         }
         .frame(maxWidth: .infinity)
     }
 
-    /// After the reflection: calm. What was done, one note, tomorrow, sleep.
+    /// After the reflection: a poster, not a dashboard. Done, one note,
+    /// tomorrow, sleep.
     private var dayCompleteView: some View {
-        VStack(spacing: 26) {
-            VStack(spacing: 10) {
-                HomeEyebrow("Day complete")
+        VStack(spacing: 44) {
+            VStack(spacing: 14) {
+                Text("DAY COMPLETE")
+                    .font(.system(size: 44, weight: .bold))
+                    .foregroundStyle(AppTheme.ink)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
+                    .background(HeroBloom(color: phase.red))
                 Image(systemName: "checkmark")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.system(size: 26, weight: .semibold))
                     .foregroundStyle(phase.red)
-                    .frame(width: 64, height: 64)
-                    .background(Circle().stroke(phase.red.opacity(0.5), lineWidth: 2))
+                    .frame(width: 60, height: 60)
+                    .glassCapsule()
+                    .overlay { Circle().strokeBorder(phase.red.opacity(0.55), lineWidth: 1) }
+                    .shadow(color: phase.red.opacity(0.4), radius: 14)
                     .accessibilityHidden(true)
-            }
-            let rows = doneRows
-            if !rows.isEmpty {
-                VStack(spacing: 0) {
-                    ForEach(rows, id: \.title) { row in
-                        HomeDetailRow(systemImage: row.icon, color: row.color, title: row.title) { Text(row.value) }
+                let rows = doneRows
+                if !rows.isEmpty {
+                    HStack(spacing: 10) {
+                        ForEach(rows, id: \.title) { row in
+                            GlassMetric(value: row.value.replacingOccurrences(of: " min", with: ""), label: row.title,
+                                        height: 70, accent: row.color)
+                        }
                     }
+                    .frame(maxWidth: 400)
+                    .padding(.top, 8)
                 }
-                .frame(maxWidth: 360)
             }
             if let note = todaysNote {
-                VStack(spacing: 6) {
+                VStack(spacing: 8) {
                     HomeEyebrow("Today's note")
                     Text(note)
-                        .font(.body)
-                        .foregroundStyle(AppTheme.ink.opacity(0.85))
+                        .font(.title3)
+                        .foregroundStyle(AppTheme.ink.opacity(0.9))
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 12)
                 }
             }
             if let tomorrow = tomorrowLine {
                 VStack(spacing: 6) {
                     HomeEyebrow("Tomorrow")
-                    Text(tomorrow.title).font(.title3.weight(.semibold)).foregroundStyle(AppTheme.ink)
+                    Text(tomorrow.title.uppercased())
+                        .font(.system(size: 30, weight: .bold))
+                        .foregroundStyle(AppTheme.ink)
+                        .multilineTextAlignment(.center)
                     if let detail = tomorrow.detail {
-                        Text(detail).font(.subheadline).foregroundStyle(AppTheme.secondaryText)
+                        Text(detail.uppercased())
+                            .font(.footnote.weight(.semibold))
+                            .tracking(1.5)
+                            .foregroundStyle(AppTheme.secondaryText)
                     }
                 }
             }
-            VStack(spacing: 12) {
+            VStack(spacing: 14) {
                 Text(firstName.map { "Sleep well, \($0)." } ?? "Sleep well.")
-                    .font(.title3.weight(.semibold))
+                    .font(.title2.weight(.semibold))
                     .foregroundStyle(AppTheme.ink)
                 if let bedtime = bedtimeTonight {
-                    Text("Bed by \(Bedtime.label(bedtime.minutes))")
-                        .font(.subheadline)
+                    Text("BED BY \(Bedtime.label(bedtime.minutes))".uppercased())
+                        .font(.caption.weight(.bold))
+                        .tracking(1.8)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
-                Button { routine = .breathing } label: { Label("Wind down", systemImage: "wind") }
+                Button { routine = .breathing } label: { HeroCTALabel("Wind down") }
                     .buttonStyle(.secondary)
-                    .frame(maxWidth: 260)
+                    .frame(maxWidth: 240)
             }
         }
         .frame(maxWidth: .infinity)

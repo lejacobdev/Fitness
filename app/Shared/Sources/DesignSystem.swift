@@ -3,51 +3,52 @@ import SwiftUI
 import UIKit
 #endif
 
-/// AthleteOS's visual language: minimal, and big — made to be read and
-/// tapped quickly between sets. The two main colours are black and white:
-/// white canvas with black actions (light), black canvas with white actions
-/// (dark). Red, coral and the others are accents — rings, highlights, the
-/// logo, warnings. Neutral grey for secondary text; never blue.
-/// Follows the system appearance; watchOS always gets the dark palette.
+/// AthleteOS V5: a cinematic performance environment — near-black space,
+/// crimson light behind frosted glass, oversized type, precise data. Red
+/// behaves like light (glows, reflections, selected marks), not like paint.
+/// Always dark (the app forces the dark appearance).
 public enum AppTheme {
-    public static let background = Color.dynamic(light: 0xFFFFFF, dark: 0x000000)
-    public static let card = Color.dynamic(light: 0xF5F5F5, dark: 0x141414)
-    /// Unselected chips/options, ring tracks, thumbnail wells.
-    public static let fill = Color.dynamic(light: 0xEBEBEB, dark: 0x262626)
+    public static let background = Color(rgb: 0x050608)
+    public static let backgroundSecondary = Color(rgb: 0x080A0D)
+    /// A glass surface's tint (the blur comes from `glassSurface`).
+    public static let card = Color(red: 18 / 255, green: 18 / 255, blue: 22 / 255).opacity(0.45)
+    /// Unselected chips/options, ring tracks, thumbnail wells: a whisper of white.
+    public static let fill = Color.white.opacity(0.08)
     /// Primary text.
-    public static let ink = Color.dynamic(light: 0x000000, dark: 0xFFFFFF)
-    /// Every action and selection: buttons, selected chips, the "+", the tab
-    /// bar — black on white, white on black.
-    public static let accent = Color.dynamic(light: 0x000000, dark: 0xFFFFFF)
+    public static let ink = Color.white
+    /// Light surfaces and marks on dark (kept opaque: it's also used as a tint).
+    public static let accent = Color.white
     /// Text and glyphs drawn on `accent`.
-    public static let onAccent = Color.dynamic(light: 0xFFFFFF, dark: 0x000000)
-    /// Secondary text: a neutral grey, one shade deeper on white so small
-    /// text stays readable.
-    public static let secondaryText = Color.dynamic(light: 0x6E6E73, dark: 0x98989D)
-    public static let hairline = Color.dynamic(light: 0xE5E5E5, dark: 0x262626)
+    public static let onAccent = Color(rgb: 0x050608)
+    public static let secondaryText = Color.white.opacity(0.58)
+    public static let mutedText = Color.white.opacity(0.34)
+    /// Glass borders and dividers.
+    public static let hairline = Color.white.opacity(0.08)
 
-    // Ring and highlight colours.
-    public static let brand = Color(hex: "#E5383B")
+    // Red, as light.
+    public static let brand = Color(rgb: 0xEF4444)
+    public static let brightRed = Color(rgb: 0xFF5A5F)
+    public static let crimson = Color(rgb: 0xC81E2A)
+    public static let atmosphere = Color(rgb: 0x351014)
     /// The second accent (rings, highlights): a lighter coral red.
     public static let coral = Color(hex: "#FF6B6B")
     public static let orange = Color(hex: "#FF8A3D")
-    /// Was the old cobalt blue; the palette is red, black and white, so
-    /// this is now the black accent (light grey in dark mode, so it shows).
-    public static let blue = Color.dynamic(light: 0x111111, dark: 0xE5E5E5)
-    /// The one real blue — an accent where it means something: water,
-    /// mobility, calm breathing, a Campus unit. Never a background.
+    public static let yellow = Color(hex: "#FACC15")
+    public static let cyan = Color(hex: "#22D3EE")
+    /// Was the old cobalt blue; a light grey mark on the dark canvas.
+    public static let blue = Color(rgb: 0xE5E5E5)
+    /// The one real blue — water, calm breathing, a Campus unit. Never a background.
     public static let water = Color(hex: "#1CB0F6")
     public static let waterDeep = Color(hex: "#1899D6")
-    /// A solid black surface with white on it (a dark grey in dark mode, so
-    /// it stands out from the black background).
-    public static let solid = Color.dynamic(light: 0x111111, dark: 0x2E2E2E)
+    /// A solid dark surface with white on it.
+    public static let solid = Color(rgb: 0x1A1B1F)
     public static let purple = Color(hex: "#7C5CF2")
     public static let green = Color(hex: "#22C55E")
     public static let amber = Color(hex: "#F59E0B")
     public static let red = Color(hex: "#EF4444")
 
-    /// One corner radius for cards, one for controls (V3: calmer, consistent).
-    public static let cardCornerRadius: CGFloat = 20
+    /// Glass panels are rounder; controls stay compact.
+    public static let cardCornerRadius: CGFloat = 24
     public static let controlCornerRadius: CGFloat = 14
 
     public static func color(for band: ReadinessBand?) -> Color {
@@ -95,10 +96,39 @@ extension UIColor {
 
 // MARK: - Surfaces
 
+/// How much light a screen gets: the main screens (Home, Campus, Workout,
+/// Progress, Me) glow; functional screens stay calm.
+public enum Atmosphere: Sendable {
+    case subtle, hero
+
+    var strength: Double { self == .hero ? 1 : 0.45 }
+}
+
+/// Never plain black: near-black space with large, soft crimson light fields
+/// — one warm bloom near the top centre, a darker one low on the side —
+/// like studio lighting. Black stays dominant.
 public struct AppBackground: View {
-    public init() {}
+    let atmosphere: Atmosphere
+    let sportSlug: String?
+
+    public init(_ atmosphere: Atmosphere = .subtle, sportSlug: String? = nil) {
+        self.atmosphere = atmosphere
+        self.sportSlug = sportSlug
+    }
+
     public var body: some View {
-        AppTheme.background.ignoresSafeArea()
+        let k = atmosphere.strength
+        ZStack {
+            AppTheme.background
+            RadialGradient(colors: [AppTheme.brand.opacity(0.20 * k), AppTheme.crimson.opacity(0.07 * k), .clear],
+                           center: UnitPoint(x: 0.5, y: -0.08), startRadius: 0, endRadius: 520)
+            RadialGradient(colors: [AppTheme.crimson.opacity(0.17 * k), AppTheme.atmosphere.opacity(0.12 * k), .clear],
+                           center: UnitPoint(x: 1.0, y: 1.02), startRadius: 0, endRadius: 480)
+            if let sportSlug, atmosphere == .hero {
+                SportAtmosphere(sportSlug: sportSlug)
+            }
+        }
+        .ignoresSafeArea()
     }
 }
 
@@ -108,22 +138,56 @@ private struct CardBackground: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(padding)
-            .background(AppTheme.card, in: RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
-            .shadow(color: .black.opacity(0.04), radius: 10, x: 0, y: 3)
+            .glassSurface()
     }
 }
 
 public extension View {
-    /// A soft card: generous corner radius, a whisper of shadow, no border.
+    /// A frosted glass panel: the light behind shows through.
     func cardStyle(padding: CGFloat = 16) -> some View {
         modifier(CardBackground(padding: padding))
+    }
+
+    /// Frosted glass: blur, a translucent dark tint, a 1 px white edge that
+    /// catches the light at the top, a soft shadow. `tint` lights it from
+    /// behind (a red bloom for the thing that matters).
+    func glassSurface(cornerRadius: CGFloat = AppTheme.cardCornerRadius, tint: Color? = nil) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return background {
+            ZStack {
+                shape.fill(.ultraThinMaterial)
+                shape.fill(Color(red: 20 / 255, green: 20 / 255, blue: 24 / 255).opacity(0.45))
+                if let tint {
+                    shape.fill(RadialGradient(colors: [tint.opacity(0.22), tint.opacity(0.04)],
+                                              center: .top, startRadius: 0, endRadius: 260))
+                }
+            }
+            .environment(\.colorScheme, .dark)
+        }
+        .overlay {
+            shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.16), .white.opacity(0.05)],
+                                              startPoint: .top, endPoint: .bottom), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.35), radius: 24, x: 0, y: 12)
+    }
+
+    /// A small floating glass capsule (top controls, chips on the hero).
+    func glassCapsule() -> some View {
+        background {
+            ZStack {
+                Capsule().fill(.ultraThinMaterial)
+                Capsule().fill(Color(red: 20 / 255, green: 20 / 255, blue: 24 / 255).opacity(0.4))
+            }
+            .environment(\.colorScheme, .dark)
+        }
+        .overlay { Capsule().strokeBorder(Color.white.opacity(0.10), lineWidth: 1) }
     }
 
     /// The standard screen canvas, full-bleed. The status bar gets its own
     /// backdrop, so scrolled content never sits under the clock, and every
     /// scroll view ends with room to spare above the tab bar.
-    func appScreen() -> some View {
-        background(AppBackground())
+    func appScreen(_ atmosphere: Atmosphere = .subtle, sportSlug: String? = nil) -> some View {
+        background(AppBackground(atmosphere, sportSlug: sportSlug))
             .overlay(alignment: .top) {
                 AppTheme.background.opacity(0.96)
                     .frame(height: 0)
@@ -160,7 +224,8 @@ struct ReadableWidth: ViewModifier {
 
 // MARK: - Buttons
 
-/// The primary action: a full-width red capsule, big and bold.
+/// The primary action: a glass capsule lit red from behind — calm, tactile,
+/// never a flat red block.
 public struct PrimaryButtonStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
@@ -178,10 +243,24 @@ public struct PrimaryButtonStyle: ButtonStyle {
                 // buttons that still doesn't fit stacks instead (ButtonRow).
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+                .tracking(0.4)
                 .padding(.horizontal, 18)
-                .foregroundStyle(AppTheme.onAccent)
+                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity, minHeight: 56)
-                .background(AppTheme.accent, in: Capsule())
+                .background {
+                    ZStack {
+                        Capsule().fill(.ultraThinMaterial)
+                        Capsule().fill(Color.white.opacity(0.08))
+                        Capsule().fill(RadialGradient(colors: [AppTheme.brand.opacity(0.42), AppTheme.crimson.opacity(0.10)],
+                                                      center: .center, startRadius: 0, endRadius: 180))
+                    }
+                    .environment(\.colorScheme, .dark)
+                }
+                .overlay {
+                    Capsule().strokeBorder(LinearGradient(colors: [AppTheme.brightRed.opacity(0.75), AppTheme.brand.opacity(0.2)],
+                                                          startPoint: .top, endPoint: .bottom), lineWidth: 1)
+                }
+                .shadow(color: AppTheme.brand.opacity(isEnabled ? 0.35 : 0), radius: 18, x: 0, y: 6)
                 .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1) : 0.3)
                 .scaleEffect(configuration.isPressed ? 0.98 : 1)
                 .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
@@ -189,7 +268,7 @@ public struct PrimaryButtonStyle: ButtonStyle {
     }
 }
 
-/// The quieter secondary action: a soft gray capsule.
+/// The quieter secondary action: transparent with a thin light edge.
 public struct SecondaryButtonStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
@@ -200,7 +279,8 @@ public struct SecondaryButtonStyle: ButtonStyle {
             .padding(.horizontal, 18)
             .foregroundStyle(AppTheme.ink)
             .frame(maxWidth: .infinity, minHeight: 52)
-            .background(AppTheme.fill, in: Capsule())
+            .background(Color.white.opacity(0.04), in: Capsule())
+            .overlay { Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 1) }
             .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
@@ -252,18 +332,21 @@ public struct FloatingActionButton: View {
             if let title {
                 Label(title, systemImage: systemImage)
                     .font(.headline)
-                    .foregroundStyle(AppTheme.onAccent)
+                    .foregroundStyle(.white)
                     .padding(.horizontal, 20)
                     .frame(height: 60)
-                    .background(AppTheme.accent, in: Capsule())
-                    .shadow(color: AppTheme.accent.opacity(0.35), radius: 12, x: 0, y: 6)
+                    .glassCapsule()
+                    .overlay { Capsule().strokeBorder(AppTheme.brightRed.opacity(0.55), lineWidth: 1) }
+                    .shadow(color: AppTheme.brand.opacity(0.4), radius: 16, x: 0, y: 6)
             } else {
                 Image(systemName: systemImage)
                     .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(AppTheme.onAccent)
+                    .foregroundStyle(.white)
                     .frame(width: 66, height: 66)
-                    .background(AppTheme.accent, in: Circle())
-                    .shadow(color: AppTheme.accent.opacity(0.35), radius: 12, x: 0, y: 6)
+                    .background { Circle().fill(.ultraThinMaterial).environment(\.colorScheme, .dark) }
+                    .background(AppTheme.brand.opacity(0.28), in: Circle())
+                    .overlay { Circle().strokeBorder(AppTheme.brightRed.opacity(0.6), lineWidth: 1) }
+                    .shadow(color: AppTheme.brand.opacity(0.45), radius: 16, x: 0, y: 6)
             }
         }
         .buttonStyle(.plain)
@@ -620,6 +703,16 @@ public struct WeekStripLegend: View {
 
 // MARK: - Choices
 
+public extension View {
+    /// A choice's surface: selected is lit red from within (a red glass tint
+    /// and a red edge), unselected is a whisper of glass with a hairline.
+    func selectableSurface<S: InsettableShape>(_ selected: Bool, shape: S) -> some View {
+        background(selected ? AppTheme.brand.opacity(0.22) : Color.white.opacity(0.05), in: shape)
+            .overlay { shape.strokeBorder(selected ? AppTheme.brightRed.opacity(0.75) : AppTheme.hairline, lineWidth: 1) }
+            .shadow(color: AppTheme.brand.opacity(selected ? 0.25 : 0), radius: 12, x: 0, y: 4)
+    }
+}
+
 /// A big rounded choice row: red when selected, soft gray when not.
 public struct OptionRow: View {
     let title: String
@@ -640,7 +733,7 @@ public struct OptionRow: View {
                 Image(systemName: systemImage)
                     .font(.system(size: 20, weight: .semibold))
                     .frame(width: 44, height: 44)
-                    .background(isSelected ? AppTheme.onAccent.opacity(0.15) : AppTheme.card, in: Circle())
+                    .background(isSelected ? AppTheme.brand.opacity(0.2) : AppTheme.fill, in: Circle())
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -653,11 +746,11 @@ public struct OptionRow: View {
             }
             Spacer(minLength: 0)
         }
-        .foregroundStyle(isSelected ? AppTheme.onAccent : AppTheme.ink)
+        .foregroundStyle(AppTheme.ink)
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(isSelected ? AppTheme.accent : AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
+        .selectableSurface(isSelected, shape: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
         .contentShape(Rectangle())
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
@@ -731,11 +824,10 @@ public struct ChoiceGrid<Option: Hashable>: View {
                     Text(title(option))
                         .font(.headline)
                         .multilineTextAlignment(.center)
-                        .foregroundStyle(selected ? AppTheme.onAccent : AppTheme.ink)
+                        .foregroundStyle(AppTheme.ink)
                         .padding(.horizontal, 12)
                         .frame(maxWidth: .infinity, minHeight: 56)
-                        .background(selected ? AppTheme.accent : AppTheme.fill,
-                                    in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
+                        .selectableSurface(selected, shape: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(selected ? .isSelected : [])
@@ -854,10 +946,10 @@ public struct Chip: View {
         Text(title)
             .font(.headline)
             .lineLimit(1)
-            .foregroundStyle(isSelected ? AppTheme.onAccent : AppTheme.ink)
+            .foregroundStyle(AppTheme.ink)
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
-            .background(isSelected ? AppTheme.accent : AppTheme.fill, in: Capsule())
+            .selectableSurface(isSelected, shape: Capsule())
             .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
@@ -962,9 +1054,10 @@ public struct StepLabel: View {
         HStack(spacing: 10) {
             Text("\(number)")
                 .font(.caption.bold())
-                .foregroundStyle(AppTheme.onAccent)
+                .foregroundStyle(.white)
                 .frame(width: 22, height: 22)
-                .background(AppTheme.accent, in: Circle())
+                .background(AppTheme.brand.opacity(0.3), in: Circle())
+                .overlay { Circle().strokeBorder(AppTheme.brightRed.opacity(0.6), lineWidth: 1) }
             Text(text)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.ink)

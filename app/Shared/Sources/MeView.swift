@@ -85,8 +85,8 @@ struct MeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    ScreenTitle("Me")
                     profileCard
+                        .padding(.bottom, 16)
                     goalsCard
 
                     SectionHeader("Training Setup")
@@ -237,7 +237,7 @@ struct MeView: View {
             }
             .scrollIndicators(.hidden)
             .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-            .appScreen()
+            .appScreen(.hero, sportSlug: athleteSport?.sportSlug)
             .toolbar(.hidden, for: .navigationBar)
             .task {
                 catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
@@ -317,40 +317,58 @@ struct MeView: View {
 
     // MARK: - Profile
 
+    /// V5: a performance profile — the name big, the sport and season as
+    /// a tracked line, the numbers on glass.
     private var profileCard: some View {
-        HStack(spacing: 16) {
-            Image(systemName: sportInfo.map { SportIcon.name(for: $0.slug) } ?? "person.fill")
-                .font(.system(size: 28, weight: .semibold))
-                .foregroundStyle(AppTheme.onAccent)
-                .frame(width: 72, height: 72)
-                .background(AppTheme.accent, in: Circle())
-            VStack(alignment: .leading, spacing: 4) {
+        let hasName = athlete.displayName?.isEmpty == false
+        return VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center) {
+                Text("ATHLETE PROFILE")
+                    .font(.caption.weight(.bold))
+                    .tracking(2.4)
+                    .foregroundStyle(AppTheme.mutedText)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+                Button {
+                    activeSheet = .sport
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppTheme.ink)
+                        .frame(width: 44, height: 44)
+                        .glassCapsule()
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Edit sport and position")
+            }
+            VStack(alignment: .leading, spacing: 8) {
                 Button { activeSheet = .name } label: {
-                    Text(athlete.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? "Add your name")
-                        .font(.title2.bold())
-                        .foregroundStyle(athlete.displayName?.isEmpty == false ? AppTheme.ink : AppTheme.secondaryText)
+                    Text((athlete.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? "Add your name").uppercased())
+                        .font(.system(size: hasName ? 48 : 30, weight: .bold))
+                        .foregroundStyle(hasName ? AppTheme.ink : AppTheme.secondaryText)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.6)
+                        .multilineTextAlignment(.leading)
+                        .background(alignment: .leading) { HeroBloom(color: AppTheme.brand).offset(x: -60) }
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint("Edit your first name")
-                Text([sportInfo?.name, positionName, "Age \(age)"].compactMap { $0 }.joined(separator: " · "))
-                    .font(.subheadline)
+                Text([sportInfo?.name, positionName, "Age \(age)"].compactMap { $0 }.joined(separator: " · ").uppercased())
+                    .font(.footnote.weight(.semibold))
+                    .tracking(1.6)
                     .foregroundStyle(AppTheme.secondaryText)
-                Tag(AthleteStats.phaseLabel(phase), color: AppTheme.ink)
+                Text(AthleteStats.phaseLabel(phase).uppercased())
+                    .font(.caption.weight(.bold))
+                    .tracking(1.8)
+                    .foregroundStyle(AppTheme.brightRed)
             }
-            Spacer(minLength: 0)
-            Button {
-                activeSheet = .sport
-            } label: {
-                Image(systemName: "pencil")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(AppTheme.ink)
-                    .frame(width: 38, height: 38)
-                    .background(AppTheme.fill, in: Circle())
+            HStack(alignment: .bottom, spacing: 10) {
+                GlassMetric(value: "\(streak)", label: "Day streak", height: 92, accent: AppTheme.orange)
+                GlassMetric(value: "\(sessions.count)", label: "Sessions", height: 76)
+                GlassMetric(value: "\(totalMinutes / 60)", label: "Hours", height: 84)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Edit sport and position")
         }
-        .cardStyle()
+        .padding(.top, 8)
     }
 
     /// My Development Goals: what the plan leans towards.
