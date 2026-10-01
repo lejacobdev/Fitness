@@ -1,0 +1,48 @@
+name: asc-team-codes
+
+# Team plan by hand: one-time App Store offer codes for a club or school's
+# players (Me → Subscription → Redeem a team or gift code). The repo is
+# public, so the codes are never printed: the CSV is encrypted with the
+# OFFER_CODES_PASSPHRASE secret, kept as an artifact for one day, and
+# decrypted on the owner's server. Dispatch-only.
+on:
+  workflow_dispatch:
+    inputs:
+      product:
+        description: 'Plan the codes unlock'
+        required: false
+        default: 'com.studentathlete.app.pro.yearly'
+      count:
+        description: 'How many codes (one per player)'
+        required: true
+        default: '25'
+      duration:
+        description: 'Free period: ONE_MONTH, TWO_MONTHS, THREE_MONTHS, SIX_MONTHS or ONE_YEAR'
+        required: false
+        default: 'ONE_YEAR'
+
+jobs:
+  codes:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+      PASSPHRASE: ${{ secrets.OFFER_CODES_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Make the codes
+        run: node tools/asc.mjs team-codes com.studentathlete.app '${{ inputs.product }}' '${{ inputs.count }}' '${{ inputs.duration }}' "$RUNNER_TEMP/codes.csv"
+      - name: Encrypt
+        run: |
+          test -n "$PASSPHRASE" || { echo "::error::missing secret OFFER_CODES_PASSPHRASE"; exit 1; }
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in "$RUNNER_TEMP/codes.csv" -out "$RUNNER_TEMP/codes.csv.enc" -pass env:PASSPHRASE
+          rm "$RUNNER_TEMP/codes.csv"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: team-codes
+          path: ${{ runner.temp }}/codes.csv.enc
+          retention-days: 1

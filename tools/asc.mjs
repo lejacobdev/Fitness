@@ -108,6 +108,15 @@ async function api(path, { method = 'GET', body: requestBody } = {}) {
   return body;
 }
 
+/** A plain-text response (e.g. offer code CSVs). */
+async function apiText(path) {
+  cachedToken ??= mintToken();
+  const res = await fetch(`${BASE}${path}`, { headers: { authorization: `Bearer ${cachedToken}`, accept: 'text/csv' } });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${res.status} ${path} — ${text.slice(0, 200)}`);
+  return text;
+}
+
 /**
  * Resolve one bundle id record by its *exact* identifier.
  * (2) The filter is a prefix match, so the result is narrowed here.
@@ -835,6 +844,124 @@ const commands = {
     console.log(`${productId} → ${usd} USD: ${ok} territories (${already.size} already)${failed.length ? `, ${failed.length} failed` : ''}`);
     for (const f of failed.slice(0, 10)) console.log(`  ${f}`);
     if (!ok) throw new Error('no price was set');
+  },
+
+  /**
+   * A free trial as the introductory offer (new subscribers only), in every
+   * territory: e.g. set-free-trial <bundle> com.studentathlete.app.pro.yearly ONE_WEEK.
+   * Replaces any earlier introductory offer on that product.
+   */
+  async 'set-free-trial'(identifier, productId, duration = 'ONE_WEEK') {
+    if (!identifier || !productId) throw new Error('usage: set-free-trial <bundle-id> <product-id> [ONE_WEEK|TWO_WEEKS|ONE_MONTH]');
+    const app = await appFor(identifier);
+    const groups = await api(`/v1/apps/${app.id}/subscriptionGroups?limit=50`);
+    let sub;
+    for (const group of groups.data) {
+      const subs = await api(`/v1/subscriptionGroups/${group.id}/subscriptions?limit=50`);
+      sub = sub ?? subs.data.find((x) => x.attributes.productId === productId);
+    }
+    if (!sub) throw new Error(`no subscription ${productId}`);
+    const old = await api(`/v1/subscriptions/${sub.id}/introductoryOffers?limit=200`);
+    for (const offer of old.data) await withRetry(() => api(`/v1/subscriptionIntroductoryOffers/${offer.id}`, { method: 'DELETE' }));
+    console.log(`removed ${old.data.length} old introductory offers`);
+    const territories = await api('/v1/territories?limit=200');
+    let ok = 0;
+    const failed = [];
+    for (const territory of territories.data) {
+      try {
+        await withRetry(() => api('/v1/subscriptionIntroductoryOffers', {
+          method: 'POST',
+          body: { data: {
+            type: 'subscriptionIntroductoryOffers',
+            attributes: { duration, offerMode: 'FREE_TRIAL', numberOfPeriods: 1 },
+            relationships: {
+              subscription: { data: { type: 'subscriptions', id: sub.id } },
+              territory: { data: { type: 'territories', id: territory.id } },
+            },
+          } },
+        }));
+        ok += 1;
+      } catch (err) {
+        failed.push(`${territory.id}: ${err.message.slice(0, 120)}`);
+      }
+    }
+    console.log(`free trial ${duration} on ${productId}: ${ok} territories${failed.length ? `, ${failed.length} failed` : ''}`);
+    for (const f of failed.slice(0, 10)) console.log(`  ${f}`);
+    if (!ok) throw new Error('no free trial was created');
+  },
+
+  /**
+   * Team plan by hand: one-time codes a club or school hands to its players.
+   * Creates (once) an offer code giving <duration> of <product> free, then
+   * <count> one-time codes valid for 90 days, written as CSV to <out>.
+   * team-codes <bundle> com.studentathlete.app.pro.yearly 25 ONE_YEAR codes.csv
+   */
+  async 'team-codes'(identifier, productId, count = '10', duration = 'ONE_YEAR', out = 'codes.csv') {
+    if (!identifier || !productId) throw new Error('usage: team-codes <bundle-id> <product-id> [count] [duration] [out.csv]');
+    const app = await appFor(identifier);
+    const groups = await api(`/v1/apps/${app.id}/subscriptionGroups?limit=50`);
+    let sub;
+    for (const group of groups.data) {
+      const subs = await api(`/v1/subscriptionGroups/${group.id}/subscriptions?limit=50`);
+      sub = sub ?? subs.data.find((x) => x.attributes.productId === productId);
+    }
+    if (!sub) throw new Error(`no subscription ${productId}`);
+    const name = `Team plan ${duration.toLowerCase().replace('_', ' ')}`;
+    const existing = await api(`/v1/subscriptions/${sub.id}/offerCodes?limit=200`);
+    let offer = existing.data.find((o) => o.attributes.name === name);
+    if (!offer) {
+      const territories = await api('/v1/territories?limit=200');
+      const prices = territories.data.map((t, i) => ({ type: 'subscriptionOfferCodePrices', id: `\${price-${i}}` , territory: t.id }));
+      offer = (await api('/v1/subscriptionOfferCodes', {
+        method: 'POST',
+        body: {
+          data: {
+            type: 'subscriptionOfferCodes',
+            attributes: {
+              name,
+              customerEligibilities: ['NEW', 'EXPIRED'],
+              offerEligibility: 'REPLACE_INTRO_OFFER',
+              offerMode: 'FREE_TRIAL',
+              duration,
+              numberOfPeriods: 1,
+            },
+            relationships: {
+              subscription: { data: { type: 'subscriptions', id: sub.id } },
+              prices: { data: prices.map((p) => ({ type: p.type, id: p.id })) },
+            },
+          },
+          included: prices.map((p) => ({
+            type: p.type, id: p.id,
+            relationships: { territory: { data: { type: 'territories', id: p.territory } } },
+          })),
+        },
+      })).data;
+      console.log(`created offer code "${name}" (${offer.id})`);
+    } else {
+      console.log(`offer code "${name}" exists (${offer.id})`);
+    }
+    const expires = new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10);
+    const batch = (await api('/v1/subscriptionOfferCodeOneTimeUseCodes', {
+      method: 'POST',
+      body: { data: {
+        type: 'subscriptionOfferCodeOneTimeUseCodes',
+        attributes: { numberOfCodes: Number(count), expirationDate: expires },
+        relationships: { offerCode: { data: { type: 'subscriptionOfferCodes', id: offer.id } } },
+      } },
+    })).data;
+    // Apple generates the codes in the background; poll for the CSV.
+    let csv = '';
+    for (let attempt = 0; attempt < 30 && !csv.trim(); attempt += 1) {
+      await new Promise((r) => setTimeout(r, 10_000));
+      try {
+        csv = await apiText(`/v1/subscriptionOfferCodeOneTimeUseCodes/${batch.id}/values`);
+      } catch (err) {
+        if (attempt === 29) throw err;
+      }
+    }
+    const fs = await import('node:fs');
+    fs.writeFileSync(out, csv);
+    console.log(`${csv.trim().split('\n').length} codes, valid until ${expires}, written to ${out} (not printed)`);
   },
 
   async 'set-intro-offer'(identifier, productId, usd, months = '3') {
