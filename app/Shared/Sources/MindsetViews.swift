@@ -35,6 +35,7 @@ struct MindsetView: View {
                     reflectionSection
                     goalsSection
                     gameDaySection
+                    MentalSkillsSection()
                     learnSection
                     if reflections.count > 1 { pastWins }
                 }
