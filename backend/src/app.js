@@ -13,6 +13,7 @@ import { leaguesRouter } from './routes/leagues.js';
 import { legalRouter } from './routes/legal.js';
 import { linksRouter } from './routes/links.js';
 import { parentRouter } from './routes/parent.js';
+import { knowledgeRouter } from './routes/knowledge.js';
 import { stateRouter } from './routes/state.js';
 import { syncRouter } from './routes/sync.js';
 import { teamsRouter } from './routes/teams.js';
@@ -77,6 +78,7 @@ export function createApp({
     app.use('/workouts', workoutsRouter({ prisma, sessionSecret }));
     app.use(communityRouter({ prisma, sessionSecret }));
     app.use(parentRouter({ prisma, sessionSecret }));
+    app.use(knowledgeRouter({ prisma }));
   }
 
   // Codes as links: Apple's app-links file, the code lookup, and the pages a

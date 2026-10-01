@@ -505,6 +505,7 @@ struct ItemDetailView: View {
                 if !item.substitutes.isEmpty {
                     listCard("Swap for", item.substitutes.map(displayName(forSlug:)), icon: "arrow.left.arrow.right.circle.fill")
                 }
+                ReviewNote(reviewed: KnowledgeReleaseStore.current.isReviewed(item: item.slug), subject: "exercise")
             }
             .padding(20)
         }

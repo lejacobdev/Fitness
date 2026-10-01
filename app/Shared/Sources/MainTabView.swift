@@ -228,6 +228,7 @@ public struct MainTabView: View {
     /// arrive without a new app version (AnimationLibrary).
     private func refreshAnimations() async {
         await AnimationLibrary.shared.refresh(packsBaseURL: apiClient.baseURL.appending(path: "packs"))
+        await KnowledgeReleaseStore.refresh(baseURL: apiClient.baseURL)
     }
 
     private func askForHealthIfNeeded() {

@@ -129,7 +129,7 @@ struct LowEnergyCard: View {
             Label("Low energy while training hard", systemImage: "battery.25")
                 .font(.title3.bold())
                 .foregroundStyle(AppTheme.accent)
-            Text("You've felt drained on \(warning.lowDays) of your last \(warning.checkIns) check-ins, while training on \(warning.trainingDays) of the last 14 days. That often means your body isn't getting enough food for the training — or enough sleep — and it slows progress and raises the risk of injury and illness.")
+            Text("You've felt drained on \(warning.lowDays) of your last \(warning.checkIns) check-ins, while training on \(warning.trainingDays) of the last 14 days. That can mean your body isn't getting enough food or sleep for the training. Worth talking about with a parent, coach or doctor.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)

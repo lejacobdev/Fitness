@@ -102,7 +102,15 @@ struct HomeView: View {
     }
 
     /// Today's workout: built around practice, games and the day's status.
+    /// Today's decision from the rules (safety first; see KnowledgeSystem.swift).
+    private var planning: PlanningEvaluation {
+        _ = revision
+        return PlanningRules.today(athlete, sessions: allSessions)
+    }
+
     private var todaysWorkout: (mode: WorkoutMode, session: GeneratedSession)? {
+        // No added training when the rules say so (game near, illness, pain…).
+        guard planning.decision.allowsAddedTraining else { return nil }
         switch status {
         case .sick, .concussion: return nil
         case .travel, .holiday:
@@ -250,7 +258,8 @@ struct HomeView: View {
     }
 
     private var whyThisPlan: String {
-        DailyLoop.whyThisPlan(status: status, mode: todaysWorkout?.mode, practiceToday: practiceToday, gameToday: gameToday != nil,
+        if let explanation = planning.explanation, planning.decision > .modifyOptionalWork { return explanation }
+        return DailyLoop.whyThisPlan(status: status, mode: todaysWorkout?.mode, practiceToday: practiceToday, gameToday: gameToday != nil,
                               daysToNextGame: daysToNextGame, readiness: readinessOverridden ? nil : readiness)
     }
 
@@ -353,13 +362,15 @@ struct HomeView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .task(id: allSessions.count + athlete.checkIns.count) {
-                #if os(iOS)
-                // A streak milestone is a good moment to ask for a rating.
-                if loaded, RatingMoment.streakMilestones.contains(streak), RatingMoment.consume(firstUse: RatingMoment.firstUse) {
-                    requestReview()
-                }
-                #endif
+                // No prompts tied to streaks (Backend Knowledge System §18):
+                // ratings are only asked after a new test best.
                 catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
+                // The record of today's decision (Me → How AthleteOS decides).
+                let planningContext = PlanningRules.context(athlete, sessions: allSessions)
+                let evaluation = PlanningRules.evaluate(planningContext, disabled: Set(KnowledgeReleaseStore.current.disabledRules))
+                DecisionTraceStore.record(evaluation, context: planningContext,
+                                          selected: todaysWorkout.map { "\($0.mode.title) · \($0.session.estimatedMinutes) min" }
+                                              ?? (evaluation.decision.allowsAddedTraining ? "No workout planned" : "No added workout"))
                 status = DayStatusStore.status()
                 if !loaded, DemoData.initialTab == .today, let name = DemoData.initialSheet { activeSheet = HomeSheet(rawValue: name) }
                 loaded = true
@@ -1027,7 +1038,10 @@ struct HomeView: View {
 
     /// Level 2 of the answer: a few words of context.
     private func readinessContext(_ level: TodayReadiness) -> String {
-        if ReturnRamp.day(reports: PainStore.all(), today: clock) != nil { return "RETURNING AFTER PAIN · LOW LOAD" }
+        if PainFollowUp.pending(reports: PainStore.all(), resolvedDays: PainFollowUp.resolvedDays(), today: clock) != nil,
+           AthleteStats.todaysCheckIn(athlete) == nil {
+            return "PAIN REPORTED RECENTLY · CHECK IN"
+        }
         switch level {
         case .normal: return "TRAIN AS PLANNED"
         case .reduced: return "LIGHTER TODAY"

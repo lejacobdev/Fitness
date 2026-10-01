@@ -52,6 +52,7 @@ struct SportGuideView: View {
                         mindsetAndFuel(guide)
                         quizCard(guide)
                         sources(guide)
+                        ReviewNote(reviewed: KnowledgeReleaseStore.current.isReviewed(sport: guide.slug), subject: "guide")
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 8)

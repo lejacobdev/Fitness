@@ -461,3 +461,18 @@ model SupportMessage {
   message   String
   createdAt DateTime @default(now())
 }
+
+/// The knowledge release, as an append-only log (Backend Knowledge System
+/// §29): switching a rule off, quarantining an exercise, recording an
+/// expert review — each with who and why. Never edited, only added to.
+model KnowledgeAction {
+  id        String   @id @default(uuid())
+  /// disable_rule | enable_rule | quarantine_item | release_item | review_item | review_sport
+  kind      String
+  target    String
+  reason    String
+  actor     String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

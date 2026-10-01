@@ -115,28 +115,27 @@ final class DailyLoopTests: XCTestCase {
 
     // MARK: - Coming back after pain
 
-    func testAfterPainTrainingRampsBackUpGentlyAndNeverForAHeadInjury() {
+    func testAfterPainTrainingStaysLighterUntilTheAthleteSaysItsGone() {
         let calendar = Calendar(identifier: .gregorian)
         let painDay = calendar.date(from: DateComponents(year: 2026, month: 9, day: 10))!
         func day(_ n: Int) -> Date { calendar.date(byAdding: .day, value: n, to: painDay)! }
         let knee = [PainReport(day: DayKey.of(painDay, calendar: calendar), areas: [.knee], level: .little)]
 
-        XCTAssertNil(ReturnRamp.day(reports: knee, today: painDay, calendar: calendar), "the pain day itself is handled as pain")
-        XCTAssertEqual(ReturnRamp.day(reports: knee, today: day(1), calendar: calendar), ReturnRamp.Day(day: 1, of: 7))
-        XCTAssertTrue(ReturnRamp.day(reports: knee, today: day(3), calendar: calendar)?.isLighter == true)
-        XCTAssertTrue(ReturnRamp.day(reports: knee, today: day(5), calendar: calendar)?.isLighter == false)
-        XCTAssertNil(ReturnRamp.day(reports: knee, today: day(8), calendar: calendar), "a week after a little pain, back to normal")
-
-        let more = [PainReport(day: DayKey.of(painDay, calendar: calendar), areas: [.ankle], level: .some)]
-        XCTAssertEqual(ReturnRamp.day(reports: more, today: day(10), calendar: calendar)?.of, 14)
+        XCTAssertNil(PainFollowUp.pending(reports: knee, resolvedDays: [], today: painDay, calendar: calendar), "the pain day itself is handled as pain")
+        XCTAssertEqual(PainFollowUp.pending(reports: knee, resolvedDays: [], today: day(1), calendar: calendar), knee[0])
+        XCTAssertEqual(PainFollowUp.pending(reports: knee, resolvedDays: [], today: day(10), calendar: calendar), knee[0],
+                       "no countdown: time alone doesn't make it safe")
+        XCTAssertNil(PainFollowUp.pending(reports: knee, resolvedDays: [DayKey.of(day(2), calendar: calendar)], today: day(3), calendar: calendar),
+                     "the athlete said it's gone")
+        XCTAssertEqual(PainFollowUp.pending(reports: knee, resolvedDays: [DayKey.of(painDay, calendar: calendar)], today: day(1), calendar: calendar), knee[0],
+                       "only a later \"no pain\" counts")
 
         let head = [PainReport(day: DayKey.of(painDay, calendar: calendar), areas: [.head], level: .little)]
-        XCTAssertNil(ReturnRamp.day(reports: head, today: day(1), calendar: calendar), "the concussion steps decide")
+        XCTAssertNil(PainFollowUp.pending(reports: head, resolvedDays: [], today: day(1), calendar: calendar), "the concussion steps decide")
 
-        let lighter = DailyLoop.readiness(answers: nil, personalBand: nil, pain: nil, yesterday: nil,
-                                          ramp: ReturnRamp.Day(day: 2, of: 7))
+        let lighter = DailyLoop.readiness(answers: nil, personalBand: nil, pain: nil, yesterday: nil, painFollowUp: knee[0])
         XCTAssertEqual(lighter?.level, .reduced)
-        XCTAssertTrue(lighter?.reason.contains("day 2 of 7") == true)
+        XCTAssertTrue(lighter?.reason.contains("until you tell us") == true)
         XCTAssertFalse(lighter?.reason.lowercased().contains("injur") == true, "never a diagnosis")
     }
 }

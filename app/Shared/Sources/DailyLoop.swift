@@ -82,50 +82,38 @@ public enum PainStore {
     }
 }
 
-/// Coming back after reported pain: a gentle ramp, never a diagnosis. Once
-/// a day passes without pain, training stays lighter for a week after "a
-/// little" pain and two weeks after more, building up day by day. A head
-/// injury isn't ramped here — the concussion steps and a doctor decide.
-public enum ReturnRamp {
-    public struct Day: Sendable, Equatable {
-        /// 1 = the first pain-free day.
-        public let day: Int
-        public let of: Int
+/// After reported pain: no automatic return plan. The time since pain
+/// can't say what is safe (Backend Knowledge System §12–13), so training
+/// stays lighter until the athlete says in a check-in that the pain is gone
+/// ("No" to "Any pain or discomfort?"). A head injury isn't handled here —
+/// the concussion steps and a doctor decide.
+public enum PainFollowUp {
+    static let resolvedKey = "safety.painResolved"
 
-        /// The first half of the ramp is lighter; the second half trains as
-        /// planned but keeps saying where you are.
-        public var isLighter: Bool { day * 2 <= of }
-
-        public var reason: String {
-            isLighter
-                ? "Coming back after pain: day \(day) of \(of), lighter on purpose. If it hurts again, stop and tell an adult."
-                : "Coming back after pain: day \(day) of \(of). Building back up; if it hurts again, stop and tell an adult."
-        }
-    }
-
-    public static func length(after report: PainReport) -> Int {
-        report.level == .little ? 7 : 14
-    }
-
-    public static func day(reports: [PainReport], today: Date, calendar: Calendar = .current) -> Day? {
+    /// The latest report (not today, not the head, from the last 21 days)
+    /// the athlete hasn't yet said is gone.
+    public static func pending(reports: [PainReport], resolvedDays: [String], today: Date, calendar: Calendar = .current) -> PainReport? {
         let todayKey = DayKey.of(today, calendar: calendar)
-        guard !reports.contains(where: { $0.day == todayKey }),
-              let last = reports.filter({ $0.day < todayKey }).max(by: { $0.day < $1.day }),
-              !last.involvesHead,
-              let lastDate = date(last.day, calendar: calendar),
-              let days = calendar.dateComponents([.day], from: lastDate, to: calendar.startOfDay(for: today)).day
-        else { return nil }
-        // The ramp covers the biggest recent report, not only the last one.
-        let recent = reports.filter { $0.day < todayKey && $0.day >= DayKey.of(calendar.date(byAdding: .day, value: -14, to: today) ?? today, calendar: calendar) }
-        let length = recent.map(Self.length(after:)).max() ?? Self.length(after: last)
-        guard days >= 1, days <= length else { return nil }
-        return Day(day: days, of: length)
+        let since = DayKey.of(calendar.date(byAdding: .day, value: -21, to: today) ?? today, calendar: calendar)
+        guard let last = reports.filter({ $0.day < todayKey && $0.day >= since }).max(by: { $0.day < $1.day }),
+              !last.involvesHead else { return nil }
+        // Gone means said so on a day after the report.
+        return resolvedDays.contains { $0 > last.day } ? nil : last
     }
 
-    private static func date(_ key: String, calendar: Calendar) -> Date? {
-        let parts = key.split(separator: "-").compactMap { Int($0) }
-        guard parts.count == 3 else { return nil }
-        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+    public static func resolvedDays(_ defaults: UserDefaults = .standard) -> [String] {
+        defaults.stringArray(forKey: resolvedKey) ?? []
+    }
+
+    /// The athlete said the pain is gone (no pain in today's check-in).
+    public static func markResolved(on date: Date = .now, calendar: Calendar = .current, _ defaults: UserDefaults = .standard) {
+        let day = DayKey.of(date, calendar: calendar)
+        let days = (resolvedDays(defaults).filter { $0 != day } + [day]).sorted().suffix(30)
+        defaults.set(Array(days), forKey: resolvedKey)
+    }
+
+    public static func reason(_ report: PainReport) -> String {
+        "You reported pain recently (\(report.areas.map(\.title).joined(separator: ", ").lowercased())), so today stays lighter until you tell us in the check-in that it's gone. If it comes back, stop and tell an adult."
     }
 }
 
@@ -299,15 +287,15 @@ public enum DailyLoop {
     /// yesterday was.
     public static func readiness(
         answers: MorningAnswers?, personalBand: ReadinessBand?, pain: PainReport?, yesterday: EveningSignal?,
-        ramp: ReturnRamp.Day? = nil, wearable: String? = nil
+        painFollowUp: PainReport? = nil, wearable: String? = nil
     ) -> (level: TodayReadiness, reason: String)? {
         var candidates: [(TodayReadiness, String)] = []
         if let pain {
             let level: TodayReadiness = pain.involvesHead || pain.level != .little ? .recovery : .reduced
             candidates.append((level, "Because you reported pain, your training is reduced today."))
         }
-        if let ramp {
-            candidates.append((ramp.isLighter ? .reduced : .normal, ramp.reason))
+        if let painFollowUp {
+            candidates.append((.reduced, PainFollowUp.reason(painFollowUp)))
         }
         if let wearable {
             candidates.append((.reduced, wearable))

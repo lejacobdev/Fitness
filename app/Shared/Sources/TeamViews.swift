@@ -574,7 +574,9 @@ struct TeamBoardView: View {
                 Text(trainerCode)
                     .font(.system(size: 30, weight: .bold, design: .monospaced))
                     .foregroundStyle(AppTheme.ink)
+                    #if os(iOS)
                     .textSelection(.enabled)
+                    #endif
                 Text("They enter it in Me → My team → Athletic trainer.")
                     .font(.caption)
                     .foregroundStyle(AppTheme.secondaryText)
@@ -608,7 +610,7 @@ struct TeamBoardView: View {
             try await apiClient.postAnnouncement(teamID: team.id, text: newAnnouncement, sessionToken: token)
             newAnnouncement = ""
             await load()
-        } catch APIError.http(status: 400, _) {
+        } catch APIClient.APIError.http(status: 400, _) {
             failed = true
         } catch {
             failed = true
@@ -852,9 +854,9 @@ struct ParentSummaryView: View {
         do {
             email = try await apiClient.setParentEmail(emailDraft.trimmingCharacters(in: .whitespaces), sessionToken: token)
             emailMessage = nil
-        } catch APIError.http(status: 400, _) {
+        } catch APIClient.APIError.http(status: 400, _) {
             emailMessage = "That doesn't look like an email address."
-        } catch APIError.http(status: 429, _) {
+        } catch APIClient.APIError.http(status: 429, _) {
             emailMessage = "You just changed it — try again in a few minutes."
         } catch {
             emailMessage = "Couldn't reach the server — check your connection."

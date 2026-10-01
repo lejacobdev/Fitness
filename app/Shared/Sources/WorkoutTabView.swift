@@ -65,6 +65,13 @@ struct WorkoutTabView: View {
 
     /// What to do today, and why.
     private var recommendation: (mode: WorkoutMode?, reason: String) {
+        // The rules decide first: no added training when they say so. A
+        // light mobility option stays available unless training is held.
+        let planning = PlanningRules.today(athlete, sessions: athlete.sessions)
+        if !planning.decision.allowsAddedTraining, status == .active, gameToday == nil {
+            let mode: WorkoutMode? = planning.decision == .holdForProfessionalReview ? nil : .mobility
+            return (mode, planning.explanation ?? "No added training today.")
+        }
         switch status {
         case .sick: return (nil, "You're resting today, so there's no training.")
         case .concussion: return (nil, "Training is paused until a doctor clears you.")

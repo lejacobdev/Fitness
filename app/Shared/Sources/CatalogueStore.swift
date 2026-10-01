@@ -48,6 +48,8 @@ public enum CatalogueLoader {
             }
         }
 
+        // Exercises quarantined by the knowledge release are never offered.
+        for slug in KnowledgeReleaseStore.current.quarantinedItems { itemsBySlug[slug] = nil }
         return Catalogue(itemsBySlug: itemsBySlug, sportsBySlug: sportsBySlug)
     }
 }

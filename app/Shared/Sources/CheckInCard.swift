@@ -13,7 +13,7 @@ extension DailyLoop {
         }
         return readiness(answers: answers, personalBand: checkIn?.readinessBand, pain: PainStore.report(on: now),
                          yesterday: MindsetStore.yesterdaySignal(now: now),
-                         ramp: ReturnRamp.day(reports: PainStore.all(), today: now),
+                         painFollowUp: PainFollowUp.pending(reports: PainStore.all(), resolvedDays: PainFollowUp.resolvedDays(), today: now),
                          wearable: WearableLoad.reason(ExternalWorkoutStore.recent, now: now,
                                                        age: PlanGenerator.ageInYears(birthDate: athlete.birthDate, now: now),
                                                        practiceToday: PracticeSchedule.hasPractice(on: now) ? PracticeSchedule.time(on: now) : nil))
@@ -37,7 +37,7 @@ struct CheckInSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    enum Step: Hashable { case loading, summary, sleepHours, sleepQuality, energy, soreness, pain, painDetail, mood, schedule, result }
+    enum Step: Hashable { case loading, summary, sleepHours, sleepQuality, energy, soreness, pain, painDetail, illness, mood, schedule, result }
 
     @State private var step: Step = .loading
     @State private var sleepHours: CheckInOption?
@@ -48,6 +48,8 @@ struct CheckInSheet: View {
     @State private var painAreas: Set<PainArea> = []
     @State private var painLevel: PainLevel?
     @State private var mood: CheckInOption?
+    /// Ill or under a new restriction (yes / no / not sure).
+    @State private var illness: IllnessAnswer? = IllnessStore.answer()
     @State private var practiceToday = PracticeSchedule.hasPractice(on: .now)
     /// Hours slept from Apple Health, when connected: pre-selects the answer.
     @State private var healthHours: Double?
@@ -79,7 +81,7 @@ struct CheckInSheet: View {
     }
 
     private var steps: [Step] {
-        [.sleepHours, .sleepQuality, .energy, .soreness, .pain] + (hasPain == true ? [.painDetail] : []) + [.mood, .schedule]
+        [.sleepHours, .sleepQuality, .energy, .soreness, .pain] + (hasPain == true ? [.painDetail] : []) + [.illness, .mood, .schedule]
     }
 
     private var progress: Double {
@@ -168,6 +170,16 @@ struct CheckInSheet: View {
                            isSelected: { (level: PainLevel) -> Bool in level == painLevel }) { (level: PainLevel) in painLevel = level }
                 if painAreas.contains(.head) {
                     HeadKnockNote()
+                }
+            }
+        case .illness:
+            QuestionPage(progress: progress, question: "Are you ill, or told to hold back?",
+                         hint: "By a doctor, athletic trainer or coach. Not sure is a fine answer.",
+                         buttonTitle: illness == nil ? nil : "Next", onClose: { dismiss() }, onBack: { back() }, onButton: { next(from: .illness) }) {
+                ChoiceGrid(IllnessAnswer.allCases, title: { (answer: IllnessAnswer) -> String in answer.title },
+                           isSelected: { (answer: IllnessAnswer) -> Bool in answer == illness }) { (answer: IllnessAnswer) in
+                    illness = answer
+                    advance(from: .illness)
                 }
             }
         case .mood:
@@ -295,7 +307,7 @@ struct CheckInSheet: View {
     private var summaryPage: some View {
         QuestionPage(progress: 0, question: "Your morning",
                      hint: "Filled in from Apple Health. Confirm, or change anything.",
-                     buttonTitle: "Confirm", buttonEnabled: sleepQuality != nil && energy != nil && soreness != nil && mood != nil && hasPain != nil,
+                     buttonTitle: "Confirm", buttonEnabled: sleepQuality != nil && energy != nil && soreness != nil && mood != nil && hasPain != nil && illness != nil,
                      onClose: { dismiss() }, onButton: { confirm() }) {
             VStack(spacing: 0) {
                 Button { edit(from: .sleepHours) } label: {
@@ -323,6 +335,15 @@ struct CheckInSheet: View {
                             if !answer { painAreas = []; painLevel = nil }
                         } label: { Chip(answer ? "Yes" : "No", isSelected: hasPain == answer) }
                         .buttonStyle(.plain)
+                    }
+                }
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Ill, or told to hold back?").font(.headline).foregroundStyle(AppTheme.ink)
+                WrapLayout(spacing: 8) {
+                    ForEach(IllnessAnswer.allCases, id: \.self) { answer in
+                        Button { illness = answer } label: { Chip(answer.title, isSelected: illness == answer) }
+                            .buttonStyle(.plain)
                     }
                 }
             }
@@ -407,6 +428,9 @@ struct CheckInSheet: View {
         } else if hadPain {
             HealthShare.send(kind: "painGone")
         }
+        IllnessStore.set(illness)
+        // "No pain" today: a pain reported on an earlier day is gone.
+        if hasPain == false { PainFollowUp.markResolved() }
         WidgetSnapshotWriter.write(for: athlete, week: WeeklyPlan.generate(for: athlete))
         saveCount += 1
         withAnimation(.easeInOut(duration: 0.25)) { step = .result }
@@ -418,6 +442,14 @@ struct CheckInSheet: View {
         QuestionPage(progress: 1, question: "Today's readiness", buttonTitle: nil, onClose: { dismiss() }) {
             if let readiness = DailyLoop.today(athlete) {
                 ReadinessBlock(level: readiness.level, reason: readiness.reason)
+            }
+            // What the rules decided (illness, a game tomorrow…), in words.
+            let planning = PlanningRules.today(athlete, sessions: athlete.sessions)
+            if planning.decision > .modifyOptionalWork, let explanation = planning.explanation {
+                Label(explanation, systemImage: "hand.raised.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let pain = PainStore.report() {
                 PainNote(report: pain, paused: dayStatus == .concussion, onPause: {

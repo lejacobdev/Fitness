@@ -49,7 +49,7 @@ struct MeView: View {
     private var apiClient: APIClient { APIClient(baseURL: AppConfig.backendBaseURL) }
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, experience, name, reports, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, safety, struggles, trends, mindset, schedule
+        case sport, season, equipment, experience, name, reports, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, safety, struggles, trends, mindset, schedule, decisions
         var id: String { rawValue }
     }
 
@@ -139,6 +139,8 @@ struct MeView: View {
 
                     menuCard {
                         menuRow("Safety Center", icon: "cross.case.fill", tint: AppTheme.red, detail: "Pain, head injury, illness") { activeSheet = .safety }
+                        menuDivider
+                        menuRow("How AthleteOS decides", icon: "list.bullet.rectangle", tint: AppTheme.ink, detail: "Rules and sources") { activeSheet = .decisions }
                     }
 
                     SectionHeader("Team & Family")
@@ -275,6 +277,7 @@ struct MeView: View {
                 case .parent: ParentSummaryView()
                 case .safety: SafetyCenterView()
                 case .struggles: StrugglesSheet(onSaved: onPlanInputsChanged)
+                case .decisions: DecisionsView()
                 case .trends: TrendsSheet(athlete: athlete, sessions: sessions, balance: CoachEngine.muscleBalance(sessions: coachSessions, catalogue: catalogue))
                 case .mindset: MindsetView(sportName: AthleteStats.sportName(athlete)) {}
                 case .schedule: ScheduleSheet(athlete: athlete, onChanged: onPlanInputsChanged)

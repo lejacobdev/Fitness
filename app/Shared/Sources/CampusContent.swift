@@ -123,7 +123,7 @@ public let campusTopics: [CampusTopic] = [
             lesson("warm-up", "Warming up the right way", 3, [
                 ("Raise, activate, mobilise, potentiate", "A good warm-up follows four steps: raise your heart rate and body temperature with light movement, activate key muscles (glutes, core, shoulders), move joints through their full range, then finish with a few fast, sport-like efforts."),
                 ("Dynamic, not long static holds", "Before training, move through stretches (leg swings, lunges with a twist) rather than holding long static stretches — long holds right before sprinting or jumping can make you briefly slower. Save longer holds for after training or the evening."),
-                ("It prevents injuries", "Structured warm-ups such as FIFA 11+ have been shown in studies to cut injuries in team-sport athletes substantially when done regularly."),
+                ("Programmes, not single drills", "Structured team warm-ups done regularly, such as FIFA 11+, reduced injuries in studies of youth team sports. That effect belongs to the whole programme done consistently, not to any single drill."),
             ], ["Warm up for 10–15 minutes before every session.", "Move dynamically before; hold stretches after.", "End the warm-up with a few fast efforts."]),
         ]
     ),
@@ -167,8 +167,8 @@ public let campusTopics: [CampusTopic] = [
             lesson("technique-load", "Technique and load protect you", 3, [
                 ("Quality first", "Good technique spreads force across the right muscles and joints. Learn movements light, film yourself, and add load only when the movement looks the same every rep."),
                 ("Watch sudden spikes", "Injuries often follow sudden jumps in training — a new sport, a double-session camp, the first week back after a break. Try not to increase your weekly training by a lot at once."),
-                ("Prevention programmes work", "Short routines done 2–3 times a week — Nordic hamstring curls, Copenhagen side planks, landing drills, shoulder external-rotation work — reduce common injuries in many sports. Your plan includes the ones that matter for your sport."),
-            ], ["Master light before going heavy.", "Avoid big weekly jumps in training.", "Do your prevention work — it's small and it works."]),
+                ("Prevention programmes", "Short routines done 2–3 times a week — Nordic hamstring curls, Copenhagen side planks, landing drills, shoulder external-rotation work — are part of programmes that reduced common injuries in studies. The whole programme, done regularly, showed the effect; one exercise on its own doesn't carry that promise."),
+            ], ["Master light before going heavy.", "Avoid big weekly jumps in training.", "Prevention work is small; doing it regularly is what counted in studies."]),
         ]
     ),
     CampusTopic(
