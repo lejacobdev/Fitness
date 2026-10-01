@@ -35,3 +35,4 @@ app/Shared/Sources/Generated/
 # OS
 .DS_Store
 Thumbs.db
+__pycache__/
