@@ -137,6 +137,8 @@ public enum CheckInOptions {
     public static let sleepHours = [
         CheckInOption("Under 6 h", 5.5), CheckInOption("6–7 h", 6.5), CheckInOption("7–8 h", 7.5),
         CheckInOption("8–9 h", 8.5), CheckInOption("9 h or more", 9.5),
+        // Unknown is a fine answer (§22); stored as no hours, never guessed.
+        CheckInOption("Not sure", 0),
     ]
     public static let sleepQuality = [CheckInOption("Poor", 1), CheckInOption("Okay", 3), CheckInOption("Good", 4), CheckInOption("Great", 5)]
     public static let energy = [CheckInOption("Low", 1), CheckInOption("Okay", 3), CheckInOption("Good", 4), CheckInOption("Great", 5)]
@@ -149,7 +151,8 @@ public enum CheckInOptions {
     /// from Apple Health).
     public static func nearest(_ value: Double?, in options: [CheckInOption]) -> CheckInOption? {
         guard let value else { return nil }
-        return options.min { abs($0.value - value) < abs($1.value - value) }
+        // "Not sure" (0) only ever matches an unknown, never a real number.
+        return options.filter { $0.value > 0 || value == 0 }.min { abs($0.value - value) < abs($1.value - value) }
     }
 }
 

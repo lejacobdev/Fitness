@@ -415,7 +415,8 @@ struct CheckInSheet: View {
             PracticeOverride.set(practiceToday, on: day)
         }
         // The exact hours from Apple Health when the answer agrees with them.
-        let hours = healthHours.flatMap { CheckInOptions.nearest($0, in: CheckInOptions.sleepHours) == sleepHours ? $0 : nil } ?? sleepHours?.value
+        let hours = healthHours.flatMap { CheckInOptions.nearest($0, in: CheckInOptions.sleepHours) == sleepHours ? $0 : nil }
+            ?? sleepHours.flatMap { $0.value > 0 ? $0.value : nil }
         _ = try? CheckInStore(modelContext: modelContext).submit(
             athlete: athlete, sleepQuality: sleepQuality.scale, sleepHours: hours,
             soreness: soreness.scale, energy: energy.scale, stress: mood.scale

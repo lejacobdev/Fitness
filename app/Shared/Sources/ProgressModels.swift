@@ -102,9 +102,14 @@ public struct PracticeLog: Codable, Sendable, Equatable, Identifiable {
     /// Exact tracking: each part of the game (club, stroke, skill) → 1 poor … 4 great.
     public var ratings: [String: Int]
     public var note: String?
+    /// What kind of practice (§16): "walkthrough", "drills", "live", "mixed" or "unsure".
+    public var intent: String?
+    /// Optional: 1 not much … 3 a lot.
+    public var enjoyment: Int?
 
     public init(id: String = UUID().uuidString, day: String, sportSlug: String, types: [String], hard: Int, went: Int, mood: Int,
-                minutes: Int? = nil, tiredMuscles: [String] = [], ratings: [String: Int] = [:], note: String? = nil) {
+                minutes: Int? = nil, tiredMuscles: [String] = [], ratings: [String: Int] = [:], note: String? = nil,
+                intent: String? = nil, enjoyment: Int? = nil) {
         self.id = id
         self.day = day
         self.sportSlug = sportSlug
@@ -116,6 +121,23 @@ public struct PracticeLog: Codable, Sendable, Equatable, Identifiable {
         self.tiredMuscles = tiredMuscles
         self.ratings = ratings
         self.note = note
+        self.intent = intent
+        self.enjoyment = enjoyment
+    }
+}
+
+/// Practice kinds the log asks about: a walkthrough isn't live scrimmage.
+public enum PracticeIntent {
+    public static let keys = ["walkthrough", "drills", "live", "mixed", "unsure"]
+
+    public static func title(_ key: String) -> String {
+        switch key {
+        case "walkthrough": "Walkthrough"
+        case "drills": "Drills"
+        case "live": "Live play"
+        case "mixed": "Mixed"
+        default: "Not sure"
+        }
     }
 }
 

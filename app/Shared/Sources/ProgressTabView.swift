@@ -1001,6 +1001,8 @@ struct PracticeLogSheet: View {
     @State private var tiredMuscles: Set<String> = []
     @State private var ratings: [String: Int] = [:]
     @State private var note = ""
+    @State private var intent: String?
+    @State private var enjoyment: Int?
     @State private var existing: PracticeLog?
 
     init(athlete: Athlete, date: Date) {
@@ -1019,6 +1021,8 @@ struct PracticeLogSheet: View {
             _tiredMuscles = State(initialValue: Set(log.tiredMuscles))
             _ratings = State(initialValue: log.ratings)
             _note = State(initialValue: log.note ?? "")
+            _intent = State(initialValue: log.intent)
+            _enjoyment = State(initialValue: log.enjoyment)
             if !log.tiredMuscles.isEmpty || !log.ratings.isEmpty { _level = State(initialValue: .exact) }
         } else if let time = PracticeSchedule.time(on: date) {
             _minutes = State(initialValue: max(15, time.end - time.start))
@@ -1090,6 +1094,24 @@ struct PracticeLogSheet: View {
                 }
             }
             scale("Result: how did it go?", low: "Badly", high: "Great", value: $went)
+            section("What kind of practice?") {
+                WrapLayout(spacing: 8) {
+                    ForEach(PracticeIntent.keys, id: \.self) { key in
+                        Button { intent = intent == key ? nil : key } label: { Chip(PracticeIntent.title(key), isSelected: intent == key) }
+                            .buttonStyle(.plain)
+                    }
+                }
+            }
+            section("Enjoyed it? (optional)") {
+                WrapLayout(spacing: 8) {
+                    ForEach([1, 2, 3], id: \.self) { value in
+                        Button { enjoyment = enjoyment == value ? nil : value } label: {
+                            Chip(value == 1 ? "Not much" : (value == 2 ? "It was OK" : "A lot"), isSelected: enjoyment == value)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
             section("Worked on (optional)") {
                 WrapLayout(spacing: 8) {
                     ForEach(SportPractice.types(for: sportSlug), id: \.self) { type in
@@ -1194,7 +1216,8 @@ struct PracticeLogSheet: View {
             hard: hard, went: went, mood: mood, minutes: minutes,
             tiredMuscles: level == .exact ? tiredMuscles.sorted() : [],
             ratings: level == .exact ? ratings : [:],
-            note: level == .exact && !trimmed.isEmpty ? trimmed : nil
+            note: level == .exact && !trimmed.isEmpty ? trimmed : nil,
+            intent: intent, enjoyment: enjoyment
         ))
         dismiss()
     }
