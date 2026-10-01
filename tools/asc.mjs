@@ -920,7 +920,7 @@ const commands = {
             attributes: {
               name,
               customerEligibilities: ['NEW', 'EXPIRED'],
-              offerEligibility: 'REPLACE_INTRO_OFFER',
+              offerEligibility: 'REPLACE_INTRO_OFFERS',
               offerMode: 'FREE_TRIAL',
               duration,
               numberOfPeriods: 1,
