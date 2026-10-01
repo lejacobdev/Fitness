@@ -17,14 +17,14 @@ rclone config create blomp swift user "$EMAIL" key "$PASSWORD" \
   --config "$CONF/rclone.conf" >/dev/null
 unset PASSWORD
 echo "Testing…"
-if ! containers=$(rclone lsd blomp: --config "$CONF/rclone.conf" 2>&1); then
+# Blomp forbids listing the account; the files live in a folder named after the email.
+if ! out=$(rclone lsd "blomp:$EMAIL" --config "$CONF/rclone.conf" 2>&1); then
   echo "Blomp didn't accept it:"
-  echo "$containers" | tail -1
+  echo "$out" | tail -1
   echo "Check the email and password (log in at dashboard.blomp.com to be sure) and run this again."
   exit 1
 fi
-folder=$(echo "$containers" | awk '{print $NF}' | head -1)
-[ -n "$folder" ] || folder="$EMAIL"
+folder="$EMAIL"
 echo "blomp:$folder/athleteos-backups" > "$CONF/remote"
 echo "Connected. Backups go to Blomp: $folder/athleteos-backups"
 echo "Sending a first backup…"
