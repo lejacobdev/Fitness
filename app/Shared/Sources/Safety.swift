@@ -125,7 +125,7 @@ public enum ConcussionGuide {
 /// The Safety Center (Me → Safety Center): what to do when something doesn't
 /// feel right. Short and plain — it explains, it never diagnoses.
 public enum SafetyTopic: String, CaseIterable, Identifiable, Sendable {
-    case pain, headInjury, whenToStop, afterIllness, talkToAdult
+    case pain, headInjury, whenToStop, heat, afterIllness, rest, talkToAdult
 
     public var id: String { rawValue }
 
@@ -134,6 +134,8 @@ public enum SafetyTopic: String, CaseIterable, Identifiable, Sendable {
         case .pain: "Pain"
         case .headInjury: "Head injury"
         case .whenToStop: "When to stop training"
+        case .heat: "Heat"
+        case .rest: "Rest days and breaks"
         case .afterIllness: "Returning after illness"
         case .talkToAdult: "Talk to an adult"
         }
@@ -144,6 +146,8 @@ public enum SafetyTopic: String, CaseIterable, Identifiable, Sendable {
         case .pain: "Soreness is normal. Pain is a signal."
         case .headInjury: "When in doubt, sit it out."
         case .whenToStop: "Signs to stop straight away."
+        case .heat: "Hot days, faintness and cooling down."
+        case .rest: "Why days off and breaks from one sport matter."
         case .afterIllness: "Coming back without a setback."
         case .talkToAdult: "Who to tell, and when."
         }
@@ -154,6 +158,8 @@ public enum SafetyTopic: String, CaseIterable, Identifiable, Sendable {
         case .pain: "bandage.fill"
         case .headInjury: "brain.head.profile"
         case .whenToStop: "hand.raised.fill"
+        case .heat: "sun.max.trianglebadge.exclamationmark"
+        case .rest: "bed.double.fill"
         case .afterIllness: "thermometer.medium"
         case .talkToAdult: "person.2.fill"
         }
@@ -183,10 +189,23 @@ public enum SafetyTopic: String, CaseIterable, Identifiable, Sendable {
             "Set your day to Sick / Rest on Home and the plan backs off.",
             "Chest pain, a racing heart or unusual breathlessness after being ill: see a doctor before training.",
         ]
+        case .heat: [
+            "Feeling faint, weak, dizzy, sick or confused in the heat: stop, get to a cool place, drink, and tell an adult.",
+            "Someone who is confused, collapses or stops sweating needs emergency help: call your local emergency number.",
+            "On hot days, drink before you're thirsty, take breaks in the shade and wear light clothes.",
+            "New to the heat? Your body takes a week or two to get used to it — go easier at first.",
+        ]
+        case .rest: [
+            "Doctors who look after young athletes suggest 1–2 days a week without organised training.",
+            "They also suggest a few months a year away from your main sport, in short breaks — other sports and free play are fine.",
+            "Rest isn't lost time: it's when training turns into progress.",
+            "Can't change your team's schedule? Talk to your coach or a parent rather than adding more on top.",
+        ]
         case .talkToAdult: [
             "Coaches, athletic trainers, parents and school nurses are there to help. Telling them is the smart move.",
             "Tell someone about pain, a head knock, feeling low for a long time, or anything that worries you.",
-            "Struggling or thinking about hurting yourself? Talk to someone now: a parent, a trusted adult, or your local emergency number.",
+            "If an adult is the problem — someone hurts, pressures or scares you — tell a different adult you trust. You never have to sort that out on your own.",
+            "Struggling or thinking about hurting yourself? Talk to someone now: a parent, a trusted adult, or your local emergency number. In the US, call or text 988 (Suicide & Crisis Lifeline), any time.",
         ]
         }
     }

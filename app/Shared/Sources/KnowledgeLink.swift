@@ -75,6 +75,17 @@ extension PlanningRules {
             let key = DayKey.of(day, calendar: calendar)
             return !checkInDays.contains(key) && !sessionDays.contains(key) && !practiceDays.contains(key)
         }.count
+        let gameDays = Set(athlete.competitions.map { DayKey.of($0.date, calendar: calendar) })
+        var streak = 0
+        for offset in 1...14 {
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: now) else { break }
+            let key = DayKey.of(day, calendar: calendar)
+            let trained = sessionDays.contains(key) || practiceDays.contains(key) || gameDays.contains(key)
+                || PracticeSchedule.hasPractice(on: day, calendar: calendar)
+            guard trained else { break }
+            streak += 1
+        }
+        context.daysTrainedInARow = streak
         return context
     }
 

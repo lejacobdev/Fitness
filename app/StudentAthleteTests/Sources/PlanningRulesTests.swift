@@ -51,6 +51,11 @@ final class PlanningRulesTests: XCTestCase {
         }
     }
 
+    func testSevenTrainingDaysInARowMeansNoAddedWorkout() {
+        XCTAssertEqual(PlanningRules.evaluate(context { $0.daysTrainedInARow = 7 }).decision, .noExtraTraining)
+        XCTAssertEqual(PlanningRules.evaluate(context { $0.daysTrainedInARow = 6 }).decision, .planAsReviewed)
+    }
+
     func testMissingDataIsUnknownNotRest() {
         let week = context { $0.daysWithoutData = 7; $0.checkedInToday = false }
         let result = PlanningRules.evaluate(week)

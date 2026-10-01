@@ -138,6 +138,8 @@ public struct PlanningContext: Sendable, Equatable {
     public var competitionTomorrow = false
     /// Days in the last 14 with no check-in, session or practice log.
     public var daysWithoutData = 0
+    /// Days in a row before today with training, practice or a game.
+    public var daysTrainedInARow = 0
 
     public init() {}
 }
@@ -219,6 +221,10 @@ public enum PlanningRules {
                      status: .draftRequiresExpertReview, reasonCode: "RECENT_DEMANDING_PRACTICE_COMPETITION_NEAR", decision: .noExtraTraining,
                      explanation: "Practice today and a game tomorrow: no added workout. It protects tomorrow; it isn't a prediction about injury.",
                      when: { $0.practiceToday && ($0.competitionTomorrow || $0.competitionToday) && (($0.practiceEffort ?? 0) >= 4 || ($0.practiceMinutes ?? 0) >= 75 || $0.practiceEffort == nil) }),
+        PlanningRule(id: "SCHED-REST-07", version: "1.0.0", priority: 580, label: .guidance, basis: ["R03", "R04"],
+                     status: .draftRequiresExpertReview, reasonCode: "NO_REST_DAY_THIS_WEEK", decision: .noExtraTraining,
+                     explanation: "Seven days of training in a row: no added workout today. A day off is part of the plan.",
+                     when: { $0.daysTrainedInARow >= 7 && !$0.competitionToday }),
         PlanningRule(id: "SCHED-COMPETITION-06", version: "1.0.0", priority: 590, label: .heuristic, basis: ["R39"],
                      status: .draftRequiresExpertReview, reasonCode: "COMPETITION_TODAY", decision: .noExtraTraining,
                      explanation: "Game day: no added workout. Save your energy for the game.",

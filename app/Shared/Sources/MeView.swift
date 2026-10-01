@@ -629,6 +629,18 @@ struct TrendsSheet: View {
     let athlete: Athlete
     let sessions: [Session]
     let balance: [MuscleRegion: Double]
+
+    private var missingDays: Int {
+        let calendar = Calendar.current
+        let checkIns = Set(athlete.checkIns.map { DayKey.of($0.date, calendar: calendar) })
+        let trained = Set(sessions.map { DayKey.of($0.startedAt, calendar: calendar) })
+        let practices = Set(PracticeLogStore.logs.map(\.day))
+        return (1...14).filter { offset in
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: .now) else { return false }
+            let key = DayKey.of(day, calendar: calendar)
+            return !checkIns.contains(key) && !trained.contains(key) && !practices.contains(key)
+        }.count
+    }
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -640,6 +652,13 @@ struct TrendsSheet: View {
                     LoadTrendCard(summary: LoadCalculator.summarize(sessions.map {
                         LoadSample(date: $0.startedAt, minutes: $0.minutes, rpe: $0.sessionRPE)
                     }))
+                    if missingDays > 0 {
+                        // Missing isn't zero (Backend Knowledge System §9).
+                        Text("No data on \(missingDays) of the last 14 days. Those days show as empty, but that means unknown, not rest.")
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     MuscleBalanceCard(balance: balance)
                 }
                 .padding(.horizontal, 20)
@@ -1277,12 +1296,21 @@ struct DataExportView: View {
         for game in athlete.competitions {
             games.append(["date": iso.string(from: game.date), "kind": game.kind.rawValue, "home": game.isHome])
         }
+        // Why each day's plan looked the way it did, and reported pain (§29).
+        let traces: [[String: Any]] = DecisionTraceStore.all().map { trace in
+            ["day": trace.day, "decision": trace.decision.rawValue, "rules": trace.rules, "reasons": trace.reasonCodes,
+             "unknown": trace.uncertainties, "shown": trace.selected, "release": trace.knowledgeRelease,
+             "contentStatus": trace.contentStatus.rawValue, "inputs": trace.inputs]
+        }
+        let pain: [[String: Any]] = PainStore.all().map { ["day": $0.day, "areas": $0.areas.map(\.rawValue), "level": $0.level.rawValue] }
         let payload: [String: Any] = [
             "exportedAt": iso.string(from: .now),
             "sport": athlete.activeSport?.sportSlug ?? "",
             "checkIns": checkIns,
             "sessions": sessionRows,
             "games": games,
+            "decisions": traces,
+            "painReports": pain,
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) else { return "{}" }
         return String(data: data, encoding: .utf8) ?? "{}"
