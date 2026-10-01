@@ -6,9 +6,16 @@ final class ProgressionEngineTests: XCTestCase {
 
     func testEveryRepAtAnEasyEnoughEffortAddsOneStep() {
         let sets = Array(repeating: LoggedSet(reps: 8, weightKg: 40), count: 3)
-        let target = ProgressionEngine.next(last: sets, dose: squat, sessionRPE: 7, isYouth: true, stepKg: 2.5)
-        XCTAssertEqual(target?.weightKg, 42.5)
+        let once = ProgressionEngine.next(last: sets, dose: squat, sessionRPE: 7, isYouth: true, stepKg: 2.5)
+        XCTAssertEqual(once?.weightKg, 40, "one steady session consolidates")
+        XCTAssertEqual(once?.state, .introduce)
+        let target = ProgressionEngine.next(last: sets, dose: squat, sessionRPE: 7, isYouth: true, stepKg: 2.5, previous: sets, previousRPE: 7)
+        XCTAssertEqual(target?.weightKg, 42.5, "two steady sessions in a row: one step")
         XCTAssertEqual(target?.reps, 8)
+        XCTAssertEqual(target?.state, .progress)
+        let pain = ProgressionEngine.next(last: sets, dose: squat, sessionRPE: 7, isYouth: true, stepKg: 2.5, previous: sets, previousRPE: 7, painInArea: true)
+        XCTAssertEqual(pain?.weightKg, 40, "pain pauses progression")
+        XCTAssertEqual(pain?.state, .pauseForReview)
     }
 
     func testMissedRepsOrAMaximalSessionKeepTheWeight() {
@@ -21,11 +28,11 @@ final class ProgressionEngineTests: XCTestCase {
 
     func testBodyweightAddsARepUpToTheYouthCapAndHoldsAddFiveSeconds() {
         let pushUps = Array(repeating: LoggedSet(reps: 10), count: 3)
-        XCTAssertEqual(ProgressionEngine.next(last: pushUps, dose: Dose(kind: "reps", sets: 3, reps: 10), sessionRPE: nil, isYouth: true, stepKg: 2.5)?.reps, 11)
+        XCTAssertEqual(ProgressionEngine.next(last: pushUps, dose: Dose(kind: "reps", sets: 3, reps: 10), sessionRPE: nil, isYouth: true, stepKg: 2.5, previous: pushUps)?.reps, 11)
         let capped = Array(repeating: LoggedSet(reps: 15), count: 3)
-        XCTAssertEqual(ProgressionEngine.next(last: capped, dose: Dose(kind: "reps", sets: 3, reps: 12), sessionRPE: nil, isYouth: true, stepKg: 2.5)?.reps, 15)
+        XCTAssertEqual(ProgressionEngine.next(last: capped, dose: Dose(kind: "reps", sets: 3, reps: 12), sessionRPE: nil, isYouth: true, stepKg: 2.5, previous: capped)?.reps, 15)
         let plank = Array(repeating: LoggedSet(seconds: 30), count: 2)
-        XCTAssertEqual(ProgressionEngine.next(last: plank, dose: Dose(kind: "time", sets: 2, seconds: 30), sessionRPE: 6, isYouth: true, stepKg: 2.5)?.seconds, 35)
+        XCTAssertEqual(ProgressionEngine.next(last: plank, dose: Dose(kind: "time", sets: 2, seconds: 30), sessionRPE: 6, isYouth: true, stepKg: 2.5, previous: plank, previousRPE: 6)?.seconds, 35)
     }
 
     func testADeloadWeekGoesLighter() {

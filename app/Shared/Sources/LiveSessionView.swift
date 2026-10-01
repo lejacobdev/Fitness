@@ -543,8 +543,16 @@ public struct LiveSessionView: View {
             let phase = PhaseCalculator.phase(today: .now, seasonStart: sport.seasonStart, seasonEnd: sport.seasonEnd)
             return Deload.isDeloadWeek(weekStart: weekStart, anchor: athlete.createdAt, phase: phase)
         } ?? false
+        // The session before that: progress needs two steady sessions in a row.
+        let before = earlier.filter { ($0.session?.startedAt ?? .distantFuture) < lastSession.startedAt }
+            .max { ($0.session?.startedAt ?? .distantPast) < ($1.session?.startedAt ?? .distantPast) }?.session
+        let beforeSets = before.map { session in
+            earlier.filter { $0.session?.id == session.id }.map { LoggedSet(reps: $0.reps, weightKg: $0.weightKg, seconds: $0.seconds) }
+        }
+        let painInArea = PainStore.report() != nil
         if let target = ProgressionEngine.next(last: lastSets, dose: current.dose, sessionRPE: lastSession.sessionRPE,
-                                               isYouth: age < 18, stepKg: unit.stepKg, deload: deload) {
+                                               isYouth: age < 18, stepKg: unit.stepKg, deload: deload,
+                                               previous: beforeSets, previousRPE: before?.sessionRPE, painInArea: painInArea) {
             if let value = target.reps { reps = value }
             if let value = target.weightKg { weightKg = value }
             if let value = target.seconds { seconds = value }

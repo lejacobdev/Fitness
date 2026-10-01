@@ -279,7 +279,7 @@ struct ReflectionSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    enum Step: Hashable { case hardness, body, practice, wentWell, needsWork, learned, review, done }
+    enum Step: Hashable { case hardness, body, symptoms, practice, wentWell, needsWork, learned, review, done }
 
     /// One Campus review question at the end (spaced repetition without a
     /// separate screen): the lesson that's most overdue.
@@ -303,6 +303,8 @@ struct ReflectionSheet: View {
     @State private var wentWell: Set<String> = []
     @State private var needsWork: Set<String> = []
     @State private var learned = ""
+    /// Pain or new symptoms during or after today's activity (none / yes / not sure).
+    @State private var symptoms: IllnessAnswer?
 
     init(completion: DayCompletion? = nil, practiceToday: Bool = false, onSaved: @escaping () -> Void) {
         _completion = State(initialValue: completion)
@@ -318,7 +320,7 @@ struct ReflectionSheet: View {
     }
 
     private var steps: [Step] {
-        [.hardness, .body] + (practiceToday ? [.practice] : []) + [.wentWell, .needsWork, .learned]
+        [.hardness, .body, .symptoms] + (practiceToday ? [.practice] : []) + [.wentWell, .needsWork, .learned]
     }
 
     private var progress: Double {
@@ -339,7 +341,31 @@ struct ReflectionSheet: View {
     private var page: some View {
         switch step {
         case .hardness:
-            scale("How hard was today?", EveningOptions.hardness, selection: $hardness)
+            VStack(spacing: 0) {
+                scale("How hard was today?", EveningOptions.hardness, selection: $hardness)
+                // Reflection is never forced (Backend Knowledge System §20).
+                Button("Nothing to review today") { saveNothing() }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .padding(.bottom, 8)
+                    .background(AppTheme.background)
+            }
+        case .symptoms:
+            QuestionPage(progress: progress, question: "Any pain or new symptoms?", hint: "During or after today's training or games.",
+                         buttonTitle: symptoms == nil ? nil : "Next", onClose: { dismiss() }, onBack: { back() }, onButton: { next(from: .symptoms) }) {
+                ChoiceGrid([IllnessAnswer.no, .yes, .unsure], title: { (answer: IllnessAnswer) -> String in answer == .no ? "None" : answer.title },
+                           isSelected: { (answer: IllnessAnswer) -> Bool in answer == symptoms }) { (answer: IllnessAnswer) in
+                    symptoms = answer
+                    if answer == .no { advance(from: .symptoms) }
+                }
+                if symptoms == .yes || symptoms == .unsure {
+                    Text("Tomorrow's check-in asks where, and the plan stays lighter until it's gone. If it's sharp, swelling or getting worse, tell an adult tonight.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         case .body:
             scale("How did your body feel?", EveningOptions.body, selection: $bodyFeel)
         case .practice:
@@ -480,7 +506,19 @@ struct ReflectionSheet: View {
         withAnimation(.easeInOut(duration: 0.2)) { step = steps[index - 1] }
     }
 
+    /// "Nothing to review today": the day counts as reflected, nothing asked.
+    private func saveNothing() {
+        MindsetStore.saveEvening(hardness: nil, body: nil, practice: nil, wentWell: [], needsWork: [], learned: nil)
+        onSaved()
+        dismiss()
+    }
+
     private func save() {
+        // Symptoms after training are kept like pain in the check-in (no diagnosis).
+        if symptoms == .yes, PainStore.report() == nil {
+            PainStore.set(PainReport(day: DayKey.of(.now), areas: [.other], level: .some))
+            HealthShare.send(kind: "pain", areas: [.other], level: .some)
+        }
         let order = EveningOptions.areas
         MindsetStore.saveEvening(
             hardness: hardness, body: bodyFeel, practice: practiceToday ? practice : nil,
