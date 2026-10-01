@@ -80,6 +80,7 @@ function assignmentJSON(a, teamName) {
  *   POST   /teams/join-staff              { code } — join as the team's athletic trainer
  *
  * Announcements (one-way, no replies):
+ *   GET    /teams/:id/announcements       coach: the last 14 days'
  *   POST   /teams/:id/announcements       coach: { text }
  *   DELETE /teams/:id/announcements/:announcementId
  *   GET    /teams/announcements           the last 14 days', from every team I'm on
@@ -341,6 +342,14 @@ export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
     await prisma.team.update({ where: { id: team.id }, data: { trainerCode: null } });
     await prisma.teamStaff.deleteMany({ where: { teamId: team.id } });
     res.status(204).end();
+  });
+
+  router.get('/:id/announcements', async (req, res) => {
+    const team = await coachedTeam(req, res);
+    if (!team) return;
+    const since = new Date(now().getTime() - 14 * DAY_MS);
+    const rows = await prisma.announcement.findMany({ where: { teamId: team.id, createdAt: { gte: since } }, orderBy: { createdAt: 'desc' }, take: 20 });
+    res.json({ announcements: rows.map((a) => announcementJSON(a, team.name)) });
   });
 
   router.post('/:id/announcements', async (req, res) => {

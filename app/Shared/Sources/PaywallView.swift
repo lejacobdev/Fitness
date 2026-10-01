@@ -447,6 +447,7 @@ public struct SubscriptionRow: View {
     @State private var store = ProStore.shared
     @State private var showingPaywall = false
     @State private var showingManage = false
+    @State private var redeeming = false
 
     public init(athlete: Athlete) {
         self.athlete = athlete
@@ -492,9 +493,19 @@ public struct SubscriptionRow: View {
                     .font(.caption)
                     .foregroundStyle(AppTheme.secondaryText)
             }
+            if !store.isPro {
+                // Team plans: a club or school gets codes for its players.
+                Button("Redeem a team or gift code") { redeeming = true }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                    .frame(minHeight: 44)
+            }
         }
         .paywallSheet(isPresented: $showingPaywall, athlete: athlete)
         .manageSubscriptionsSheet(isPresented: $showingManage)
+        .offerCodeRedemption(isPresented: $redeeming) { _ in
+            Task { await store.refreshEntitlements() }
+        }
     }
 
     private var statusLine: String {

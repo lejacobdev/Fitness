@@ -39,6 +39,60 @@ enum CoachAssignments {
     }
 }
 
+/// Pain and training pauses, sent to the server — which keeps them only
+/// while the athlete shares health with a team (My team → Share health).
+/// Silently does nothing offline, signed out or in demo mode.
+enum HealthShare {
+    @MainActor
+    static func send(kind: String, areas: [PainArea] = [], level: PainLevel? = nil, day: Date = .now) {
+        guard !DemoData.isEnabled, let token = try? KeychainTokenStore().read() else { return }
+        let key = DayKey.of(day)
+        let areaNames = areas.map(\.rawValue)
+        let levelName = level?.rawValue
+        Task {
+            try? await APIClient(baseURL: AppConfig.backendBaseURL)
+                .postHealthNote(day: key, kind: kind, areas: areaNames, level: levelName, sessionToken: token)
+        }
+    }
+}
+
+/// Coach announcements, kept on this phone so Home can show them offline.
+enum TeamAnnouncements {
+    static let cacheKey = "teamsCache.announcements"
+    static let seenKey = "teamsCache.announcementsSeen"
+
+    static var cached: [APIClient.Announcement] {
+        get { UserDefaults.standard.data(forKey: cacheKey).flatMap { try? JSONDecoder().decode([APIClient.Announcement].self, from: $0) } ?? [] }
+        set { UserDefaults.standard.set(try? JSONEncoder().encode(newValue), forKey: cacheKey) }
+    }
+
+    /// The newest one from the last three days the athlete hasn't closed.
+    static var current: APIClient.Announcement? {
+        let seen = Set(UserDefaults.standard.stringArray(forKey: seenKey) ?? [])
+        let cutoff = Date.now.addingTimeInterval(-3 * 86_400)
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return cached.first { announcement in
+            guard !seen.contains(announcement.id) else { return false }
+            guard let date = formatter.date(from: announcement.createdAt) else { return true }
+            return date >= cutoff
+        }
+    }
+
+    static func markSeen(_ id: String) {
+        let seen = (UserDefaults.standard.stringArray(forKey: seenKey) ?? []) + [id]
+        UserDefaults.standard.set(Array(seen.suffix(50)), forKey: seenKey)
+    }
+
+    @MainActor
+    static func refresh(apiClient: APIClient) async {
+        guard !DemoData.isEnabled, let token = try? KeychainTokenStore().read() else { return }
+        if let announcements = try? await apiClient.myAnnouncements(sessionToken: token) {
+            cached = announcements
+        }
+    }
+}
+
 // MARK: - Athlete: my team
 
 /// Join your coach's team with the code they give you.
@@ -52,6 +106,8 @@ struct MyTeamView: View {
     @State private var working = false
     @State private var message: String?
     @State private var teamToLeave: APIClient.Teams.Joined?
+    @State private var trainerCode = ""
+    @State private var trainerTeam: APIClient.Teams.Staffed?
 
     private let apiClient = APIClient(baseURL: AppConfig.backendBaseURL)
 
@@ -87,6 +143,7 @@ struct MyTeamView: View {
                                 .foregroundStyle(AppTheme.red)
                         }
                         .cardStyle(padding: 14)
+                        ShareHealthToggle(team: team)
                     }
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Join a team").font(.title3.bold()).foregroundStyle(AppTheme.ink)
@@ -100,6 +157,25 @@ struct MyTeamView: View {
                             .disabled(working || code.count < 6 || nickname.trimmingCharacters(in: .whitespaces).count < 2)
                     }
                     .cardStyle(padding: 16)
+                    ForEach(teams?.trainer ?? []) { team in
+                        Button { trainerTeam = team } label: {
+                            ListRow(systemImage: "cross.case.fill", color: AppTheme.red, title: team.name, detail: "You're the athletic trainer")
+                                .cardStyle(padding: 12)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Athletic trainer").font(.title3.bold()).foregroundStyle(AppTheme.ink)
+                        Text("Enter the trainer code the coach gave you. You'll see the pain reports and training pauses athletes choose to share.")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                        CodeField(placeholder: "Trainer code", text: $trainerCode)
+                        Button("Join as athletic trainer") { Task { await joinAsTrainer() } }
+                            .buttonStyle(.secondary)
+                            .disabled(working || trainerCode.count < 6)
+                    }
+                    .cardStyle(padding: 16)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
@@ -111,6 +187,9 @@ struct MyTeamView: View {
             }
             .task { await load() }
             .onAppear { if let initialCode, code.isEmpty { code = initialCode } }
+            .sheet(item: $trainerTeam) { team in
+                TrainerHealthView(teamID: team.id, teamName: team.name)
+            }
             .confirmationDialog("Leave this team?", isPresented: Binding(
                 get: { teamToLeave != nil }, set: { if !$0 { teamToLeave = nil } }
             ), titleVisibility: .visible) {
@@ -128,6 +207,20 @@ struct MyTeamView: View {
                 Text("Your coach stops seeing your readiness and training.")
             }
         }
+    }
+
+    private func joinAsTrainer() async {
+        guard let token = try? KeychainTokenStore().read() else { return }
+        working = true
+        do {
+            try await apiClient.joinAsTrainer(code: trainerCode.uppercased(), sessionToken: token)
+            trainerCode = ""
+            message = nil
+            await load()
+        } catch {
+            message = Self.joinMessage(for: error)
+        }
+        working = false
     }
 
     private func load() async {
@@ -273,6 +366,10 @@ struct TeamBoardView: View {
     @State private var failed = false
     @State private var inviting = false
     @State private var showingPaywall = false
+    @State private var announcements: [APIClient.Announcement] = []
+    @State private var newAnnouncement = ""
+    @State private var posting = false
+    @State private var trainerCode: String?
     @Environment(\.workoutContext) private var context
 
     private let apiClient = APIClient(baseURL: AppConfig.backendBaseURL)
@@ -290,7 +387,9 @@ struct TeamBoardView: View {
                         Text("Couldn't load the team — check your connection.").foregroundStyle(AppTheme.red)
                     }
                     readinessSection
+                    announcementsSection
                     assignmentsSection
+                    trainerSection
                     Button("Delete this team", role: .destructive) { confirmDelete = true }
                         .font(.headline)
                         .foregroundStyle(AppTheme.red)
@@ -337,11 +436,22 @@ struct TeamBoardView: View {
                             Circle()
                                 .fill(color(member.readiness))
                                 .frame(width: 16, height: 16)
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text(member.nickname).font(.headline).foregroundStyle(AppTheme.ink)
                                 Text(member.checkedInToday ? label(member.readiness) : "Not checked in yet")
                                     .font(.caption)
                                     .foregroundStyle(AppTheme.secondaryText)
+                                if let trend = member.trend {
+                                    TrendDots(trend: trend, color: color)
+                                }
+                                if let missed = member.missedThisWeek, missed > 0 {
+                                    Text("\(missed) check-in\(missed == 1 ? "" : "s") missed this week")
+                                        .font(.caption)
+                                        .foregroundStyle(AppTheme.secondaryText)
+                                }
+                                if let health = member.health {
+                                    HealthLine(health: health)
+                                }
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 2) {
@@ -417,14 +527,105 @@ struct TeamBoardView: View {
         }
     }
 
+    /// One-way messages to the team: they show on every athlete's Home.
+    private var announcementsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Announcements", subtitle: "One-way: the team reads them on Home. No replies.")
+            HStack(spacing: 10) {
+                TextField("e.g. Practice moves to 5 pm tomorrow", text: $newAnnouncement, axis: .vertical)
+                    .lineLimit(1...3)
+                    .padding(14)
+                    .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
+                Button(posting ? "…" : "Send") { Task { await postAnnouncement() } }
+                    .font(.headline)
+                    .frame(minWidth: 52, minHeight: 48)
+                    .disabled(posting || newAnnouncement.trimmingCharacters(in: .whitespaces).count < 2 || newAnnouncement.count > 300)
+            }
+            ForEach(announcements) { announcement in
+                HStack(alignment: .top, spacing: 12) {
+                    Text(announcement.text)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    Button {
+                        Task {
+                            if let token = try? KeychainTokenStore().read() {
+                                try? await apiClient.deleteAnnouncement(teamID: team.id, id: announcement.id, sessionToken: token)
+                            }
+                            await load()
+                        }
+                    } label: {
+                        Image(systemName: "trash").foregroundStyle(AppTheme.secondaryText).frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Delete the announcement")
+                }
+                .cardStyle(padding: 12)
+            }
+        }
+    }
+
+    /// The athletic trainer's code: they see shared pain reports and training pauses only.
+    private var trainerSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Athletic trainer", subtitle: "With this code a trainer sees the pain reports and training pauses athletes choose to share. Nothing else.")
+            if let trainerCode {
+                Text(trainerCode)
+                    .font(.system(size: 30, weight: .bold, design: .monospaced))
+                    .foregroundStyle(AppTheme.ink)
+                    .textSelection(.enabled)
+                Text("They enter it in Me → My team → Athletic trainer.")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.secondaryText)
+                Button("Switch it off and remove trainers", role: .destructive) {
+                    Task {
+                        if let token = try? KeychainTokenStore().read() {
+                            try? await apiClient.deleteTrainerCode(teamID: team.id, sessionToken: token)
+                            self.trainerCode = nil
+                        }
+                    }
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.red)
+            } else {
+                Button("Make a trainer code") {
+                    Task {
+                        if let token = try? KeychainTokenStore().read() {
+                            trainerCode = try? await apiClient.makeTrainerCode(teamID: team.id, sessionToken: token)
+                        }
+                    }
+                }
+                .buttonStyle(.secondary)
+            }
+        }
+    }
+
+    private func postAnnouncement() async {
+        guard let token = try? KeychainTokenStore().read() else { return }
+        posting = true
+        do {
+            try await apiClient.postAnnouncement(teamID: team.id, text: newAnnouncement, sessionToken: token)
+            newAnnouncement = ""
+            await load()
+        } catch APIError.http(status: 400, _) {
+            failed = true
+        } catch {
+            failed = true
+        }
+        posting = false
+    }
+
     private func load() async {
         guard let token = try? KeychainTokenStore().read() else { return }
+        if trainerCode == nil { trainerCode = team.trainerCode }
         let calendar = Calendar.current
         let today = CampusReview.dayKey(.now, calendar: calendar)
         let weekStart = CampusLog.weekKey(.now, calendar: calendar)
         do {
             board = try await apiClient.teamReadiness(teamID: team.id, today: today, weekStart: weekStart, sessionToken: token)
             assignments = try await apiClient.teamAssignments(teamID: team.id, from: today, sessionToken: token)
+            announcements = (try? await apiClient.teamAnnouncements(teamID: team.id, sessionToken: token)) ?? []
             failed = false
         } catch {
             failed = true
@@ -546,6 +747,9 @@ struct ParentSummaryView: View {
     @State private var link: URL?
     @State private var loading = true
     @State private var failed = false
+    @State private var email: APIClient.ParentEmail?
+    @State private var emailDraft = ""
+    @State private var emailMessage: String?
 
     private let apiClient = APIClient(baseURL: AppConfig.backendBaseURL)
 
@@ -585,6 +789,7 @@ struct ParentSummaryView: View {
                         Button { Task { await make() } } label: { Label("Create the link", systemImage: "link") }
                             .buttonStyle(.primary)
                     }
+                    if !loading { emailSection }
                     if failed {
                         Text("Couldn't reach the server — check your connection.").foregroundStyle(AppTheme.red)
                     }
@@ -601,10 +806,76 @@ struct ParentSummaryView: View {
         }
     }
 
+    /// The same summary by email every Sunday, once the parent confirms.
+    private var emailSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Every Sunday by email").font(.title3.bold()).foregroundStyle(AppTheme.ink)
+            if let email {
+                Label(email.confirmed ? "Sent to \(email.email) every Sunday" : "Waiting for \(email.email) to confirm",
+                      systemImage: email.confirmed ? "checkmark.circle.fill" : "envelope.badge")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(email.confirmed ? AppTheme.green : AppTheme.ink)
+                if !email.confirmed {
+                    Text("We sent them an email. Nothing else goes out until they confirm.")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+                Button("Stop the emails", role: .destructive) { Task { await removeEmail() } }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.red)
+            } else {
+                Text("A parent gets this week's numbers every Sunday. They confirm first, and every email has a stop link.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                TextField("Parent's email", text: $emailDraft)
+                    #if os(iOS)
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    #endif
+                    .autocorrectionDisabled()
+                    .padding(16)
+                    .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
+                Button("Send the confirmation") { Task { await saveEmail() } }
+                    .buttonStyle(.secondary)
+                    .disabled(!emailDraft.contains("@") || !emailDraft.contains("."))
+            }
+            if let emailMessage {
+                Text(emailMessage).font(.caption).foregroundStyle(AppTheme.red)
+            }
+        }
+        .cardStyle()
+    }
+
+    private func saveEmail() async {
+        guard let token = try? KeychainTokenStore().read() else { return }
+        do {
+            email = try await apiClient.setParentEmail(emailDraft.trimmingCharacters(in: .whitespaces), sessionToken: token)
+            emailMessage = nil
+        } catch APIError.http(status: 400, _) {
+            emailMessage = "That doesn't look like an email address."
+        } catch APIError.http(status: 429, _) {
+            emailMessage = "You just changed it — try again in a few minutes."
+        } catch {
+            emailMessage = "Couldn't reach the server — check your connection."
+        }
+    }
+
+    private func removeEmail() async {
+        guard let token = try? KeychainTokenStore().read() else { return }
+        do {
+            try await apiClient.deleteParentEmail(sessionToken: token)
+            email = nil
+        } catch {
+            emailMessage = "Couldn't reach the server — check your connection."
+        }
+    }
+
     private func load() async {
         defer { loading = false }
         guard let token = try? KeychainTokenStore().read() else { failed = true; return }
         do { link = try await apiClient.parentLink(sessionToken: token) } catch { failed = true }
+        email = try? await apiClient.parentEmail(sessionToken: token)
     }
 
     private func make() async {
@@ -615,5 +886,163 @@ struct ParentSummaryView: View {
     private func switchOff() async {
         guard let token = try? KeychainTokenStore().read() else { return }
         do { try await apiClient.deleteParentLink(sessionToken: token); link = nil } catch { failed = true }
+    }
+}
+
+
+/// The last 14 days of a member's readiness, oldest first.
+struct TrendDots: View {
+    let trend: [String?]
+    let color: (String?) -> Color
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(Array(trend.enumerated()), id: \.offset) { _, band in
+                Circle()
+                    .fill(band == nil ? AppTheme.fill : color(band))
+                    .frame(width: 7, height: 7)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(trend.compactMap { $0 }.count) check-ins in the last 14 days")
+    }
+}
+
+/// Shared health, in words: where it hurts and since when; paused training.
+struct HealthLine: View {
+    let health: APIClient.HealthStatus
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if health.paused {
+                Label("Training paused\(health.pausedSince.map { " since \(HealthLine.day($0))" } ?? "") — head injury", systemImage: "pause.circle.fill")
+                    .foregroundStyle(AppTheme.red)
+            }
+            if let pain = health.pain {
+                Label("Pain: \(pain.areas.joined(separator: ", "))\(pain.level.map { " (\(HealthLine.level($0)))" } ?? "") · \(HealthLine.day(pain.day))", systemImage: "bandage.fill")
+                    .foregroundStyle(AppTheme.coral)
+            }
+        }
+        .font(.caption.weight(.semibold))
+    }
+
+    static func level(_ raw: String) -> String {
+        PainLevel(rawValue: raw)?.title.lowercased() ?? raw
+    }
+
+    static func day(_ key: String) -> String {
+        let parts = key.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3, let date = Calendar.current.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2])) else { return key }
+        if Calendar.current.isDateInToday(date) { return "today" }
+        if Calendar.current.isDateInYesterday(date) { return "yesterday" }
+        return date.formatted(.dateTime.month(.abbreviated).day())
+    }
+}
+
+/// For an athletic trainer: the health notes members share with the team.
+struct TrainerHealthView: View {
+    let teamID: String
+    let teamName: String
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var health: APIClient.TeamHealth?
+    @State private var failed = false
+    private let apiClient = APIClient(baseURL: AppConfig.backendBaseURL)
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    ScreenTitle(teamName, subtitle: "Pain reports and training pauses from athletes who share them. Never a diagnosis.")
+                    if failed {
+                        Text("Couldn't load — check your connection.").foregroundStyle(AppTheme.red)
+                    }
+                    if let members = health?.members {
+                        if members.isEmpty {
+                            Text("No athlete shares health with this team yet.").foregroundStyle(AppTheme.secondaryText)
+                        }
+                        ForEach(members, id: \.nickname) { member in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(member.nickname).font(.headline).foregroundStyle(AppTheme.ink)
+                                if !member.paused && member.pain == nil {
+                                    Text("Nothing reported in the last 14 days.").font(.caption).foregroundStyle(AppTheme.secondaryText)
+                                }
+                                HealthLine(health: member)
+                                if member.painDays > 1 {
+                                    Text("Pain on \(member.painDays) of the last 14 days").font(.caption).foregroundStyle(AppTheme.secondaryText)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .cardStyle(padding: 14)
+                        }
+                    } else if !failed {
+                        ProgressView().frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .containerRelativeFrame(.horizontal)
+            }
+            .appScreen()
+            .toolbar { CloseToolbarItem { dismiss() } }
+            .task {
+                guard let token = try? KeychainTokenStore().read() else { failed = true; return }
+                do {
+                    health = try await apiClient.teamHealth(teamID: teamID, sessionToken: token)
+                } catch {
+                    failed = true
+                }
+            }
+        }
+    }
+}
+
+
+/// Consent, per team: share pain reports and training pauses with the coach
+/// and the team's athletic trainer. Off unless the athlete turns it on.
+struct ShareHealthToggle: View {
+    let team: APIClient.Teams.Joined
+    @State private var isOn: Bool
+    @State private var failed = false
+    private let apiClient = APIClient(baseURL: AppConfig.backendBaseURL)
+
+    init(team: APIClient.Teams.Joined) {
+        self.team = team
+        _isOn = State(initialValue: team.shareHealth ?? false)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(isOn: Binding(get: { isOn }, set: { newValue in
+                isOn = newValue
+                Task { await save(newValue) }
+            })) {
+                Text("Share pain and training pauses")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+            }
+            .tint(AppTheme.green)
+            Text(failed ? "Couldn't save — check your connection." : "With \(team.name)'s coach and athletic trainer: where it hurts and when training was paused after a head injury. Never what you write.")
+                .font(.caption)
+                .foregroundStyle(failed ? AppTheme.red : AppTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+    }
+
+    private func save(_ share: Bool) async {
+        guard let token = try? KeychainTokenStore().read() else { return }
+        do {
+            try await apiClient.setShareHealth(teamID: team.id, share: share, sessionToken: token)
+            failed = false
+            // Today's pain or pause, so the coach doesn't wait for the next one.
+            if share {
+                if let pain = PainStore.report() { HealthShare.send(kind: "pain", areas: pain.areas, level: pain.level) }
+                if DayStatusStore.status() == .concussion { HealthShare.send(kind: "paused") }
+            }
+        } catch {
+            failed = true
+            isOn = !share
+        }
     }
 }

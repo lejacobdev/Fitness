@@ -185,12 +185,14 @@ struct TrainingPauseControl: View {
             if status == .concussion {
                 Button("A doctor has cleared me") {
                     DayStatusStore.set(.active, days: nil)
+                    HealthShare.send(kind: "cleared")
                     status = .active
                 }
                 .buttonStyle(.secondary)
             } else {
                 Button("Pause training") {
                     DayStatusStore.set(.concussion, days: nil)
+                    HealthShare.send(kind: "paused")
                     status = .concussion
                 }
                 .buttonStyle(.secondary)
@@ -273,6 +275,7 @@ struct SafetyCenterView: View {
                                 .foregroundStyle(AppTheme.secondaryText)
                             Button("It's gone") {
                                 PainStore.set(nil)
+                                HealthShare.send(kind: "painGone")
                                 self.pain = nil
                             }
                             .buttonStyle(.secondary)

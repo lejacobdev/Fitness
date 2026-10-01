@@ -272,6 +272,8 @@ test('teams: announcements are one-way, moderated and only for members', async (
     const mine = await (await call('ath1', 'GET', '/teams/announcements')).json();
     assert.deepEqual(mine.announcements.map((a) => [a.teamName, a.text]), [['JV Volleyball', 'Practice moved to 5 pm tomorrow']]);
     assert.deepEqual((await (await call('stranger', 'GET', '/teams/announcements')).json()).announcements, []);
+    assert.equal((await (await call('coach', 'GET', `/teams/${team.id}/announcements`)).json()).announcements.length, 1);
+    assert.equal((await call('ath1', 'GET', `/teams/${team.id}/announcements`)).status, 404);
     assert.equal((await call('coach', 'DELETE', `/teams/${team.id}/announcements/${posted.announcement.id}`)).status, 204);
     assert.equal(prisma._db.announcement.length, 0);
   } finally {

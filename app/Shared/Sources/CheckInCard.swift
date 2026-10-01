@@ -400,7 +400,13 @@ struct CheckInSheet: View {
             soreness: soreness.scale, energy: energy.scale, stress: mood.scale
         )
         let areas = PainArea.allCases.filter { painAreas.contains($0) }
+        let hadPain = PainStore.report() != nil
         PainStore.set(hasPain == true && !areas.isEmpty ? PainReport(day: day, areas: areas, level: painLevel ?? .little) : nil)
+        if hasPain == true, !areas.isEmpty {
+            HealthShare.send(kind: "pain", areas: areas, level: painLevel ?? .little)
+        } else if hadPain {
+            HealthShare.send(kind: "painGone")
+        }
         WidgetSnapshotWriter.write(for: athlete, week: WeeklyPlan.generate(for: athlete))
         saveCount += 1
         withAnimation(.easeInOut(duration: 0.25)) { step = .result }
@@ -416,6 +422,7 @@ struct CheckInSheet: View {
             if let pain = PainStore.report() {
                 PainNote(report: pain, paused: dayStatus == .concussion, onPause: {
                     DayStatusStore.set(.concussion, days: nil)
+                    HealthShare.send(kind: "paused")
                     dayStatus = .concussion
                 }, onSafety: { showingSafety = true })
             }

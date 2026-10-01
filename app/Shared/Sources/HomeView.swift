@@ -48,6 +48,8 @@ struct HomeView: View {
     @State private var loaded = false
     @State private var routine: MindsetRoutine?
     @State private var lowEnergySnoozed = LowEnergyCheck.isSnoozed
+    /// The coach's latest announcement (closed ones stay closed).
+    @State private var announcement = TeamAnnouncements.current
     /// Bumped when a sheet closes, so what it changed (reflection, pain, day status) redraws.
     @State private var revision = 0
     #if os(iOS)
@@ -302,6 +304,12 @@ struct HomeView: View {
                         header
                     }
                     if !introSeen { introCard }
+                    if let announcement {
+                        AnnouncementCard(announcement: announcement) {
+                            TeamAnnouncements.markSeen(announcement.id)
+                            withAnimation { self.announcement = nil }
+                        }
+                    }
                     if let lowEnergy, !lowEnergySnoozed {
                         LowEnergyCard(warning: lowEnergy) {
                             LowEnergyCheck.snoozeForAWeek()
@@ -337,7 +345,11 @@ struct HomeView: View {
                 }
             }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active { clock = .now; revision += 1 }
+                if phase == .active {
+                    clock = .now
+                    revision += 1
+                    announcement = TeamAnnouncements.current
+                }
             }
             .toolbar(.hidden, for: .navigationBar)
             .task(id: allSessions.count + athlete.checkIns.count) {
@@ -2137,3 +2149,40 @@ struct HomeWidgetDropDelegate: DropDelegate {
     }
 }
 #endif
+
+
+/// A one-way message from the coach, until the athlete closes it.
+struct AnnouncementCard: View {
+    let announcement: APIClient.Announcement
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("FROM YOUR COACH\(announcement.teamName.map { " · \($0.uppercased())" } ?? "")")
+                    .font(.caption.weight(.bold))
+                    .tracking(1.2)
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close the announcement")
+            }
+            Text(announcement.text)
+                .font(.body)
+                .foregroundStyle(AppTheme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 6)
+        .padding(.bottom, 18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassSurface()
+    }
+}

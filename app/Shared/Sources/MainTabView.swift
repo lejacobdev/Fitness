@@ -196,6 +196,7 @@ public struct MainTabView: View {
         }
         // Workouts from the coach, and this week's Campus XP for the leagues.
         await CoachAssignments.refresh(apiClient: apiClient)
+        await TeamAnnouncements.refresh(apiClient: apiClient)
         await LeagueSync.report(apiClient: apiClient)
         if !athlete.isDeleted, scenePhase != .background { regenerate() }
     }

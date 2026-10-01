@@ -24,15 +24,52 @@ public extension APIClient {
             public let id: String
             public let name: String
             public let code: String
+            /// The athletic trainer's code, when the coach made one.
+            public let trainerCode: String?
             public let memberCount: Int
         }
         public struct Joined: Decodable, Sendable, Equatable, Identifiable {
             public let id: String
             public let name: String
             public let nickname: String
+            /// Pain reports and training pauses shared with this team.
+            public let shareHealth: Bool?
+        }
+        /// A team I'm the athletic trainer of.
+        public struct Staffed: Decodable, Sendable, Equatable, Identifiable {
+            public let id: String
+            public let name: String
         }
         public let coaching: [Coached]
         public let member: [Joined]
+        public let trainer: [Staffed]?
+    }
+
+    /// Pain and training pauses of a member who shares them (never a diagnosis).
+    struct HealthStatus: Decodable, Sendable, Equatable {
+        public struct Pain: Decodable, Sendable, Equatable {
+            public let day: String
+            public let areas: [String]
+            public let level: String?
+        }
+        public let nickname: String
+        public let paused: Bool
+        public let pausedSince: String?
+        public let pain: Pain?
+        public let painDays: Int
+    }
+
+    struct TeamHealth: Decodable, Sendable, Equatable {
+        public let role: String
+        public let members: [HealthStatus]
+    }
+
+    struct Announcement: Codable, Sendable, Equatable, Identifiable {
+        public let id: String
+        public let teamId: String
+        public let teamName: String?
+        public let text: String
+        public let createdAt: String
     }
 
     struct TeamReadiness: Decodable, Sendable, Equatable {
@@ -43,6 +80,11 @@ public extension APIClient {
             public let checkInsThisWeek: Int
             public let sessionsThisWeek: Int
             public let minutesThisWeek: Int
+            /// The last 14 days, oldest first: GREEN, AMBER, RED, NONE or nil (no check-in).
+            public let trend: [String?]?
+            public let missedThisWeek: Int?
+            public let sharesHealth: Bool?
+            public let health: HealthStatus?
         }
         public let members: [Member]
     }
@@ -145,6 +187,83 @@ public extension APIClient {
         struct Wire: Decodable, Sendable { let assignments: [Assignment] }
         let wire: Wire = try await social("GET", "teams/assignments", query: [URLQueryItem(name: "from", value: from)], sessionToken: sessionToken)
         return wire.assignments
+    }
+
+    // MARK: Health sharing, athletic trainers, announcements
+
+    func setShareHealth(teamID: String, share: Bool, sessionToken: String) async throws {
+        struct Body: Encodable, Sendable { let shareHealth: Bool }
+        let _: Ignored = try await social("PATCH", "teams/\(teamID)/membership", json: try JSONEncoder().encode(Body(shareHealth: share)), sessionToken: sessionToken)
+    }
+
+    /// Kept by the server only while the athlete shares health with a team.
+    func postHealthNote(day: String, kind: String, areas: [String], level: String?, sessionToken: String) async throws {
+        struct Body: Encodable, Sendable { let day: String; let kind: String; let areas: [String]; let level: String? }
+        let body = try JSONEncoder().encode(Body(day: day, kind: kind, areas: areas, level: level))
+        let _: Ignored = try await social("POST", "teams/health", json: body, sessionToken: sessionToken)
+    }
+
+    func teamHealth(teamID: String, sessionToken: String) async throws -> TeamHealth {
+        try await social("GET", "teams/\(teamID)/health", sessionToken: sessionToken)
+    }
+
+    func makeTrainerCode(teamID: String, sessionToken: String) async throws -> String {
+        struct Wire: Decodable, Sendable { let trainerCode: String }
+        let wire: Wire = try await social("POST", "teams/\(teamID)/trainer-code", sessionToken: sessionToken)
+        return wire.trainerCode
+    }
+
+    func deleteTrainerCode(teamID: String, sessionToken: String) async throws {
+        let _: Ignored = try await social("DELETE", "teams/\(teamID)/trainer-code", sessionToken: sessionToken)
+    }
+
+    func joinAsTrainer(code: String, sessionToken: String) async throws {
+        let _: Ignored = try await social("POST", "teams/join-staff", body: ["code": code], sessionToken: sessionToken)
+    }
+
+    func postAnnouncement(teamID: String, text: String, sessionToken: String) async throws {
+        let _: Ignored = try await social("POST", "teams/\(teamID)/announcements", body: ["text": text], sessionToken: sessionToken)
+    }
+
+    func deleteAnnouncement(teamID: String, id: String, sessionToken: String) async throws {
+        let _: Ignored = try await social("DELETE", "teams/\(teamID)/announcements/\(id)", sessionToken: sessionToken)
+    }
+
+    func teamAnnouncements(teamID: String, sessionToken: String) async throws -> [Announcement] {
+        struct Wire: Decodable, Sendable { let announcements: [Announcement] }
+        let wire: Wire = try await social("GET", "teams/\(teamID)/announcements", sessionToken: sessionToken)
+        return wire.announcements
+    }
+
+    /// From every team I'm on, the last 14 days.
+    func myAnnouncements(sessionToken: String) async throws -> [Announcement] {
+        struct Wire: Decodable, Sendable { let announcements: [Announcement] }
+        let wire: Wire = try await social("GET", "teams/announcements", sessionToken: sessionToken)
+        return wire.announcements
+    }
+
+    // MARK: Parent email
+
+    struct ParentEmail: Decodable, Sendable, Equatable {
+        public let email: String
+        public let confirmed: Bool
+    }
+
+    func parentEmail(sessionToken: String) async throws -> ParentEmail? {
+        do {
+            let wire: ParentEmail = try await social("GET", "parent-email", sessionToken: sessionToken)
+            return wire
+        } catch APIError.http(status: 404, _) {
+            return nil
+        }
+    }
+
+    func setParentEmail(_ email: String, sessionToken: String) async throws -> ParentEmail {
+        try await social("POST", "parent-email", body: ["email": email], sessionToken: sessionToken)
+    }
+
+    func deleteParentEmail(sessionToken: String) async throws {
+        let _: Ignored = try await social("DELETE", "parent-email", sessionToken: sessionToken)
     }
 
     // MARK: Parent summary link
