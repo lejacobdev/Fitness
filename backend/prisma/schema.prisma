@@ -73,7 +73,10 @@ model Athlete {
   weeklyXP          WeeklyXP[]
   coachedTeams      Team[]         @relation("TeamCoach")
   teamMemberships   TeamMember[]
+  teamStaff         TeamStaff[]
+  healthNotes       HealthNote[]
   parentLink        ParentLink?
+  parentEmail       ParentEmail?
   sharedWorkouts    SharedWorkout[]
 }
 
@@ -305,23 +308,89 @@ model WeeklyXP {
 /// A coach's team: athletes join with a code and share their readiness
 /// (check-in band) and how much they trained — nothing they wrote.
 model Team {
-  id          String       @id @default(uuid())
-  name        String
-  code        String       @unique
-  coachId     String
-  createdAt   DateTime     @default(now())
-  coach       Athlete      @relation("TeamCoach", fields: [coachId], references: [id], onDelete: Cascade)
-  members     TeamMember[]
-  assignments Assignment[]
+  id            String         @id @default(uuid())
+  name          String
+  code          String         @unique
+  /// The code an athletic trainer joins with (the coach makes it); null: none.
+  trainerCode   String?        @unique
+  coachId       String
+  createdAt     DateTime       @default(now())
+  coach         Athlete        @relation("TeamCoach", fields: [coachId], references: [id], onDelete: Cascade)
+  members       TeamMember[]
+  staff         TeamStaff[]
+  assignments   Assignment[]
+  announcements Announcement[]
 
   @@index([coachId])
 }
 
-model TeamMember {
+/// Staff beside the coach — today only athletic trainers. They see the
+/// health notes of members who share them, nothing else.
+model TeamStaff {
   teamId    String
   athleteId String
-  nickname  String
+  role      String   @default("trainer")
   joinedAt  DateTime @default(now())
+
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, athleteId])
+  @@index([athleteId])
+}
+
+/// One-way message from the coach to the team (no replies, no chat).
+model Announcement {
+  id        String   @id @default(uuid())
+  teamId    String
+  text      String
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, createdAt])
+}
+
+/// Pain reported in the check-in, or a training pause after a head injury
+/// (and its end). Kept only while the athlete shares health with a team
+/// (TeamMember.shareHealth); never a diagnosis, never what they wrote.
+model HealthNote {
+  id        String   @id @default(uuid())
+  athleteId String
+  day       DateTime @db.Date
+  /// "pain" | "painGone" | "paused" | "cleared"
+  kind      String
+  areas     String[] @default([])
+  level     String?
+  createdAt DateTime @default(now())
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId, day])
+}
+
+/// A parent's email for the weekly summary: added by the athlete, confirmed
+/// by the parent (double opt-in), unsubscribed with one link.
+model ParentEmail {
+  athleteId     String    @id
+  email         String
+  token         String    @unique
+  confirmed     Boolean   @default(false)
+  confirmMailed DateTime?
+  lastSentAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+}
+
+model TeamMember {
+  teamId      String
+  athleteId   String
+  nickname    String
+  /// The athlete agreed to share pain reports and training pauses with this
+  /// team's coach and athletic trainer. Off unless they turn it on.
+  shareHealth Boolean  @default(false)
+  joinedAt    DateTime @default(now())
 
   team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
   athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)

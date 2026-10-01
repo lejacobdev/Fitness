@@ -6,6 +6,7 @@ import { requireAuth } from '../lib/requireAuth.js';
 
 const TOKEN = /^[A-Za-z0-9_-]{32,64}$/;
 const DAY_MS = 86_400_000;
+const EMAIL = /^[^\s@<>"']+@[^\s@<>"']+\.[a-z]{2,}$/i;
 
 function escape(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -23,11 +24,22 @@ function escape(value) {
  *   POST   /parent-link        make (or replace) the link → { url }
  *   DELETE /parent-link        switch it off
  *   GET    /parent/:token      the summary page (public, unlisted)
+ *
+ * The same summary by email, every Sunday. The athlete adds a parent's
+ * address; the parent confirms it first (nothing else is sent before), and
+ * every email has a one-click stop link. Emails go out from the server's
+ * own mail system (src/scripts/parentEmails.js, run by a cron job).
+ *   GET    /parent-email       { email, confirmed } or 404
+ *   POST   /parent-email       { email } → asks the parent to confirm
+ *   DELETE /parent-email
+ *   GET    /parent-email/confirm/:token   (public) the parent confirms
+ *   GET    /parent-email/stop/:token      (public) the parent stops the emails
  */
 export function parentRouter({ prisma, sessionSecret, publicBaseURL = process.env.PUBLIC_BASE_URL ?? 'https://api.lejacob.dev/fitness', now = () => new Date() }) {
   const router = express.Router();
   const auth = requireAuth({ sessionSecret });
   const urlFor = (token) => `${publicBaseURL.replace(/\/$/, '')}/parent/${token}`;
+  const stopURL = (token) => `${publicBaseURL.replace(/\/$/, '')}/parent-email/stop/${token}`;
 
   router.get('/parent-link', auth, async (req, res) => {
     const link = await prisma.parentLink.findUnique({ where: { athleteId: req.athleteId } });
@@ -48,6 +60,68 @@ export function parentRouter({ prisma, sessionSecret, publicBaseURL = process.en
   router.delete('/parent-link', auth, async (req, res) => {
     await prisma.parentLink.deleteMany({ where: { athleteId: req.athleteId } });
     res.status(204).end();
+  });
+
+  router.get('/parent-email', auth, async (req, res) => {
+    const row = await prisma.parentEmail.findUnique({ where: { athleteId: req.athleteId } });
+    if (!row) {
+      res.status(404).json({ error: 'no_email' });
+      return;
+    }
+    res.json({ email: row.email, confirmed: row.confirmed });
+  });
+
+  router.post('/parent-email', auth, async (req, res) => {
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    if (!EMAIL.test(email) || email.length > 200) {
+      res.status(400).json({ error: 'invalid_email' });
+      return;
+    }
+    const existing = await prisma.parentEmail.findUnique({ where: { athleteId: req.athleteId } });
+    if (existing?.email === email) {
+      res.json({ email, confirmed: existing.confirmed });
+      return;
+    }
+    // A new address at most every 10 minutes, so it can't be used to spam.
+    if (existing && now() - existing.createdAt < 10 * 60_000) {
+      res.status(429).json({ error: 'too_soon' });
+      return;
+    }
+    await prisma.parentEmail.deleteMany({ where: { athleteId: req.athleteId } });
+    await prisma.parentEmail.create({
+      data: { athleteId: req.athleteId, email, token: crypto.randomBytes(24).toString('base64url'), confirmed: false, confirmMailed: null, lastSentAt: null },
+    });
+    res.status(201).json({ email, confirmed: false });
+  });
+
+  router.delete('/parent-email', auth, async (req, res) => {
+    await prisma.parentEmail.deleteMany({ where: { athleteId: req.athleteId } });
+    res.status(204).end();
+  });
+
+  router.get('/parent-email/confirm/:token', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const token = req.params.token;
+    const row = TOKEN.test(token) ? await prisma.parentEmail.findUnique({ where: { token } }) : null;
+    if (!row) {
+      res.status(404).type('html').send(page('Link not found', '<section><p>This link has expired or was switched off.</p></section>'));
+      return;
+    }
+    await prisma.parentEmail.update({ where: { token }, data: { confirmed: true } });
+    res.type('html').send(page('Confirmed', `<section><p>Thanks — you'll get your athlete's weekly summary every Sunday. Every email has a link to stop it.</p><p><a href="${escape(stopURL(token))}">Stop the emails</a></p></section>`));
+  });
+
+  // Mail apps' one-click unsubscribe (RFC 8058) posts to the same address.
+  router.post('/parent-email/stop/:token', async (req, res) => {
+    if (TOKEN.test(req.params.token)) await prisma.parentEmail.deleteMany({ where: { token: req.params.token } });
+    res.status(204).end();
+  });
+
+  router.get('/parent-email/stop/:token', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const token = req.params.token;
+    if (TOKEN.test(token)) await prisma.parentEmail.deleteMany({ where: { token } });
+    res.type('html').send(page('Stopped', '<section><p>Done — no more emails. Your athlete can add your address again in the app if you change your mind.</p></section>'));
   });
 
   router.get('/parent/:token', async (req, res) => {
@@ -100,7 +174,7 @@ export async function weeklySummary(prisma, athleteId, today) {
   };
 }
 
-function renderSummary(s) {
+export function renderSummary(s) {
   const fmt = (d) => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
   const stat = (value, label) => `<div class="stat"><b>${escape(value)}</b><span>${escape(label)}</span></div>`;
   const hours = s.averageSleepHours == null ? '—' : `${Math.floor(s.averageSleepHours)} h ${Math.round((s.averageSleepHours % 1) * 60)} m`;
@@ -130,7 +204,7 @@ function renderSummary(s) {
   return parts.join('\n');
 }
 
-function page(title, body) {
+export function page(title, body) {
   return `<!doctype html>
 <html lang="en">
 <head>

@@ -17,12 +17,13 @@ export function makeCode() {
 export async function uniqueCode(prisma) {
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const code = makeCode();
-    const [workout, team, league] = await Promise.all([
+    const [workout, team, trainerTeam, league] = await Promise.all([
       prisma.sharedWorkout.findUnique({ where: { code } }),
       prisma.team.findUnique({ where: { code } }),
+      prisma.team.findUnique({ where: { trainerCode: code } }),
       prisma.league.findUnique({ where: { code } }),
     ]);
-    if (!workout && !team && !league) return code;
+    if (!workout && !team && !trainerTeam && !league) return code;
   }
   throw new Error('could not find a free code');
 }

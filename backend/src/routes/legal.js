@@ -7,7 +7,7 @@ import express from 'express';
  * "no third parties" rule.
  */
 
-const UPDATED = '25 September 2026';
+const UPDATED = '1 October 2026';
 
 function page(title, body) {
   return `<!doctype html>
@@ -53,6 +53,9 @@ const PRIVACY = page('Privacy Policy', `
 <li><strong>Calendar links you connect</strong> — the link to a team or school calendar, so your phone can read games, practices and exams from it.</li>
 <li><strong>Leagues and teams you join</strong> — the nickname you choose and which league or team you're in. League members see your nickname and weekly Campus XP; a coach whose team you join sees your nickname, whether you checked in, your readiness band and how many workouts and minutes you logged that week. Never anything you wrote.</li>
 <li><strong>Workouts you share</strong> — when you share a workout with a code, its name and exercises are stored under that code, and anyone who has the code, link or QR code can open it. Nothing else about you is attached. Stop sharing it any time, or delete your account.</li>
+<li><strong>Health shared with your team</strong>, only if you turn it on for that team (off by default) — the days you reported pain, where (for example "knee") and how much, and when training was paused after a head injury and when it resumed. Your coach and the team's athletic trainer can see it; nothing you wrote is shared. Turning sharing off for every team deletes what we kept.</li>
+<li><strong>Team announcements</strong> — short messages your coach sends to the team (one-way, no replies).</li>
+<li><strong>A parent's email address</strong>, if you add one — used only to send that parent this week's numbers every Sunday, after they confirm the address. Every email has a link to stop it; removing the address in the app deletes it.</li>
 <li><strong>A parent summary link</strong>, if you make one — a private link to a page with this week's numbers (training, sleep, check-ins, upcoming games, Campus and Mindset counts). You can switch it off at any time.</li>
 </ul></section>
 <section><h2>What we never collect</h2>
@@ -68,7 +71,7 @@ const PRIVACY = page('Privacy Policy', `
 <section><h2>Where your data lives</h2>
 <p>Everything is stored on your device first and works offline. When you are online it is backed up to our own server so it survives a new phone. The server is operated by the developer; no third-party processors are used.</p></section>
 <section><h2>Deleting your data</h2>
-<p>You can delete your account at any time in the app: <strong>Me → Delete account</strong>. This permanently deletes your account and every check-in, session, set, plan, game, backup, league and team membership, shared workout and parent link stored on our server, revokes Sign in with Apple, and removes the copy on your device. It is free and never behind a subscription. <strong>Me → Log out</strong> backs everything up and removes it from the device without deleting your account.</p></section>
+<p>You can delete your account at any time in the app: <strong>Me → Delete account</strong>. This permanently deletes your account and every check-in, session, set, plan, game, backup, league and team membership, shared workout, shared health note, parent link and parent email stored on our server, revokes Sign in with Apple, and removes the copy on your device. It is free and never behind a subscription. <strong>Me → Log out</strong> backs everything up and removes it from the device without deleting your account.</p></section>
 <section><h2>Not medical advice</h2>
 <p>AthleteOS provides general training information. It never predicts injury, diagnoses anything, or clears anyone to return to play — its concussion page explains the usual steps and says a doctor decides. Always follow your coach, athletic trainer or doctor.</p></section>
 <section><h2>Changes</h2><p>If this policy changes, the new version will be posted here with a new date.</p></section>

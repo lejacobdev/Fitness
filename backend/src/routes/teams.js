@@ -10,6 +10,11 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const SLUG = /^[a-z0-9][a-z0-9-]{0,80}$/;
 const MAX_TEAMS_PER_COACH = 10;
 const MAX_MEMBERS = 80;
+const MAX_STAFF = 5;
+const DAY_MS = 86_400_000;
+const HEALTH_KINDS = new Set(['pain', 'painGone', 'paused', 'cleared']);
+const PAIN_AREAS = new Set(['head', 'neck', 'shoulder', 'chest', 'arm', 'back', 'core', 'hip', 'leg', 'knee', 'ankle', 'other']);
+const PAIN_LEVELS = new Set(['little', 'some', 'lot']);
 
 function day(value) {
   return typeof value === 'string' && DAY.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
@@ -29,6 +34,10 @@ function cleanItems(items) {
     out.push({ itemSlug: item.itemSlug, sets, reps, seconds });
   }
   return out;
+}
+
+function announcementJSON(a, teamName) {
+  return { id: a.id, teamId: a.teamId, teamName, text: a.text, createdAt: a.createdAt.toISOString() };
 }
 
 function assignmentJSON(a, teamName) {
@@ -61,8 +70,21 @@ function assignmentJSON(a, teamName) {
  *   POST   /teams/:id/assignments         { date, title, note?, items: [{ itemSlug, sets, reps?, seconds? }] }
  *   DELETE /teams/:id/assignments/:assignmentId
  *   GET    /teams/assignments?from=YYYY-MM-DD   workouts assigned to me, from every team I'm on
+ *
+ * Health (only with the athlete's consent, per team; off by default):
+ *   PATCH  /teams/:id/membership          { shareHealth } — share pain reports and training pauses
+ *   POST   /teams/health                  { day, kind, areas?, level? } — kept only while shared with a team
+ *   GET    /teams/:id/health              coach or athletic trainer: notes of members who share them
+ *   POST   /teams/:id/trainer-code        coach: make (or replace) the athletic trainer's code
+ *   DELETE /teams/:id/trainer-code        coach: switch it off and remove the trainers
+ *   POST   /teams/join-staff              { code } — join as the team's athletic trainer
+ *
+ * Announcements (one-way, no replies):
+ *   POST   /teams/:id/announcements       coach: { text }
+ *   DELETE /teams/:id/announcements/:announcementId
+ *   GET    /teams/announcements           the last 14 days', from every team I'm on
  */
-export function teamsRouter({ prisma, sessionSecret }) {
+export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
   const router = express.Router();
   router.use(requireAuth({ sessionSecret }));
 
@@ -73,6 +95,33 @@ export function teamsRouter({ prisma, sessionSecret }) {
       return null;
     }
     return team;
+  }
+
+  /**
+   * Per member who shares health with this team: pain in the last 14 days
+   * (latest first) and whether training is paused after a head injury.
+   */
+  async function healthBoard(teamId) {
+    const members = await prisma.teamMember.findMany({ where: { teamId, shareHealth: true } });
+    if (members.length === 0) return [];
+    const since = new Date(now().getTime() - 14 * DAY_MS);
+    const notes = await prisma.healthNote.findMany({ where: { athleteId: { in: members.map((m) => m.athleteId) }, day: { gte: since } } });
+    return members
+      .map((m) => {
+        const mine = notes.filter((n) => n.athleteId === m.athleteId).sort((a, b) => b.day - a.day || b.createdAt - a.createdAt);
+        const lastPause = mine.find((n) => n.kind === 'paused' || n.kind === 'cleared');
+        const latestPain = mine.find((n) => n.kind === 'pain' || n.kind === 'painGone');
+        return {
+          nickname: m.nickname,
+          paused: lastPause?.kind === 'paused',
+          pausedSince: lastPause?.kind === 'paused' ? lastPause.day.toISOString().slice(0, 10) : null,
+          pain: latestPain?.kind === 'pain'
+            ? { day: latestPain.day.toISOString().slice(0, 10), areas: latestPain.areas, level: latestPain.level }
+            : null,
+          painDays: new Set(mine.filter((n) => n.kind === 'pain').map((n) => n.day.toISOString().slice(0, 10))).size,
+        };
+      })
+      .sort((a, b) => a.nickname.localeCompare(b.nickname));
   }
 
   router.get('/', async (req, res) => {
@@ -86,9 +135,11 @@ export function teamsRouter({ prisma, sessionSecret }) {
       include: { team: true },
       orderBy: { joinedAt: 'asc' },
     });
+    const staffing = await prisma.teamStaff.findMany({ where: { athleteId: req.athleteId }, include: { team: true } });
     res.json({
-      coaching: coaching.map((t) => ({ id: t.id, name: t.name, code: t.code, memberCount: t._count.members })),
-      member: memberships.map((m) => ({ id: m.team.id, name: m.team.name, nickname: m.nickname })),
+      coaching: coaching.map((t) => ({ id: t.id, name: t.name, code: t.code, trainerCode: t.trainerCode ?? null, memberCount: t._count.members })),
+      member: memberships.map((m) => ({ id: m.team.id, name: m.team.name, nickname: m.nickname, shareHealth: Boolean(m.shareHealth) })),
+      trainer: staffing.map((s) => ({ id: s.team.id, name: s.team.name })),
     });
   });
 
@@ -132,6 +183,68 @@ export function teamsRouter({ prisma, sessionSecret }) {
     }
     await prisma.teamMember.create({ data: { teamId: team.id, athleteId: req.athleteId, nickname } });
     res.status(201).json({ team: { id: team.id, name: team.name, nickname } });
+  });
+
+  // ---- Health sharing -----------------------------------------------------
+
+  router.post('/health', async (req, res) => {
+    const date = day(req.body?.day);
+    const kind = req.body?.kind;
+    if (!date || !HEALTH_KINDS.has(kind)) {
+      res.status(400).json({ error: !date ? 'invalid_day' : 'invalid_kind' });
+      return;
+    }
+    // Kept only while the athlete shares health with at least one team.
+    const sharing = await prisma.teamMember.count({ where: { athleteId: req.athleteId, shareHealth: true } });
+    if (sharing === 0) {
+      res.status(204).end();
+      return;
+    }
+    const areas = Array.isArray(req.body?.areas) ? req.body.areas.filter((a) => PAIN_AREAS.has(a)).slice(0, 12) : [];
+    const level = PAIN_LEVELS.has(req.body?.level) ? req.body.level : null;
+    await prisma.healthNote.create({ data: { athleteId: req.athleteId, day: date, kind, areas, level } });
+    res.status(201).json({ ok: true });
+  });
+
+  router.post('/join-staff', async (req, res) => {
+    const code = typeof req.body?.code === 'string' ? req.body.code.trim().toUpperCase() : '';
+    if (!CODE.test(code)) {
+      res.status(400).json({ error: 'invalid_code' });
+      return;
+    }
+    const team = await prisma.team.findUnique({ where: { trainerCode: code } });
+    if (!team) {
+      res.status(404).json({ error: 'no_such_team' });
+      return;
+    }
+    const where = { teamId_athleteId: { teamId: team.id, athleteId: req.athleteId } };
+    if (!(await prisma.teamStaff.findUnique({ where }))) {
+      const count = await prisma.teamStaff.count({ where: { teamId: team.id } });
+      if (count >= MAX_STAFF) {
+        res.status(409).json({ error: 'team_full' });
+        return;
+      }
+      await prisma.teamStaff.create({ data: { teamId: team.id, athleteId: req.athleteId, role: 'trainer' } });
+    }
+    res.status(201).json({ team: { id: team.id, name: team.name } });
+  });
+
+  // ---- Announcements ---------------------------------------------------------
+
+  router.get('/announcements', async (req, res) => {
+    const memberships = await prisma.teamMember.findMany({ where: { athleteId: req.athleteId }, include: { team: true } });
+    if (memberships.length === 0) {
+      res.json({ announcements: [] });
+      return;
+    }
+    const names = new Map(memberships.map((m) => [m.teamId, m.team.name]));
+    const since = new Date(now().getTime() - 14 * DAY_MS);
+    const rows = await prisma.announcement.findMany({
+      where: { teamId: { in: [...names.keys()] }, createdAt: { gte: since } },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+    res.json({ announcements: rows.map((a) => announcementJSON(a, names.get(a.teamId))) });
   });
 
   router.get('/assignments', async (req, res) => {
@@ -185,6 +298,79 @@ export function teamsRouter({ prisma, sessionSecret }) {
     res.status(204).end();
   });
 
+  router.patch('/:id/membership', async (req, res) => {
+    const where = { teamId_athleteId: { teamId: req.params.id, athleteId: req.athleteId } };
+    const member = await prisma.teamMember.findUnique({ where });
+    if (!member || typeof req.body?.shareHealth !== 'boolean') {
+      res.status(member ? 400 : 404).json({ error: member ? 'invalid_share' : 'not_a_member' });
+      return;
+    }
+    await prisma.teamMember.update({ where, data: { shareHealth: req.body.shareHealth } });
+    // Stopping sharing everywhere deletes what the server kept.
+    if (!req.body.shareHealth) {
+      const stillSharing = await prisma.teamMember.count({ where: { athleteId: req.athleteId, shareHealth: true } });
+      if (stillSharing === 0) await prisma.healthNote.deleteMany({ where: { athleteId: req.athleteId } });
+    }
+    res.json({ shareHealth: req.body.shareHealth });
+  });
+
+  router.get('/:id/health', async (req, res) => {
+    const team = await prisma.team.findUnique({ where: { id: req.params.id } });
+    const isCoach = team?.coachId === req.athleteId;
+    const isTrainer = team && !isCoach
+      ? Boolean(await prisma.teamStaff.findUnique({ where: { teamId_athleteId: { teamId: team.id, athleteId: req.athleteId } } }))
+      : false;
+    if (!team || (!isCoach && !isTrainer)) {
+      res.status(404).json({ error: 'not_your_team' });
+      return;
+    }
+    res.json({ team: { id: team.id, name: team.name }, role: isCoach ? 'coach' : 'trainer', members: await healthBoard(team.id) });
+  });
+
+  router.post('/:id/trainer-code', async (req, res) => {
+    const team = await coachedTeam(req, res);
+    if (!team) return;
+    const trainerCode = await uniqueCode(prisma);
+    await prisma.team.update({ where: { id: team.id }, data: { trainerCode } });
+    res.status(201).json({ trainerCode });
+  });
+
+  router.delete('/:id/trainer-code', async (req, res) => {
+    const team = await coachedTeam(req, res);
+    if (!team) return;
+    await prisma.team.update({ where: { id: team.id }, data: { trainerCode: null } });
+    await prisma.teamStaff.deleteMany({ where: { teamId: team.id } });
+    res.status(204).end();
+  });
+
+  router.post('/:id/announcements', async (req, res) => {
+    const team = await coachedTeam(req, res);
+    if (!team) return;
+    const text = typeof req.body?.text === 'string' ? req.body.text.trim().replace(/\s+/g, ' ') : '';
+    if (!text || text.length > 300) {
+      res.status(400).json({ error: 'invalid_text' });
+      return;
+    }
+    if (isObjectionable(text)) {
+      res.status(400).json({ error: 'inappropriate' });
+      return;
+    }
+    const created = await prisma.announcement.create({ data: { teamId: team.id, text } });
+    res.status(201).json({ announcement: announcementJSON(created, team.name) });
+  });
+
+  router.delete('/:id/announcements/:announcementId', async (req, res) => {
+    const team = await coachedTeam(req, res);
+    if (!team) return;
+    const row = await prisma.announcement.findUnique({ where: { id: req.params.announcementId } });
+    if (!row || row.teamId !== team.id) {
+      res.status(404).json({ error: 'no_such_announcement' });
+      return;
+    }
+    await prisma.announcement.delete({ where: { id: row.id } });
+    res.status(204).end();
+  });
+
   router.get('/:id/readiness', async (req, res) => {
     const team = await coachedTeam(req, res);
     if (!team) return;
@@ -196,9 +382,14 @@ export function teamsRouter({ prisma, sessionSecret }) {
     }
     const members = await prisma.teamMember.findMany({ where: { teamId: team.id }, orderBy: { nickname: 'asc' } });
     const ids = members.map((m) => m.athleteId);
+    // Two weeks back for the trend (at least the week).
+    const trendStart = new Date(Math.min(weekStart.getTime(), today.getTime() - 13 * DAY_MS));
     const checkIns = ids.length
-      ? await prisma.checkIn.findMany({ where: { athleteId: { in: ids }, date: { gte: weekStart } } })
+      ? await prisma.checkIn.findMany({ where: { athleteId: { in: ids }, date: { gte: trendStart } } })
       : [];
+    const health = new Map((await healthBoard(team.id)).map((h) => [h.nickname, h]));
+    const trendDays = Array.from({ length: 14 }, (_, i) => new Date(today.getTime() - (13 - i) * DAY_MS).toISOString().slice(0, 10));
+    const daysSoFar = Math.max(1, Math.round((today - weekStart) / DAY_MS) + 1);
     const sessions = ids.length
       ? await prisma.session.findMany({ where: { athleteId: { in: ids }, startedAt: { gte: weekStart } } })
       : [];
@@ -206,13 +397,20 @@ export function teamsRouter({ prisma, sessionSecret }) {
     res.json({
       team: { id: team.id, name: team.name, code: team.code },
       members: members.map((m) => {
-        const mine = checkIns.filter((c) => c.athleteId === m.athleteId);
+        const all = checkIns.filter((c) => c.athleteId === m.athleteId);
+        const mine = all.filter((c) => c.date >= weekStart);
         const todays = mine.find((c) => c.date.toISOString().slice(0, 10) === todayKey);
         const trained = sessions.filter((s) => s.athleteId === m.athleteId);
+        const byDay = new Map(all.map((c) => [c.date.toISOString().slice(0, 10), c.readinessBand ?? 'NONE']));
         return {
           nickname: m.nickname,
           checkedInToday: Boolean(todays),
           readiness: todays?.readinessBand ?? null,
+          // The last 14 days, oldest first: GREEN / AMBER / RED, NONE (checked in, no band yet) or null (no check-in).
+          trend: trendDays.map((d) => byDay.get(d) ?? null),
+          missedThisWeek: Math.max(0, Math.min(7, daysSoFar) - mine.length),
+          sharesHealth: Boolean(m.shareHealth),
+          health: m.shareHealth ? health.get(m.nickname) ?? null : null,
           checkInsThisWeek: mine.length,
           sessionsThisWeek: trained.length,
           minutesThisWeek: trained.reduce((sum, s) => sum + (s.minutes ?? 0), 0),
