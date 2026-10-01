@@ -1,7 +1,15 @@
 # AthleteOS roadmap
 
-Proposed 2026-09-26. Section 1 is already promised and blocks App Store submission;
-the rest is a backlog, not commitments.
+Proposed 2026-09-26. Status 2026-10-01: everything is built except what's marked below.
+
+- **Waiting on the App Store launch:** #52 team codes (the "Team plan" offer code exists;
+  Apple only issues codes once the app is live and the subscription approved — then run
+  `asc-team-codes.yml`), #54 product page A/B tests.
+- **Waiting on the owner:** Blomp login for off-machine backups (#61; nightly encrypted
+  backups already run on the server), a review of build 90 (V5) before new screenshots and
+  listing texts (#8, #9 were done for V3).
+- **Not doing:** #47 languages (owner: English for now), #22 filmed videos (AI-generated
+  technique videos could teach wrong form).
 
 ## 1. Finish Version 3 (already promised)
 1. Optional first name, so Home says "Good morning, Name".

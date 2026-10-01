@@ -105,6 +105,11 @@ The repo is public: no secrets, key IDs or server internals go in this file.
   in connection URLs: hex only. `ProxyPass` target must not end in `/` when the
   `<Location>` has none (see `backend/deploy/apache/`).
 
+- Server jobs (root cron, scripts in `backend/deploy/`): parent emails every 10 min
+  (`parent-emails.py`, host sendmail), nightly encrypted DB backup (`backup.sh`; Blomp via an
+  rclone remote once configured), uptime + backup check every 5 min (`uptime.sh`). Their
+  secrets and the alert address live in `/root/.config`, never in the repo.
+
 ## Cloud sessions (claude.ai/code)
 - No `gh` CLI: use the GitHub MCP tools (e.g. dispatch `testflight.yml` via actions_run_trigger).
 - Node 22 is available: `npm test` in `content/` and `backend/` runs locally.
