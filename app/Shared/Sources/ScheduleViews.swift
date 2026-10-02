@@ -327,13 +327,17 @@ struct AddCalendarSheet: View {
     @State private var openGuide: Guide?
 
     enum Guide: String, CaseIterable, Identifiable {
-        case teamSnap, google, apple
+        case teamSnap, gameChanger, sportsEngine, school, google, apple, hudl
         var id: String { rawValue }
         var title: String {
             switch self {
             case .teamSnap: "TeamSnap"
+            case .gameChanger: "GameChanger"
+            case .sportsEngine: "SportsEngine"
+            case .school: "School or league website"
             case .google: "Google Calendar"
             case .apple: "Apple Calendar (iCloud)"
+            case .hudl: "Hudl"
             }
         }
         var steps: [String] {
@@ -342,6 +346,26 @@ struct AddCalendarSheet: View {
                 "Open TeamSnap and go to your team's Schedule.",
                 "Tap the share or export button and choose \"Sync to calendar\" / \"Subscribe\".",
                 "Copy the calendar link (it starts with webcal:// or https://) and paste it here.",
+            ]
+            case .gameChanger: [
+                "Open GameChanger and go to your team's Schedule.",
+                "Look for \"Sync\" or \"Subscribe to calendar\" — it gives a calendar link.",
+                "Copy that link and paste it here. New games and changes come in by themselves.",
+            ]
+            case .sportsEngine: [
+                "Open your team's page in SportsEngine (app or website) and go to Schedule.",
+                "Tap \"Subscribe\" or \"Sync calendar\" and copy the iCal / webcal link.",
+                "Paste it here.",
+            ]
+            case .school: [
+                "Most school and league athletics sites (rSchoolToday, ArbiterLive, MaxPreps, school websites) have a calendar with a \"Subscribe\", \"iCal\" or \"Sync\" button.",
+                "Copy the link it gives (it ends in .ics or starts with webcal://).",
+                "Paste it here as your team or school calendar.",
+            ]
+            case .hudl: [
+                "Hudl doesn't publish a calendar link, so it can't be connected.",
+                "If your team also uses TeamSnap, GameChanger, SportsEngine or a school calendar, connect that instead.",
+                "Otherwise add games by hand: Progress → Schedule & events → Add a game.",
             ]
             case .google: [
                 "On a computer, open calendar.google.com and point at the team or school calendar.",
