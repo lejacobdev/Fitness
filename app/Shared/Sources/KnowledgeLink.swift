@@ -86,6 +86,9 @@ extension PlanningRules {
             streak += 1
         }
         context.daysTrainedInARow = streak
+        context.returningFromIllnessDay = IllnessReturn.day(on: now, calendar: calendar)
+        context.longSchoolDay = SchoolHours.isLongDay(now, calendar: calendar)
+        context.examToday = ScheduleStore.imported.events.contains { $0.kind == .exam && !$0.cancelled && calendar.isDate($0.start, inSameDayAs: now) }
         return context
     }
 

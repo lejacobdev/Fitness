@@ -89,7 +89,14 @@ public enum DayStatusStore {
 
     /// Sets the status from today. `days` = how many days it lasts (1 = just
     /// today); nil keeps it until changed. `.active` clears it.
+    /// The status as stored, even after it ran out (nil: none).
+    public static var storedStatus: DayStatus? { stored?.status }
+
     public static func set(_ status: DayStatus, days: Int?, now: Date = .now, calendar: Calendar = .current) {
+        // Leaving "sick" starts the return after illness (IllnessReturn).
+        if stored?.status == .sick, status != .sick, self.status(on: now, calendar: calendar) == .sick {
+            IllnessReturn.markRecovered(on: now, calendar: calendar)
+        }
         guard status != .active else { stored = nil; return }
         let today = calendar.startOfDay(for: now)
         let until = days.flatMap { calendar.date(byAdding: .day, value: max(0, $0 - 1), to: today) }

@@ -14,6 +14,7 @@ import { legalRouter } from './routes/legal.js';
 import { linksRouter } from './routes/links.js';
 import { parentRouter } from './routes/parent.js';
 import { knowledgeRouter } from './routes/knowledge.js';
+import { partnerRouter } from './routes/partner.js';
 import { stateRouter } from './routes/state.js';
 import { syncRouter } from './routes/sync.js';
 import { teamsRouter } from './routes/teams.js';
@@ -79,6 +80,7 @@ export function createApp({
     app.use(communityRouter({ prisma, sessionSecret }));
     app.use(parentRouter({ prisma, sessionSecret }));
     app.use(knowledgeRouter({ prisma }));
+    app.use('/partner', partnerRouter({ prisma, sessionSecret }));
   }
 
   // Codes as links: Apple's app-links file, the code lookup, and the pages a

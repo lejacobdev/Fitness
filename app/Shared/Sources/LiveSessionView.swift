@@ -19,6 +19,8 @@ public struct LiveSessionView: View {
     let planned: GeneratedSession?
     /// Which kind of workout this is, for the Progress calendar's colours.
     let kind: WorkoutKind?
+    /// Training together: everyone's progress shows at the top.
+    let partnerCode: String?
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -59,11 +61,12 @@ public struct LiveSessionView: View {
         !queue.isEmpty && queue.allSatisfy { setsLogged[$0.itemSlug, default: 0] >= $0.dose.sets }
     }
 
-    public init(athlete: Athlete, apiClient: APIClient, planned: GeneratedSession? = nil, kind: WorkoutKind? = nil) {
+    public init(athlete: Athlete, apiClient: APIClient, planned: GeneratedSession? = nil, kind: WorkoutKind? = nil, partnerCode: String? = nil) {
         self.athlete = athlete
         self.apiClient = apiClient
         self.planned = planned
         self.kind = kind
+        self.partnerCode = partnerCode
     }
 
     private var current: GeneratedPlannedItem? {
@@ -88,6 +91,10 @@ public struct LiveSessionView: View {
             if let current {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
+                        if let partnerCode {
+                            PartnerStrip(code: partnerCode, done: queue.filter { setsLogged[$0.itemSlug, default: 0] >= $0.dose.sets }.count,
+                                         total: queue.count, finished: false)
+                        }
                         if loggedCount == 0 {
                             TipCard(id: "live", icon: "hand.tap.fill", title: "How a workout works",
                                     message: "Do a set, log it, rest. Tap Finish when you're done.")
@@ -617,6 +624,10 @@ public struct LiveSessionView: View {
 
     private func finish() {
         endActivity()
+        if let partnerCode {
+            let total = queue.count
+            Task { await PartnerWorkouts.report(code: partnerCode, done: total, total: total, finished: true) }
+        }
         guard let session else { return }
         try? SessionLogger(modelContext: modelContext).finishSession(session, sessionRPE: rpe)
         WidgetSnapshotWriter.write(for: athlete, week: WeeklyPlan.generate(for: athlete))

@@ -16,6 +16,8 @@ struct WorkoutTabView: View {
     @State private var liveLaunch: LiveSessionLaunch?
     @State private var preview: PreviewBox?
     @State private var showingImprove = false
+    @State private var showingProgram = false
+    @State private var showingTogether = false
     // Making it yours: edit any workout, the week's shape, own workouts, sharing.
     @State private var editing: EditorTarget?
     @State private var sharing: ShareTarget?
@@ -167,7 +169,7 @@ struct WorkoutTabView: View {
                 ImproveView(athlete: athlete, apiClient: apiClient, onPlanInputsChanged: onPlanInputsChanged)
             }
             .fullScreenCover(item: $liveLaunch) { launch in
-                LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind)
+                LiveSessionView(athlete: athlete, apiClient: apiClient, planned: launch.planned, kind: launch.kind, partnerCode: launch.partnerCode)
             }
             // A new plan: generate it (randomize, swap single exercises) or build it yourself.
             .sheet(isPresented: $confirmingNewPlan) {
@@ -446,6 +448,29 @@ struct WorkoutTabView: View {
                 .cardStyle(padding: 14)
             }
             .buttonStyle(.plain)
+            Button { showingTogether = true } label: {
+                ListRow(systemImage: "person.2.fill", color: AppTheme.ink, title: "Train together",
+                        detail: "Same workout with a partner or teammates")
+                    .cardStyle(padding: 12)
+            }
+            .buttonStyle(.plain)
+            Button { showingProgram = true } label: {
+                ListRow(systemImage: "calendar.badge.clock", color: AppTheme.ink, title: "Off-season program",
+                        detail: ProgramStore.active.map { "\($0.goal.title) · week \($0.week() ?? 1) of \($0.weeks)" } ?? "One goal, 4–8 weeks, tested at both ends")
+                    .cardStyle(padding: 12)
+            }
+            .buttonStyle(.plain)
+        }
+        .sheet(isPresented: $showingProgram) {
+            ProgramsView(onChanged: onPlanInputsChanged)
+        }
+        .sheet(isPresented: $showingTogether) {
+            TrainTogetherSheet(todays: recommendedSession) { session, code in
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(500))
+                    liveLaunch = LiveSessionLaunch(planned: session, kind: .gym, partnerCode: code)
+                }
+            }
         }
     }
 

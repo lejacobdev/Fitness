@@ -62,7 +62,7 @@ struct HomeView: View {
     @State private var drag = HomeDragState()
 
     enum HomeSheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, reflection, today, search, safety, mindset, tests, windDown, seasonReview
+        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, reflection, today, search, safety, mindset, tests, windDown, seasonReview, tournament
         var id: String { rawValue }
     }
 
@@ -133,8 +133,10 @@ struct HomeView: View {
     /// Today's pain first (nothing that loads a sore area), then readiness.
     private func adjusted(_ session: GeneratedSession) -> GeneratedSession {
         let safe = TodaysPain.apply(session, athlete: athlete, catalogue: catalogue)
-        guard let readinessBand else { return safe }
-        return ReadinessApplier.apply(to: safe, band: readinessBand).session
+        // Back after illness or a long school day: shorter too.
+        let ruleBand: ReadinessBand? = planning.reasonCodes.contains { ["RETURN_AFTER_ILLNESS", "LONG_SCHOOL_DAY"].contains($0) } ? .amber : nil
+        guard let band = readinessBand ?? ruleBand else { return safe }
+        return ReadinessApplier.apply(to: safe, band: band).session
     }
 
     private var movementPrep: GeneratedSession? {
@@ -338,6 +340,15 @@ struct HomeView: View {
                         .id(contentKey)
                         .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: 16)), removal: .opacity))
                     if !scheduleIsSet && status == .active { scheduleCard }
+                    if status == .travel {
+                        Button { activeSheet = .tournament } label: {
+                            ListRow(systemImage: "airplane", color: AppTheme.ink, title: "Tournament & travel",
+                                    detail: "Time difference, between games, sleep away")
+                                .padding(.horizontal, 16)
+                                .glassSurface()
+                        }
+                        .buttonStyle(.plain)
+                    }
                     if gameToday != nil && status == .active && phase != .night { gameRoutinesCard }
                     if let tips = gameFuelTips, !tips.isEmpty { gameFuelCard(tips) }
                     if askPrePracticeFuel { prePracticeFuelCard }
@@ -423,6 +434,9 @@ struct HomeView: View {
                         activeSheet = nil
                         onPlanInputsChanged()
                     }
+                case .tournament:
+                    TournamentModeView(onHotelWorkout: { selectedTab = .workout },
+                                       onFood: { Task { @MainActor in try? await Task.sleep(for: .milliseconds(600)); activeSheet = .fuel } })
                 case .windDown:
                     WindDownView(bedtime: bedtimeTonight.map { Bedtime.label($0.minutes) },
                                  gameTomorrow: athlete.competitions.contains { calendar.isDateInTomorrow($0.date) })

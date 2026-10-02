@@ -494,3 +494,29 @@ model Shoutout {
   @@index([athleteId, createdAt])
   @@index([teamId, athleteId, createdAt])
 }
+
+/// A workout two or more athletes do together, each on their own phone,
+/// seeing each other's progress. Joined by code; gone after a day.
+model PartnerSession {
+  code      String            @id
+  title     String
+  /// [{ itemSlug, sets, reps?, seconds? }]
+  items     Json
+  createdBy String
+  createdAt DateTime          @default(now())
+  expiresAt DateTime
+  people    PartnerProgress[]
+}
+
+model PartnerProgress {
+  code      String
+  athleteId String
+  nickname  String
+  done      Int            @default(0)
+  total     Int            @default(0)
+  finished  Boolean        @default(false)
+  updatedAt DateTime       @default(now())
+  session   PartnerSession @relation(fields: [code], references: [code], onDelete: Cascade)
+
+  @@id([code, athleteId])
+}

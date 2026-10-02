@@ -140,6 +140,10 @@ public struct PlanningContext: Sendable, Equatable {
     public var daysWithoutData = 0
     /// Days in a row before today with training, practice or a game.
     public var daysTrainedInARow = 0
+    /// Day 1–5 back after being sick, nil otherwise.
+    public var returningFromIllnessDay: Int?
+    public var longSchoolDay = false
+    public var examToday = false
 
     public init() {}
 }
@@ -225,6 +229,18 @@ public enum PlanningRules {
                      status: .draftRequiresExpertReview, reasonCode: "NO_REST_DAY_THIS_WEEK", decision: .noExtraTraining,
                      explanation: "Seven days of training in a row: no added workout today. A day off is part of the plan.",
                      when: { $0.daysTrainedInARow >= 7 && !$0.competitionToday }),
+        PlanningRule(id: "RETURN-ILLNESS-08", version: "1.0.0", priority: 640, label: .heuristic, basis: ["R03"],
+                     status: .draftRequiresExpertReview, reasonCode: "RETURN_AFTER_ILLNESS", decision: .noExtraTraining,
+                     explanation: "Back after being ill: light movement only for the first two days. Fever or feeling worse? Stop and rest.",
+                     when: { ($0.returningFromIllnessDay ?? 99) <= 2 }),
+        PlanningRule(id: "RETURN-ILLNESS-09", version: "1.0.0", priority: 630, label: .heuristic, basis: ["R03"],
+                     status: .draftRequiresExpertReview, reasonCode: "RETURN_AFTER_ILLNESS", decision: .modifyOptionalWork,
+                     explanation: "Back after being ill: a lighter day. Fever or feeling worse? Stop and rest.",
+                     when: { ($0.returningFromIllnessDay ?? 0) >= 3 }),
+        PlanningRule(id: "SCHED-SCHOOL-10", version: "1.0.0", priority: 560, label: .heuristic, basis: ["R03"],
+                     status: .draftRequiresExpertReview, reasonCode: "LONG_SCHOOL_DAY", decision: .modifyOptionalWork,
+                     explanation: "A long school day or an exam: the added workout stays short.",
+                     when: { $0.examToday || ($0.longSchoolDay && $0.practiceToday) }),
         PlanningRule(id: "SCHED-COMPETITION-06", version: "1.0.0", priority: 590, label: .heuristic, basis: ["R39"],
                      status: .draftRequiresExpertReview, reasonCode: "COMPETITION_TODAY", decision: .noExtraTraining,
                      explanation: "Game day: no added workout. Save your energy for the game.",

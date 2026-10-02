@@ -36,6 +36,7 @@ struct ScheduleSheet: View {
                     calendarsSection
                     practiceSection
                     examsSection
+                    SchoolHoursSection(onChanged: onChanged)
                     if !upcoming.isEmpty { upcomingSection }
                 }
                 .padding(.horizontal, 20)

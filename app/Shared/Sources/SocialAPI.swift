@@ -258,6 +258,42 @@ public extension APIClient {
         return wire.shoutouts.map { Announcement(id: $0.id, teamId: "", teamName: $0.teamName, text: $0.text, createdAt: $0.createdAt) }
     }
 
+    // MARK: Training together
+
+    struct PartnerSession: Decodable, Sendable, Equatable {
+        public struct Person: Decodable, Sendable, Equatable {
+            public let nickname: String
+            public let done: Int
+            public let total: Int
+            public let finished: Bool
+            public let isMe: Bool
+        }
+        public let code: String
+        public let title: String
+        public let items: [Assignment.Item]
+        public let people: [Person]
+    }
+
+    func startPartnerSession(title: String, items: [Assignment.Item], nickname: String, sessionToken: String) async throws -> String {
+        struct Body: Encodable, Sendable { let title: String; let items: [Assignment.Item]; let nickname: String }
+        struct Wire: Decodable, Sendable { let code: String }
+        let wire: Wire = try await social("POST", "partner", json: try JSONEncoder().encode(Body(title: title, items: items, nickname: nickname)), sessionToken: sessionToken)
+        return wire.code
+    }
+
+    func joinPartnerSession(code: String, nickname: String, sessionToken: String) async throws -> PartnerSession {
+        try await social("POST", "partner/\(code)/join", body: ["nickname": nickname], sessionToken: sessionToken)
+    }
+
+    func partnerSession(code: String, sessionToken: String) async throws -> PartnerSession {
+        try await social("GET", "partner/\(code)", sessionToken: sessionToken)
+    }
+
+    func reportPartnerProgress(code: String, done: Int, total: Int, finished: Bool, sessionToken: String) async throws {
+        struct Body: Encodable, Sendable { let done: Int; let total: Int; let finished: Bool }
+        let _: Ignored = try await social("PUT", "partner/\(code)/progress", json: try JSONEncoder().encode(Body(done: done, total: total, finished: finished)), sessionToken: sessionToken)
+    }
+
     // MARK: Parent email
 
     struct ParentEmail: Decodable, Sendable, Equatable {

@@ -9,7 +9,7 @@ const SESSION_SECRET = 'test-session-secret';
 
 /** A tiny in-memory stand-in for the Prisma calls these routes make. */
 function fakePrisma() {
-  const db = { league: [], leagueMember: [], weeklyXP: [], team: [], teamMember: [], teamStaff: [], assignment: [], announcement: [], shoutout: [], healthNote: [], parentLink: [], parentEmail: [], checkIn: [], session: [], syncedState: [], sharedWorkout: [] };
+  const db = { league: [], leagueMember: [], weeklyXP: [], team: [], teamMember: [], teamStaff: [], assignment: [], announcement: [], shoutout: [], healthNote: [], partnerSession: [], partnerProgress: [], parentLink: [], parentEmail: [], checkIn: [], session: [], syncedState: [], sharedWorkout: [] };
 
   const matches = (row, where = {}) => Object.entries(where).every(([field, cond]) => {
     if (cond && typeof cond === 'object' && !(cond instanceof Date)) {
@@ -30,6 +30,7 @@ function fakePrisma() {
     teamMember: { team: ['team', 'teamId', true] },
     teamStaff: { team: ['team', 'teamId', true] },
     shoutout: { team: ['team', 'teamId', true] },
+    partnerSession: { people: ['partnerProgress', 'code', false, 'code'] },
   };
 
   function withIncludes(model, row, include) {
@@ -43,10 +44,10 @@ function fakePrisma() {
         }));
         continue;
       }
-      const [target, fk, toOne] = relations[model][name];
+      const [target, fk, toOne, key = 'id'] = relations[model][name];
       out[name] = toOne
         ? withIncludes(target, db[target].find((r) => r.id === row[fk]), spec === true ? undefined : spec.include)
-        : db[target].filter((r) => r[fk] === row.id).map((r) => withIncludes(target, r, spec === true ? undefined : spec.include));
+        : db[target].filter((r) => r[fk] === row[key]).map((r) => withIncludes(target, r, spec === true ? undefined : spec.include));
     }
     return out;
   }
@@ -329,6 +330,27 @@ test('teams: a coach shout-out is private and at most one a week', async () => {
     const mine = await (await call('ath1', 'GET', '/teams/shoutouts')).json();
     assert.deepEqual(mine.shoutouts.map((s) => [s.teamName, s.text]), [['Golf', 'Great focus on the range today']]);
     assert.deepEqual((await (await call('ath2', 'GET', '/teams/shoutouts')).json()).shoutouts, [], 'nobody else sees it');
+  } finally {
+    await close();
+  }
+});
+
+test('training together: code, join, progress, nicknames only', async () => {
+  const prisma = fakePrisma();
+  const { call, close } = await serve(prisma);
+  try {
+    const items = [{ itemSlug: 'goblet-squat', sets: 3, reps: 8 }, { itemSlug: 'plank', sets: 2, seconds: 30 }];
+    assert.equal((await call('a1', 'POST', '/partner', { title: 'Leg day', items: [], nickname: 'Sam' })).status, 400);
+    const { code } = await (await call('a1', 'POST', '/partner', { title: 'Leg day', items, nickname: 'Sam' })).json();
+    assert.match(code, /^[A-HJ-KM-NP-Z2-9]{6}$/);
+    assert.equal((await call('a2', 'GET', `/partner/${code}`)).status, 404, 'join first');
+    const joined = await (await call('a2', 'POST', `/partner/${code}/join`, { nickname: 'Ali' })).json();
+    assert.equal(joined.title, 'Leg day');
+    assert.equal(joined.items.length, 2);
+    assert.equal((await call('a2', 'PUT', `/partner/${code}/progress`, { done: 1, total: 2, finished: false })).status, 204);
+    const seen = await (await call('a1', 'GET', `/partner/${code}`)).json();
+    assert.deepEqual(seen.people.map((p) => [p.nickname, p.done, p.isMe]).sort(), [['Ali', 1, false], ['Sam', 0, true]]);
+    assert.equal((await call('a3', 'POST', '/partner/ZZZZZZ/join', { nickname: 'X1' })).status, 404);
   } finally {
     await close();
   }

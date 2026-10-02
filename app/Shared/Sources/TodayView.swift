@@ -5,6 +5,8 @@ struct LiveSessionLaunch: Identifiable {
     let id = UUID()
     let planned: GeneratedSession?
     var kind: WorkoutKind? = nil
+    /// Training together: the partner session's code (see PartnerWorkouts).
+    var partnerCode: String? = nil
 }
 
 enum QuickAction: String, Identifiable, CaseIterable {

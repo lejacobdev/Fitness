@@ -271,7 +271,7 @@ public enum HabitBadges {
         let trainedDays = Set(sessions.map { DayKey.of($0.startedAt, calendar: calendar) })
             .union(PracticeLogStore.logs.map(\.day))
         let week = calendar.dateInterval(of: .weekOfYear, for: now)
-        let weekDays = (0..<7).compactMap { week.flatMap { w in calendar.date(byAdding: .day, value: $0, to: w.start) } }
+        let weekDays = (0..<7).compactMap { offset in week.flatMap { w in calendar.date(byAdding: .day, value: offset, to: w.start) } }
             .filter { $0 <= now }.map { DayKey.of($0, calendar: calendar) }
         let reported = PainStore.all().contains { last7.contains($0.day) }
             || last7.contains { IllnessStore.answer(on: date($0, calendar) ?? now, calendar: calendar) == .yes }
