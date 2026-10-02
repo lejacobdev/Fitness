@@ -78,6 +78,8 @@ function assignmentJSON(a, teamName) {
  *   POST   /teams/:id/trainer-code        coach: make (or replace) the athletic trainer's code
  *   DELETE /teams/:id/trainer-code        coach: switch it off and remove the trainers
  *   POST   /teams/join-staff              { code } — join as the team's athletic trainer
+ *   POST   /teams/:id/rtp                 trainer: { memberId, step 1–6, note? } — a return-to-play step
+ *   GET    /teams/rtp/mine                my return-to-play steps, as recorded
  *
  * Announcements (one-way, no replies):
  *   GET    /teams/:id/announcements       coach: the last 14 days'
@@ -111,13 +113,18 @@ export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
     if (members.length === 0) return [];
     const since = new Date(now().getTime() - 14 * DAY_MS);
     const notes = await prisma.healthNote.findMany({ where: { athleteId: { in: members.map((m) => m.athleteId) }, day: { gte: since } } });
+    const rtpEntries = await prisma.rtpEntry.findMany({ where: { teamId, athleteId: { in: members.map((m) => m.athleteId) } } });
     return members
       .map((m) => {
         const mine = notes.filter((n) => n.athleteId === m.athleteId).sort((a, b) => b.day - a.day || b.createdAt - a.createdAt);
         const lastPause = mine.find((n) => n.kind === 'paused' || n.kind === 'cleared');
         const latestPain = mine.find((n) => n.kind === 'pain' || n.kind === 'painGone');
+        const rtp = rtpEntries.filter((r) => r.athleteId === m.athleteId).sort((a, b) => b.createdAt - a.createdAt)[0];
         return {
+          memberId: m.athleteId,
           nickname: m.nickname,
+          rtpStep: rtp?.step ?? null,
+          rtpRecordedAt: rtp ? rtp.createdAt.toISOString() : null,
           paused: lastPause?.kind === 'paused',
           pausedSince: lastPause?.kind === 'paused' ? lastPause.day.toISOString().slice(0, 10) : null,
           pain: latestPain?.kind === 'pain'
@@ -243,6 +250,13 @@ export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
     res.json({ shoutouts: rows.map((r) => ({ id: r.id, teamName: r.team?.name ?? null, text: r.text, createdAt: r.createdAt.toISOString() })) });
   });
 
+  // My return-to-play steps, as my teams' athletic trainers recorded them.
+  router.get('/rtp/mine', async (req, res) => {
+    const rows = await prisma.rtpEntry.findMany({ where: { athleteId: req.athleteId }, include: { team: true } });
+    rows.sort((a, b) => b.createdAt - a.createdAt);
+    res.json({ entries: rows.slice(0, 20).map((r) => ({ step: r.step, note: r.note, teamName: r.team?.name ?? null, recordedAt: r.createdAt.toISOString() })) });
+  });
+
   router.get('/announcements', async (req, res) => {
     const memberships = await prisma.teamMember.findMany({ where: { athleteId: req.athleteId }, include: { team: true } });
     if (memberships.length === 0) {
@@ -337,6 +351,30 @@ export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
       return;
     }
     res.json({ team: { id: team.id, name: team.name }, role: isCoach ? 'coach' : 'trainer', members: await healthBoard(team.id) });
+  });
+
+  // The athletic trainer records a return-to-play step (only for members who share health).
+  router.post('/:id/rtp', async (req, res) => {
+    const team = await prisma.team.findUnique({ where: { id: req.params.id } });
+    const isTrainer = team ? Boolean(await prisma.teamStaff.findUnique({ where: { teamId_athleteId: { teamId: team.id, athleteId: req.athleteId } } })) : false;
+    if (!team || !isTrainer) {
+      res.status(404).json({ error: 'not_your_team' });
+      return;
+    }
+    const memberId = typeof req.body?.memberId === 'string' ? req.body.memberId : '';
+    const step = Number.isInteger(req.body?.step) && req.body.step >= 1 && req.body.step <= 6 ? req.body.step : null;
+    const note = typeof req.body?.note === 'string' && req.body.note.trim() ? req.body.note.trim().slice(0, 200) : null;
+    const member = await prisma.teamMember.findUnique({ where: { teamId_athleteId: { teamId: team.id, athleteId: memberId } } });
+    if (!member || !member.shareHealth || !step) {
+      res.status(!member || !member.shareHealth ? 404 : 400).json({ error: !step ? 'invalid_step' : 'not_shared' });
+      return;
+    }
+    if (note && isObjectionable(note)) {
+      res.status(400).json({ error: 'inappropriate' });
+      return;
+    }
+    await prisma.rtpEntry.create({ data: { teamId: team.id, athleteId: memberId, step, note, recordedBy: req.athleteId } });
+    res.status(201).json({ ok: true });
   });
 
   router.post('/:id/trainer-code', async (req, res) => {

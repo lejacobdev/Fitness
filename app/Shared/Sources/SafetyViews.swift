@@ -18,11 +18,21 @@ struct ConcussionGuideView: View {
 struct ConcussionGuideContent: View {
     @State private var step = ConcussionGuide.currentStep
     @State private var status = DayStatusStore.status()
+    /// The step the athletic trainer recorded, when there is one.
+    @State private var recorded: APIClient.RtpEntry?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 ScreenTitle("Head injury", subtitle: "What to do, and how athletes come back safely.")
+                if let recorded {
+                    Label("Your athletic trainer recorded step \(recorded.step)\(recorded.note.map { ": \($0)" } ?? "")", systemImage: "checkmark.seal.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .cardStyle(padding: 14)
+                }
 
                 list("If you think you have a concussion", ConcussionGuide.rightAway, icon: "hand.raised.fill", color: AppTheme.accent)
 
@@ -88,6 +98,14 @@ struct ConcussionGuideContent: View {
             .containerRelativeFrame(.horizontal)
         }
         .appScreen()
+        .task {
+            guard let token = try? KeychainTokenStore().read(),
+                  let entries = try? await APIClient(baseURL: AppConfig.backendBaseURL).myRtp(sessionToken: token),
+                  let latest = entries.first else { return }
+            recorded = latest
+            step = latest.step
+            ConcussionGuide.currentStep = latest.step
+        }
     }
 
     private func list(_ title: String, _ lines: [String], icon: String, color: Color) -> some View {

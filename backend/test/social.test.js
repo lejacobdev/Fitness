@@ -9,7 +9,7 @@ const SESSION_SECRET = 'test-session-secret';
 
 /** A tiny in-memory stand-in for the Prisma calls these routes make. */
 function fakePrisma() {
-  const db = { league: [], leagueMember: [], weeklyXP: [], team: [], teamMember: [], teamStaff: [], assignment: [], announcement: [], shoutout: [], healthNote: [], partnerSession: [], partnerProgress: [], parentLink: [], parentEmail: [], checkIn: [], session: [], syncedState: [], sharedWorkout: [] };
+  const db = { league: [], leagueMember: [], weeklyXP: [], team: [], teamMember: [], teamStaff: [], assignment: [], announcement: [], shoutout: [], healthNote: [], partnerSession: [], partnerProgress: [], rtpEntry: [], parentLink: [], parentEmail: [], checkIn: [], session: [], syncedState: [], sharedWorkout: [] };
 
   const matches = (row, where = {}) => Object.entries(where).every(([field, cond]) => {
     if (cond && typeof cond === 'object' && !(cond instanceof Date)) {
@@ -31,6 +31,7 @@ function fakePrisma() {
     teamStaff: { team: ['team', 'teamId', true] },
     shoutout: { team: ['team', 'teamId', true] },
     partnerSession: { people: ['partnerProgress', 'code', false, 'code'] },
+    rtpEntry: { team: ['team', 'teamId', true] },
   };
 
   function withIncludes(model, row, include) {
@@ -234,6 +235,15 @@ test('teams: health is shared only with consent, with the coach and the athletic
     const trainerView = await (await call('trainer', 'GET', `/teams/${team.id}/health`)).json();
     assert.equal(trainerView.role, 'trainer');
     assert.equal((await call('trainer', 'GET', `/teams/${team.id}/readiness?today=2026-09-30&weekStart=2026-09-28`)).status, 404, 'the trainer sees health, not the coach board');
+
+    // The trainer records a return-to-play step; the athlete sees it.
+    assert.equal((await call('trainer', 'POST', `/teams/${team.id}/rtp`, { memberId: 'ath1', step: 7 })).status, 400);
+    assert.equal((await call('trainer', 'POST', `/teams/${team.id}/rtp`, { memberId: 'ath2', step: 2 })).status, 404, 'only members who share');
+    assert.equal((await call('coach', 'POST', `/teams/${team.id}/rtp`, { memberId: 'ath1', step: 2 })).status, 404, 'the trainer records it');
+    assert.equal((await call('trainer', 'POST', `/teams/${team.id}/rtp`, { memberId: 'ath1', step: 2, note: 'Bike 15 min, no symptoms' })).status, 201);
+    const rtp = await (await call('ath1', 'GET', '/teams/rtp/mine')).json();
+    assert.deepEqual(rtp.entries.map((e) => [e.step, e.note]), [[2, 'Bike 15 min, no symptoms']]);
+    assert.equal((await (await call('trainer', 'GET', `/teams/${team.id}/health`)).json()).members[0].rtpStep, 2);
 
     // Head injury: paused, then cleared.
     await call('ath1', 'POST', '/teams/health', { day: '2026-09-30', kind: 'paused' });

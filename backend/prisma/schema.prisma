@@ -322,6 +322,7 @@ model Team {
   assignments   Assignment[]
   announcements Announcement[]
   shoutouts     Shoutout[]
+  rtpEntries    RtpEntry[]
 
   @@index([coachId])
 }
@@ -519,4 +520,22 @@ model PartnerProgress {
   session   PartnerSession @relation(fields: [code], references: [code], onDelete: Cascade)
 
   @@id([code, athleteId])
+}
+
+/// The return-to-play steps after a concussion, as the team's athletic
+/// trainer records them (the app explains the steps; it never clears anyone).
+model RtpEntry {
+  id         String   @id @default(uuid())
+  teamId     String
+  athleteId  String
+  /// 1–6, as in the CDC HEADS UP steps
+  step       Int
+  note       String?
+  recordedBy String
+  createdAt  DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId, createdAt])
+  @@index([teamId, athleteId])
 }

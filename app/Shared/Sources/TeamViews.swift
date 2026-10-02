@@ -374,7 +374,14 @@ struct TeamBoardView: View {
     @State private var posting = false
     @State private var trainerCode: String?
     @State private var noteFor: NoteTarget?
+    @State private var sideline = false
     @Environment(\.workoutContext) private var context
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    private var isWide: Bool { sizeClass == .regular }
+    #else
+    private let isWide = false
+    #endif
 
     struct NoteTarget: Identifiable {
         let memberId: String
@@ -426,6 +433,11 @@ struct TeamBoardView: View {
             .sheet(item: $noteFor) { target in
                 ShoutoutSheet(teamID: team.id, memberId: target.memberId, nickname: target.nickname)
             }
+            #if os(iOS) && !APP_EXTENSION
+            .fullScreenCover(isPresented: $sideline, onDismiss: { Task { await load() } }) {
+                SidelineView(team: team)
+            }
+            #endif
             .confirmationDialog("Delete \(team.name)?", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("Delete team", role: .destructive) {
                     Task {
@@ -443,7 +455,15 @@ struct TeamBoardView: View {
     private var readinessSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Today", subtitle: "From morning check-ins. Green: ready. Amber: a bit tired. Red: go easy.")
-            if let members = board?.members, !members.isEmpty {
+            #if os(iOS) && !APP_EXTENSION
+            Button { sideline = true } label: {
+                Label("Sideline mode — full screen, refreshes itself", systemImage: "rectangle.grid.2x2.fill")
+            }
+            .buttonStyle(.secondary)
+            #endif
+            if isWide, let members = board?.members, !members.isEmpty {
+                ReadinessGrid(members: members)
+            } else if let members = board?.members, !members.isEmpty {
                 VStack(spacing: 0) {
                     ForEach(Array(members.enumerated()), id: \.offset) { index, member in
                         HStack(spacing: 12) {
@@ -969,6 +989,14 @@ struct TrainerHealthView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var health: APIClient.TeamHealth?
     @State private var failed = false
+    @State private var recording: RtpTarget?
+
+    struct RtpTarget: Identifiable {
+        let memberId: String
+        let nickname: String
+        let step: Int
+        var id: String { memberId }
+    }
     private let apiClient = APIClient(baseURL: AppConfig.backendBaseURL)
 
     var body: some View {
@@ -990,6 +1018,18 @@ struct TrainerHealthView: View {
                                     Text("Nothing reported in the last 14 days.").font(.caption).foregroundStyle(AppTheme.secondaryText)
                                 }
                                 HealthLine(health: member)
+                                if let step = member.rtpStep {
+                                    Text("Return to play: step \(step) — \(ConcussionGuide.steps.first { $0.number == step }?.title ?? "")")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(AppTheme.ink)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                if health?.role == "trainer", (member.paused || member.rtpStep != nil), let memberId = member.memberId {
+                                    Button("Record a return-to-play step") { recording = RtpTarget(memberId: memberId, nickname: member.nickname, step: member.rtpStep ?? 1) }
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(AppTheme.ink)
+                                        .frame(minHeight: 36)
+                                }
                                 if member.painDays > 1 {
                                     Text("Pain on \(member.painDays) of the last 14 days").font(.caption).foregroundStyle(AppTheme.secondaryText)
                                 }
@@ -1007,6 +1047,9 @@ struct TrainerHealthView: View {
             }
             .appScreen()
             .toolbar { CloseToolbarItem { dismiss() } }
+            .sheet(item: $recording, onDismiss: { Task { await reload() } }) { target in
+                RtpRecordSheet(teamID: teamID, target: target)
+            }
             .task {
                 guard let token = try? KeychainTokenStore().read() else { failed = true; return }
                 do {
@@ -1112,6 +1155,65 @@ struct ShoutoutSheet: View {
             message = "Keep it under 200 characters and friendly."
         } catch {
             message = "Couldn't reach the server — check your connection."
+        }
+    }
+}
+
+
+extension TrainerHealthView {
+    func reload() async {
+        guard let token = try? KeychainTokenStore().read() else { return }
+        if let fresh = try? await APIClient(baseURL: AppConfig.backendBaseURL).teamHealth(teamID: teamID, sessionToken: token) { health = fresh }
+    }
+}
+
+/// The athletic trainer records which return-to-play step an athlete is on.
+struct RtpRecordSheet: View {
+    let teamID: String
+    let target: TrainerHealthView.RtpTarget
+    @Environment(\.dismiss) private var dismiss
+    @State private var step = 1
+    @State private var note = ""
+    @State private var failed = false
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    ScreenTitle(target.nickname, subtitle: "Which return-to-play step are they on? You decide — the app only records it.")
+                    ForEach(ConcussionGuide.steps, id: \.number) { item in
+                        Button { step = item.number } label: {
+                            OptionRow(title: "\(item.number). \(item.title)", subtitle: nil, systemImage: nil, isSelected: step == item.number)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    TextField("Note (optional), e.g. 15 min bike, no symptoms", text: $note, axis: .vertical)
+                        .lineLimit(1...3)
+                        .padding(14)
+                        .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
+                    if step >= 5 {
+                        Text("Step 5 and up need a doctor's clearance (in writing where your school requires it).")
+                            .font(.caption.weight(.semibold)).foregroundStyle(AppTheme.red).fixedSize(horizontal: false, vertical: true)
+                    }
+                    if failed { Text("Couldn't save — check your connection.").font(.caption).foregroundStyle(AppTheme.red) }
+                    Button("Record step \(step)") { Task { await save() } }.buttonStyle(.primary)
+                }
+                .padding(20)
+            }
+            .appScreen()
+            .toolbar { CloseToolbarItem { dismiss() } }
+        }
+        .onAppear { step = target.step }
+    }
+
+    private func save() async {
+        guard let token = try? KeychainTokenStore().read() else { return }
+        do {
+            try await APIClient(baseURL: AppConfig.backendBaseURL).recordRtp(teamID: teamID, memberId: target.memberId, step: step,
+                                                                          note: note.isEmpty ? nil : note, sessionToken: token)
+            dismiss()
+        } catch {
+            failed = true
         }
     }
 }

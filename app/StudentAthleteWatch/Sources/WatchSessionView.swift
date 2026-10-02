@@ -14,6 +14,7 @@ final class WatchSessionModel {
 
     let items: [WatchPlanItem]
     let workout = WorkoutManager()
+    let reps = RepCounter()
     var index = 0
     var page: Page = .current
     var value: Double = 0
@@ -188,9 +189,15 @@ struct WatchCurrentItemPage: View {
                     .font(.headline)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
-                Text("Set \(min(model.setsLogged[model.index] + 1, current.sets)) of \(current.sets)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text("Set \(min(model.setsLogged[model.index] + 1, current.sets)) of \(current.sets)")
+                    if model.workout.heartRate > 0 {
+                        Label("\(Int(model.workout.heartRate))", systemImage: "heart.fill")
+                            .foregroundStyle(.red)
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
                 Text("\(Int(model.value))")
                     .font(.system(size: 52, weight: .bold, design: .rounded))
                     .monospacedDigit()
@@ -203,7 +210,26 @@ struct WatchCurrentItemPage: View {
                 Text(current.unitLabel)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                if current.doseKind == "reps", model.reps.isAvailable {
+                    // Counting from wrist movement: an estimate to confirm.
+                    Button {
+                        if model.reps.isCounting {
+                            model.reps.stop()
+                            if model.reps.count > 0 { model.value = Double(model.reps.count) }
+                        } else {
+                            model.reps.start()
+                        }
+                    } label: {
+                        Text(model.reps.isCounting ? "Counted \(model.reps.count) · stop" : "Count my reps")
+                            .font(.caption2)
+                    }
+                    .buttonStyle(.bordered)
+                }
                 Button {
+                    if model.reps.isCounting {
+                        model.reps.stop()
+                        if model.reps.count > 0 { model.value = Double(model.reps.count) }
+                    }
                     model.logSet(context: modelContext)
                 } label: {
                     Text("Log set")

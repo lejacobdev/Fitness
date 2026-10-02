@@ -52,11 +52,33 @@ public extension APIClient {
             public let areas: [String]
             public let level: String?
         }
+        public let memberId: String?
         public let nickname: String
         public let paused: Bool
         public let pausedSince: String?
         public let pain: Pain?
         public let painDays: Int
+        /// The last return-to-play step the trainer recorded (1–6).
+        public let rtpStep: Int?
+        public let rtpRecordedAt: String?
+    }
+
+    struct RtpEntry: Decodable, Sendable, Equatable {
+        public let step: Int
+        public let note: String?
+        public let teamName: String?
+        public let recordedAt: String
+    }
+
+    func recordRtp(teamID: String, memberId: String, step: Int, note: String?, sessionToken: String) async throws {
+        struct Body: Encodable, Sendable { let memberId: String; let step: Int; let note: String? }
+        let _: Ignored = try await social("POST", "teams/\(teamID)/rtp", json: try JSONEncoder().encode(Body(memberId: memberId, step: step, note: note)), sessionToken: sessionToken)
+    }
+
+    func myRtp(sessionToken: String) async throws -> [RtpEntry] {
+        struct Wire: Decodable, Sendable { let entries: [RtpEntry] }
+        let wire: Wire = try await social("GET", "teams/rtp/mine", sessionToken: sessionToken)
+        return wire.entries
     }
 
     struct TeamHealth: Decodable, Sendable, Equatable {
