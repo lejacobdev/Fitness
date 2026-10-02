@@ -19,6 +19,7 @@ import { stateRouter } from './routes/state.js';
 import { syncRouter } from './routes/sync.js';
 import { teamsRouter } from './routes/teams.js';
 import { workoutsRouter } from './routes/workouts.js';
+import { webLoginRouter } from './routes/weblogin.js';
 import { createAppleRevoker } from './lib/appleRevoke.js';
 
 // §19: this must run before any route is registered. Installing it here, at
@@ -33,6 +34,7 @@ export function createApp({
   packsDir = process.env.PACKS_DIR,
   appStoreVerifier = createAppStoreVerifier(),
   appleRevoker = createAppleRevoker(),
+  webDir = process.env.WEB_DIR ?? new URL('../web', import.meta.url).pathname,
 } = {}) {
   const app = express();
 
@@ -81,6 +83,7 @@ export function createApp({
     app.use(parentRouter({ prisma, sessionSecret }));
     app.use(knowledgeRouter({ prisma }));
     app.use('/partner', partnerRouter({ prisma, sessionSecret }));
+    app.use(webLoginRouter({ prisma, sessionSecret }));
   }
 
   // Codes as links: Apple's app-links file, the code lookup, and the pages a
@@ -99,6 +102,21 @@ export function createApp({
   // precondition for the other three to work.
   if (packsDir && fs.existsSync(packsDir)) {
     app.use('/packs', express.static(packsDir, { etag: true, index: false }));
+  }
+
+  // The coach dashboard (a static page; it calls this API with a session
+  // from the QR sign-in). /dashboard → /dashboard/ so relative paths work.
+  if (webDir && fs.existsSync(webDir)) {
+    app.get('/dashboard', (_req, res) => res.redirect(301, 'dashboard/'));
+    app.use('/dashboard', express.static(`${webDir}/dashboard`, {
+      etag: true,
+      setHeaders: (res) => {
+        res.set('Cache-Control', 'no-cache');
+        res.set('X-Frame-Options', 'DENY');
+        res.set('Referrer-Policy', 'no-referrer');
+        res.set('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'");
+      },
+    }));
   }
 
   app.use((_req, res) => {

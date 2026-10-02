@@ -76,7 +76,7 @@ struct ProgramsView: View {
             .appScreen()
             .toolbar { CloseToolbarItem { dismiss() } }
             .sheet(isPresented: $showingTests) {
-                BenchmarksView(sportSlug: context?.athlete?.activeSport?.sportSlug)
+                BenchmarksView(sportSlug: context?.athlete.activeSport?.sportSlug)
             }
         }
     }

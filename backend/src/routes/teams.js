@@ -80,6 +80,8 @@ function assignmentJSON(a, teamName) {
  *   POST   /teams/join-staff              { code } — join as the team's athletic trainer
  *   POST   /teams/:id/rtp                 trainer: { memberId, step 1–6, note? } — a return-to-play step
  *   GET    /teams/rtp/mine                my return-to-play steps, as recorded
+ *   GET    /teams/:id/rtp?memberId=       coach or trainer: one athlete's steps
+ *   DELETE /teams/:id/members/:memberId   coach: remove an athlete from the team
  *
  * Announcements (one-way, no replies):
  *   GET    /teams/:id/announcements       coach: the last 14 days'
@@ -375,6 +377,39 @@ export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
     }
     await prisma.rtpEntry.create({ data: { teamId: team.id, athleteId: memberId, step, note, recordedBy: req.athleteId } });
     res.status(201).json({ ok: true });
+  });
+
+  // Coach or athletic trainer: one athlete's return-to-play steps, newest first.
+  router.get('/:id/rtp', async (req, res) => {
+    const team = await prisma.team.findUnique({ where: { id: req.params.id } });
+    const isCoach = team?.coachId === req.athleteId;
+    const isTrainer = team && !isCoach
+      ? Boolean(await prisma.teamStaff.findUnique({ where: { teamId_athleteId: { teamId: team.id, athleteId: req.athleteId } } }))
+      : false;
+    const memberId = typeof req.query.memberId === 'string' ? req.query.memberId : '';
+    const member = team && (isCoach || isTrainer)
+      ? await prisma.teamMember.findUnique({ where: { teamId_athleteId: { teamId: team.id, athleteId: memberId } } })
+      : null;
+    if (!member || !member.shareHealth) {
+      res.status(404).json({ error: 'not_your_team' });
+      return;
+    }
+    const rows = await prisma.rtpEntry.findMany({ where: { teamId: team.id, athleteId: memberId } });
+    rows.sort((a, b) => b.createdAt - a.createdAt);
+    res.json({ entries: rows.slice(0, 50).map((r) => ({ step: r.step, note: r.note, recordedAt: r.createdAt.toISOString() })) });
+  });
+
+  // Coach: remove an athlete from the team (their own data stays theirs).
+  router.delete('/:id/members/:memberId', async (req, res) => {
+    const team = await coachedTeam(req, res);
+    if (!team) return;
+    const where = { teamId_athleteId: { teamId: team.id, athleteId: String(req.params.memberId) } };
+    if (!(await prisma.teamMember.findUnique({ where }))) {
+      res.status(404).json({ error: 'not_a_member' });
+      return;
+    }
+    await prisma.teamMember.delete({ where });
+    res.status(204).end();
   });
 
   router.post('/:id/trainer-code', async (req, res) => {

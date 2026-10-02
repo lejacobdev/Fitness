@@ -7,7 +7,7 @@ import express from 'express';
  * "no third parties" rule.
  */
 
-const UPDATED = '1 October 2026';
+export const UPDATED = '1 October 2026';
 
 function page(title, body) {
   return `<!doctype html>
@@ -40,7 +40,7 @@ ${body}
 </main></body></html>`;
 }
 
-const PRIVACY = page('Privacy Policy', `
+export const PRIVACY_BODY = `
 <section><h2>The short version</h2>
 <p>AthleteOS is a training app for athletes aged 13 and up. We collect the minimum needed to keep your training plan and history safe across devices. We never sell your data, never show ads, never use third-party analytics or trackers, and never share anything with anyone.</p></section>
 <section><h2>What we store</h2>
@@ -75,9 +75,10 @@ const PRIVACY = page('Privacy Policy', `
 <section><h2>Not medical advice</h2>
 <p>AthleteOS provides general training information. It never predicts injury, diagnoses anything, or clears anyone to return to play — its concussion page explains the usual steps and says a doctor decides. Always follow your coach, athletic trainer or doctor.</p></section>
 <section><h2>Changes</h2><p>If this policy changes, the new version will be posted here with a new date.</p></section>
-`);
+`;
+const PRIVACY = page('Privacy Policy', PRIVACY_BODY);
 
-const TERMS = page('Terms of Use', `
+export const TERMS_BODY = `
 <section><h2>Who can use the app</h2><p>You must be at least 13 years old. If you are under 18, use the app with the knowledge of a parent or guardian.</p></section>
 <section><h2>Training information, not medical advice</h2>
 <p>Plans, readiness suggestions, coaching messages and fuelling guidance are general information. They are not medical advice and do not replace your coach, athletic trainer, doctor or a registered dietitian. Stop exercising and tell an adult if something hurts. You train at your own discretion.</p></section>
@@ -89,9 +90,10 @@ const TERMS = page('Terms of Use', `
 <section><h2>Acceptable use</h2><p>Don't attempt to access other people's data, interfere with the service, or reverse-engineer it for that purpose. Follow the community rules above.</p></section>
 <section><h2>Contact</h2><p>Questions or problems: use the form on the <a href="support">Support page</a>.</p></section>
 <section><h2>Availability</h2><p>The app is designed to work offline. The backup service is provided as-is and may occasionally be unavailable.</p></section>
-`);
+`;
+const TERMS = page('Terms of Use', TERMS_BODY);
 
-const SUPPORT = page('Support', `
+export const SUPPORT_BODY = `
 <section><h2>Getting started</h2>
 <p>Pick your sport and position, set your season and practice days, and do the two-tap morning check-in. Your workouts are built around your practices, games and exams — and you can change any of them.</p></section>
 <section><h2>Common questions</h2>
@@ -113,7 +115,8 @@ const SUPPORT = page('Support', `
 <p><label>Message<br><textarea name="message" rows="6" required minlength="5" style="width:100%;font:inherit;padding:10px;border-radius:12px;border:1px solid #999"></textarea></label></p>
 <p><button type="submit" style="font:inherit;font-weight:700;padding:12px 22px;border-radius:999px;border:0;background:#111;color:#fff">Send</button></p>
 </form></section>
-`);
+`;
+const SUPPORT = page('Support', SUPPORT_BODY);
 
 export function legalRouter() {
   const router = express.Router();

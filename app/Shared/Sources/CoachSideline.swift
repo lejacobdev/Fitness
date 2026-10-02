@@ -5,7 +5,7 @@ import UIKit
 
 /// iPad coach mode (25): the readiness board as big tiles, and a full-screen
 /// "sideline mode" that refreshes itself and keeps the screen on.
-enum ReadinessBand {
+enum BoardBand {
     static func color(_ band: String?) -> Color {
         switch band {
         case "GREEN": AppTheme.green
@@ -51,11 +51,11 @@ struct ReadinessTile: View {
     var body: some View {
         let paused = member.health?.paused == true
         let band: String? = member.checkedInToday ? member.readiness : nil
-        let tint: Color = paused ? AppTheme.red : ReadinessBand.color(band)
+        let tint: Color = paused ? AppTheme.red : BoardBand.color(band)
         VStack(alignment: .leading, spacing: large ? 10 : 6) {
             HStack(spacing: 8) {
                 Circle().fill(tint).frame(width: large ? 18 : 14, height: large ? 18 : 14)
-                Text(paused ? "Paused" : (member.checkedInToday ? ReadinessBand.label(band) : "No check-in"))
+                Text(paused ? "Paused" : (member.checkedInToday ? BoardBand.label(band) : "No check-in"))
                     .font((large ? Font.headline : Font.subheadline).weight(.bold))
                     .foregroundStyle(member.checkedInToday || paused ? AppTheme.ink : AppTheme.secondaryText)
             }
@@ -94,7 +94,7 @@ struct ReadinessGrid: View {
 
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: large ? 240 : 200), spacing: 14)], spacing: 14) {
-            ForEach(Array(ReadinessBand.sorted(members).enumerated()), id: \.offset) { _, member in
+            ForEach(Array(BoardBand.sorted(members).enumerated()), id: \.offset) { _, member in
                 ReadinessTile(member: member, large: large)
             }
         }

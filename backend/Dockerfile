@@ -41,6 +41,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY backend/package.json backend/package-lock.json ./
 COPY backend/prisma ./prisma
 COPY backend/src ./src
+COPY backend/web ./web
 COPY --from=content-packs /content/dist ./packs
 
 USER node

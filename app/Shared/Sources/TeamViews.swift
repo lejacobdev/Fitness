@@ -307,6 +307,9 @@ struct CoachView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    if !(teams?.coaching ?? []).isEmpty || !(teams?.trainer ?? []).isEmpty {
+                        CoachDashboardCard()
+                    }
                     VStack(alignment: .leading, spacing: 12) {
                         Text("New team").font(.title3.bold()).foregroundStyle(AppTheme.ink)
                         TextField("Team name, e.g. Varsity Soccer", text: $newTeamName)

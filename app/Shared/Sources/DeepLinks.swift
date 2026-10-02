@@ -18,6 +18,8 @@ public enum DeepLink: Hashable, Sendable {
     case workout(String)
     /// A code whose kind still has to be looked up.
     case code(String)
+    /// Sign in on a computer: the QR code on the coach dashboard.
+    case webLogin(String)
 
     public static let webBase = URL(string: "https://api.lejacob.dev/fitness")!
     public static let webHost = "api.lejacob.dev"
@@ -28,7 +30,7 @@ public enum DeepLink: Hashable, Sendable {
 
     public var code: String {
         switch self {
-        case .team(let c), .league(let c), .workout(let c), .code(let c): c
+        case .team(let c), .league(let c), .workout(let c), .code(let c), .webLogin(let c): c
         }
     }
 
@@ -38,7 +40,13 @@ public enum DeepLink: Hashable, Sendable {
         case .league: "league"
         case .workout: "workout"
         case .code: nil
+        case .webLogin: "login"
         }
+    }
+
+    /// A dashboard sign-in request id: 20–64 letters, digits, - and _.
+    static func isLoginID(_ raw: String) -> Bool {
+        (20...64).contains(raw.count) && raw.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }
     }
 
     /// The web link to send: opens the app when it's installed.
@@ -64,7 +72,10 @@ public enum DeepLink: Hashable, Sendable {
     /// What a code field got: a code, or a pasted link to one.
     public static func code(fromInput raw: String) -> String? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let url = URL(string: trimmed), url.scheme != nil, let link = DeepLink(url: url) { return link.code }
+        if let url = URL(string: trimmed), url.scheme != nil, let link = DeepLink(url: url) {
+            if case .webLogin = link { return nil }
+            return link.code
+        }
         return normalize(trimmed)
     }
 
@@ -85,6 +96,9 @@ public enum DeepLink: Hashable, Sendable {
         case 1:
             guard let code = Self.normalize(parts[0]) else { return nil }
             self = .code(code)
+        case 2 where parts[0].lowercased() == "login":
+            guard Self.isLoginID(parts[1]) else { return nil }
+            self = .webLogin(parts[1])
         case 2:
             guard let code = Self.normalize(parts[1]) else { return nil }
             switch parts[0].lowercased() {

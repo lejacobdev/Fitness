@@ -184,6 +184,14 @@ final class DeepLinkTests: XCTestCase {
         XCTAssertNil(DeepLink.code(fromInput: "hello"))
     }
 
+    func testDashboardSignInLinks() {
+        let id = "aB3_dE5-fG7hJ9kL1mN2pQ"
+        XCTAssertEqual(DeepLink(url: URL(string: "https://api.lejacob.dev/fitness/login/\(id)")!), .webLogin(id), "case is kept")
+        XCTAssertEqual(DeepLink(url: DeepLink.webLogin(id).appURL), .webLogin(id))
+        XCTAssertNil(DeepLink(url: URL(string: "https://api.lejacob.dev/fitness/login/short")!))
+        XCTAssertNil(DeepLink.code(fromInput: "https://api.lejacob.dev/fitness/login/\(id)"), "never typed into a code field")
+    }
+
     func testABareCodeResolvesToItsKind() {
         XCTAssertEqual(DeepLink.resolved(code: "ABC234", kind: "team"), .team("ABC234"))
         XCTAssertEqual(DeepLink.resolved(code: "ABC234", kind: "workout"), .workout("ABC234"))

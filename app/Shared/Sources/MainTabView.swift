@@ -117,6 +117,8 @@ public struct MainTabView: View {
                 }, onStart: { workout in
                     startFromLink = workout
                 })
+            case .webLogin(let id):
+                WebLoginApproveSheet(loginID: id)
             case .code:
                 EmptyView()
             }

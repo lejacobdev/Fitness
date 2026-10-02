@@ -539,3 +539,20 @@ model RtpEntry {
   @@index([athleteId, createdAt])
   @@index([teamId, athleteId])
 }
+
+/// Signing in to the coach dashboard on a computer: the browser shows the id
+/// as a QR code, the signed-in app approves it, the browser (holding the
+/// secret) collects a short-lived session once. Gone after 5 minutes.
+model WebLogin {
+  id         String    @id
+  secretHash String
+  device     String?
+  athleteId  String?
+  approvedAt DateTime?
+  deniedAt   DateTime?
+  claimedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+
+  @@index([expiresAt])
+}

@@ -75,6 +75,20 @@ public extension APIClient {
         let _: Ignored = try await social("POST", "teams/\(teamID)/rtp", json: try JSONEncoder().encode(Body(memberId: memberId, step: step, note: note)), sessionToken: sessionToken)
     }
 
+    struct WebLoginInfo: Decodable, Sendable, Equatable {
+        public let status: String
+        public let device: String?
+        public let createdAt: String
+    }
+
+    func webLoginInfo(id: String, sessionToken: String) async throws -> WebLoginInfo {
+        try await social("GET", "web-login/\(id)/info", sessionToken: sessionToken)
+    }
+
+    func approveWebLogin(id: String, approve: Bool, sessionToken: String) async throws {
+        let _: Ignored = try await social("POST", "web-login/\(id)/\(approve ? "approve" : "deny")", sessionToken: sessionToken)
+    }
+
     func myRtp(sessionToken: String) async throws -> [RtpEntry] {
         struct Wire: Decodable, Sendable { let entries: [RtpEntry] }
         let wire: Wire = try await social("GET", "teams/rtp/mine", sessionToken: sessionToken)

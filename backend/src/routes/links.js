@@ -68,7 +68,7 @@ export function linksRouter({
     applinks: {
       details: [{
         appIDs,
-        components: ['team', 'league', 'workout', 'c'].map((kind) => ({ '/': `/fitness/${kind}/*`, comment: `${kind} codes` })),
+        components: ['team', 'league', 'workout', 'c', 'login'].map((kind) => ({ '/': `/fitness/${kind}/*`, comment: kind === 'login' ? 'coach dashboard sign-in' : `${kind} codes` })),
       }],
     },
   };
