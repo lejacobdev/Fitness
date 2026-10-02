@@ -74,6 +74,7 @@ public extension APIClient {
 
     struct TeamReadiness: Decodable, Sendable, Equatable {
         public struct Member: Decodable, Sendable, Equatable {
+            public let memberId: String?
             public let nickname: String
             public let checkedInToday: Bool
             public let readiness: String?
@@ -240,6 +241,21 @@ public extension APIClient {
         struct Wire: Decodable, Sendable { let announcements: [Announcement] }
         let wire: Wire = try await social("GET", "teams/announcements", sessionToken: sessionToken)
         return wire.announcements
+    }
+
+    // MARK: Shout-outs (private, one a week)
+
+    func sendShoutout(teamID: String, memberId: String, text: String, sessionToken: String) async throws {
+        let _: Ignored = try await social("POST", "teams/\(teamID)/shoutouts", body: ["memberId": memberId, "text": text], sessionToken: sessionToken)
+    }
+
+    func myShoutouts(sessionToken: String) async throws -> [Announcement] {
+        struct Wire: Decodable, Sendable {
+            struct Row: Decodable, Sendable { let id: String; let teamName: String?; let text: String; let createdAt: String }
+            let shoutouts: [Row]
+        }
+        let wire: Wire = try await social("GET", "teams/shoutouts", sessionToken: sessionToken)
+        return wire.shoutouts.map { Announcement(id: $0.id, teamId: "", teamName: $0.teamName, text: $0.text, createdAt: $0.createdAt) }
     }
 
     // MARK: Parent email

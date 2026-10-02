@@ -75,6 +75,14 @@ public struct MainTabView: View {
         // Counted after the switch, never inside the tab bar's own binding
         // (a hand-made binding there sent lesson taps to the Me tab).
         .onChange(of: selectedTab) { _, tab in UsageCounts.count("tab.\(tab)") }
+        // A cold start from Siri / Shortcuts.
+        .onAppear {
+            switch IntentRoute.pending {
+            case .workout?: _ = IntentRoute.take([.workout]); selectedTab = .workout
+            case .logPractice?: selectedTab = .progress
+            default: break
+            }
+        }
         .modifier(CompactTabBar())
         .environment(\.workoutContext, workoutContext)
         .sheet(isPresented: $showingHealthPermission) {
@@ -131,6 +139,13 @@ public struct MainTabView: View {
                 Task { await backUp() }
             }
             if phase == .active {
+                // Siri / Shortcuts: open the right tab (the screen takes the rest).
+                switch IntentRoute.pending {
+                case .workout?: _ = IntentRoute.take([.workout]); selectedTab = .workout
+                case .checkIn?, .reflection?: selectedTab = .today
+                case .logPractice?: selectedTab = .progress
+                case nil: break
+                }
                 StreakFreeze.protectTodayIfResting()
                 Task { await ExternalWorkoutStore.refresh(sportSlug: athlete.activeSport?.sportSlug, birthDate: athlete.birthDate) }
             }

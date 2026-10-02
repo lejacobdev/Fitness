@@ -62,7 +62,7 @@ struct HomeView: View {
     @State private var drag = HomeDragState()
 
     enum HomeSheet: String, Identifiable {
-        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, reflection, today, search, safety, mindset, tests
+        case quickActions, checkIn, addGame, history, fuel, dayStatus, schedule, reflection, today, search, safety, mindset, tests, windDown, seasonReview
         var id: String { rawValue }
     }
 
@@ -313,6 +313,15 @@ struct HomeView: View {
                         header
                     }
                     if !introSeen { introCard }
+                    if SeasonReviewStore.due(athlete) != nil {
+                        Button { activeSheet = .seasonReview } label: {
+                            ListRow(systemImage: "flag.checkered", color: AppTheme.ink, title: "Your season review",
+                                    detail: "What you learned, enjoyed, and want next · 3 min")
+                                .padding(.horizontal, 16)
+                                .glassSurface()
+                        }
+                        .buttonStyle(.plain)
+                    }
                     if let announcement {
                         AnnouncementCard(announcement: announcement) {
                             TeamAnnouncements.markSeen(announcement.id)
@@ -358,10 +367,20 @@ struct HomeView: View {
                     clock = .now
                     revision += 1
                     announcement = TeamAnnouncements.current
+                    switch IntentRoute.take([.checkIn, .reflection]) {
+                    case .checkIn?: activeSheet = .checkIn
+                    case .reflection?: activeSheet = .reflection
+                    default: break
+                    }
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
             .task(id: allSessions.count + athlete.checkIns.count) {
+                switch IntentRoute.take([.checkIn, .reflection]) {
+                case .checkIn?: activeSheet = .checkIn
+                case .reflection?: activeSheet = .reflection
+                default: break
+                }
                 // No prompts tied to streaks (Backend Knowledge System §18):
                 // ratings are only asked after a new test best.
                 catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
@@ -403,6 +422,13 @@ struct HomeView: View {
                         status = DayStatusStore.status()
                         activeSheet = nil
                         onPlanInputsChanged()
+                    }
+                case .windDown:
+                    WindDownView(bedtime: bedtimeTonight.map { Bedtime.label($0.minutes) },
+                                 gameTomorrow: athlete.competitions.contains { calendar.isDateInTomorrow($0.date) })
+                case .seasonReview:
+                    if let sport = athlete.activeSport {
+                        SeasonReviewSheet(athlete: athlete, sport: sport, sessions: allSessions)
                     }
                 case .safety:
                     SafetyCenterView()
@@ -1467,7 +1493,7 @@ struct HomeView: View {
                         .tracking(1.8)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
-                Button { routine = .breathing } label: { HeroCTALabel("Wind down") }
+                Button { activeSheet = .windDown } label: { HeroCTALabel("Wind down") }
                     .buttonStyle(.secondary)
                     .frame(maxWidth: 240)
             }
@@ -1486,7 +1512,7 @@ struct HomeView: View {
             Text("Everything else can wait until morning.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
-            Button { routine = .breathing } label: { Label("Wind down", systemImage: "wind") }
+            Button { activeSheet = .windDown } label: { Label("Wind down", systemImage: "wind") }
                 .buttonStyle(.secondary)
                 .frame(maxWidth: 260)
                 .padding(.top, 6)

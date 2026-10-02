@@ -199,6 +199,7 @@ struct ProgressTabView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     summaryCard
+                    HabitBadgesSection(athlete: athlete, sessions: sessions)
                         .padding(.bottom, 20)
                     calendarCard
                     practiceSection
@@ -215,7 +216,10 @@ struct ProgressTabView: View {
             .scrollIndicators(.hidden)
             .appScreen(.hero)
             .toolbar(.hidden, for: .navigationBar)
-            .onAppear { revision += 1 }
+            .onAppear {
+                revision += 1
+                if IntentRoute.take([.logPractice]) != nil { loggingPractice = DayBox(date: .now) }
+            }
             .sheet(item: $selectedDay, onDismiss: { revision += 1 }) { box in
                 DayDetailSheet(athlete: athlete, date: box.date, marks: marks(on: box.date, from: marksByDay), week: week) {
                     let date = box.date

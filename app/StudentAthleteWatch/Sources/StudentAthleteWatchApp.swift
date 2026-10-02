@@ -193,6 +193,16 @@ struct WatchRootView: View {
                         .foregroundStyle(.red)
                 }
 
+                if let card = payload.emergency {
+                    NavigationLink {
+                        ScrollView { WatchEmergencyView(card: card) }
+                            .navigationTitle("Emergency")
+                    } label: {
+                        Label("Emergency card", systemImage: "staroflife.fill")
+                            .font(.footnote.weight(.semibold))
+                    }
+                }
+
                 let pending = athlete.sessions.filter { $0.syncedAt == nil }.count
                 if pending > 0 {
                     Label("\(pending) waiting to sync", systemImage: "icloud.slash")
@@ -279,5 +289,31 @@ enum WatchDemo {
             sessionMinutes: 32, items: items, nextGameDate: Calendar.current.date(byAdding: .day, value: 3, to: now),
             isGameDay: false, checkedInOnPhone: false
         ).saveOnDevice()
+    }
+}
+
+
+/// The emergency card on the Watch, for someone helping.
+struct WatchEmergencyView: View {
+    let card: EmergencyCard
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !card.name.isEmpty { Text(card.name).font(.headline) }
+            if !card.allergies.isEmpty { row("Allergies", card.allergies) }
+            if !card.medications.isEmpty { row("Medications", card.medications) }
+            if !card.medicalNotes.isEmpty { row("Notes", card.medicalNotes) }
+            ForEach(card.contacts) { contact in
+                row(contact.relation.isEmpty ? "Call" : contact.relation, "\(contact.name) \(contact.phone)")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func row(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label.uppercased()).font(.caption2.bold()).foregroundStyle(.secondary)
+            Text(value).font(.footnote)
+        }
     }
 }

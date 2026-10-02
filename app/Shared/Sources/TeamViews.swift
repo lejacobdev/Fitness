@@ -88,7 +88,10 @@ enum TeamAnnouncements {
     static func refresh(apiClient: APIClient) async {
         guard !DemoData.isEnabled, let token = try? KeychainTokenStore().read() else { return }
         if let announcements = try? await apiClient.myAnnouncements(sessionToken: token) {
-            cached = announcements
+            // A coach's private shout-out shows the same way, marked as just for you.
+            let shoutouts = ((try? await apiClient.myShoutouts(sessionToken: token)) ?? [])
+                .map { APIClient.Announcement(id: "s-" + $0.id, teamId: "", teamName: ($0.teamName.map { $0 + " · " } ?? "") + "JUST FOR YOU", text: $0.text, createdAt: $0.createdAt) }
+            cached = (shoutouts + announcements).sorted { $0.createdAt > $1.createdAt }
         }
     }
 }
@@ -370,7 +373,15 @@ struct TeamBoardView: View {
     @State private var newAnnouncement = ""
     @State private var posting = false
     @State private var trainerCode: String?
+    @State private var noteFor: NoteTarget?
     @Environment(\.workoutContext) private var context
+
+    struct NoteTarget: Identifiable {
+        let memberId: String
+        let nickname: String
+        var id: String { memberId }
+        init(_ memberId: String, _ nickname: String) { self.memberId = memberId; self.nickname = nickname }
+    }
 
     private let apiClient = APIClient(baseURL: AppConfig.backendBaseURL)
 
@@ -412,6 +423,9 @@ struct TeamBoardView: View {
             .sheet(isPresented: $assigning, onDismiss: { Task { await load() } }) {
                 AssignWorkoutSheet(teamID: team.id)
             }
+            .sheet(item: $noteFor) { target in
+                ShoutoutSheet(teamID: team.id, memberId: target.memberId, nickname: target.nickname)
+            }
             .confirmationDialog("Delete \(team.name)?", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("Delete team", role: .destructive) {
                     Task {
@@ -451,6 +465,12 @@ struct TeamBoardView: View {
                                 }
                                 if let health = member.health {
                                     HealthLine(health: health)
+                                }
+                                if let memberId = member.memberId {
+                                    Button("Send a note") { noteFor = NoteTarget(memberId, member.nickname) }
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(AppTheme.ink)
+                                        .frame(minHeight: 32)
                                 }
                             }
                             Spacer()
@@ -1045,6 +1065,53 @@ struct ShareHealthToggle: View {
         } catch {
             failed = true
             isOn = !share
+        }
+    }
+}
+
+
+/// A coach's private, positive note to one athlete (one a week).
+struct ShoutoutSheet: View {
+    let teamID: String
+    let memberId: String
+    let nickname: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+    @State private var message: String?
+    private let apiClient = APIClient(baseURL: AppConfig.backendBaseURL)
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                ScreenTitle("A note for \(nickname)", subtitle: "Private, just for them. One a week — make it specific.")
+                TextField("e.g. Great call on the switch in the second half", text: $text, axis: .vertical)
+                    .lineLimit(2...5)
+                    .padding(14)
+                    .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
+                if let message { Text(message).font(.caption).foregroundStyle(AppTheme.red) }
+                Button("Send") { Task { await send() } }
+                    .buttonStyle(.primary)
+                    .disabled(text.trimmingCharacters(in: .whitespaces).count < 3 || text.count > 200)
+                Spacer()
+            }
+            .padding(20)
+            .appScreen()
+            .toolbar { CloseToolbarItem { dismiss() } }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func send() async {
+        guard let token = try? KeychainTokenStore().read() else { return }
+        do {
+            try await apiClient.sendShoutout(teamID: teamID, memberId: memberId, text: text, sessionToken: token)
+            dismiss()
+        } catch APIClient.APIError.http(status: 429, _) {
+            message = "You already sent \(nickname) a note this week."
+        } catch APIClient.APIError.http(status: 400, _) {
+            message = "Keep it under 200 characters and friendly."
+        } catch {
+            message = "Couldn't reach the server — check your connection."
         }
     }
 }

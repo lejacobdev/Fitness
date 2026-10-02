@@ -7,6 +7,7 @@ struct StudentAthleteWidgetBundle: WidgetBundle {
     var body: some Widget {
         TodayWidget()
         StreakWidget()
+        EmergencyWidget()
         WorkoutLiveActivity()
     }
 }
@@ -272,5 +273,67 @@ struct StreakWidget: Widget {
         .configurationDisplayName("Streak")
         .description("Days in a row you've checked in or trained.")
         .supportedFamilies([.systemSmall, .accessoryCircular])
+    }
+}
+
+
+/// The emergency card on the Lock Screen (opt-in: it shows only if the
+/// athlete adds it). Readable without unlocking, for someone helping.
+struct EmergencyEntry: TimelineEntry {
+    let date: Date
+    let card: EmergencyCard
+}
+
+struct EmergencyProvider: TimelineProvider {
+    func placeholder(in context: Context) -> EmergencyEntry {
+        var card = EmergencyCard()
+        card.allergies = "Peanuts"
+        card.contacts = [EmergencyCard.Contact(name: "Alex", relation: "Mom", phone: "555 0100")]
+        return EmergencyEntry(date: .now, card: card)
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (EmergencyEntry) -> Void) {
+        completion(context.isPreview ? placeholder(in: context) : EmergencyEntry(date: .now, card: EmergencyCard.load()))
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<EmergencyEntry>) -> Void) {
+        completion(Timeline(entries: [EmergencyEntry(date: .now, card: EmergencyCard.load())], policy: .never))
+    }
+}
+
+struct EmergencyWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "EmergencyWidget", provider: EmergencyProvider()) { entry in
+            EmergencyWidgetView(card: entry.card)
+                .containerBackground(.background, for: .widget)
+        }
+        .configurationDisplayName("Emergency")
+        .description("Allergies and who to call, for someone helping you. Fill it in at Me → Emergency card.")
+        .supportedFamilies([.accessoryRectangular, .systemSmall])
+    }
+}
+
+struct EmergencyWidgetView: View {
+    let card: EmergencyCard
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Label("EMERGENCY", systemImage: "staroflife.fill")
+                .font(.caption2.weight(.bold))
+            if card.isEmpty {
+                Text("Fill in Me → Emergency card").font(.caption)
+            } else {
+                if !card.allergies.isEmpty {
+                    Text("Allergies: \(card.allergies)").font(.caption).lineLimit(1)
+                }
+                if let contact = card.contacts.first {
+                    Text("\(contact.relation.isEmpty ? contact.name : contact.relation) \(contact.phone)").font(.caption.weight(.semibold)).lineLimit(1)
+                }
+                if card.allergies.isEmpty, !card.medicalNotes.isEmpty {
+                    Text(card.medicalNotes).font(.caption).lineLimit(1)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

@@ -36,6 +36,7 @@ struct MindsetView: View {
                     goalsSection
                     gameDaySection
                     MentalSkillsSection()
+                    SeasonReviewsSection()
                     learnSection
                     if reflections.count > 1 { pastWins }
                 }
@@ -878,5 +879,28 @@ struct VisualizationView: View {
         guard let step else { return }
         if step + 1 >= steps.count { MindsetStore.logRoutine(.visualization) }
         self.step = step + 1
+    }
+}
+
+
+/// Past season reviews (private).
+struct SeasonReviewsSection: View {
+    var body: some View {
+        let reviews = SeasonReviewStore.all.sorted { $0.writtenAt > $1.writtenAt }
+        if !reviews.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionHeader("Season reviews")
+                ForEach(reviews) { review in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(review.writtenAt.formatted(.dateTime.month(.wide).year())).font(.headline).foregroundStyle(AppTheme.ink)
+                        if !review.learned.isEmpty { Text("Learned: " + review.learned).font(.subheadline).foregroundStyle(AppTheme.ink) }
+                        if !review.enjoyed.isEmpty { Text("Enjoyed: " + review.enjoyed.joined(separator: ", ")).font(.caption).foregroundStyle(AppTheme.secondaryText) }
+                        if !review.next.isEmpty { Text("Next: " + review.next).font(.caption).foregroundStyle(AppTheme.secondaryText) }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .cardStyle(padding: 14)
+                }
+            }
+        }
     }
 }

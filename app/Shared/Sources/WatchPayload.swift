@@ -67,11 +67,13 @@ public struct WatchTodayPayload: Codable, Sendable, Equatable {
     public var nextGameDate: Date?
     public var isGameDay: Bool
     public var checkedInOnPhone: Bool
+    /// The emergency card, so the Watch can show it without the phone.
+    public var emergency: EmergencyCard?
 
     public init(
         athleteId: String, appleUserId: String, birthDate: Date, sportSlug: String, sportName: String,
         sessionToken: String?, day: Date, sessionTitle: String?, sessionMinutes: Int?, items: [WatchPlanItem],
-        nextGameDate: Date?, isGameDay: Bool, checkedInOnPhone: Bool
+        nextGameDate: Date?, isGameDay: Bool, checkedInOnPhone: Bool, emergency: EmergencyCard? = nil
     ) {
         self.athleteId = athleteId
         self.appleUserId = appleUserId
@@ -86,6 +88,7 @@ public struct WatchTodayPayload: Codable, Sendable, Equatable {
         self.nextGameDate = nextGameDate
         self.isGameDay = isGameDay
         self.checkedInOnPhone = checkedInOnPhone
+        self.emergency = emergency
     }
 
     /// Whether this payload's plan is for today (an old payload still
@@ -137,7 +140,8 @@ public struct WatchTodayPayload: Codable, Sendable, Equatable {
             sessionTitle: session?.title, sessionMinutes: session?.estimatedMinutes, items: items,
             nextGameDate: AthleteStats.upcomingCompetitions(athlete).first?.date,
             isGameDay: athlete.competitions.contains { calendar.isDateInToday($0.date) },
-            checkedInOnPhone: checkIn != nil
+            checkedInOnPhone: checkIn != nil,
+            emergency: { let card = EmergencyCard.load(); return card.isEmpty ? nil : card }()
         )
     }
 }
