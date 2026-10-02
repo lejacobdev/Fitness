@@ -79,7 +79,7 @@ Object.assign(EXERCISE_POSES, {
   'band-neck-extension': 'neck-isometric', 'chin-tuck': 'chin-tuck', 'worlds-greatest-stretch': 'worlds-greatest-stretch', 'couch-stretch': 'couch-stretch',
   'deep-squat-hold': 'squat-hold', 'pigeon-stretch': 'pigeon-stretch', 'hamstring-floss': 'hamstring-floss-band', 'thoracic-open-book': 'open-book',
   'cat-camel': 'cat-camel', 'ankle-knee-to-wall': 'knee-to-wall', 'foam-roll-quads-calves': 'foam-roll', 'hip-circles-standing': 'hip-circles',
-  'shoulder-dislocates-band': 'shoulder-pass-through', 'bike-intervals': 'cycling', 'burpee': 'burpee', 'mountain-climbers': 'mountain-climber',
+  'shoulder-dislocates-band': 'shoulder-pass-through', 'bike-intervals': 'cycling', 'easy-bike-ride': 'cycling', 'burpee': 'burpee', 'mountain-climbers': 'mountain-climber',
   '30-15-intermittent-run': 'jog', 'fartlek-run': 'jog', 'sled-drag-backward': 'sled-drag', 'battle-rope-waves': 'battle-ropes', 'stair-runs': 'stair-runs',
   'rowing-machine-intervals': 'rowing-erg', 'hang-power-clean': 'hang-clean', 'clean-pull-dumbbell': 'high-pull-dumbbells', 'push-press': 'push-press',
   'barbell-bent-over-row': 'bent-over-row', 'barbell-deadlift': 'deadlift', 'barbell-overhead-squat-pvc': 'overhead-squat-pvc', 'lateral-box-jump': 'lateral-box-jump',

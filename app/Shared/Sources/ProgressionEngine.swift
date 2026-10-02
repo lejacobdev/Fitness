@@ -131,13 +131,19 @@ public enum Deload {
                 var dose = item.dose
                 dose.sets = max(1, dose.sets - 1)
                 if dose.kind == plyometricDoseKind, let contacts = dose.contacts { dose.contacts = max(1, contacts * 3 / 5) }
-                return GeneratedPlannedItem(itemSlug: item.itemSlug, order: item.order, dose: dose, restSec: item.restSec,
-                                            rationale: item.rationale, quality: item.quality)
+                var lighterItem = GeneratedPlannedItem(itemSlug: item.itemSlug, order: item.order, dose: dose, restSec: item.restSec,
+                                                       rationale: item.rationale, quality: item.quality)
+                lighterItem.block = item.block
+                return lighterItem
             }
-            let minutes = items.reduce(0) { $0 + PlanGenerator.estimatedMinutes(dose: $1.dose, restSec: $1.restSec) }
+            let minutes = session.decision != nil
+                ? max(5, items.reduce(0) { $0 + SessionBuilder.seconds($1) } / 60)
+                : items.reduce(0) { $0 + PlanGenerator.estimatedMinutes(dose: $1.dose, restSec: $1.restSec) }
             var lighter = GeneratedSession(date: session.date, title: session.title, focusQualities: session.focusQualities,
                                            estimatedMinutes: minutes, items: items)
             lighter.slot = session.slot
+            lighter.decision = session.decision
+            lighter.explanation = session.explanation
             return lighter
         }
         return GeneratedWeek(phase: week.phase, weekStart: week.weekStart, sessions: sessions)

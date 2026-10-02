@@ -50,6 +50,7 @@ struct WorkoutTabView: View {
 
     /// Today's pain first (nothing that loads a sore area), then readiness.
     private func adjusted(_ session: GeneratedSession) -> GeneratedSession {
+        if session.decision != nil { return session }
         let safe = calendar.isDateInToday(session.date) || session.slot == nil
             ? TodaysPain.apply(session, athlete: athlete, catalogue: catalogue) : session
         guard let band else { return safe }
@@ -59,7 +60,13 @@ struct WorkoutTabView: View {
     /// Today's gym session, or the next one this week.
     private var gymSession: (session: GeneratedSession, isToday: Bool)? {
         let sessions = week?.sessions ?? []
-        if let today = sessions.first(where: { calendar.isDateInToday($0.date) }) { return (adjusted(today), true) }
+        if let today = sessions.first(where: { calendar.isDateInToday($0.date) }) {
+            let own = today.slot.map { PlanCustomizationStore.load().workout(for: .gym($0)) != nil } ?? false
+            if !own, let built = TodayEngine.session(nil, athlete: athlete, sessions: athlete.sessions, catalogue: catalogue, plannedGymDay: true) {
+                return (built, true)
+            }
+            return (adjusted(today), true)
+        }
         let start = calendar.startOfDay(for: .now)
         if let next = sessions.first(where: { $0.date > start }) ?? sessions.first { return (adjusted(next), false) }
         return nil
@@ -192,8 +199,12 @@ struct WorkoutTabView: View {
     private func session(for mode: WorkoutMode) -> GeneratedSession? {
         switch mode {
         case .gymDay: gymSession?.session
-        case .afterPractice: WorkoutModeBuilder.build(.afterPractice, context).map { adjusted($0) }
-        case .mobility, .travel: WorkoutModeBuilder.build(mode, context).map { TodaysPain.apply($0, athlete: athlete, catalogue: catalogue) }
+        case .afterPractice:
+            TodayEngine.workout(.afterPractice, athlete: athlete, sessions: athlete.sessions, catalogue: catalogue, context: context,
+                                plannedGymDay: gymSession?.isToday == true).map { adjusted($0) }
+        case .mobility, .travel:
+            TodayEngine.workout(mode, athlete: athlete, sessions: athlete.sessions, catalogue: catalogue, context: context,
+                                plannedGymDay: gymSession?.isToday == true).map { $0.decision != nil ? $0 : TodaysPain.apply($0, athlete: athlete, catalogue: catalogue) }
         }
     }
 

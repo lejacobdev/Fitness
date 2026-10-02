@@ -1405,6 +1405,17 @@ export const EXTRA_EXERCISES = [
     defaultDose: T(6, 30), restSeconds: 90, startPose: 'sprint-cycle', endPose: 'sprint-cycle',
   }),
   ex({
+    slug: 'easy-bike-ride', name: 'Easy Bike Ride',
+    qualities: { 'aerobic-base': 1, 'hip-mobility': 0.2 },
+    muscles: { 'vastus-lateralis': 0.5, 'gluteus-maximus': 0.3, gastrocnemius: 0.3 },
+    equipment: ['none'], surface: 'gym',
+    setup: ['A stationary or road bike, seat at hip height when you stand next to it.'],
+    execution: ['Pedal at an easy, steady effort for the whole time.', 'You should be able to talk in full sentences the entire ride.'],
+    cues: ['Easy means easy', 'Smooth circles', 'Breathe through your nose if you can'],
+    mistakes: ['Turning an easy ride into a hard one.', 'A seat so low your knees come up to your chest.'],
+    defaultDose: T(1, 1200), restSeconds: 0, startPose: 'sprint-cycle', endPose: 'sprint-cycle',
+  }),
+  ex({
     slug: 'burpee', name: 'Burpee',
     qualities: { 'anaerobic-capacity': 0.9, 'upper-body-push': 0.3, 'vertical-power': 0.3 },
     muscles: { 'pectoralis-major': 0.5, 'vastus-lateralis': 0.6, 'gluteus-maximus': 0.5 },

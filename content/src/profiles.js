@@ -184,6 +184,7 @@ foam-roll-quads-calves: mobility recovery l 1 0 1 0 soft-tissue
 hip-circles-standing: mobility prep l 1 0 1 0 mobility-hip
 shoulder-dislocates-band: mobility prep u 1 0 1 0 mobility-shoulder
 bike-intervals: conditioning conditioning l 4 0 1 2 conditioning-interval
+easy-bike-ride: conditioning conditioning l 1 0 1 1 conditioning-aerobic
 burpee: conditioning conditioning lut 3 2 1 2 conditioning-interval
 mountain-climbers: conditioning conditioning lt 2 1 1 1 conditioning-interval
 30-15-intermittent-run: conditioning conditioning l 4 2 1 2 conditioning-rsa
@@ -236,6 +237,7 @@ const CONDITIONING = {
   'tempo-200s': ['tempo', 'run'],
   '30-15-intermittent-run': ['aerobic-power', 'run'],
   'bike-intervals': ['aerobic-power', 'bike'],
+  'easy-bike-ride': ['aerobic-base', 'bike'],
   'rowing-machine-intervals': ['aerobic-power', 'row'],
   'jump-rope-intervals': ['aerobic-power', 'rope'],
   'box-step-over-conditioning': ['aerobic-power', 'bodyweight'],

@@ -82,6 +82,10 @@ public struct GeneratedSession: Sendable, Equatable {
     /// days move around, so the athlete's own version of "day 1" always
     /// replaces day 1. Nil for workouts outside the weekly plan.
     public var slot: Int? = nil
+    /// V6: the decision this session was built from, and the same decision
+    /// in words ("Why this plan?"). Nil for sessions from older builders.
+    public var decision: SessionDecision? = nil
+    public var explanation: PlanExplanation? = nil
 }
 
 public struct GeneratedPlannedItem: Sendable, Equatable {
@@ -95,6 +99,8 @@ public struct GeneratedPlannedItem: Sendable, Equatable {
     /// quality group (e.g. "drop Strength-group items two days out") without
     /// re-deriving which quality an already-picked item was chosen for.
     public let quality: String
+    /// V6: which part of the session it belongs to.
+    public var block: SessionBlock? = nil
 }
 
 public enum PlanGenerator {

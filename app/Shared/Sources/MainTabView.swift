@@ -375,6 +375,20 @@ enum WeeklyPlan {
             ? alignToSchedule(tapered, isPracticeDay: { PracticeSchedule.hasPractice(on: $0, calendar: calendar) },
                               preferredDays: cancelled, gameDays: athlete.competitions.map(\.date), calendar: calendar)
             : PlanCustomizer.place(tapered, weekdays: custom.settings.weekdays, calendar: calendar)
+        // V6: each gym day of the week is built by the engine for that day
+        // (its games, school and season); the athlete's own versions stay theirs.
+        if let aligned, TodayEngine.isAvailable(catalogue) {
+            let rebuilt = aligned.sessions.map { planned -> GeneratedSession in
+                if let slot = planned.slot, custom.workout(for: .gym(slot)) != nil { return planned }
+                guard var built = TodayEngine.session(.gymDevelopment, athlete: athlete, sessions: athlete.sessions, catalogue: catalogue,
+                                                      date: planned.date, plannedGymDay: true) else { return planned }
+                built.slot = planned.slot
+                return built
+            }
+            let week = GeneratedWeek(phase: aligned.phase, weekStart: aligned.weekStart, sessions: rebuilt)
+            return Deload.isDeloadWeek(weekStart: weekStart, anchor: athlete.createdAt, phase: week.phase, calendar: calendar)
+                ? Deload.apply(to: week) : week
+        }
         // Exam weeks: fewer, shorter sessions.
         guard let aligned, ScheduleStore.isExamWeek(weekStart, calendar: calendar) else { return aligned }
         return ExamWeek.lighten(aligned)

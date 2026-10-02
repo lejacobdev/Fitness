@@ -73,6 +73,9 @@ public struct CatalogueItem: Codable, Sendable, Hashable {
     public var positions: [String]? = nil
     /// Formats of the drill's sport it is written for (beach, sitting). Nil: every format.
     public var formats: [String]? = nil
+    /// V6: what the exercise is for the planner (content/src/profiles.js).
+    /// Nil in packs downloaded before it existed: `planProfile` derives one.
+    public var profile: ExerciseProfile? = nil
 
     private enum CodingKeys: String, CodingKey {
         case slug, name, kind, qualities, muscles, equipment, surface, minAge, supervisionLevel
@@ -81,7 +84,7 @@ public struct CatalogueItem: Codable, Sendable, Hashable {
         case unilateralEligible, tempoEligible, prop, variant, baseSlug
         case constraintAxes, equipmentChain, unilateralPosePattern, unilateralStabilityQuality
         case itemSportSlug = "sport"
-        case skills, positions, formats
+        case skills, positions, formats, profile
     }
 
     public var isUnilateralEligible: Bool { unilateralEligible ?? false }

@@ -114,24 +114,42 @@ struct HomeView: View {
         switch status {
         case .sick, .concussion: return nil
         case .travel, .holiday:
-            return WorkoutModeBuilder.build(.travel, modeContext).map {
-                (mode: WorkoutMode.travel, session: TodaysPain.apply($0, athlete: athlete, catalogue: catalogue))
-            }
+            return engine(.travel).map { (mode: WorkoutMode.travel, session: $0) }
         case .active:
             if gameToday != nil { return nil }
             if practiceToday {
-                return WorkoutModeBuilder.build(.afterPractice, modeContext).map { (mode: WorkoutMode.afterPractice, session: adjusted($0)) }
+                return engine(.afterPractice).map { (mode: WorkoutMode.afterPractice, session: $0) }
             }
-            if let planned = week?.sessions.first(where: { calendar.isDateInToday($0.date) }) {
+            let planned = week?.sessions.first(where: { calendar.isDateInToday($0.date) })
+            // The athlete's own version of this gym day stays exactly theirs.
+            if let planned, let slot = planned.slot, PlanCustomizationStore.load().workout(for: .gym(slot)) != nil {
                 return (mode: WorkoutMode.gymDay, session: adjusted(planned))
             }
-            return nil
+            // V6: the engine decides — a development day, a primer before a
+            // game, recovery, a programmed conditioning day, or rest.
+            if TodayEngine.isAvailable(catalogue) {
+                return TodayEngine.session(nil, athlete: athlete, sessions: allSessions, catalogue: catalogue, plannedGymDay: planned != nil)
+                    .map { (mode: WorkoutMode.gymDay, session: $0) }
+            }
+            return planned.map { (mode: WorkoutMode.gymDay, session: adjusted($0)) }
         }
+    }
+
+    /// A workout of this kind for today: the athlete's own version, the V6
+    /// engine's, or (old packs) the previous builder's with today's adjustments.
+    private func engine(_ mode: WorkoutMode) -> GeneratedSession? {
+        let plannedGymDay = week?.sessions.contains { calendar.isDateInToday($0.date) } ?? false
+        guard let session = TodayEngine.workout(mode, athlete: athlete, sessions: allSessions, catalogue: catalogue,
+                                                context: modeContext, plannedGymDay: plannedGymDay) else { return nil }
+        if session.decision != nil { return session }
+        return mode == .afterPractice ? adjusted(session) : TodaysPain.apply(session, athlete: athlete, catalogue: catalogue)
     }
 
     /// A low-readiness day lightens the workout (the athlete can undo it).
     /// Today's pain first (nothing that loads a sore area), then readiness.
     private func adjusted(_ session: GeneratedSession) -> GeneratedSession {
+        // The V6 engine already took pain, readiness and the day into account.
+        if session.decision != nil { return session }
         let safe = TodaysPain.apply(session, athlete: athlete, catalogue: catalogue)
         // Back after illness or a long school day: shorter too.
         let ruleBand: ReadinessBand? = planning.reasonCodes.contains { ["RETURN_AFTER_ILLNESS", "LONG_SCHOOL_DAY"].contains($0) } ? .amber : nil
@@ -140,7 +158,7 @@ struct HomeView: View {
     }
 
     private var movementPrep: GeneratedSession? {
-        isTrainingDay ? WorkoutModeBuilder.build(.mobility, modeContext).map { TodaysPain.apply($0, athlete: athlete, catalogue: catalogue) } : nil
+        isTrainingDay ? engine(.mobility) : nil
     }
 
     // MARK: - Food around practice and games
@@ -582,7 +600,7 @@ struct HomeView: View {
             let planned = week?.sessions.first { calendar.isDateInToday($0.date) } ?? week?.sessions.first
             return planned.map { adjusted($0) }
         }
-        return WorkoutModeBuilder.build(mode, modeContext).map { TodaysPain.apply($0, athlete: athlete, catalogue: catalogue) }
+        return engine(mode)
     }
 
     @ViewBuilder
@@ -2035,11 +2053,17 @@ struct SessionPreviewSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Do them in this order. Tap one to watch how it's done.")
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
-                    ForEach(Array(session.items.enumerated()), id: \.element.order) { index, item in
-                        row(item, number: index + 1)
+                    if let explanation = session.explanation {
+                        PlanHero(session: session, explanation: explanation)
+                        BlockedSessionList(session: session, catalogue: catalogue) { detailItem = $0 }
+                        WhyThisPlanPanel(explanation: explanation)
+                    } else {
+                        Text("Do them in this order. Tap one to watch how it's done.")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.secondaryText)
+                        ForEach(Array(session.items.enumerated()), id: \.element.order) { index, item in
+                            row(item, number: index + 1)
+                        }
                     }
                     Button { onStart() } label: { Label("Start", systemImage: "play.fill") }
                         .buttonStyle(.primary)
