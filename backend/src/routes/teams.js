@@ -84,6 +84,10 @@ function assignmentJSON(a, teamName) {
  *   POST   /teams/:id/announcements       coach: { text }
  *   DELETE /teams/:id/announcements/:announcementId
  *   GET    /teams/announcements           the last 14 days', from every team I'm on
+ *
+ * Shout-outs (private, one a week per athlete):
+ *   POST   /teams/:id/shoutouts           coach: { memberId, text }
+ *   GET    /teams/shoutouts               mine, the last 14 days
  */
 export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
   const router = express.Router();
@@ -232,6 +236,13 @@ export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
 
   // ---- Announcements ---------------------------------------------------------
 
+  router.get('/shoutouts', async (req, res) => {
+    const since = new Date(now().getTime() - 14 * DAY_MS);
+    const rows = await prisma.shoutout.findMany({ where: { athleteId: req.athleteId, createdAt: { gte: since } }, include: { team: true } });
+    rows.sort((a, b) => b.createdAt - a.createdAt);
+    res.json({ shoutouts: rows.map((r) => ({ id: r.id, teamName: r.team?.name ?? null, text: r.text, createdAt: r.createdAt.toISOString() })) });
+  });
+
   router.get('/announcements', async (req, res) => {
     const memberships = await prisma.teamMember.findMany({ where: { athleteId: req.athleteId }, include: { team: true } });
     if (memberships.length === 0) {
@@ -344,6 +355,34 @@ export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
     res.status(204).end();
   });
 
+  // One private positive note per athlete per week (no public praise, no ranking).
+  router.post('/:id/shoutouts', async (req, res) => {
+    const team = await coachedTeam(req, res);
+    if (!team) return;
+    const text = typeof req.body?.text === 'string' ? req.body.text.trim().replace(/\s+/g, ' ') : '';
+    const memberId = typeof req.body?.memberId === 'string' ? req.body.memberId : '';
+    if (!text || text.length > 200) {
+      res.status(400).json({ error: 'invalid_text' });
+      return;
+    }
+    if (isObjectionable(text)) {
+      res.status(400).json({ error: 'inappropriate' });
+      return;
+    }
+    const member = await prisma.teamMember.findUnique({ where: { teamId_athleteId: { teamId: team.id, athleteId: memberId } } });
+    if (!member) {
+      res.status(404).json({ error: 'not_a_member' });
+      return;
+    }
+    const recent = await prisma.shoutout.count({ where: { teamId: team.id, athleteId: memberId, createdAt: { gte: new Date(now().getTime() - 7 * DAY_MS) } } });
+    if (recent > 0) {
+      res.status(429).json({ error: 'one_a_week' });
+      return;
+    }
+    await prisma.shoutout.create({ data: { teamId: team.id, athleteId: memberId, text } });
+    res.status(201).json({ ok: true });
+  });
+
   router.get('/:id/announcements', async (req, res) => {
     const team = await coachedTeam(req, res);
     if (!team) return;
@@ -412,6 +451,7 @@ export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
         const trained = sessions.filter((s) => s.athleteId === m.athleteId);
         const byDay = new Map(all.map((c) => [c.date.toISOString().slice(0, 10), c.readinessBand ?? 'NONE']));
         return {
+          memberId: m.athleteId,
           nickname: m.nickname,
           checkedInToday: Boolean(todays),
           readiness: todays?.readinessBand ?? null,

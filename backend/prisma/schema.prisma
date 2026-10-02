@@ -75,6 +75,7 @@ model Athlete {
   teamMemberships   TeamMember[]
   teamStaff         TeamStaff[]
   healthNotes       HealthNote[]
+  shoutouts         Shoutout[]
   parentLink        ParentLink?
   parentEmail       ParentEmail?
   sharedWorkouts    SharedWorkout[]
@@ -320,6 +321,7 @@ model Team {
   staff         TeamStaff[]
   assignments   Assignment[]
   announcements Announcement[]
+  shoutouts     Shoutout[]
 
   @@index([coachId])
 }
@@ -475,4 +477,20 @@ model KnowledgeAction {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+/// A coach's private positive note to one athlete — at most one a week per
+/// team, never public, never ranked.
+model Shoutout {
+  id        String   @id @default(uuid())
+  teamId    String
+  athleteId String
+  text      String
+  createdAt DateTime @default(now())
+
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId, createdAt])
+  @@index([teamId, athleteId, createdAt])
 }

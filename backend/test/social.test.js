@@ -9,7 +9,7 @@ const SESSION_SECRET = 'test-session-secret';
 
 /** A tiny in-memory stand-in for the Prisma calls these routes make. */
 function fakePrisma() {
-  const db = { league: [], leagueMember: [], weeklyXP: [], team: [], teamMember: [], teamStaff: [], assignment: [], announcement: [], healthNote: [], parentLink: [], parentEmail: [], checkIn: [], session: [], syncedState: [], sharedWorkout: [] };
+  const db = { league: [], leagueMember: [], weeklyXP: [], team: [], teamMember: [], teamStaff: [], assignment: [], announcement: [], shoutout: [], healthNote: [], parentLink: [], parentEmail: [], checkIn: [], session: [], syncedState: [], sharedWorkout: [] };
 
   const matches = (row, where = {}) => Object.entries(where).every(([field, cond]) => {
     if (cond && typeof cond === 'object' && !(cond instanceof Date)) {
@@ -29,6 +29,7 @@ function fakePrisma() {
     leagueMember: { league: ['league', 'leagueId', true] },
     teamMember: { team: ['team', 'teamId', true] },
     teamStaff: { team: ['team', 'teamId', true] },
+    shoutout: { team: ['team', 'teamId', true] },
   };
 
   function withIncludes(model, row, include) {
@@ -154,7 +155,7 @@ test('teams: the coach sees readiness and training, never more; members get assi
     const board = await (await call('coach', 'GET', `/teams/${team.id}/readiness?today=2026-09-25&weekStart=2026-09-21`)).json();
     assert.deepEqual(board.members[0], {
       nickname: 'Sam', checkedInToday: true, readiness: 'AMBER', checkInsThisWeek: 1, sessionsThisWeek: 1, minutesThisWeek: 45,
-      trend: [...Array(13).fill(null), 'AMBER'], missedThisWeek: 4, sharesHealth: false, health: null,
+      memberId: 'ath1', trend: [...Array(13).fill(null), 'AMBER'], missedThisWeek: 4, sharesHealth: false, health: null,
     });
     assert.equal((await call('ath1', 'GET', `/teams/${team.id}/readiness?today=2026-09-25&weekStart=2026-09-21`)).status, 404, 'only the coach');
 
@@ -310,6 +311,24 @@ test('parent email: confirmed by the parent first, stopped with one link', async
 
     assert.equal((await fetch(`${url}/parent-email/stop/${token}`)).status, 200);
     assert.equal(prisma._db.parentEmail.length, 0, 'stopped means deleted');
+  } finally {
+    await close();
+  }
+});
+
+test('teams: a coach shout-out is private and at most one a week', async () => {
+  const prisma = fakePrisma();
+  const { call, close } = await serve(prisma);
+  try {
+    const { team } = await (await call('coach', 'POST', '/teams', { name: 'Golf' })).json();
+    await call('ath1', 'POST', '/teams/join', { code: team.code, nickname: 'Lee' });
+    assert.equal((await call('ath1', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'ath1', text: 'Nice' })).status, 404, 'coach only');
+    assert.equal((await call('coach', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'ath1', text: 'Great focus on the range today' })).status, 201);
+    assert.equal((await call('coach', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'ath1', text: 'Again' })).status, 429, 'one a week');
+    assert.equal((await call('coach', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'stranger', text: 'Hi' })).status, 404);
+    const mine = await (await call('ath1', 'GET', '/teams/shoutouts')).json();
+    assert.deepEqual(mine.shoutouts.map((s) => [s.teamName, s.text]), [['Golf', 'Great focus on the range today']]);
+    assert.deepEqual((await (await call('ath2', 'GET', '/teams/shoutouts')).json()).shoutouts, [], 'nobody else sees it');
   } finally {
     await close();
   }
