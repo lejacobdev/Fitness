@@ -137,6 +137,18 @@ export function webLoginRouter({ prisma, sessionSecret, now = () => new Date(), 
     });
   }
 
+  // A team code as a QR image (the dashboard's Invite page). Only our own links.
+  router.get('/qr/team/:file', async (req, res) => {
+    const match = /^([A-HJ-KM-NP-Z2-9]{6})\.svg$/.exec(String(req.params.file));
+    if (!match) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    const svg = await QRCode.toString(`${publicBase}/team/${match[1]}`, { type: 'svg', errorCorrectionLevel: 'M', margin: 1, color: { dark: '#050608', light: '#ffffff' } });
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.type('image/svg+xml').send(svg);
+  });
+
   // The QR link opened somewhere the app isn't (a computer, an Android phone).
   router.get('/login/:id', (_req, res) => {
     res.set('Cache-Control', 'no-store');

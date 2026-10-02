@@ -11,7 +11,7 @@ const RTP_STEPS = [
   [5, 'Full-contact practice — only after a doctor clears them'],
   [6, 'Back to games'],
 ];
-const LOGO = '<svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"><path d="M28.5 47.3 50 32.3l21.5 15" stroke="#F5F7FA"/><path d="M28.5 67.8 50 52.8l21.5 15" stroke="#EF4444"/></g></svg>';
+const LOGO = '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="aos-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#10131A"/><stop offset="1" stop-color="#1D2330"/></linearGradient></defs><rect width="100" height="100" rx="22" fill="url(#aos-g)"/><g fill="none" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"><path d="M28.5 47.3 50 32.3l21.5 15" stroke="#F5F7FA"/><path d="M28.5 67.8 50 52.8l21.5 15" stroke="#E5383B"/></g></svg>';
 
 // ---------- Session ----------
 const session = {
@@ -174,7 +174,7 @@ function shell(active, content) {
         h(`a${active === 'account' ? '.on' : ''}`, { href: '#/account' }, 'Account'),
         h('a', { href: `${API}/support`, target: '_blank', rel: 'noopener' }, 'Help')),
       h('div.grow'),
-      h('div.who', {}, h('b', {}, 'Signed in'), `For about ${hoursLeft} more hour${hoursLeft === 1 ? '' : 's'} on this computer.`)),
+      h('div.who', {}, h('b', {}, 'Signed in'), hoursLeft < 1 ? 'For less than an hour more on this computer.' : `For about ${hoursLeft} more hour${hoursLeft === 1 ? '' : 's'} on this computer.`)),
     h('header.topbar', {},
       h('a.brand', { href: '#/teams', html: `${LOGO}<span><b>AthleteOS</b><small>COACH</small></span>` }),
       h('nav', {},
@@ -621,7 +621,7 @@ async function inviteTab(body, team) {
   const fresh = data?.coaching?.find((t) => t.id === team.id) ?? team;
   const link = `https://api.lejacob.dev/fitness/team/${fresh.code}`;
   const qr = h('div.qr');
-  fetch(`${API}/qr/team/${fresh.code}.svg`).then((r) => r.text()).then((svg) => { if (svg.startsWith('<svg')) qr.innerHTML = svg; }).catch(() => {});
+  fetch(`${API}/qr/team/${fresh.code}.svg?v=1`).then((r) => r.text()).then((svg) => { if (svg.startsWith('<svg')) qr.innerHTML = svg; }).catch(() => {});
   const copy = async (text, what) => { try { await navigator.clipboard.writeText(text); toast(`${what} copied.`); } catch { toast(text); } };
   const trainer = fresh.trainerCode;
   body.replaceChildren(h('div.grid.two', {},

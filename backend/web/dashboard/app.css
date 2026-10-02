@@ -1,3 +1,4 @@
+@font-face { font-family: "Inter"; src: url("inter-var.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
 /* AthleteOS coach dashboard — V5: near-black space, crimson light behind
    frosted glass, oversized type, precise data. Red is light, never paint. */
 :root {
@@ -19,7 +20,7 @@
   --amber: #f59e0b;
   --radius: 24px;
   --radius-sm: 14px;
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   color-scheme: dark;
 }
@@ -63,7 +64,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
   display: flex; flex-direction: column; gap: 6px;
 }
 .brand { display: flex; align-items: center; gap: 12px; padding: 4px 10px 26px; text-decoration: none; }
-.brand svg { width: 34px; height: 34px; filter: drop-shadow(0 0 14px rgba(239, 68, 68, 0.45)); }
+.brand svg { width: 34px; height: 34px; border-radius: 9px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 6px 20px -6px rgba(239, 68, 68, 0.55); }
 .brand b { font-size: 19px; letter-spacing: -0.01em; }
 .brand small { display: block; font-size: 11px; letter-spacing: 0.22em; color: var(--red); font-weight: 700; }
 .nav-label { font-size: 11px; letter-spacing: 0.2em; color: var(--faint); font-weight: 700; padding: 18px 12px 6px; text-transform: uppercase; }

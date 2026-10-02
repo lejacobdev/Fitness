@@ -107,14 +107,14 @@ export function createApp({
   // The coach dashboard (a static page; it calls this API with a session
   // from the QR sign-in). /dashboard → /dashboard/ so relative paths work.
   if (webDir && fs.existsSync(webDir)) {
-    app.get('/dashboard', (_req, res) => res.redirect(301, 'dashboard/'));
+    app.get('/dashboard', (req, res, next) => (req.path.endsWith('/') ? next() : res.redirect(301, 'dashboard/')));
     app.use('/dashboard', express.static(`${webDir}/dashboard`, {
       etag: true,
       setHeaders: (res) => {
         res.set('Cache-Control', 'no-cache');
         res.set('X-Frame-Options', 'DENY');
         res.set('Referrer-Policy', 'no-referrer');
-        res.set('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'");
+        res.set('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'");
       },
     }));
   }
