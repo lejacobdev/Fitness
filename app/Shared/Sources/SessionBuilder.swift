@@ -107,6 +107,18 @@ private struct BuildState {
     var contactsLeft: Int
     let qualityWeight: [String: Double]
 
+    /// One candidate: the item, its profile and its relevance — worked out once per build.
+    struct Candidate {
+        let item: CatalogueItem
+        let profile: ExerciseProfile
+        let score: Double
+    }
+
+    /// Everything this athlete may do in this session, best first. Built once
+    /// per build: which items fit never changes between picks; only `used`
+    /// and the jump budget do.
+    let pool: [Candidate]
+
     init(decision: SessionDecision, day: TrainingDay, kit: AthleteKit) {
         self.decision = decision
         self.day = day
@@ -121,21 +133,31 @@ private struct BuildState {
             for (q, c) in Capacity.fromQuality where c == goal { weights[q] = (weights[q] ?? 0) + 0.6 }
         }
         qualityWeight = weights
+        var candidates: [Candidate] = []
+        for item in kit.catalogue.itemsBySlug.values {
+            let profile = item.planProfile
+            guard Self.fits(item, profile, decision: decision, day: day, kit: kit) else { continue }
+            candidates.append(Candidate(item: item, profile: profile, score: Self.relevance(item, weights: weights, day: day, kit: kit)))
+        }
+        candidates.sort { (lhs: Candidate, rhs: Candidate) -> Bool in
+            lhs.score != rhs.score ? lhs.score > rhs.score : lhs.item.slug < rhs.item.slug
+        }
+        pool = candidates
     }
 
-    var used: Set<String> { Set(picks.map(\.item.slug)) }
+    /// Slugs already in the session (kept in step with `picks`; read for every item on every pick).
+    var used: Set<String> = []
 
     // MARK: Eligibility
 
-    func eligible(_ item: CatalogueItem) -> Bool {
-        let p = item.planProfile
+    /// Whether the athlete may get this item in this session at all.
+    static func fits(_ item: CatalogueItem, _ p: ExerciseProfile, decision: SessionDecision, day: TrainingDay, kit: AthleteKit) -> Bool {
         guard item.fits(sport: kit.sport?.slug, position: kit.positionSlug, format: kit.formatSlug),
               PlanGenerator.isEligibleForEquipment(item, available: kit.equipment),
               kit.trainsUnderCoach || !item.isCoached,
               item.minAge <= day.age,
               day.experience.allows(item),
-              !PainFilter.loads(item, areas: day.painAreas),
-              !used.contains(item.slug) else { return false }
+              !PainFilter.loads(item, areas: day.painAreas) else { return false }
         let restful = ["prep", "mobility", "recovery"].contains(p.role)
         if !restful {
             let primerStart = decision.sessionType == .primer && p.group == "sprint-accel"
@@ -146,13 +168,12 @@ private struct BuildState {
             if decision.avoids(.newHardExercises) || day.age < 15, p.technique >= 3 { return false }
         }
         if p.impact >= 3, day.age < 13 { return false }
-        if item.defaultDose.kind == plyometricDoseKind, contactsLeft < 12 { return false }
         return true
     }
 
-    func relevance(_ item: CatalogueItem) -> Double {
+    static func relevance(_ item: CatalogueItem, weights: [String: Double], day: TrainingDay, kit: AthleteKit) -> Double {
         var score = 0.0
-        for (q, amount) in item.qualities { score += amount * (qualityWeight[q] ?? 0.1) }
+        for (q, amount) in item.qualities { score += amount * (weights[q] ?? 0.1) }
         if item.itemSportSlug != nil, item.itemSportSlug == kit.sport?.slug { score += 0.2 }
         // Learn the base movement before its variants.
         if item.baseSlug != nil { score -= day.experience == .experienced ? 0.15 : 0.6 }
@@ -163,19 +184,26 @@ private struct BuildState {
     /// Picks one exercise matching `filter`, best for the athlete first, with
     /// a little variety among the top few. Returns whether it found one.
     @discardableResult
-    mutating func pick(_ block: SessionBlock, why: String, pool: Int = 3, _ filter: (CatalogueItem, ExerciseProfile) -> Bool) -> Bool {
+    mutating func pick(_ block: SessionBlock, why: String, pool poolSize: Int = 3, _ filter: (CatalogueItem, ExerciseProfile) -> Bool) -> Bool {
         // An "explosive" tempo variant is power work, never a strength or trunk exercise.
         let strengthBlock = [.primaryStrength, .secondaryStrength, .accessory].contains(block)
-        let candidates = kit.catalogue.itemsBySlug.values
-            .filter { !(strengthBlock && $0.variant?.tempo == "explosive") }
-            .filter { eligible($0) && filter($0, $0.planProfile) }
-            .map { ($0, relevance($0)) }
-            .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.slug < $1.0.slug }
-        guard !candidates.isEmpty else { return false }
-        let top = Array(candidates.prefix(pool))
-        let item = top[Int(rng.next() % UInt64(top.count))].0
-        let quality = item.qualities.max { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key }?.key ?? ""
+        var matching: [Candidate] = []
+        for candidate in pool {
+            if matching.count == poolSize { break }
+            if used.contains(candidate.item.slug) { continue }
+            if strengthBlock, candidate.item.variant?.tempo == "explosive" { continue }
+            if candidate.item.defaultDose.kind == plyometricDoseKind, contactsLeft < 12 { continue }
+            guard filter(candidate.item, candidate.profile) else { continue }
+            matching.append(candidate)
+        }
+        guard !matching.isEmpty else { return false }
+        let item: CatalogueItem = matching[Int(rng.next() % UInt64(matching.count))].item
+        let best = item.qualities.max { (a: (key: String, value: Double), b: (key: String, value: Double)) -> Bool in
+            a.value != b.value ? a.value < b.value : a.key > b.key
+        }
+        let quality: String = best?.key ?? ""
         picks.append((item, block, why, quality))
+        used.insert(item.slug)
         if item.defaultDose.kind == plyometricDoseKind {
             contactsLeft -= (item.defaultDose.contacts ?? 5) * 3
         }
@@ -294,6 +322,7 @@ private struct BuildState {
               let item = kit.catalogue.item(rx.itemSlug) else { return }
         conditioning = rx
         picks.append((item, .conditioning, "\(type.title): \(rx.summary).", item.qualities.max { $0.value < $1.value }?.key ?? ""))
+        used.insert(item.slug)
     }
 
     mutating func afterPractice() {

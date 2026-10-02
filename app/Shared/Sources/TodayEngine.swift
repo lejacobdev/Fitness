@@ -9,7 +9,7 @@ import Foundation
 enum TodayEngine {
     /// Whether the downloaded packs carry exercise profiles (V6 content).
     static func isAvailable(_ catalogue: Catalogue) -> Bool {
-        catalogue.itemsBySlug.values.contains { $0.profile != nil }
+        catalogue.itemsBySlug.values.first?.profile != nil || catalogue.itemsBySlug.values.contains { $0.profile != nil }
     }
 
     static func goals() -> [Capacity] {
@@ -174,8 +174,37 @@ enum TodayEngine {
 
     /// The session the engine builds for `type` on `date` (nil: rest, or
     /// no V6 content yet). `requested` is what the athlete opened.
+    /// Built sessions, by everything they depend on: a screen asks for the
+    /// same session many times per render, and a build isn't free.
+    private static var cache: [String: (at: Date, session: GeneratedSession?)] = [:]
+
+    private static func fingerprint(_ requested: SessionType?, athlete: Athlete, sessions: [Session], catalogue: Catalogue,
+                                    date: Date, plannedGymDay: Bool, calendar: Calendar = .current) -> String {
+        let checkIn = AthleteStats.todaysCheckIn(athlete)
+        let answers = checkIn.map { "\($0.sleepQuality),\($0.sleepHours ?? -1),\($0.soreness),\($0.energy),\($0.stress)" } ?? "none"
+        let hour = calendar.component(.hour, from: .now)
+        return [requested?.rawValue ?? "auto", "\(plannedGymDay)", DayKey.of(date, calendar: calendar), "\(hour)",
+                "\(catalogue.itemsBySlug.count)", answers, "\(sessions.count)", "\(athlete.competitions.count)",
+                DayStatusStore.status().rawValue, TodaysPain.areas().map(\.rawValue).sorted().joined(),
+                Struggles.selected.map(\.rawValue).joined(), TrainingExperience.current.rawValue,
+                "\(PracticeSchedule.hasPractice(on: date, calendar: calendar))",
+                "\(MindsetStore.reflections.first?.day ?? "")\(MindsetStore.reflections.first?.hardness ?? 0)\(MindsetStore.reflections.first?.body ?? 0)",
+                athlete.activeSport.map { "\($0.sportSlug)\($0.positionSlug ?? "")\($0.seasonStart.timeIntervalSince1970)" } ?? "",
+                athlete.equipmentAvailable.sorted().joined(), "\(PlanVariant.current)"].joined(separator: "|")
+    }
+
     static func session(_ requested: SessionType?, athlete: Athlete, sessions: [Session], catalogue: Catalogue,
                         date: Date = .now, plannedGymDay: Bool) -> GeneratedSession? {
+        let key = fingerprint(requested, athlete: athlete, sessions: sessions, catalogue: catalogue, date: date, plannedGymDay: plannedGymDay)
+        if let hit = cache[key], Date.now.timeIntervalSince(hit.at) < 120 { return hit.session }
+        let built = build(requested, athlete: athlete, sessions: sessions, catalogue: catalogue, date: date, plannedGymDay: plannedGymDay)
+        if cache.count > 40 { cache.removeAll() }
+        cache[key] = (.now, built)
+        return built
+    }
+
+    private static func build(_ requested: SessionType?, athlete: Athlete, sessions: [Session], catalogue: Catalogue,
+                              date: Date, plannedGymDay: Bool) -> GeneratedSession? {
         guard isAvailable(catalogue),
               let day = trainingDay(athlete, sessions: sessions, catalogue: catalogue, date: date, plannedGymDay: plannedGymDay) else { return nil }
         let decision = SessionPlanner.decide(day, requested: requested)
