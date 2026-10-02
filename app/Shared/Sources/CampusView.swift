@@ -332,6 +332,8 @@ struct CampusView: View {
         case "tactics": AppTheme.orange
         case "tracking": AppTheme.yellow
         case "teamwork": Color(hex: "#FF86D0")
+        case "supplements": AppTheme.yellow
+        case "digital": AppTheme.water
         default: AppTheme.amber
         }
     }
