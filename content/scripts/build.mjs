@@ -17,6 +17,7 @@
  *   node scripts/build.mjs
  */
 
+import { profileFor } from '../src/profiles.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -645,7 +646,8 @@ function buildPacks() {
   // Core pack: every sport-agnostic exercise (fully expanded), per §3 — "the
   // general exercise library, the shared drills" (the rig itself is compiled
   // Swift, not pack data — see the header comment on this file).
-  const exerciseItems = CATALOGUE.filter((i) => i.kind === 'exercise');
+  const withProfile = (i) => ({ ...i, profile: profileFor(i) });
+  const exerciseItems = CATALOGUE.filter((i) => i.kind === 'exercise').map(withProfile);
   writePack('core', SPORT_CATALOGUE_VERSION, { items: exerciseItems });
 
   // One pack per sport: its profile plus its own drills (fully expanded).
@@ -653,7 +655,7 @@ function buildPacks() {
   // drills array — §5: "no sport ships without" its profile existing, even
   // before its drill library is built out.
   for (const sport of SPORTS) {
-    const drillItems = CATALOGUE.filter((i) => i.kind === 'drill' && i.sport === sport.slug);
+    const drillItems = CATALOGUE.filter((i) => i.kind === 'drill' && i.sport === sport.slug).map(withProfile);
     writePack(sport.slug, SPORT_CATALOGUE_VERSION, { sport, items: drillItems });
   }
 

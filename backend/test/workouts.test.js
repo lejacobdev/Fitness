@@ -147,7 +147,7 @@ test('links: the page a link opens, and Apple\'s app-links file', async () => {
     const body = await aasa.json();
     assert.deepEqual(body.applinks.details[0].appIDs, ['Y6QW849HK2.com.studentathlete.app']);
     assert.deepEqual(body.applinks.details[0].components.map((c) => c['/']),
-      ['/fitness/team/*', '/fitness/league/*', '/fitness/workout/*', '/fitness/c/*']);
+      ['/fitness/team/*', '/fitness/league/*', '/fitness/workout/*', '/fitness/c/*', '/fitness/login/*']);
   } finally {
     await close();
   }
