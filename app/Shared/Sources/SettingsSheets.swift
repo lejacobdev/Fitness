@@ -32,7 +32,7 @@ struct RemindersSheet: View {
                         }
                         Divider().overlay(AppTheme.hairline)
                         Toggle(isOn: $settings.reflectionEnabled) {
-                            row("Evening reflection", "Two minutes: one win, one lesson", "moon.stars.fill", AppTheme.purple)
+                            row("Evening reflection", "45 seconds: how today felt", "moon.stars.fill", AppTheme.purple)
                         }
                         .tint(AppTheme.green)
                         .padding(.vertical, 8)

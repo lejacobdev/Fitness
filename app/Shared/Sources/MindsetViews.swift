@@ -106,7 +106,7 @@ struct MindsetView: View {
         let today = MindsetStore.reflection(on: .now)
         let streak = MindsetStore.reflectionStreak()
         return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Evening reflection", subtitle: "Two minutes before bed: one win, one lesson. Small wins add up to confidence.")
+            SectionHeader("Evening reflection", subtitle: "Forty-five seconds before bed: how today felt shapes tomorrow's plan.")
             if let today {
                 VStack(alignment: .leading, spacing: 10) {
                     Label("Done for today\(streak > 1 ? " · \(streak) days in a row" : "")", systemImage: "checkmark.circle.fill")
@@ -121,14 +121,9 @@ struct MindsetView: View {
                 .cardStyle(padding: 16)
             } else {
                 Button { reflecting = true } label: {
-                    Label("Reflect now — 2 minutes", systemImage: "moon.stars.fill")
+                    Label("Reflect now", systemImage: "moon.stars.fill")
                 }
                 .buttonStyle(.primary)
-                if streak > 0 {
-                    Text("\(streak)-day streak — keep it going tonight.")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.secondaryText)
-                }
             }
         }
     }
@@ -489,7 +484,7 @@ struct ReflectionSheet: View {
 
     private func scale(_ question: String, _ options: [String], selection: Binding<Int?>) -> some View {
         let current = step
-        let backAction: (() -> Void)? = current == .hardness ? nil : { back() }
+        let backAction: (() -> Void)? = current == steps.first ? nil : { back() }
         let buttonTitle: String? = selection.wrappedValue == nil ? nil : "Next"
         let values: [Int] = Array(1...options.count)
         return QuestionPage(progress: progress, question: question, buttonTitle: buttonTitle,

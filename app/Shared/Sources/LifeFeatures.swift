@@ -302,17 +302,23 @@ struct HabitBadgesSection: View {
         let badges = HabitBadges.badges(HabitBadges.inputs(athlete, sessions: sessions))
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Healthy habits", subtitle: "For looking after yourself, not for training more.")
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10)], spacing: 10) {
+            // V6 §2: flat rows, not a grid of identical cards.
+            VStack(spacing: 0) {
                 ForEach(badges) { badge in
-                    VStack(alignment: .leading, spacing: 6) {
-                        Image(systemName: badge.systemImage)
-                            .font(.title3)
-                            .foregroundStyle(badge.earned ? AppTheme.green : AppTheme.secondaryText.opacity(0.5))
-                        Text(badge.title).font(.subheadline.weight(.semibold)).foregroundStyle(badge.earned ? AppTheme.ink : AppTheme.secondaryText)
-                        Text(badge.detail).font(.caption).foregroundStyle(AppTheme.secondaryText).fixedSize(horizontal: false, vertical: true)
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Circle()
+                            .fill(badge.earned ? AppTheme.green : AppTheme.fill)
+                            .frame(width: 8, height: 8)
+                            .shadow(color: badge.earned ? AppTheme.green.opacity(0.6) : .clear, radius: 4)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(badge.title).font(.body.weight(.semibold))
+                                .foregroundStyle(badge.earned ? AppTheme.ink : AppTheme.secondaryText)
+                            Text(badge.detail).font(.footnote).foregroundStyle(AppTheme.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 0)
                     }
-                    .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
-                    .cardStyle(padding: 12)
+                    .padding(.vertical, 10)
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel("\(badge.title), \(badge.earned ? "earned" : "not yet"). \(badge.detail)")
                 }
