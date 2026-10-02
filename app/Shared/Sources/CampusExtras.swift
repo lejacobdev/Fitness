@@ -190,8 +190,8 @@ public enum CampusBadges {
         var badges = [
             CampusBadge(id: "first-lesson", title: "First step", detail: "Finish your first lesson.", systemImage: "shoe.fill"),
             CampusBadge(id: "streak-3", title: "Warming up", detail: "Learn 3 days in a row.", systemImage: "flame"),
-            CampusBadge(id: "streak-7", title: "On fire", detail: "Learn 7 days in a row.", systemImage: "flame.fill"),
-            CampusBadge(id: "streak-30", title: "Unstoppable", detail: "Learn 30 days in a row.", systemImage: "bolt.heart.fill"),
+            CampusBadge(id: "streak-7", title: "A full week", detail: "Learn 7 days in a row.", systemImage: "flame.fill"),
+            CampusBadge(id: "streak-30", title: "A month of learning", detail: "Learn 30 days in a row.", systemImage: "bolt.heart.fill"),
             CampusBadge(id: "xp-100", title: "100 XP", detail: "Earn 100 XP.", systemImage: "bolt.fill"),
             CampusBadge(id: "xp-500", title: "500 XP", detail: "Earn 500 XP.", systemImage: "bolt.circle.fill"),
             CampusBadge(id: "xp-1000", title: "1000 XP", detail: "Earn 1000 XP.", systemImage: "star.circle.fill"),

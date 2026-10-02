@@ -65,12 +65,9 @@ enum WidgetSnapshotWriter {
     static func write(for athlete: Athlete, week: GeneratedWeek?) {
         let calendar = Calendar.current
         let today = Date.now
-        let session = week?.sessions.first { calendar.isDateInToday($0.date) }
         let checkIn = AthleteStats.todaysCheckIn(athlete)
-        var adjusted = session.map { TodaysPain.apply($0, athlete: athlete, catalogue: CatalogueLoader.load(from: AppConfig.packsDirectory())) }
-        if let safe = adjusted, let band = DailyLoop.todayBand(athlete) {
-            adjusted = ReadinessApplier.apply(to: safe, band: band).session
-        }
+        let adjusted = TodayEngine.todaysWorkout(athlete: athlete, week: week,
+                                                 catalogue: CatalogueLoader.load(from: AppConfig.packsDirectory()), calendar: calendar)
         let weekInterval = calendar.dateInterval(of: .weekOfYear, for: today)
         let sessionsThisWeek = athlete.sessions.filter { weekInterval?.contains($0.startedAt) ?? false }.count
 

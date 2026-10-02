@@ -441,7 +441,11 @@ public enum SessionPlanner {
     /// Conditioning minutes still to program this week.
     static func conditioningRemaining(_ day: TrainingDay) -> Int {
         let practiceDays = day.recent.practiceDays + (day.practice != nil ? 1 : 0)
-        let target = day.demands.conditioningMinutes(practiceDays: practiceDays, phase: day.phase)
+        var target = day.demands.conditioningMinutes(practiceDays: practiceDays, phase: day.phase)
+        // A conditioning goal adds programmed work — unless the sport is itself the conditioning.
+        if day.demands.weeklyMinutesWithoutPractice > 0, day.goals.contains(where: { $0 == .aerobic || $0 == .repeatedEffort }) {
+            target += 20
+        }
         return max(0, target - day.recent.conditioningMinutes)
     }
 
@@ -450,6 +454,7 @@ public enum SessionPlanner {
         // Off-season builds the base first; the sport's own kind comes closer to the season.
         if day.phase == .offSeason, day.demands.need != .aerobicBase, day.recent.exposure(.aerobic) == 0 { return .aerobicBase }
         if day.age < 14, day.demands.need == .anaerobic { return .aerobicPower }
+        if day.goals.first(where: { $0 == .aerobic || $0 == .repeatedEffort }) == .aerobic { return .aerobicBase }
         return day.demands.need
     }
 

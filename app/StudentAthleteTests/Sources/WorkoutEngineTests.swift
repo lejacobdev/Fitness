@@ -11,7 +11,7 @@ final class WorkoutEngineTests: XCTestCase {
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "content/dist")
         // Local runs from a linked copy of this file: the repo checkout.
-        let fallback = URL(fileURLWithPath: "/root/fitness/content/dist")
+        let fallback = URL(fileURLWithPath: ProcessInfo.processInfo.environment["AOS_CONTENT_DIST"] ?? "/root/fitness/content/dist")
         return CatalogueLoader.load(from: FileManager.default.fileExists(atPath: dist.path) ? dist : fallback)
     }()
 
@@ -172,6 +172,15 @@ final class WorkoutEngineTests: XCTestCase {
         let text = PlanExplanation.make(decision: decision, day: day("cross-country", phase: .inSeason, gymDay: false), items: [],
                                         catalogue: Self.catalogue, conditioning: nil).summary
         XCTAssertTrue(text.contains("part of the plan"))
+    }
+
+    // §23: a conditioning goal adds programmed work, but never to a sport that is itself the conditioning.
+    func testAnAerobicGoalAddsConditioning() {
+        let practices = RecentLoad(days: (1...4).map { DayLoad(daysAgo: $0, practice: .normal) })
+        let without = SessionPlanner.conditioningRemaining(day("basketball", phase: .inSeason, recent: practices))
+        let with = SessionPlanner.conditioningRemaining(day("basketball", phase: .inSeason, recent: practices, goals: [.aerobic]))
+        XCTAssertGreaterThan(with, without)
+        XCTAssertEqual(SessionPlanner.conditioningRemaining(day("cross-country", phase: .inSeason, recent: practices, goals: [.aerobic])), 0)
     }
 
     func testWeekPlannerKeepsGymDaysOffGameEves() {

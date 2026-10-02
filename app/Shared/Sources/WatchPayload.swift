@@ -119,11 +119,7 @@ public struct WatchTodayPayload: Codable, Sendable, Equatable {
         let calendar = Calendar.current
         let checkIn = AthleteStats.todaysCheckIn(athlete)
         let catalogue = CatalogueLoader.load(from: AppConfig.packsDirectory())
-        var session = week?.sessions.first { calendar.isDateInToday($0.date) }
-            .map { TodaysPain.apply($0, athlete: athlete, catalogue: catalogue) }
-        if let planned = session, let band = DailyLoop.todayBand(athlete) {
-            session = ReadinessApplier.apply(to: planned, band: band).session
-        }
+        let session = TodayEngine.todaysWorkout(athlete: athlete, week: week, catalogue: catalogue, calendar: calendar)
         let items = (session?.items ?? []).map { item -> WatchPlanItem in
             let catalogueItem = catalogue.item(item.itemSlug)
             return WatchPlanItem(

@@ -217,7 +217,7 @@ public enum ReminderScheduler {
                 guard let when = calendar.date(from: components), when > .now else { continue }
                 let content = UNMutableNotificationContent()
                 content.title = "Evening reflection"
-                content.body = "Two minutes: one win from today, one lesson for tomorrow."
+                content.body = "45 seconds: how today felt shapes tomorrow's plan."
                 content.sound = .default
                 let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
                 let id = "\(reflectionIdentifier).\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"

@@ -333,7 +333,8 @@ public enum DayKey {
 /// What the athlete wants to develop — the plan leans towards it. Performance
 /// goals only: no appearance or weight goals for teenage athletes.
 public enum Struggle: String, Codable, Sendable, CaseIterable, Identifiable {
-    case acceleration, maxSpeed, agility, strength, power, conditioning, mobility, sportSkill, recovery, confidence
+    case acceleration, maxSpeed, agility, strength, relativeStrength, power, verticalJump, conditioning, aerobicFitness, mobility,
+         movementQuality, sportSkill, recovery, confidence, focus
 
     public var id: String { rawValue }
 
@@ -343,12 +344,17 @@ public enum Struggle: String, Codable, Sendable, CaseIterable, Identifiable {
         case .maxSpeed: "Max speed"
         case .agility: "Agility"
         case .strength: "Strength"
+        case .relativeStrength: "Relative strength"
         case .power: "Power"
-        case .conditioning: "Conditioning"
+        case .verticalJump: "Vertical jump"
+        case .conditioning: "Repeated-effort fitness"
+        case .aerobicFitness: "Aerobic fitness"
         case .mobility: "Mobility"
+        case .movementQuality: "Movement quality"
         case .sportSkill: "Sport skill"
         case .recovery: "Recovery habits"
         case .confidence: "Confidence"
+        case .focus: "Focus"
         }
     }
 
@@ -358,12 +364,17 @@ public enum Struggle: String, Codable, Sendable, CaseIterable, Identifiable {
         case .maxSpeed: "gauge.with.dots.needle.100percent"
         case .agility: "arrow.triangle.turn.up.right.diamond.fill"
         case .strength: "dumbbell.fill"
+        case .relativeStrength: "figure.strengthtraining.functional"
         case .power: "arrow.up.to.line"
+        case .verticalJump: "arrow.up.circle"
         case .conditioning: "lungs.fill"
+        case .aerobicFitness: "heart.circle"
         case .mobility: "figure.flexibility"
+        case .movementQuality: "figure.walk.motion"
         case .sportSkill: "sportscourt.fill"
         case .recovery: "moon.zzz.fill"
         case .confidence: "brain.head.profile"
+        case .focus: "scope"
         }
     }
 
@@ -374,12 +385,17 @@ public enum Struggle: String, Codable, Sendable, CaseIterable, Identifiable {
         case .maxSpeed: "More top-speed running and springy lower legs."
         case .agility: "More braking, cutting and lateral power."
         case .strength: "More leg, push and pull strength."
+        case .relativeStrength: "Strength for your body weight: single-leg work, pull-ups, push-ups."
         case .power: "More jumps, throws and explosive lifts."
+        case .verticalJump: "More jumping, landing and leg strength."
         case .conditioning: "More work for repeated efforts."
+        case .aerobicFitness: "Programmed easy aerobic work when your sport doesn't give enough."
         case .mobility: "Longer daily mobility."
+        case .movementQuality: "More single-leg control, landing and trunk work."
         case .sportSkill: "Skill plans for your sport, first in Workout."
         case .recovery: "Evening mobility and sleep habits."
         case .confidence: "Mindset tools first: breathing and a reset routine."
+        case .focus: "Campus lessons on focus and pre-performance routines."
         }
     }
 
@@ -391,9 +407,13 @@ public enum Struggle: String, Codable, Sendable, CaseIterable, Identifiable {
         case .agility: ["change-of-direction": 1, "deceleration": 0.8, "lateral-power": 0.7]
         case .strength: ["lower-body-strength": 1, "upper-body-push": 0.8, "upper-body-pull": 0.8]
         case .power: ["vertical-power": 1, "horizontal-power": 0.8, "reactive-strength": 0.7]
-        case .conditioning: ["aerobic-base": 1, "repeat-sprint": 0.8, "anaerobic-capacity": 0.6]
+        case .conditioning: ["repeat-sprint": 1, "anaerobic-capacity": 0.8, "aerobic-base": 0.5]
+        case .relativeStrength: ["lower-body-strength": 0.8, "single-leg-stability": 0.8, "upper-body-pull": 0.8]
+        case .verticalJump: ["vertical-power": 1, "reactive-strength": 0.7, "landing-mechanics": 0.6]
+        case .aerobicFitness: ["aerobic-base": 1]
         case .mobility: ["hip-mobility": 1, "shoulder-stability": 0.5]
-        case .sportSkill, .recovery, .confidence: [:]
+        case .movementQuality: ["single-leg-stability": 1, "landing-mechanics": 0.8, "trunk-anti-rotation": 0.7]
+        case .sportSkill, .recovery, .confidence, .focus: [:]
         }
     }
 

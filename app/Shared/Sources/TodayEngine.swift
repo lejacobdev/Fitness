@@ -21,10 +21,12 @@ enum TodayEngine {
             case .acceleration: capacity = .acceleration
             case .maxSpeed: capacity = .speed
             case .agility: capacity = .coordination
-            case .strength: capacity = .strength
-            case .power: capacity = .power
-            case .conditioning: capacity = .aerobic
+            case .strength, .relativeStrength: capacity = .strength
+            case .power, .verticalJump: capacity = .power
+            case .conditioning: capacity = .repeatedEffort
+            case .aerobicFitness: capacity = .aerobic
             case .mobility: capacity = .mobility
+            case .movementQuality: capacity = .balance
             default: capacity = nil
             }
             if let capacity, !out.contains(capacity) { out.append(capacity) }
@@ -206,5 +208,32 @@ enum TodayEngine {
             return built
         }
         return isAvailable(catalogue) ? nil : WorkoutModeBuilder.build(mode, context)
+    }
+
+    /// Today's main workout, the way Home picks it — for the Watch and the
+    /// widgets, so every screen shows the same session. Nil: rest or no plan.
+    static func todaysWorkout(athlete: Athlete, week: GeneratedWeek?, catalogue: Catalogue, calendar: Calendar = .current) -> GeneratedSession? {
+        let status = DayStatusStore.status()
+        guard status != .sick, status != .concussion,
+              !athlete.competitions.contains(where: { calendar.isDateInToday($0.date) }) else { return nil }
+        let planned = week?.sessions.first { calendar.isDateInToday($0.date) }
+        let sessions = athlete.sessions
+        func old(_ session: GeneratedSession) -> GeneratedSession {
+            let safe = TodaysPain.apply(session, athlete: athlete, catalogue: catalogue)
+            guard let band = DailyLoop.todayBand(athlete) else { return safe }
+            return ReadinessApplier.apply(to: safe, band: band).session
+        }
+        if status == .travel || status == .holiday {
+            return session(.travel, athlete: athlete, sessions: sessions, catalogue: catalogue, plannedGymDay: planned != nil)
+        }
+        if PracticeSchedule.hasPractice(on: .now, calendar: calendar) {
+            return session(.afterPractice, athlete: athlete, sessions: sessions, catalogue: catalogue, plannedGymDay: planned != nil)
+                ?? (isAvailable(catalogue) ? nil : planned.map(old))
+        }
+        if let planned, let slot = planned.slot, PlanCustomizationStore.load().workout(for: .gym(slot)) != nil { return old(planned) }
+        if isAvailable(catalogue) {
+            return session(nil, athlete: athlete, sessions: sessions, catalogue: catalogue, plannedGymDay: planned != nil)
+        }
+        return planned.map(old)
     }
 }
