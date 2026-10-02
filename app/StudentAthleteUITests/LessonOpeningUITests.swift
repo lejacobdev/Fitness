@@ -37,7 +37,7 @@ final class LessonOpeningUITests: XCTestCase {
 
     func testALessonFromALearningAreaOpensTheLessonPlayer() {
         let app = launch(tab: "campus")
-        let area = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Training & exercise science")).firstMatch
+        let area = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Training science")).firstMatch
         XCTAssertTrue(area.waitForExistence(timeout: 20))
         area.tap()
         let lesson = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "How training makes you better")).firstMatch

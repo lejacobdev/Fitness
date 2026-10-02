@@ -108,6 +108,8 @@ struct AnswerTile: View {
 /// What Campus remembers on this device.
 struct CampusProgress {
     static let learnedKey = "campus.learned"
+    /// The lesson finished most recently ("Continue learning").
+    static let lastLessonKey = "campus.lastLesson"
     static let xpKey = "campus.xp"
     static let streakKey = "campus.streak"
     static let lastDayKey = "campus.lastDay"
@@ -229,12 +231,9 @@ struct CampusView: View {
         campusTopics.flatMap(\.lessons).first { !learned.contains($0.id) && isUnlocked($0) }?.id
     }
 
-    /// The first lesson of every unit is open; the rest open one by one.
-    private func isUnlocked(_ lesson: CampusLesson) -> Bool {
-        guard let topic = campusTopics.first(where: { $0.lessons.contains(lesson) }),
-              let index = topic.lessons.firstIndex(of: lesson) else { return false }
-        return index == 0 || learned.contains(topic.lessons[index - 1].id)
-    }
+    /// V6: every lesson is open — learn what's useful, in any order. Levels
+    /// suggest an order; the daily allowance (free) still applies.
+    private func isUnlocked(_ lesson: CampusLesson) -> Bool { true }
 
     var body: some View {
         NavigationStack {
@@ -242,8 +241,19 @@ struct CampusView: View {
                 VStack(alignment: .leading, spacing: 28) {
                     header
                     recommendedCard
-                    dailyAllowance
+                    continueLearning
                     if !dueForReview.isEmpty { reviewCard }
+                    dailyAllowance
+                    SectionHeader("Explore", subtitle: "Nine areas, from foundations to self-coaching.")
+                    VStack(spacing: 0) {
+                        ForEach(Array(campusTopics.enumerated()), id: \.element.id) { index, topic in
+                            NavigationLink(value: topic) { areaRow(topic, index: index) }
+                                .buttonStyle(.plain)
+                            if index < campusTopics.count - 1 {
+                                Divider().padding(.leading, 54).opacity(0.5)
+                            }
+                        }
+                    }
                     SectionHeader("Know Your Sport")
                     SportGuideCard(athlete: athlete) { showingGuide = true }
                     if let lesson = positionLesson {
@@ -254,17 +264,7 @@ struct CampusView: View {
                         .buttonStyle(.plain)
                         .cardStyle(padding: 14)
                     }
-                    SectionHeader("Learning Areas")
-                    VStack(spacing: 0) {
-                        ForEach(Array(campusTopics.enumerated()), id: \.element.id) { index, topic in
-                            NavigationLink(value: topic) { areaRow(topic, index: index) }
-                                .buttonStyle(.plain)
-                            if index < campusTopics.count - 1 {
-                                Divider().padding(.leading, 54)
-                            }
-                        }
-                    }
-                    .cardStyle(padding: 12)
+                    progressSection
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
@@ -347,59 +347,51 @@ struct CampusView: View {
 
     // MARK: Header: title and the quiet numbers
 
-    /// V5: an editorial hero — the level huge, XP as a thin line of light.
+    /// V6: Campus opens with learning, not XP — the title and quiet tools.
     private var header: some View {
-        let level = CampusProgress.level(xp: xp)
-        return VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .center) {
-                Text("ATHLETE CAMPUS")
-                    .font(.caption.weight(.bold))
-                    .tracking(2.4)
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: 8)
-                HStack(spacing: 6) {
-                    iconButton("trophy", "Leagues with your teammates") { showingLeagues = true }
-                    iconButton("medal", "Your badges") { showingBadges = true }
-                    iconButton("books.vertical", "Exercise library") { showingLibrary = true }
-                }
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text("LEVEL")
-                    .font(.footnote.weight(.bold))
-                    .tracking(2)
-                    .foregroundStyle(AppTheme.brightRed)
-                Text(level.level < 10 ? "0\(level.level)" : "\(level.level)")
-                    .font(.system(size: 88, weight: .bold).monospacedDigit())
-                    .foregroundStyle(AppTheme.ink)
-                    .background(alignment: .leading) { HeroBloom(color: AppTheme.brand).offset(x: -40) }
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Level \(level.level)")
-            VStack(alignment: .leading, spacing: 8) {
-                GeometryReader { proxy in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.10))
-                        Capsule()
-                            .fill(LinearGradient(colors: [AppTheme.crimson, AppTheme.brightRed], startPoint: .leading, endPoint: .trailing))
-                            .frame(width: max(4, proxy.size.width * level.progress))
-                            .shadow(color: AppTheme.brand.opacity(0.7), radius: 6)
-                    }
-                }
-                .frame(height: 3)
-                HStack(spacing: 16) {
-                    Text("\(xp) XP")
-                    Label("\(CampusProgress.currentStreak(streak: streak, lastDay: lastDay))", systemImage: "flame.fill")
-                    Text("\(learned.count)/\(totalLessons) LESSONS")
-                }
-                .font(.caption.weight(.bold).monospacedDigit())
-                .tracking(1.2)
-                .foregroundStyle(AppTheme.secondaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+        HStack(alignment: .center) {
+            Text("Athlete Campus")
+                .font(.system(size: 30, weight: .bold))
+                .foregroundStyle(AppTheme.ink)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 8)
+            HStack(spacing: 6) {
+                iconButton("trophy", "Leagues with your teammates") { showingLeagues = true }
+                iconButton("medal", "Your badges") { showingBadges = true }
+                iconButton("books.vertical", "Exercise library") { showingLibrary = true }
             }
         }
         .padding(.top, 8)
+    }
+
+    /// Progress stays — at the bottom, quiet (V6 §17, §21).
+    private var progressSection: some View {
+        let level = CampusProgress.level(xp: xp)
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("Your progress")
+                .font(.headline)
+                .foregroundStyle(AppTheme.ink)
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.10))
+                    Capsule()
+                        .fill(AppTheme.brand)
+                        .frame(width: max(4, proxy.size.width * level.progress))
+                }
+            }
+            .frame(height: 3)
+            HStack(spacing: 16) {
+                Text("Level \(level.level)")
+                Text("\(xp) XP")
+                Label("\(CampusProgress.currentStreak(streak: streak, lastDay: lastDay))", systemImage: "flame")
+                Text("\(learned.count)/\(totalLessons) lessons")
+            }
+            .font(.footnote.monospacedDigit())
+            .foregroundStyle(AppTheme.secondaryText)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+        }
+        .padding(.top, 12)
     }
 
     private func iconButton(_ systemImage: String, _ label: String, action: @escaping () -> Void) -> some View {
@@ -439,7 +431,10 @@ struct CampusView: View {
         let nextGame = AthleteStats.upcomingCompetitions(athlete).first.map { AthleteStats.daysUntil($0.date) }
         let context = LessonPicker.Context(
             sleepHours: checkIn?.sleepHours, sleepQuality: checkIn?.sleepQuality, soreness: checkIn?.soreness,
-            energy: checkIn?.energy, daysToGame: nextGame, pain: PainStore.report() != nil, examWeek: ScheduleStore.isExamWeek(.now)
+            energy: checkIn?.energy, daysToGame: nextGame, pain: PainStore.report() != nil, examWeek: ScheduleStore.isExamWeek(.now),
+            gameYesterday: LessonSignals.gameYesterday(athlete), hardDayYesterday: LessonSignals.hardDayYesterday(),
+            shortNights: LessonSignals.shortNights(athlete), lowConfidence: LessonSignals.lowConfidence(),
+            inSeason: LessonSignals.inSeason(athlete), learned: learned
         )
         guard let pick = LessonPicker.forToday(context), let found = LessonPicker.lesson(pick.id) else { return nil }
         // Once it's done today, the path takes over again.
@@ -451,9 +446,8 @@ struct CampusView: View {
     private var recommendedCard: some View {
         if let pick = todayPick {
             VStack(alignment: .leading, spacing: 14) {
-                Text("FOR TODAY · \(pick.lesson.minutes) MIN")
-                    .font(.caption.weight(.bold))
-                    .tracking(2)
+                Text("Recommended for you today · \(pick.lesson.minutes) min")
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Self.color(for: pick.topic))
                 VStack(alignment: .leading, spacing: 6) {
                     Text(pick.lesson.title)
@@ -467,7 +461,7 @@ struct CampusView: View {
                 }
                 Button {
                     if learned.contains(pick.lesson.id) || CampusProgress.lessonsLeftToday() != 0 { playing = pick.lesson } else { showingPaywall = true }
-                } label: { HeroCTALabel("Start") }
+                } label: { HeroCTALabel("Continue") }
                 .buttonStyle(.primary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -475,18 +469,16 @@ struct CampusView: View {
             .glassSurface(tint: Self.color(for: pick.topic))
         } else if let next = recommended {
             VStack(alignment: .leading, spacing: 14) {
-                Text("NEXT LESSON · \(next.lesson.minutes) MIN")
-                    .font(.caption.weight(.bold))
-                    .tracking(2)
+                Text("Recommended for you today · \(next.lesson.minutes) min")
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.secondaryText)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(next.lesson.title)
                         .font(.system(size: 28, weight: .bold))
                         .foregroundStyle(AppTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(next.topic.title.uppercased())
-                        .font(.caption.weight(.bold))
-                        .tracking(1.6)
+                    Text(next.topic.title)
+                        .font(.subheadline)
                         .foregroundStyle(Self.color(for: next.topic))
                 }
                 Button { start(next.lesson) } label: { HeroCTALabel(learned.isEmpty ? "Start" : "Continue") }
@@ -506,6 +498,42 @@ struct CampusView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .cardStyle(padding: 20)
+        }
+    }
+
+    /// The next lesson in the area the athlete studied most recently (when it
+    /// isn't already the recommendation).
+    @ViewBuilder
+    private var continueLearning: some View {
+        let shown = todayPick?.lesson.id ?? recommended?.lesson.id
+        let lastID = UserDefaults.standard.string(forKey: CampusProgress.lastLessonKey)
+        let topic = lastID.flatMap { id in campusTopics.first { $0.lessons.contains { $0.id == id } } }
+        if let topic, let next = topic.lessons.first(where: { !learned.contains($0.id) && $0.id != shown }) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Continue learning")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.ink)
+                Button { start(next) } label: {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(next.title)
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(AppTheme.ink)
+                                .multilineTextAlignment(.leading)
+                            Text("\(topic.title) · \(CampusLibrary.level(of: next.id).title) · \(next.minutes) min")
+                                .font(.footnote)
+                                .foregroundStyle(AppTheme.secondaryText)
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(AppTheme.secondaryText)
+                    }
+                    .padding(.vertical, 6)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
@@ -550,6 +578,7 @@ struct CampusView: View {
         if firstTime { CampusProgress.recordNewLesson() }
         set.insert(lesson.id)
         learnedRaw = set.sorted().joined(separator: ",")
+        UserDefaults.standard.set(lesson.id, forKey: CampusProgress.lastLessonKey)
         if firstTime { CampusReview.schedule(lesson.id) }
         earn(earned, lesson: true)
     }
@@ -603,8 +632,7 @@ struct CampusView: View {
     }
 }
 
-/// One learning area: its lessons in order. Done ones replay; the next one
-/// starts; later ones open one by one (shown quietly, no locks).
+/// One learning area: its lessons by level, all open. Done ones replay.
 struct LearningAreaView: View {
     let topic: CampusTopic
     let color: Color
@@ -613,56 +641,65 @@ struct LearningAreaView: View {
 
     private var learned: Set<String> { CampusProgress.learned(learnedRaw) }
 
+    private var byLevel: [(level: CampusLevel, lessons: [CampusLesson])] {
+        CampusLevel.allCases.compactMap { level in
+            let lessons = topic.lessons.filter { CampusLibrary.level(of: $0.id) == level }
+            return lessons.isEmpty ? nil : (level, lessons)
+        }
+    }
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 32) {
                 ScreenTitle(topic.title, subtitle: topic.subtitle)
-                VStack(spacing: 0) {
-                    ForEach(Array(topic.lessons.enumerated()), id: \.element.id) { index, lesson in
-                        let done = learned.contains(lesson.id)
-                        let open = index == 0 || learned.contains(topic.lessons[index - 1].id)
-                        Button { onPlay(lesson) } label: {
-                            HStack(spacing: 14) {
-                                ZStack {
-                                    Circle().fill(done ? color : (open ? AppTheme.accent : AppTheme.fill))
-                                    if done {
-                                        Image(systemName: "checkmark").font(.footnote.weight(.bold)).foregroundStyle(.white)
-                                    } else {
-                                        Text("\(index + 1)").font(.subheadline.weight(.bold))
-                                            .foregroundStyle(open ? AppTheme.onAccent : AppTheme.secondaryText)
-                                    }
-                                }
-                                .frame(width: 36, height: 36)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(lesson.title)
-                                        .font(.body.weight(.semibold))
-                                        .foregroundStyle(open || done ? AppTheme.ink : AppTheme.secondaryText)
-                                        .multilineTextAlignment(.leading)
-                                    Text(done ? "Done · replay any time" : (open ? "\(lesson.minutes) min · next up" : "\(lesson.minutes) min"))
-                                        .font(.footnote)
-                                        .foregroundStyle(AppTheme.secondaryText)
-                                }
-                                Spacer(minLength: 4)
-                                if open && !done {
-                                    Image(systemName: "play.fill").font(.footnote).foregroundStyle(AppTheme.ink)
-                                }
-                            }
-                            .frame(minHeight: 56)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(!open && !done)
-                        if index < topic.lessons.count - 1 {
-                            Divider().padding(.leading, 50)
-                        }
+                ForEach(byLevel, id: \.level) { group in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(group.level.title)
+                            .font(.headline)
+                            .foregroundStyle(AppTheme.ink)
+                        Text(group.level.subtitle)
+                            .font(.footnote)
+                            .foregroundStyle(AppTheme.secondaryText)
+                            .padding(.bottom, 6)
+                        ForEach(group.lessons, id: \.id) { lesson in row(lesson) }
                     }
                 }
-                .cardStyle(padding: 12)
+                Text(CampusLibrary.reviewNote)
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.mutedText)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 8)
         }
         .appScreen()
+    }
+
+    private func row(_ lesson: CampusLesson) -> some View {
+        let done = learned.contains(lesson.id)
+        return Button { onPlay(lesson) } label: {
+            HStack(spacing: 14) {
+                Circle()
+                    .fill(done ? color : AppTheme.fill)
+                    .frame(width: 10, height: 10)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(lesson.title)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AppTheme.ink)
+                        .multilineTextAlignment(.leading)
+                    Text(done ? "Done · replay any time" : "\(lesson.minutes) min")
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+                Spacer(minLength: 4)
+                Image(systemName: done ? "arrow.counterclockwise" : "play.fill")
+                    .font(.footnote)
+                    .foregroundStyle(done ? AppTheme.secondaryText : AppTheme.ink)
+            }
+            .frame(minHeight: 52)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 

@@ -123,7 +123,7 @@ public enum CampusReview {
     public static func questions(for lessonIDs: [String], today: Date = .now, calendar: Calendar = .current) -> [CampusQuestion] {
         let day = calendar.ordinality(of: .day, in: .era, for: today) ?? 0
         return lessonIDs.flatMap { id -> [CampusQuestion] in
-            let pool = campusQuestions[id] ?? []
+            let pool = campusQuestions[id] ?? campusQuestionsV6[id] ?? []
             guard !pool.isEmpty else { return [] }
             let first = pool[day % pool.count]
             let second = pool[(day + 1) % pool.count]

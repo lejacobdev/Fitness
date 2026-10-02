@@ -292,7 +292,11 @@ struct HomeView: View {
         // A lesson for today's situation first (a short night, a game…).
         let context = LessonPicker.Context(
             sleepHours: todaysCheckIn?.sleepHours, sleepQuality: todaysCheckIn?.sleepQuality, soreness: todaysCheckIn?.soreness,
-            energy: todaysCheckIn?.energy, daysToGame: daysToNextGame, pain: PainStore.report() != nil, examWeek: examWeek
+            energy: todaysCheckIn?.energy, daysToGame: daysToNextGame, pain: PainStore.report() != nil, examWeek: examWeek,
+            gameYesterday: LessonSignals.gameYesterday(athlete), hardDayYesterday: LessonSignals.hardDayYesterday(),
+            shortNights: LessonSignals.shortNights(athlete), lowConfidence: LessonSignals.lowConfidence(),
+            trainingToday: todaysWorkout?.session.decision?.primaryTargets.map(\.rawValue) ?? [],
+            inSeason: LessonSignals.inSeason(athlete), learned: learned
         )
         if let pick = LessonPicker.forToday(context), !(learnedToday && learned.contains(pick.id)),
            let found = LessonPicker.lesson(pick.id) { return found }

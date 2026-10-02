@@ -104,7 +104,8 @@ let campusExamples: [String: String] = [
     "balance": "Max, a 17-year-old wrestler, puts training, school and exams in one calendar. During finals week he and his coach planned lighter sessions, and he got through both.",
 ]
 
-public let campusTopics: [CampusTopic] = [
+/// V3 units; V6 regroups their lessons into categories (CampusLibrary.swift).
+let legacyCampusTopics: [CampusTopic] = [
     CampusTopic(
         id: "training-science", title: "Training & exercise science",
         subtitle: "Strength, speed, endurance, mobility, recovery — and how your body adapts.",

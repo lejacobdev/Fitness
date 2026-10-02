@@ -18,7 +18,7 @@ public enum CampusStep: Hashable, Sendable {
 }
 
 public extension CampusLesson {
-    var questions: [CampusQuestion] { campusQuestions[id] ?? [] }
+    var questions: [CampusQuestion] { campusQuestions[id] ?? campusQuestionsV6[id] ?? [] }
 
     static let meansForYouHeading = "What this means for you"
     static let exampleHeading = "Athlete example"
