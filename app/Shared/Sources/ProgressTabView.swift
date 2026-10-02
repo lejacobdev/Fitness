@@ -282,9 +282,8 @@ struct ProgressTabView: View {
                     .font(.system(size: 88, weight: .bold).monospacedDigit())
                     .foregroundStyle(AppTheme.ink)
                     .background(alignment: .leading) { HeroBloom(color: AppTheme.brand).offset(x: -40) }
-                Text(total == 1 ? "SESSION" : "SESSIONS")
-                    .font(.headline)
-                    .tracking(1.6)
+                Text(total == 1 ? "session" : "sessions")
+                    .font(.title3.weight(.semibold))
                     .foregroundStyle(AppTheme.secondaryText)
             }
             .accessibilityElement(children: .combine)
@@ -321,9 +320,8 @@ struct ProgressTabView: View {
             Text("\(value)")
                 .font(.system(size: 26, weight: .bold).monospacedDigit())
                 .foregroundStyle(value == 0 ? AppTheme.mutedText : AppTheme.ink)
-            Text(label.uppercased())
-                .font(.caption2.weight(.bold))
-                .tracking(1.2)
+            Text(label)
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
