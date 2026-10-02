@@ -329,9 +329,8 @@ struct MeView: View {
         let hasName = athlete.displayName?.isEmpty == false
         return VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .center) {
-                Text("ATHLETE PROFILE")
-                    .font(.caption.weight(.bold))
-                    .tracking(2.4)
+                Text("Athlete profile")
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.mutedText)
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
@@ -349,7 +348,7 @@ struct MeView: View {
             }
             VStack(alignment: .leading, spacing: 8) {
                 Button { activeSheet = .name } label: {
-                    Text((athlete.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? "Add your name").uppercased())
+                    Text(athlete.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? "Add your name")
                         .font(.system(size: hasName ? 48 : 30, weight: .bold))
                         .foregroundStyle(hasName ? AppTheme.ink : AppTheme.secondaryText)
                         .lineLimit(2)
@@ -359,19 +358,18 @@ struct MeView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint("Edit your first name")
-                Text([sportInfo?.name, positionName, "Age \(age)"].compactMap { $0 }.joined(separator: " · ").uppercased())
-                    .font(.footnote.weight(.semibold))
-                    .tracking(1.6)
+                Text([sportInfo?.name, positionName, "age \(age)"].compactMap { $0 }.joined(separator: " · "))
+                    .font(.subheadline)
                     .foregroundStyle(AppTheme.secondaryText)
-                Text(AthleteStats.phaseLabel(phase).uppercased())
-                    .font(.caption.weight(.bold))
-                    .tracking(1.8)
+                Text(AthleteStats.phaseLabel(phase))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.brightRed)
             }
             HStack(alignment: .bottom, spacing: 10) {
-                GlassMetric(value: "\(streak)", label: "Day streak", height: 92, accent: AppTheme.orange)
-                GlassMetric(value: "\(sessions.count)", label: "Sessions", height: 76)
-                GlassMetric(value: "\(totalMinutes / 60)", label: "Hours", height: 84)
+                // V6 §21: training first; the streak is there, quietly.
+                GlassMetric(value: "\(sessions.count)", label: "Sessions", height: 92)
+                GlassMetric(value: "\(totalMinutes / 60)", label: "Hours", height: 76)
+                GlassMetric(value: "\(streak)", label: "Day streak", height: 70)
             }
         }
         .padding(.top, 8)

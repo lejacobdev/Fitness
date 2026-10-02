@@ -264,9 +264,8 @@ struct ProgressTabView: View {
         let total = parts.reduce(0) { $0 + $1.value }
         return VStack(alignment: .leading, spacing: 18) {
             HStack {
-                Text("PROGRESS · THIS WEEK")
-                    .font(.caption.weight(.bold))
-                    .tracking(2.4)
+                Text("This week")
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.mutedText)
                     .accessibilityAddTraits(.isHeader)
                 Spacer()

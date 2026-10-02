@@ -147,6 +147,9 @@ private struct BuildState {
 
     /// Slugs already in the session (kept in step with `picks`; read for every item on every pick).
     var used: Set<String> = []
+    /// Sets added to a block when the session came out short (§7: more good
+    /// sets before more exercises).
+    var extraSets: [SessionBlock: Int] = [:]
 
     // MARK: Eligibility
 
@@ -444,6 +447,7 @@ private struct BuildState {
                 rest = rx.restSeconds
             }
         }
+        if let extra = extraSets[block] { dose.sets = min(dose.sets + extra, youth ? 3 : 4) }
         if youth, dose.kind == "reps" {
             dose.sets = min(max(dose.sets, 1), 3)
             if let reps = dose.reps { dose.reps = min(max(reps, block == .prep || block == .power ? 1 : 6), 15) }
@@ -499,6 +503,9 @@ private struct BuildState {
         func short(_ margin: Int) -> Bool { minutes(planned()) < target - margin }
         switch decision.sessionType {
         case .gymDevelopment:
+            // More good sets of the main work first, then more exercises.
+            if short(8) { extraSets[.primaryStrength] = 1 }
+            if short(8) { extraSets[.secondaryStrength] = 1 }
             if short(10), !decision.avoids(.highVolumeLowerBody), decision.legBudget >= 2,
                !picks.contains(where: { $0.block == .secondaryStrength && $0.item.planProfile.isLower }) {
                 pickGroup(.secondaryStrength, ["single-leg-knee", "single-leg-hip", "single-leg-lateral"], why: "One leg at a time — how you actually run, cut and land.")

@@ -410,9 +410,8 @@ struct ReflectionSheet: View {
             // Calm, not a trophy: rest days finish the same way.
             QuestionPage(progress: 1, question: "", buttonTitle: nil, onClose: { dismiss() }) {
                 VStack(spacing: 14) {
-                    Text("DAY COMPLETE")
-                        .font(.caption.weight(.bold))
-                        .tracking(1.4)
+                    Text("Day complete")
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(AppTheme.secondaryText)
                     Image(systemName: "checkmark")
                         .font(.system(size: 30, weight: .bold))

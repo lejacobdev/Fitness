@@ -251,12 +251,12 @@ struct WorkoutTabView: View {
     private var recommendedCard: some View {
         let rec = recommendation
         VStack(spacing: 16) {
-            Text("TODAY'S TRAINING")
-                .font(.caption.weight(.bold))
-                .tracking(2.4)
-                .foregroundStyle(AppTheme.mutedText)
+            Text("Today's training")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
                 .accessibilityAddTraits(.isHeader)
-            Text((rec.mode.map { $0 == .gymDay ? (gymSession?.session.title ?? $0.title) : $0.title } ?? "Rest today").uppercased())
+            Text(recommendedSession?.decision != nil ? (recommendedSession?.title ?? "Rest today")
+                 : (rec.mode.map { $0 == .gymDay ? (gymSession?.session.title ?? $0.title) : $0.title } ?? "Rest today"))
                 .font(.system(size: 40, weight: .bold))
                 .foregroundStyle(AppTheme.ink)
                 .multilineTextAlignment(.center)
@@ -268,14 +268,16 @@ struct WorkoutTabView: View {
                     Text("\(session.estimatedMinutes)")
                         .font(.system(size: 76, weight: .bold).monospacedDigit())
                         .foregroundStyle(AppTheme.ink)
-                    Text("MIN")
+                    Text("min")
                         .font(.title3.weight(.semibold))
-                        .tracking(1.5)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
                 .accessibilityElement(children: .combine)
                 HStack(alignment: .bottom, spacing: 10) {
-                    GlassMetric(value: "\(session.items.count)", label: "Exercises", height: 86)
+                    // V6 §7: the number of exercises isn't the point.
+                    if session.decision == nil {
+                        GlassMetric(value: "\(session.items.count)", label: "Exercises", height: 86)
+                    }
                     GlassMetric(value: band == nil ? "Normal" : "Lighter", label: "Load", height: 70,
                                 accent: band == nil ? nil : AppTheme.brand)
                 }
@@ -288,13 +290,12 @@ struct WorkoutTabView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if !focusTags.isEmpty {
-                Text(focusTags.map { $0.uppercased() }.joined(separator: " · "))
-                    .font(.footnote.weight(.semibold))
-                    .tracking(1.6)
+                Text(focusTags.joined(separator: " · "))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.secondaryText)
                     .multilineTextAlignment(.center)
             }
-            Text(reason)
+            Text(recommendedSession?.explanation?.summary ?? reason)
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.secondaryText)
                 .multilineTextAlignment(.center)
@@ -310,7 +311,7 @@ struct WorkoutTabView: View {
                 Button {
                     preview = PreviewBox(session: session, kind: kind(mode), slot: slot(for: mode, session: session))
                 } label: {
-                    Text("VIEW WORKOUT").tracking(1.4)
+                    Text("View workout")
                 }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.ink)

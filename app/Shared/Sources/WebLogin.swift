@@ -24,7 +24,7 @@ struct WebLoginApproveSheet: View {
                     ScreenTitle(title, subtitle: subtitle)
                     if let info, done == nil, info.status == "pending" {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("COMPUTER").font(.caption.weight(.bold)).tracking(1.4).foregroundStyle(AppTheme.secondaryText)
+                            Text("Computer").font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.secondaryText)
                             Text(info.device ?? "A web browser").font(.title2.bold()).foregroundStyle(AppTheme.ink)
                             Text("Only approve if you're at that computer right now. It stays signed in for 12 hours, or until you sign out there.")
                                 .font(.subheadline).foregroundStyle(AppTheme.secondaryText)
@@ -108,7 +108,7 @@ struct WebLoginApproveSheet: View {
 struct CoachDashboardCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("ON A COMPUTER").font(.caption.weight(.bold)).tracking(1.4).foregroundStyle(AppTheme.secondaryText)
+            Text("On a computer").font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.secondaryText)
             Text("The coach dashboard").font(.title3.bold()).foregroundStyle(AppTheme.ink)
             Text("Open \(CoachDashboard.shortURL) and scan the code with your iPhone camera. No password.")
                 .font(.subheadline).foregroundStyle(AppTheme.secondaryText)

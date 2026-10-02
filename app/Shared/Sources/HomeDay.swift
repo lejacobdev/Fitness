@@ -162,7 +162,7 @@ struct HeroCTALabel: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text(title.uppercased()).tracking(1.6)
+            Text(title)
             Image(systemName: "arrow.right").font(.subheadline.weight(.bold))
         }
         .accessibilityElement(children: .ignore)
@@ -186,9 +186,8 @@ struct GlassMetric: View {
                 .foregroundStyle(AppTheme.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
-            Text(label.uppercased())
-                .font(.caption2.weight(.bold))
-                .tracking(1.4)
+            Text(label)
+                .font(.caption.weight(.medium))
                 .foregroundStyle(accent ?? AppTheme.mutedText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -457,10 +456,9 @@ struct HomeEyebrow: View {
     init(_ text: String) { self.text = text }
 
     var body: some View {
-        Text(text.uppercased())
-            .font(.caption.weight(.bold))
-            .tracking(2.2)
-            .foregroundStyle(AppTheme.mutedText)
+        Text(text)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(AppTheme.secondaryText)
             .accessibilityAddTraits(.isHeader)
     }
 }

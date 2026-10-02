@@ -466,7 +466,7 @@ public enum SessionPlanner {
             switch day.phase {
             case .offSeason: minutes += 10
             case .preSeason: minutes += 5
-            case .inSeason: minutes -= 10
+            case .inSeason: minutes -= 15
             case .postSeason: minutes -= 15
             }
             if day.age < 15 { minutes -= 5 }

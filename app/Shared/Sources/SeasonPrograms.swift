@@ -83,7 +83,7 @@ struct ProgramsView: View {
 
     private func running(_ program: TrainingProgram, week: Int) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("WEEK \(week) OF \(program.weeks)").font(.caption.weight(.bold)).tracking(1.2).foregroundStyle(AppTheme.secondaryText)
+            Text("Week \(week) of \(program.weeks)").font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.secondaryText)
             Text(program.goal.title).font(.system(size: 30, weight: .bold)).foregroundStyle(AppTheme.ink)
             ProgressView(value: Double(week), total: Double(program.weeks)).tint(AppTheme.brand)
             Text("\(program.gymDaysPerWeek) gym days a week lean towards \(program.goal.title.lowercased()). Practice and games still come first.")

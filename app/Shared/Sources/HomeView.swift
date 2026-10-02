@@ -757,19 +757,6 @@ struct HomeView: View {
         }
     }
 
-    private var streakBadge: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "flame.fill").foregroundStyle(AppTheme.orange)
-            Text("\(streak)").foregroundStyle(AppTheme.ink).contentTransition(.numericText())
-        }
-        .font(.subheadline.weight(.semibold))
-        .padding(.horizontal, 12)
-        .frame(height: 36)
-        .glassCapsule()
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(streak) day streak")
-    }
-
     /// Search everything: fills the space between the day and the "+".
     private var searchButton: some View {
         Button { activeSheet = .search } label: {
@@ -844,10 +831,10 @@ struct HomeView: View {
         guard let sport = athlete.activeSport else { return nil }
         let phase = PhaseCalculator.phase(today: clock, seasonStart: sport.seasonStart, seasonEnd: sport.seasonEnd)
         switch phase {
-        case .offSeason: return "OFF-SEASON"
-        case .preSeason: return "PRE-SEASON"
-        case .inSeason: return "IN SEASON"
-        case .postSeason: return "POST-SEASON"
+        case .offSeason: return "Off-season"
+        case .preSeason: return "Pre-season"
+        case .inSeason: return "In season"
+        case .postSeason: return "Post-season"
         }
     }
 
@@ -860,14 +847,13 @@ struct HomeView: View {
                     Image(systemName: phase.systemImage)
                         .foregroundStyle(phase.red)
                         .symbolRenderingMode(.hierarchical)
-                    Text(phase.greeting.uppercased())
-                        .tracking(2.4)
+                    Text(phase.greeting)
                         .foregroundStyle(AppTheme.secondaryText)
                 }
                 .font(.footnote.weight(.semibold))
-                Text(firstName?.uppercased() ?? clock.formatted(.dateTime.weekday(.wide)).uppercased())
-                    .font(.system(size: 54, weight: .bold))
-                    .tracking(-0.5)
+                Text(firstName ?? clock.formatted(.dateTime.weekday(.wide)))
+                    .font(.system(size: 46, weight: .bold))
+                    .tracking(-1)
                     .foregroundStyle(AppTheme.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
@@ -876,15 +862,14 @@ struct HomeView: View {
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.mutedText)
             }
-            HStack(spacing: 8) {
+            // Streaks live on Progress and Me now (V6 §21: secondary).
+            HStack(spacing: 10) {
                 SportSwitcher(athlete: athlete, onChanged: onPlanInputsChanged)
-                streakBadge
-            }
-            if let seasonLine {
-                Text(seasonLine)
-                    .font(.caption.weight(.bold))
-                    .tracking(2)
-                    .foregroundStyle(phase.red.opacity(0.9))
+                if let seasonLine {
+                    Text(seasonLine)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(phase.red.opacity(0.9))
+                }
             }
             let quote = DailyQuotes.short(for: phase, date: clock)
             VStack(spacing: 4) {
@@ -893,9 +878,8 @@ struct HomeView: View {
                     .foregroundStyle(AppTheme.secondaryText)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(quote.author.uppercased())
-                    .font(.caption2.weight(.semibold))
-                    .tracking(1.5)
+                Text(quote.author)
+                    .font(.caption)
                     .foregroundStyle(AppTheme.mutedText)
             }
             .padding(.top, 8)
@@ -1181,7 +1165,7 @@ struct HomeView: View {
                 heroTitle(gameTitle(game))
                 bigNumber(game.date.formatted(.dateTime.hour(.defaultDigits(amPM: .omitted)).minute()),
                           unit: game.date.formatted(.dateTime.hour(.defaultDigits(amPM: .abbreviated))).filter(\.isLetter).uppercased())
-                heroMeta(game.isHome ? "HOME" : "AWAY")
+                heroMeta(game.isHome ? "Home" : "Away")
                 Button { activeSheet = .fuel } label: { HeroCTALabel("What to eat before") }
                     .buttonStyle(.primary)
                     .padding(.top, 6)
@@ -1189,7 +1173,7 @@ struct HomeView: View {
             } else if status == .sick {
                 HomeEyebrow("Today")
                 heroTitle("Rest and recover")
-                heroMeta("NO TRAINING · DRINK · EAT · SLEEP")
+                heroMeta("No training today. Drink, eat, sleep.")
             } else if let workout = todaysWorkout {
                 let session = workout.session
                 HomeEyebrow(workoutDoneToday ? "Today's training" : (phase == .day ? "Next session" : "Today's session"))
@@ -1235,7 +1219,7 @@ struct HomeView: View {
                     bigNumber(start.formatted(.dateTime.hour(.defaultDigits(amPM: .omitted)).minute()),
                               unit: start.formatted(.dateTime.hour(.defaultDigits(amPM: .abbreviated))).filter(\.isLetter).uppercased())
                 } else {
-                    heroMeta("YOUR SPORT'S TRAINING")
+                    heroMeta("Your sport's training")
                 }
             } else {
                 HomeEyebrow("Today")
@@ -1255,9 +1239,9 @@ struct HomeView: View {
     }
 
     private func heroTitle(_ text: String) -> some View {
-        Text(text.uppercased())
-            .font(.system(size: 44, weight: .bold))
-            .tracking(-0.3)
+        Text(text)
+            .font(.system(size: 42, weight: .bold))
+            .tracking(-0.6)
             .foregroundStyle(AppTheme.ink)
             .multilineTextAlignment(.center)
             .lineLimit(2)
@@ -1285,8 +1269,7 @@ struct HomeView: View {
 
     private func heroMeta(_ text: String) -> some View {
         Text(text)
-            .font(.footnote.weight(.semibold))
-            .tracking(2)
+            .font(.subheadline)
             .foregroundStyle(AppTheme.secondaryText)
             .multilineTextAlignment(.center)
     }
@@ -1299,8 +1282,8 @@ struct HomeView: View {
 
     private func qualityLine(_ session: GeneratedSession) -> String? {
         if let decision = session.decision {
-            let names = decision.primaryTargets.map { $0.title.uppercased() }
-            return names.isEmpty ? nil : names.prefix(3).joined(separator: " · ")
+            let line = decision.primaryTargets.prefix(3).map(\.title).joined(separator: " · ")
+            return line.isEmpty ? nil : line.prefix(1).uppercased() + line.dropFirst()
         }
         var seen: Set<String> = []
         let names = session.focusQualities.compactMap { qualitiesBySlug[$0]?.shortName }.filter { seen.insert($0).inserted }
@@ -1470,7 +1453,7 @@ struct HomeView: View {
     private var dayCompleteView: some View {
         VStack(spacing: 44) {
             VStack(spacing: 14) {
-                Text("DAY COMPLETE")
+                Text("Day complete")
                     .font(.system(size: 44, weight: .bold))
                     .foregroundStyle(AppTheme.ink)
                     .minimumScaleFactor(0.7)
@@ -1527,7 +1510,7 @@ struct HomeView: View {
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(AppTheme.ink)
                 if let bedtime = bedtimeTonight {
-                    Text("BED BY \(Bedtime.label(bedtime.minutes))".uppercased())
+                    Text("Bed by \(Bedtime.label(bedtime.minutes))")
                         .font(.caption.weight(.bold))
                         .tracking(1.8)
                         .foregroundStyle(AppTheme.secondaryText)
@@ -2244,7 +2227,7 @@ struct AnnouncementCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("FROM YOUR COACH\(announcement.teamName.map { " · \($0.uppercased())" } ?? "")")
+                Text("From your coach\(announcement.teamName.map { " · \($0)" } ?? "")")
                     .font(.caption.weight(.bold))
                     .tracking(1.2)
                     .foregroundStyle(AppTheme.secondaryText)

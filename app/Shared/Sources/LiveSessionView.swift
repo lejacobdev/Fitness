@@ -226,23 +226,21 @@ public struct LiveSessionView: View {
                 .font(.system(size: 32, weight: .bold))
                 .foregroundStyle(AppTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(DoseFormatter.text(current.dose).uppercased())
+            Text(DoseFormatter.text(current.dose))
                 .font(.title3.weight(.bold).monospacedDigit())
-                .tracking(1.2)
                 .foregroundStyle(AppTheme.ink)
             HStack(spacing: 18) {
-                Text(done >= current.dose.sets ? "ALL SETS DONE" : "SET \(min(done + 1, current.dose.sets)) OF \(current.dose.sets)")
+                Text(done >= current.dose.sets ? "All sets done" : "Set \(min(done + 1, current.dose.sets)) of \(current.dose.sets)")
                     .foregroundStyle(done >= current.dose.sets ? AppTheme.green : AppTheme.ink)
                 if current.restSec > 0 {
-                    Text("REST \(current.restSec)S")
+                    Text("Rest \(current.restSec) s")
                 }
                 if let why = whyLine {
-                    Text("WHY · \(why.uppercased())")
+                    Text("Why: \(why)")
                         .lineLimit(1)
                 }
             }
-            .font(.caption.weight(.bold).monospacedDigit())
-            .tracking(1.4)
+            .font(.subheadline.weight(.semibold).monospacedDigit())
             .foregroundStyle(AppTheme.secondaryText)
             if let bestNote {
                 Label(bestNote, systemImage: "trophy.fill")

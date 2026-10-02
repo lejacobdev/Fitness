@@ -45,7 +45,7 @@ struct PartnerStrip: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("TRAINING TOGETHER · \(code)").font(.caption.weight(.bold)).tracking(1.2).foregroundStyle(AppTheme.secondaryText)
+            Text("Training together · \(code)").font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.secondaryText)
             ForEach(people.filter { !$0.isMe }, id: \.nickname) { person in
                 HStack(spacing: 10) {
                     Text(person.nickname).font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.ink)

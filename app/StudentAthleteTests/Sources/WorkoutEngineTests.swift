@@ -91,6 +91,14 @@ final class WorkoutEngineTests: XCTestCase {
         XCTAssertLessThanOrEqual(mainWork(session).count, 10)
     }
 
+    // §6: an in-season development day is a real session too, filled with sets before exercises.
+    func testAnInSeasonDevelopmentDayFillsItsTime() {
+        let (decision, session) = build(day("soccer", position: "midfielder", phase: .inSeason, nextGame: 3), sport: "soccer", position: "midfielder")
+        XCTAssertEqual(decision.sessionType, .gymDevelopment)
+        XCTAssertGreaterThanOrEqual(session.estimatedMinutes, decision.durationTarget - 10, "\(session.estimatedMinutes) of \(decision.durationTarget)")
+        XCTAssertLessThanOrEqual(mainWork(session).count, 10)
+    }
+
     // §5: cardio is programmed from what the sport already gives.
     func testCrossCountryGetsNoExtraRunning() {
         let recent = RecentLoad(days: (1...5).map { DayLoad(daysAgo: $0, practice: .normal) })
