@@ -27,8 +27,13 @@ The repo is public: no secrets, key IDs or server internals go in this file.
 - Plans only ever contain general exercises + drills of the athlete's **own** sport.
   Position drills (goalkeeper etc.) only for that position, at least one per session.
   Filter with `CatalogueItem.fits(sport:position:)`.
-- Five sections: Home, Campus (learning, 10 topics), Workout (after practice / gym day /
-  stretching & mobility / travel), Progress, Me.
+- **Version 6 (owner's brief, `docs/VERSION-6.md`) leads everything**: three pillars —
+  Workout (build the athlete), Campus (teach), Reflection (understand and adapt) — in the
+  loop prepare → perform → reflect → adapt. Priority: workout quality, schedule
+  adaptation, reflection, Campus, progress, gamification last. Copy sounds like a calm
+  performance coach (no "unlock your potential"); never guilt about streaks or rest.
+- Five sections: Home, Campus (9 categories × 5 levels, ~100 lessons; `CampusLibrary.swift`),
+  Workout, Progress, Me.
 - Under-18 safety: no calorie counting as primary UI, readiness never a score, pain =
   "stop and get checked", never a diagnosis.
 - Pricing: Pro Monthly $2.99 with an intro offer $0.99/mo for 3 months, Pro Yearly
@@ -42,8 +47,10 @@ The repo is public: no secrets, key IDs or server internals go in this file.
   #EF4444 / #FF5A5F / crimson #C81E2A is **light** — glows, edges, the selected tab — never
   a flat fill. Three layers: atmosphere, frosted glass (`glassSurface`, `glassCapsule`), type.
 - Sport atmosphere = abstract geometry at 2–8% opacity (`SportAtmosphere`), never photos.
-- Big type and numbers (hero 44–88pt), tracked uppercase eyebrows, few icons, section
-  spacing 48–72. Primary button = glass lit red (`.primary`, `HeroCTALabel("…")` →);
+- V6 component levels: one **hero** per screen (big type, open), **information panels**
+  (glass) for important data, flat **utility rows** for the rest — not every block in a
+  card. Sentence case, not all-caps (eyebrows, buttons, labels). Big numbers, few icons,
+  section spacing 48–72. Primary button = glass lit red (`.primary`, `HeroCTALabel("…")` →);
   secondary = outlined. Data on glass: `GlassMetric` (asymmetric heights).
 - Activity colours: gym red, practice orange, after-practice yellow, mobility cyan, game
   green; a day with several splits the dot (`PieDot`). Campus categories have their own
@@ -55,6 +62,18 @@ The repo is public: no secrets, key IDs or server internals go in this file.
   the benefit with one Upgrade button (`.proFeature(...)`). Insights neutral.
 - Wording: Development Goals, Today's Focus, Recommended Training, Practice Log,
   Training History, Quick Log / Detailed Log.
+
+## Workout engine (V6)
+- `WorkoutEngine.swift` (TrainingDay → `SessionPlanner.decide` → `SessionDecision`: type,
+  duration, targets, what to avoid, reason codes), `SportDemands.swift` (what practice
+  already gives, per sport/position), `ConditioningEngine.swift`, `SessionBuilder.swift`
+  (blocks by movement pattern and role from `ExerciseProfile`), `PlanExplanation.swift`
+  ("Why this plan?"). App side: `TodayEngine.swift` builds the TrainingDay from real data
+  and caches sessions; Home, Workout, week plan, Watch and widgets all use it.
+- Exercise profiles are authored in `content/src/profiles.js` (hand table for every base
+  exercise) and shipped in the packs.
+- Foundation-only files (engine, reflection insights, Campus content) can be compiled and
+  tested locally: `tools/engine-harness.sh` (Docker `swift:6.0`). Everything else: CI.
 
 ## Working rules
 - Every milestone ships with real, reachable UI — no headless engine code, no
@@ -68,7 +87,8 @@ The repo is public: no secrets, key IDs or server internals go in this file.
   carry on without waiting.
 - "UPLOAD SUCCEEDED" ≠ in TestFlight. Apple can process for an hour; check with
   `asc-inspect.yml` ("Recent uploads": PROCESSING / COMPLETE / FAILED) before diagnosing.
-- There is no local Swift toolchain; CI is the only compiler (~8 min per round). So:
+- CI is the only compiler for the app (~8 min per round), except the Foundation-only
+  files `tools/engine-harness.sh` covers. So:
   - grep the real `Generated/*.swift` for exact names before using them;
   - pick the conservative pattern when unsure of Swift/SwiftData/concurrency behaviour;
   - any XCTestCase touching a `@MainActor` type must itself be `@MainActor` — grep every
