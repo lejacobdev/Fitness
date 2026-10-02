@@ -257,13 +257,14 @@ public extension DailyQuotes {
 /// mobility and the reflection. A rest day completes without a workout.
 public struct DayProgress: Equatable, Sendable {
     public enum Part: String, Sendable, CaseIterable, Identifiable {
-        case practice, workout, mobility, reflection
+        case practice, workout, rest, mobility, reflection
         public var id: String { rawValue }
 
         public var title: String {
             switch self {
             case .practice: "Practice"
             case .workout: "Workout"
+            case .rest: "Rest"
             case .mobility: "Mobility"
             case .reflection: "Reflection"
             }
@@ -273,6 +274,7 @@ public struct DayProgress: Equatable, Sendable {
             switch self {
             case .practice: AppTheme.orange
             case .workout: AppTheme.red
+            case .rest: AppTheme.ink.opacity(0.7)
             case .mobility: AppTheme.cyan
             case .reflection: AppTheme.purple
             }
@@ -287,11 +289,14 @@ public struct DayProgress: Equatable, Sendable {
 
     public let items: [Item]
 
+    /// `restDay`: the plan says rest — resting is correct execution, so it
+    /// counts as done (§1, §21).
     public init(practiceToday: Bool, practiceLogged: Bool, workoutPlanned: Bool, workoutDone: Bool,
-                mobilityDone: Bool, reflected: Bool) {
+                mobilityDone: Bool, reflected: Bool, restDay: Bool = false) {
         var items: [Item] = []
         if practiceToday || practiceLogged { items.append(Item(part: .practice, done: practiceLogged)) }
         if workoutPlanned || workoutDone { items.append(Item(part: .workout, done: workoutDone)) }
+        else if restDay { items.append(Item(part: .rest, done: true)) }
         items.append(Item(part: .mobility, done: mobilityDone))
         items.append(Item(part: .reflection, done: reflected))
         self.items = items
@@ -301,35 +306,67 @@ public struct DayProgress: Equatable, Sendable {
     public var isComplete: Bool { items.allSatisfy(\.done) }
 }
 
-/// The day's parts as one ring: a segment each, filled when done.
-struct DayCompletionRing: View {
+/// The day's parts as a horizontal track (docs/VERSION-6.md §1): thin
+/// segments, done ones softly lit in their colour, the next one with a red
+/// glow, later ones muted. Not a ring, not a game.
+struct DailyPerformanceTrack: View {
     let progress: DayProgress
-    var size: CGFloat = 132
-    var lineWidth: CGFloat = 10
+    /// Evening: the reflection is "Now" rather than "Tonight".
+    var evening: Bool = false
+    var onTap: (DayProgress.Part) -> Void = { _ in }
+
+    private var nextIndex: Int? { progress.items.firstIndex { !$0.done } }
 
     var body: some View {
-        let count = max(progress.items.count, 1)
-        let gap = 0.018
-        ZStack {
-            ForEach(Array(progress.items.enumerated()), id: \.element.id) { index, item in
-                let start = Double(index) / Double(count) + gap / 2
-                let end = Double(index + 1) / Double(count) - gap / 2
-                Circle()
-                    .trim(from: start, to: end)
-                    .stroke(item.done ? item.part.color : AppTheme.fill, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-            }
-            VStack(spacing: 0) {
-                Text("\(progress.doneCount)/\(progress.items.count)")
-                    .font(.system(size: size * 0.24, weight: .bold, design: .rounded))
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Today")
+                    .font(.headline)
                     .foregroundStyle(AppTheme.ink)
-                    .monospacedDigit()
+                Spacer()
+                Text(String(format: "%02d / %02d", progress.doneCount, progress.items.count))
+                    .font(.subheadline.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(AppTheme.ink)
+                + Text(progress.isComplete ? "  complete" : "")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+            HStack(alignment: .top, spacing: 10) {
+                ForEach(Array(progress.items.enumerated()), id: \.element.id) { index, item in
+                    Button { onTap(item.part) } label: { column(item, index: index) }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(item.part.title), \(state(item, index: index))")
+                }
             }
         }
-        .frame(width: size, height: size)
         .animation(.easeInOut(duration: 0.5), value: progress)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(progress.doneCount) of \(progress.items.count) done today")
+    }
+
+    private func column(_ item: DayProgress.Item, index: Int) -> some View {
+        let isNext = index == nextIndex
+        let tint: Color = item.done ? item.part.color : isNext ? AppTheme.brand : AppTheme.fill
+        return VStack(alignment: .leading, spacing: 8) {
+            Capsule()
+                .fill(tint.opacity(item.done ? 0.9 : 1))
+                .frame(height: 3)
+                .shadow(color: item.done ? item.part.color.opacity(0.55) : isNext ? AppTheme.brand.opacity(0.8) : .clear, radius: 6)
+            Text(item.part.title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(item.done || isNext ? AppTheme.ink : AppTheme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(state(item, index: index))
+                .font(.caption)
+                .foregroundStyle(isNext ? AppTheme.brightRed : AppTheme.mutedText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+
+    private func state(_ item: DayProgress.Item, index: Int) -> String {
+        if item.done { return item.part == .rest ? "On plan" : "Done" }
+        if index == nextIndex { return item.part == .reflection && !evening ? "Tonight" : "Next" }
+        return item.part == .reflection ? (evening ? "Now" : "Tonight") : "Later"
     }
 }
 

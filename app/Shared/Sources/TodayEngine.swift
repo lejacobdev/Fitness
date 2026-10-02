@@ -118,7 +118,7 @@ enum TodayEngine {
             if let checkIn = AthleteStats.todaysCheckIn(athlete) { soreLegs = checkIn.soreness >= 5 }
             pain = TodaysPain.areas(now: date)
             if let yesterday = calendar.date(byAdding: .day, value: -1, to: day), let last = MindsetStore.reflection(on: yesterday, calendar: calendar) {
-                reflection = ReflectionSignal(dayFelt: last.hardness, bodyFelt: last.body.map { $0 >= 4 ? 3 : $0 })
+                reflection = ReflectionSignal(dayFelt: last.hardness, bodyFelt: last.body)
             }
         }
         // Days in a row with practice, a game or a workout, up to yesterday.

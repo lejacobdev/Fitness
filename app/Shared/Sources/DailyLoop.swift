@@ -274,7 +274,7 @@ public struct MorningAnswers: Sendable, Equatable {
 public struct EveningSignal: Sendable, Equatable {
     /// 1 easy … 4 very hard.
     public var hardness: Int?
-    /// 1 fresh … 4 very sore / beaten up.
+    /// 1 good, 2 tired, 3 very tired, 4 something hurt.
     public var body: Int?
 
     public init(hardness: Int?, body: Int?) {
@@ -326,7 +326,7 @@ public enum DailyLoop {
                 candidates.append((level, "Below your usual for this time of the season, so today is lighter."))
             }
         }
-        if let yesterday, (yesterday.hardness ?? 0) >= 4 || (yesterday.body ?? 0) >= 4 {
+        if let yesterday, (yesterday.hardness ?? 0) >= 4 || (yesterday.body ?? 0) >= 3 {
             candidates.append((.reduced, "Yesterday was very hard, so today is a bit lighter."))
         }
         guard !candidates.isEmpty else { return nil }

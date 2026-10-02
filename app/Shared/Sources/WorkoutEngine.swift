@@ -174,7 +174,7 @@ public struct RecentLoad: Sendable, Equatable, Codable {
 public struct ReflectionSignal: Sendable, Equatable, Codable {
     /// 1 easy … 4 very hard.
     public var dayFelt: Int?
-    /// 1 good … 3 very tired; 4 something hurt.
+    /// 1 good, 2 tired, 3 very tired, 4 something hurt (EveningOptions.body).
     public var bodyFelt: Int?
 
     public init(dayFelt: Int? = nil, bodyFelt: Int? = nil) {
@@ -279,6 +279,9 @@ public enum SessionPlanner {
     /// The main session for today. `requested` asks for a specific kind (the
     /// athlete opened "Mobility"), which still respects every safety rule.
     public static func decide(_ day: TrainingDay, requested: SessionType? = nil) -> SessionDecision {
+        // Last night felt very hard: today counts as below normal (§18–19).
+        var day = day
+        if day.reflection?.veryHard == true, day.readiness > .belowNormal { day.readiness = .belowNormal }
         var reasons: [PlanReason] = []
         var avoid: Set<AvoidToday> = []
         func add(_ reason: PlanReason) { if !reasons.contains(reason) { reasons.append(reason) } }

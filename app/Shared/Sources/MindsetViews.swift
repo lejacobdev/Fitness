@@ -275,7 +275,12 @@ struct MindsetView: View {
 /// Tomorrow's plan reads it (ADAPT).
 struct ReflectionSheet: View {
     let practiceToday: Bool
+    /// A day without training, practice or a game: no "how hard" question.
+    let restDay: Bool
     let onSaved: () -> Void
+    @State private var insight: String?
+    @State private var wentWellNote = ""
+    @State private var improveNote = ""
     /// The rest of today, for the "Today completed" ticks (nil: not shown).
     @State private var completion: DayCompletion?
 
@@ -308,9 +313,10 @@ struct ReflectionSheet: View {
     /// Pain or new symptoms during or after today's activity (none / yes / not sure).
     @State private var symptoms: IllnessAnswer?
 
-    init(completion: DayCompletion? = nil, practiceToday: Bool = false, onSaved: @escaping () -> Void) {
+    init(completion: DayCompletion? = nil, practiceToday: Bool = false, restDay: Bool = false, onSaved: @escaping () -> Void) {
         _completion = State(initialValue: completion)
         self.practiceToday = practiceToday
+        self.restDay = restDay
         self.onSaved = onSaved
         let existing = MindsetStore.reflection(on: .now)
         _hardness = State(initialValue: existing?.hardness)
@@ -319,10 +325,13 @@ struct ReflectionSheet: View {
         _wentWell = State(initialValue: Set(existing?.wentWell ?? []))
         _needsWork = State(initialValue: Set(existing?.needsWork ?? []))
         _learned = State(initialValue: existing?.learned ?? "")
+        if restDay { _step = State(initialValue: .body) }
     }
 
+    /// 3–5 short questions, depending on the day (V6 §18). "Something hurt"
+    /// opens the follow-up about symptoms.
     private var steps: [Step] {
-        [.hardness, .body, .symptoms] + (practiceToday ? [.practice] : []) + [.wentWell, .needsWork, .learned]
+        (restDay ? [] : [.hardness]) + [.body] + (bodyFeel == 4 ? [.symptoms] : []) + (practiceToday ? [.practice] : []) + [.wentWell, .needsWork]
     }
 
     private var progress: Double {
@@ -344,7 +353,7 @@ struct ReflectionSheet: View {
         switch step {
         case .hardness:
             VStack(spacing: 0) {
-                scale("How hard was today?", EveningOptions.hardness, selection: $hardness)
+                scale("How hard did today feel?", EveningOptions.hardness, selection: $hardness)
                 // Reflection is never forced (Backend Knowledge System §20).
                 Button("Nothing to review today") { saveNothing() }
                     .font(.subheadline.weight(.semibold))
@@ -369,13 +378,23 @@ struct ReflectionSheet: View {
                 }
             }
         case .body:
-            scale("How did your body feel?", EveningOptions.body, selection: $bodyFeel)
+            VStack(spacing: 0) {
+                scale("How did your body feel?", EveningOptions.body, selection: $bodyFeel)
+                if restDay {
+                    Button("Nothing to review today") { saveNothing() }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .padding(.bottom, 8)
+                        .background(AppTheme.background)
+                }
+            }
         case .practice:
-            scale("How did practice or the game go?", EveningOptions.practice, selection: $practice)
+            scale("How did practice go?", EveningOptions.practice, selection: $practice)
         case .wentWell:
-            areas("What went well?", selection: $wentWell)
+            areas("What went well?", selection: $wentWell, note: $wentWellNote, placeholder: "In your words (optional)")
         case .needsWork:
-            areas("What needs work?", selection: $needsWork)
+            areas("What should improve next time?", selection: $needsWork, note: $improveNote, placeholder: "One small thing to try (optional)")
         case .learned:
             QuestionPage(progress: progress, question: "What did you learn today?", hint: "Optional. One line is plenty.",
                          buttonTitle: "Save", onClose: { dismiss() }, onBack: { back() }, onButton: { save() }) {
@@ -400,14 +419,24 @@ struct ReflectionSheet: View {
                         .foregroundStyle(AppTheme.brand)
                         .frame(width: 72, height: 72)
                         .background(Circle().stroke(AppTheme.brand.opacity(0.5), lineWidth: 2))
-                    Text("Nice work today.")
+                    Text(restDay ? "Rest day done." : "Day done.")
                         .font(.title2.weight(.bold))
                         .foregroundStyle(AppTheme.ink)
-                    Text("Your answers help tomorrow's plan adapt to you.")
+                    Text("Your answers shape tomorrow's plan.")
                         .font(.body)
                         .foregroundStyle(AppTheme.secondaryText)
                         .multilineTextAlignment(.center)
-                    if bodyFeel == 4 {
+                    if let insight {
+                        Text(insight)
+                            .font(.body)
+                            .foregroundStyle(AppTheme.ink)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(18)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .glassSurface()
+                            .padding(.top, 10)
+                    } else if bodyFeel == 4 {
                         Text("Something hurt? Tell a coach or parent, and add it in tomorrow's check-in.")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(AppTheme.coral)
@@ -449,7 +478,7 @@ struct ReflectionSheet: View {
 
     private func finishReview(_ review: (lessonID: String, question: CampusQuestion), right: Bool) {
         CampusReview.record(reviewed: [review.lessonID], wrong: right ? [] : [review.lessonID])
-        if completion == nil {
+        if completion == nil && insight == nil {
             dismiss()
         } else {
             withAnimation(.easeInOut(duration: 0.25)) {
@@ -482,14 +511,23 @@ struct ReflectionSheet: View {
         }
     }
 
-    private func areas(_ question: String, selection: Binding<Set<String>>) -> some View {
+    private func areas(_ question: String, selection: Binding<Set<String>>, note: Binding<String>, placeholder: String) -> some View {
         let current = step
+        let last = current == steps.last
+        let empty = selection.wrappedValue.isEmpty && note.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty
         return QuestionPage(progress: progress, question: question, hint: "Tap any that fit.",
-                            buttonTitle: selection.wrappedValue.isEmpty ? "Skip" : "Next",
+                            buttonTitle: last ? "Save" : (empty ? "Skip" : "Next"),
                             onClose: { dismiss() }, onBack: { back() }, onButton: { next(from: current) }) {
-            ChoiceGrid(EveningOptions.areas, title: { (area: String) -> String in area },
-                       isSelected: { (area: String) -> Bool in selection.wrappedValue.contains(area) }) { (area: String) in
-                if selection.wrappedValue.contains(area) { selection.wrappedValue.remove(area) } else { selection.wrappedValue.insert(area) }
+            VStack(alignment: .leading, spacing: 14) {
+                ChoiceGrid(EveningOptions.areas, title: { (area: String) -> String in area },
+                           isSelected: { (area: String) -> Bool in selection.wrappedValue.contains(area) }) { (area: String) in
+                    if selection.wrappedValue.contains(area) { selection.wrappedValue.remove(area) } else { selection.wrappedValue.insert(area) }
+                }
+                TextField(placeholder, text: note, axis: .vertical)
+                    .lineLimit(1...3)
+                    .font(.body)
+                    .padding(14)
+                    .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
             }
         }
     }
@@ -522,15 +560,26 @@ struct ReflectionSheet: View {
             HealthShare.send(kind: "pain", areas: [.other], level: .some)
         }
         let order = EveningOptions.areas
+        let wellNote = wentWellNote.trimmingCharacters(in: .whitespacesAndNewlines)
+        let improve = improveNote.trimmingCharacters(in: .whitespacesAndNewlines)
         MindsetStore.saveEvening(
-            hardness: hardness, body: bodyFeel, practice: practiceToday ? practice : nil,
-            wentWell: order.filter { wentWell.contains($0) }, needsWork: order.filter { needsWork.contains($0) },
-            learned: learned
+            hardness: restDay ? nil : hardness, body: bodyFeel, practice: practiceToday ? practice : nil,
+            wentWell: order.filter { wentWell.contains($0) } + (wellNote.isEmpty ? [] : [wellNote]),
+            needsWork: order.filter { needsWork.contains($0) } + (improve.isEmpty ? [] : [improve]),
+            learned: learned.isEmpty ? nil : learned
         )
+        // Sometimes one small thing back (V6 §19), never the same one twice in a row.
+        if let saved = MindsetStore.reflection(on: .now) {
+            let last = UserDefaults.standard.string(forKey: "reflection.lastInsight")
+            if let found = ReflectionInsight.make(today: saved, recent: MindsetStore.reflections, practiceToday: practiceToday, lastShown: last) {
+                insight = found.text
+                UserDefaults.standard.set(found.key, forKey: "reflection.lastInsight")
+            }
+        }
         onSaved()
         if review != nil {
             withAnimation(.easeInOut(duration: 0.25)) { step = .review }
-        } else if completion == nil {
+        } else if completion == nil && insight == nil {
             dismiss()
         } else {
             withAnimation(.easeInOut(duration: 0.25)) {

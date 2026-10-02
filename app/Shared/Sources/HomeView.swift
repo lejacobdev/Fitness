@@ -279,6 +279,8 @@ struct HomeView: View {
 
     private var whyThisPlan: String {
         if let explanation = planning.explanation, planning.decision > .modifyOptionalWork { return explanation }
+        // V6: the engine's own reason for today's session.
+        if let summary = todaysWorkout?.session.explanation?.summary { return summary }
         return DailyLoop.whyThisPlan(status: status, mode: todaysWorkout?.mode, practiceToday: practiceToday, gameToday: gameToday != nil,
                               daysToNextGame: daysToNextGame, readiness: readinessOverridden ? nil : readiness)
     }
@@ -469,7 +471,8 @@ struct HomeView: View {
                 case .tests:
                     BenchmarksView(sportSlug: athlete.activeSport?.sportSlug)
                 case .reflection:
-                    ReflectionSheet(completion: completion, practiceToday: practiceToday) { revision += 1 }
+                    ReflectionSheet(completion: completion, practiceToday: practiceToday,
+                                    restDay: !loggedToday && !practiceToday && gameToday == nil) { revision += 1 }
                 case .today:
                     TodayChecklistSheet(completion: completion,
                                         details: Dictionary(uniqueKeysWithValues: completion.items.map { ($0.kind, toDoDetail($0)) })) { kind in
@@ -812,7 +815,8 @@ struct HomeView: View {
     private var dayProgress: DayProgress {
         DayProgress(practiceToday: practiceToday && status == .active && gameToday == nil, practiceLogged: practiceLogToday != nil,
                     workoutPlanned: todaysWorkout != nil && status == .active, workoutDone: workoutDoneToday,
-                    mobilityDone: mobilityDoneToday, reflected: reflectedToday)
+                    mobilityDone: mobilityDoneToday, reflected: reflectedToday,
+                    restDay: todaysWorkout == nil && status == .active && gameToday == nil)
     }
 
     private var weekSummary: WeekSummary {
@@ -1194,7 +1198,9 @@ struct HomeView: View {
                     heroMeta(qualities)
                 }
                 HStack(alignment: .bottom, spacing: 10) {
-                    GlassMetric(value: "\(session.items.count)", label: "Exercises", height: 86)
+                    if session.decision == nil {
+                        GlassMetric(value: "\(session.items.count)", label: "Exercises", height: 86)
+                    }
                     GlassMetric(value: loadWord, label: "Load", height: 70, accent: readinessBand == nil ? nil : phase.red)
                     if let tag = focusTag, tag != "LIGHTER TODAY" {
                         GlassMetric(value: tag.capitalized, label: "Note", height: 70)
@@ -1283,10 +1289,15 @@ struct HomeView: View {
 
     /// The workout's focus in words: its main quality ("Rotational power").
     private func focusTitle(_ session: GeneratedSession, mode: WorkoutMode) -> String {
-        session.focusQualities.first.flatMap { qualitiesBySlug[$0]?.name } ?? mode.title
+        if session.decision != nil { return session.title }
+        return session.focusQualities.first.flatMap { qualitiesBySlug[$0]?.name } ?? mode.title
     }
 
     private func qualityLine(_ session: GeneratedSession) -> String? {
+        if let decision = session.decision {
+            let names = decision.primaryTargets.map { $0.title.uppercased() }
+            return names.isEmpty ? nil : names.prefix(3).joined(separator: " · ")
+        }
         var seen: Set<String> = []
         let names = session.focusQualities.compactMap { qualitiesBySlug[$0]?.shortName }.filter { seen.insert($0).inserted }
         return names.count > 1 ? names.prefix(3).joined(separator: " · ") : nil
@@ -1337,17 +1348,23 @@ struct HomeView: View {
                 }))
             }
         }
-        if let movementPrep {
-            rows.append(AnyView(Button { preview = PreviewBox(session: movementPrep, kind: .mobility) } label: {
-                HomeDetailRow(systemImage: "figure.flexibility", color: AppTheme.water, title: "Mobility") {
-                    if mobilityDoneToday { Image(systemName: "checkmark.circle.fill").foregroundStyle(AppTheme.green) } else { Text("\(movementPrep.estimatedMinutes) min") }
-                }
-            }.buttonStyle(.plain)))
-        }
+        // V6 §20: learn, then reflect — then the supporting work.
         if let next = nextLesson {
             rows.append(AnyView(Button { selectedTab = .campus } label: {
                 HomeDetailRow(systemImage: "graduationcap.fill", color: AppTheme.purple, title: next.lesson.title) {
                     if learnedToday { Image(systemName: "checkmark.circle.fill").foregroundStyle(AppTheme.green) } else { Text("\(next.lesson.minutes) min") }
+                }
+            }.buttonStyle(.plain)))
+        }
+        rows.append(AnyView(Button { activeSheet = .reflection } label: {
+            HomeDetailRow(systemImage: "moon.stars.fill", color: AppTheme.purple, title: "Reflection") {
+                if reflectedToday { Image(systemName: "checkmark.circle.fill").foregroundStyle(AppTheme.green) } else { Text("Tonight · 45 sec") }
+            }
+        }.buttonStyle(.plain)))
+        if let movementPrep {
+            rows.append(AnyView(Button { preview = PreviewBox(session: movementPrep, kind: .mobility) } label: {
+                HomeDetailRow(systemImage: "figure.flexibility", color: AppTheme.cyan, title: movementPrep.title) {
+                    if mobilityDoneToday { Image(systemName: "checkmark.circle.fill").foregroundStyle(AppTheme.green) } else { Text("\(movementPrep.estimatedMinutes) min") }
                 }
             }.buttonStyle(.plain)))
         }
@@ -1398,23 +1415,8 @@ struct HomeView: View {
     private var todayCompleteHero: some View {
         let progress = dayProgress
         return VStack(spacing: 14) {
-            HomeEyebrow(progress.isComplete ? "Day complete" : "Today complete")
-            Button { activeSheet = .today } label: { DayCompletionRing(progress: progress) }
-                .buttonStyle(.plain)
-            VStack(spacing: 0) {
-                ForEach(progress.items) { item in
-                    Button { open(item.part) } label: {
-                        HomeDetailRow(systemImage: "circle.fill", color: item.part.color, title: item.part.title) {
-                            Image(systemName: item.done ? "checkmark" : "circle")
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(item.done ? AppTheme.ink : AppTheme.secondaryText)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(item.part.title), \(item.done ? "done" : "not done")")
-                }
-            }
-            .frame(maxWidth: 360)
+            DailyPerformanceTrack(progress: progress, evening: phase == .evening || phase == .night) { open($0) }
+                .frame(maxWidth: 520)
         }
         .frame(maxWidth: .infinity)
     }
@@ -1423,6 +1425,7 @@ struct HomeView: View {
     private func open(_ part: DayProgress.Part) {
         switch part {
         case .practice: searchDestination = SearchBox(target: .practiceLog)
+        case .rest: activeSheet = .today
         case .reflection: activeSheet = .reflection
         case .mobility:
             if let movementPrep { preview = PreviewBox(session: movementPrep, kind: .mobility) }
