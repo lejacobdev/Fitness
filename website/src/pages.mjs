@@ -6,7 +6,7 @@ const esc = (s) => s.replace(/&/g, '&amp;');
 const half = Math.ceil(SPORTS.length / 2);
 const marqueeRow = (list, reverse = false) => `<div class="marquee${reverse ? ' reverse' : ''}" aria-hidden="true"><div class="track">${[...list, ...list].map((s) => `<span class="tag">${esc(s)}</span>`).join('')}</div></div>`;
 
-const feature = (ic, title, text, color) => `<div class="glass card reveal"><div class="icon">${icon(ic, color)}</div><h3>${title}</h3><p>${text}</p></div>`;
+const feature = (_icon, title, text) => `<div class="reveal"><dt>${title}</dt><dd>${text}</dd></div>`;
 
 const cta = (title = 'Your season, <em>planned around you.</em>', text = 'Free to download. The check-in, your plan, every kind of workout, the Watch app and daily lessons stay free.') => `
 <section class="band tight"><div class="wrap"><div class="glass cta-band reveal">
@@ -38,20 +38,30 @@ export const home = {
   </div>
 </section>
 
+<section class="band tight"><div class="wrap">
+  <div class="section-head reveal"><p class="eyebrow">Three things, every day</p><h2 class="big">Build the athlete. <em>Teach the athlete.</em> Adapt.</h2></div>
+  <div class="pillars">
+    <div class="pillar reveal"><span class="n">01</span><h3>Workout</h3><p class="q">What should I physically do today?</p><p>A session built around your practice, games, season and how you feel — with the reason it looks the way it does.</p></div>
+    <div class="pillar reveal"><span class="n">02</span><h3>Campus</h3><p class="q">What should I understand?</p><p>About 100 short lessons in nine areas, from training science to sleep, psychology and supplements — picked for your day.</p></div>
+    <div class="pillar reveal"><span class="n">03</span><h3>Reflection</h3><p class="q">How should tomorrow adapt?</p><p>Forty-five seconds in the evening. How it felt shapes tomorrow's plan.</p></div>
+  </div>
+</div></section>
+
+<section class="band tight" id="how"><div class="wrap">
+  <p class="quote-line reveal">Prepare in the morning. Perform at practice and in the gym. Reflect in the evening. <span>Tomorrow adapts.</span></p>
+  <div class="loop reveal" style="margin-top:48px">
+    <div style="--seg:var(--water)"><b>Prepare</b><p>A two-tap check-in — pre-filled from Apple Watch or any band that writes to Apple Health.</p></div>
+    <div style="--seg:var(--red)"><b>Perform</b><p>After-practice strength, a gym development day, conditioning or mobility — whatever today calls for.</p></div>
+    <div style="--seg:#a78bfa"><b>Reflect</b><p>Three to five quick questions. Sometimes one small insight back.</p></div>
+    <div style="--seg:var(--green)"><b>Adapt</b><p>Hard practice, a game tomorrow, a short night: the next plan already knows.</p></div>
+  </div>
+</div></section>
+
 <section class="wrap"><div class="stats reveal">
   <div class="stat"><b>60</b><span>sports, with their formats and positions</span></div>
   <div class="stat"><b>1,000+</b><span>exercises and drills with how-tos</span></div>
-  <div class="stat"><b>29</b><span>researched sport guides</span></div>
-  <div class="stat"><b>2 taps</b><span>for the morning check-in</span></div>
-</div></section>
-
-<section class="band" id="how"><div class="wrap">
-  <div class="section-head center reveal"><p class="eyebrow">How it works</p><h2 class="big">One screen. <em>Every morning.</em></h2><p class="lede">No spreadsheets, no guessing. Open the app, check in, train.</p></div>
-  <div class="flow">
-    <div class="glass card reveal"><h3>Check in</h3><p>Sleep, energy, soreness, stress. With an Apple Watch or a band that writes to Apple Health, it's already filled in — confirm or change it.</p></div>
-    <div class="glass card reveal"><h3>Get today's plan</h3><p>After practice, a gym day, or mobility. Shaped by your sport, your season, tomorrow's game and how you feel today.</p></div>
-    <div class="glass card reveal"><h3>Train and log</h3><p>Follow along with sets, reps and rest — on your phone or your wrist. The plan learns what you actually did.</p></div>
-  </div>
+  <div class="stat"><b>~100</b><span>Campus lessons in nine areas</span></div>
+  <div class="stat"><b>45 s</b><span>for the evening reflection</span></div>
 </div></section>
 
 <section class="band"><div class="wrap split">
@@ -77,17 +87,16 @@ export const home = {
 </section>
 
 <section class="band"><div class="wrap">
-  <div class="section-head reveal"><p class="eyebrow">Everything an athlete needs</p><h2 class="big">More than a <em>workout app.</em></h2></div>
-  <div class="cards four">
+  <div class="section-head reveal"><p class="eyebrow">Around the three pillars</p><h2 class="big">The rest of <em>the system.</em></h2></div>
+  <dl class="flat">
     ${feature('dumbbell', 'Three kinds of workout', 'After practice, gym day, stretching &amp; mobility. Swap any exercise; Pro edits every set and rep.')}
-    ${feature('book', 'Campus', 'Three-minute lessons on training, food, sleep, injuries, psychology and tactics. XP, badges, leagues.', '#1cb0f6')}
+    ${feature('book', 'Off-season programs', 'Six-week blocks for speed, strength, power or conditioning when your season ends.')}
     ${feature('watch', 'Apple Watch', 'Train from your wrist: heart rate live, rep counting, rest timers. Log without your phone.')}
-    ${feature('brain', 'Mindset', 'A two-minute evening reflection, season goals, guided breathing and game-day visualization.')}
-    ${feature('route', 'Off-season programs', 'Six-week blocks for speed, strength, power or conditioning when your season ends.')}
+    ${feature('brain', 'Mindset', 'Season goals, guided breathing, reset routines and game-day visualization.')}
     ${feature('plane', 'Tournament mode', 'Between games, sleep in a new time zone, food on the road and a hotel-room workout.')}
     ${feature('team', 'Train together', 'Same workout, each on your own phone — see how far your teammates are.')}
     ${feature('mic', 'Siri &amp; Shortcuts', '"Start my workout", "Check in", "What\'s my plan today?" — hands-free.')}
-  </div>
+  </dl>
 </div></section>
 
 <section class="band"><div class="wrap split flip">
@@ -117,11 +126,11 @@ export const home = {
 
 <section class="band"><div class="wrap">
   <div class="section-head center reveal"><p class="eyebrow">Safety first. Private by design.</p><h2 class="big">Built for <em>teenagers.</em> Not for ad money.</h2></div>
-  <div class="cards three">
+  <dl class="flat">
     ${feature('shield', 'It never plays doctor', 'Head knock? Training pauses and the return-to-play steps are explained. Your doctor decides — the app never clears anyone.')}
     ${feature('heart', 'Fuel, don\'t diet', 'No calorie counting, no weight-loss goals, no body-shaming numbers. Eat enough to train and grow.')}
     ${feature('lock', 'No ads. No tracking.', 'No ad SDKs, no analytics companies, nothing sold. Use it without an account at all.')}
-  </div>
+  </dl>
   <div style="text-align:center;margin-top:36px" class="reveal"><a class="btn" href="/safety/">How we keep athletes safe <span class="arrow">→</span></a></div>
 </div></section>
 
@@ -169,12 +178,12 @@ export const features = {
 
 <section class="band tight" id="training"><div class="wrap">
   <div class="section-head reveal"><p class="eyebrow">Training</p><h2 class="big">Workouts that <em>fit the day.</em></h2></div>
-  <div class="cards three">
+  <dl class="flat">
     ${feature('bolt', 'After practice', 'Short strength and injury prevention when you\'ve already trained with the team.', '#ff8a3d')}
     ${feature('dumbbell', 'Gym day', 'The full session on days without practice — built for your sport\'s demands.')}
     ${feature('sparkle', 'Stretching &amp; mobility', 'A quick wake-up before practice, a calm wind-down in the evening.', '#22d3ee')}
-  </div>
-  <div class="cards four" style="margin-top:18px">
+  </dl>
+  <dl class="flat" style="margin-top:18px">
     ${feature('chart', 'Experience levels', 'New lifters start with less; experienced lifters get more.')}
     ${feature('route', 'Off-season programs', 'Six-week blocks for acceleration, top speed, strength, power, conditioning or mobility.')}
     ${feature('team', 'Train together', 'Start a workout with a code; partners join on their phones and see each other\'s progress.')}
@@ -183,7 +192,7 @@ export const features = {
     ${feature('chart', 'Tests every 6–8 weeks', 'Jump, sprints, plank, push-ups and a test for your sport — progress you can see.')}
     ${feature('lock', 'Your own workouts', 'Build, save and share workouts with a code or QR. (Pro)')}
     ${feature('plane', 'Tournament mode', 'Time zones, sleep, food on the road and a hotel-room workout between games.')}
-  </div>
+  </dl>
 </div></section>
 
 <div class="wrap divider"></div>
@@ -206,18 +215,30 @@ export const features = {
 
 <section class="band tight" id="campus"><div class="wrap split">
   <div class="reveal">
-    <p class="eyebrow">Campus</p><h2 class="big">Learn it in <em>three minutes.</em></h2>
-    <p class="lede">Short lessons on training, nutrition, sleep, injuries, psychology, tactics, recruiting and more: a hook, the idea, an athlete's example and what it means for you.</p>
-    <ul class="checks"><li><span>Spaced review so it actually sticks</span></li><li><span>XP, badges for healthy habits, and leagues with teammates</span></li><li><span>Every lesson cites its sources</span></li></ul>
+    <p class="eyebrow">Campus</p><h2 class="big">Learn something <em>useful today.</em></h2>
+    <p class="lede">About 100 short lessons in nine areas and five levels — from foundations to coaching yourself. Each one: a hook, the idea, an athlete's example and what it means for you.</p>
+    <ul class="checks"><li><span><b>Recommended for your day</b> — a short night, a game tomorrow, a hard practice</span></li><li><span><b>Supplements, explained honestly</b> — evidence, risks and marketing; never "take this"</span></li><li><span><b>Phones, attention and sleep</b> — without the scare stories</span></li><li><span>Spaced review so it sticks; XP and badges stay in the background</span></li></ul>
   </div>
   <div class="device-stage reveal">${phoneCampus()}</div>
 </div></section>
 
 <div class="wrap divider"></div>
 
+<section class="band tight" id="reflection"><div class="narrow">
+  <p class="eyebrow">Reflection</p><h2 class="big">Forty-five seconds <em>that change tomorrow.</em></h2>
+  <p class="lede">Three to five short questions in the evening — how hard today felt, how your body feels, how practice went, what went well, what to improve. It's how AthleteOS learns you.</p>
+  <dl class="flat one">
+    <div class="reveal"><dt>It adapts</dt><dd>“Practice felt harder than usual today. Tomorrow's supplemental session has been adjusted.”</dd></div>
+    <div class="reveal"><dt>It notices</dt><dd>“You rated practice great three times this week. What did you do differently?”</dd></div>
+    <div class="reveal"><dt>It never nags</dt><dd>Rest days ask less. “Nothing to review today” is always an answer.</dd></div>
+  </dl>
+</div></section>
+
+<div class="wrap divider"></div>
+
 <section class="band tight" id="more"><div class="wrap">
   <div class="section-head reveal"><p class="eyebrow">And</p><h2 class="big">The rest of <em>the season.</em></h2></div>
-  <div class="cards four">
+  <dl class="flat">
     ${feature('brain', 'Mindset', 'Evening reflection, season goals, breathing, game-day visualization and optional mental skills — with “did it help?”.')}
     ${feature('moon', 'Sleep &amp; wind-down', 'Plain sleep tips and a calm half-hour routine before bed.', '#1cb0f6')}
     ${feature('chart', 'Season review', 'At the end of a season: what went well, what you\'d change, and what\'s next.')}
@@ -226,7 +247,7 @@ export const features = {
     ${feature('watch', 'Apple Watch', 'Live heart rate, rep counting, rest timers and complications.')}
     ${feature('family', 'Parent summary', 'A weekly email or private link with numbers only — never what you wrote.')}
     ${feature('mic', 'Siri &amp; Shortcuts', 'Start a workout, check in or hear today\'s plan without opening the app.')}
-  </div>
+  </dl>
 </div></section>
 ${cta()}`,
 };
@@ -257,14 +278,14 @@ export const coaches = {
 
 <section class="band tight"><div class="wrap">
   <div class="section-head reveal"><p class="eyebrow">What you get</p><h2 class="big">Free for <em>every coach.</em></h2></div>
-  <div class="cards three">
+  <dl class="flat">
     ${feature('chart', 'Readiness board', 'Today\'s readiness in words, a 14-day trend, check-ins missed, and workouts and minutes this week.')}
     ${feature('qr', 'Sideline mode', 'Full-screen tiles on an iPad or laptop that refresh every minute and keep the screen on.')}
     ${feature('sparkle', 'Announcements', 'One-way messages on every athlete\'s Home for 14 days. No replies, no chat to moderate.')}
     ${feature('heart', 'Private notes', 'One specific, private note per athlete per week. Praise that lands, without a public ranking.')}
     ${feature('dumbbell', 'Send workouts', 'Pick exercises from the library and send them for a day — they appear ready to start. (Pro)')}
     ${feature('team', 'CSV export', 'Download the week from the web dashboard for your own records.')}
-  </div>
+  </dl>
 </div></section>
 
 <section class="band" id="trainers"><div class="wrap split">
@@ -339,14 +360,14 @@ export const parents = {
 </div></section>
 
 <section class="band tight"><div class="wrap">
-  <div class="cards three">
+  <dl class="flat">
     ${feature('shield', 'Age-appropriate', 'Exercises carry a minimum age and supervision level. New lifters start light; nothing is maxed out.')}
     ${feature('heart', 'No diet culture', 'No calorie counting, no weight-loss goals, no body measurements. The food guidance is about eating enough.')}
     ${feature('moon', 'School and sleep first', 'Exam weeks get lighter, short nights get easier days, and there\'s a wind-down routine for bedtime.', '#1cb0f6')}
     ${feature('cross', 'Head injury rules', 'A head knock pauses training. The return-to-play steps are explained, and a doctor decides — never the app.')}
     ${feature('lock', 'No ads, no tracking', 'No advertising, no analytics companies, no data sold. It works without an account at all.')}
     ${feature('family', 'Weekly summary', 'Sunday email or private link: training, sleep, check-ins and upcoming games. Numbers only — never what they wrote.')}
-  </div>
+  </dl>
 </div></section>
 
 <section class="band tight"><div class="wrap split">
