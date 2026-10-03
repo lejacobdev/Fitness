@@ -70,6 +70,17 @@ public extension APIClient {
         public let recordedAt: String
     }
 
+    /// This phone can get push notifications (re-sent when the switches change).
+    func registerPushDevice(token: String, muted: [String], sessionToken: String) async throws {
+        struct Body: Encodable, Sendable { let token: String; let muted: [String] }
+        let _: Ignored = try await social("PUT", "push/device", json: try JSONEncoder().encode(Body(token: token, muted: muted)), sessionToken: sessionToken)
+    }
+
+    func removePushDevice(token: String, sessionToken: String) async throws {
+        struct Body: Encodable, Sendable { let token: String }
+        let _: Ignored = try await social("DELETE", "push/device", json: try JSONEncoder().encode(Body(token: token)), sessionToken: sessionToken)
+    }
+
     func recordRtp(teamID: String, memberId: String, step: Int, note: String?, sessionToken: String) async throws {
         struct Body: Encodable, Sendable { let memberId: String; let step: Int; let note: String? }
         let _: Ignored = try await social("POST", "teams/\(teamID)/rtp", json: try JSONEncoder().encode(Body(memberId: memberId, step: step, note: note)), sessionToken: sessionToken)

@@ -409,6 +409,11 @@ struct HomeView: View {
                     }
                 }
             }
+            // A push or the quiet check: the coach's new workout or note shows up now.
+            .onChange(of: LiveUpdates.shared.tick) {
+                revision += 1
+                announcement = TeamAnnouncements.current
+            }
             .toolbar(.hidden, for: .navigationBar)
             .task(id: allSessions.count + athlete.checkIns.count) {
                 switch IntentRoute.take([.checkIn, .reflection]) {

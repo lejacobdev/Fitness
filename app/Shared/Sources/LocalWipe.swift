@@ -23,6 +23,7 @@ public enum LocalWipe {
         NotificationCenter.default.post(name: willWipe, object: nil)
         try? await Task.sleep(nanoseconds: 300_000_000)
 
+        PushSettings.forget(tokenStore: tokenStore)
         wipeData(context: context, tokenStore: tokenStore, defaults: .standard)
 
         let center = UNUserNotificationCenter.current()

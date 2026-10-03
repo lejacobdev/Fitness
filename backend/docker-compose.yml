@@ -49,6 +49,11 @@ services:
       APPLE_SIWA_KEY_ID: ${APPLE_SIWA_KEY_ID:-}
       APPLE_SIWA_TEAM_ID: ${APPLE_SIWA_TEAM_ID:-}
       APPLE_SIWA_PRIVATE_KEY_PATH: ${APPLE_SIWA_PRIVATE_KEY_PATH:-}
+      # Push notifications (an APNs auth key, separate from the Sign in with Apple
+      # key); optional — without them the API runs and simply sends no pushes.
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_PRIVATE_KEY_PATH: ${APNS_PRIVATE_KEY_PATH:-}
     volumes:
       # The .p8 key lives in backend/secrets/ (git-ignored), read-only in the container.
       - ./secrets:/run/secrets/siwa:ro

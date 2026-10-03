@@ -21,6 +21,9 @@ import { teamsRouter } from './routes/teams.js';
 import { workoutsRouter } from './routes/workouts.js';
 import { webLoginRouter } from './routes/weblogin.js';
 import { createAppleRevoker } from './lib/appleRevoke.js';
+import { createApns } from './lib/apns.js';
+import { createNotifier } from './lib/notifier.js';
+import { pushRouter } from './routes/push.js';
 
 // §19: this must run before any route is registered. Installing it here, at
 // module scope and above every import that registers routes, is deliberate.
@@ -35,6 +38,8 @@ export function createApp({
   appStoreVerifier = createAppStoreVerifier(),
   appleRevoker = createAppleRevoker(),
   webDir = process.env.WEB_DIR ?? new URL('../web', import.meta.url).pathname,
+  apns = createApns(),
+  notifier = prisma ? createNotifier({ prisma, apns }) : null,
 } = {}) {
   const app = express();
 
@@ -77,7 +82,8 @@ export function createApp({
     app.use('/sync', stateRouter({ prisma, sessionSecret }));
     app.use('/athlete', athleteRouter({ prisma, sessionSecret, appleRevoker }));
     app.use('/leagues', leaguesRouter({ prisma, sessionSecret }));
-    app.use('/teams', teamsRouter({ prisma, sessionSecret }));
+    app.use('/teams', teamsRouter({ prisma, sessionSecret, notifier }));
+    app.use('/push', pushRouter({ prisma, sessionSecret }));
     app.use('/workouts', workoutsRouter({ prisma, sessionSecret }));
     app.use(communityRouter({ prisma, sessionSecret }));
     app.use(parentRouter({ prisma, sessionSecret }));

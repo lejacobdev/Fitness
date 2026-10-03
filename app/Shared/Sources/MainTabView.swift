@@ -153,8 +153,21 @@ public struct MainTabView: View {
             }
             if phase == .active, !DemoData.isEnabled {
                 Task { await refreshAnimations() }
+                Task { await LiveUpdates.shared.refresh(apiClient: apiClient) }
             }
         }
+        // Quietly checks for the coach's news while the app is open.
+        .task(id: scenePhase) {
+            guard scenePhase == .active, !DemoData.isEnabled else { return }
+            for _ in 0..<2000 {
+                try? await Task.sleep(for: .seconds(45))
+                if Task.isCancelled { break }
+                await LiveUpdates.shared.refresh(apiClient: apiClient)
+            }
+        }
+        // A tapped notification opens the screen it is about.
+        .onAppear(perform: takePushRoute)
+        .onChange(of: PushRoute.shared.tab) { takePushRoute() }
         .task {
             _ = RatingMoment.firstUse
             StreakFreeze.protectTodayIfResting()
@@ -214,8 +227,15 @@ public struct MainTabView: View {
         // Workouts from the coach, and this week's Campus XP for the leagues.
         await CoachAssignments.refresh(apiClient: apiClient)
         await TeamAnnouncements.refresh(apiClient: apiClient)
+        await PushSettings.syncIfNeeded(apiClient: apiClient)
         await LeagueSync.report(apiClient: apiClient)
         if !athlete.isDeleted, scenePhase != .background { regenerate() }
+    }
+
+    private func takePushRoute() {
+        guard let tab = PushRoute.shared.tab else { return }
+        selectedTab = tab
+        PushRoute.shared.tab = nil
     }
 
     /// Shows what a link or QR code points to. A bare code (aos://ABC234)

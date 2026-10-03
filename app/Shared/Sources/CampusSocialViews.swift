@@ -76,7 +76,7 @@ struct LeaguesView: View {
             .toolbar {
                 CloseToolbarItem { dismiss() }
             }
-            .task { await load() }
+            .liveReload { await load() }
             .onAppear {
                 if let initialCode, code.isEmpty {
                     code = initialCode
@@ -271,7 +271,7 @@ struct LeaguesView: View {
                 CampusBadges.award(withTop)
             }
         } catch {
-            errorMessage = "Couldn't load your leagues — check your connection."
+            if table == nil { errorMessage = "Couldn't load your leagues — check your connection." }
         }
         loading = false
     }

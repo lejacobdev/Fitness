@@ -89,6 +89,11 @@
 			</array>
 		</dict>
 	</array>
+	<!-- A push from the server wakes the app briefly so it can fetch what changed. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

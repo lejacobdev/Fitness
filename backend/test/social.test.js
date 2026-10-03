@@ -9,7 +9,7 @@ const SESSION_SECRET = 'test-session-secret';
 
 /** A tiny in-memory stand-in for the Prisma calls these routes make. */
 function fakePrisma() {
-  const db = { league: [], leagueMember: [], weeklyXP: [], team: [], teamMember: [], teamStaff: [], assignment: [], announcement: [], shoutout: [], healthNote: [], partnerSession: [], partnerProgress: [], rtpEntry: [], parentLink: [], parentEmail: [], checkIn: [], session: [], syncedState: [], sharedWorkout: [] };
+  const db = { league: [], leagueMember: [], weeklyXP: [], team: [], teamMember: [], teamStaff: [], assignment: [], announcement: [], shoutout: [], healthNote: [], partnerSession: [], partnerProgress: [], rtpEntry: [], parentLink: [], parentEmail: [], checkIn: [], session: [], syncedState: [], sharedWorkout: [], pushDevice: [] };
 
   const matches = (row, where = {}) => Object.entries(where).every(([field, cond]) => {
     if (cond && typeof cond === 'object' && !(cond instanceof Date)) {
@@ -20,6 +20,7 @@ function fakePrisma() {
       // A compound key: { leagueId_athleteId: { leagueId, athleteId } }.
       return Object.entries(cond).every(([k, v]) => row[k] === v);
     }
+    if (cond instanceof Date) return row[field] instanceof Date && row[field].getTime() === cond.getTime();
     return row[field] === cond;
   });
 
@@ -101,8 +102,8 @@ function fakePrisma() {
   return client;
 }
 
-async function serve(prisma) {
-  const app = createApp({ prisma, sessionSecret: SESSION_SECRET });
+async function serve(prisma, extra = {}) {
+  const app = createApp({ prisma, sessionSecret: SESSION_SECRET, ...extra });
   const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   const url = `http://127.0.0.1:${server.address().port}`;
   const call = (athleteId, method, path, body) => fetch(`${url}${path}`, {
@@ -361,6 +362,78 @@ test('training together: code, join, progress, nicknames only', async () => {
     const seen = await (await call('a1', 'GET', `/partner/${code}`)).json();
     assert.deepEqual(seen.people.map((p) => [p.nickname, p.done, p.isMe]).sort(), [['Ali', 1, false], ['Sam', 0, true]]);
     assert.equal((await call('a3', 'POST', '/partner/ZZZZZZ/join', { nickname: 'X1' })).status, 404);
+  } finally {
+    await close();
+  }
+});
+
+const TOKEN_A = 'a'.repeat(64);
+const TOKEN_B = 'b'.repeat(64);
+
+async function until(check) {
+  for (let i = 0; i < 100 && !check(); i += 1) await new Promise((r) => setTimeout(r, 10));
+}
+
+test('push: devices register per athlete; team events reach the right people, never with names', async () => {
+  const prisma = fakePrisma();
+  const sent = [];
+  const apns = { async send(token, payload) { sent.push({ token, payload }); return { ok: true, status: 200 }; } };
+  const { call, close } = await serve(prisma, { apns });
+  try {
+    assert.equal((await call('ath1', 'PUT', '/push/device', { token: 'nope' })).status, 400);
+    assert.equal((await call('ath1', 'PUT', '/push/device', { token: TOKEN_A })).status, 204);
+    assert.equal((await call('ath2', 'PUT', '/push/device', { token: TOKEN_B, muted: ['announcement', 'bogus'] })).status, 204);
+    assert.deepEqual(prisma._db.pushDevice.find((d) => d.token === TOKEN_B).muted, ['announcement']);
+    assert.equal((await call('coach', 'PUT', '/push/device', { token: 'c'.repeat(64) })).status, 204);
+    assert.equal((await call('trainer', 'PUT', '/push/device', { token: 'd'.repeat(64) })).status, 204);
+
+    const { team } = await (await call('coach', 'POST', '/teams', { name: 'Varsity Soccer' })).json();
+    await call('ath1', 'POST', '/teams/join', { code: team.code, nickname: 'Sam' });
+    await call('ath2', 'POST', '/teams/join', { code: team.code, nickname: 'Jo' });
+    const { trainerCode } = await (await call('coach', 'POST', `/teams/${team.id}/trainer-code`)).json();
+    await call('trainer', 'POST', '/teams/join-staff', { code: trainerCode });
+
+    await call('coach', 'POST', `/teams/${team.id}/assignments`, { date: '2026-09-26', title: 'Recovery day', items: [{ itemSlug: 'worlds-greatest-stretch', sets: 2, seconds: 45 }] });
+    await until(() => sent.length >= 2);
+    assert.deepEqual(sent.map((s) => s.token).sort(), [TOKEN_A, TOKEN_B]);
+    assert.equal(sent[0].payload.kind, 'assignment');
+    assert.match(sent[0].payload.aps.alert.body, /Recovery day/);
+    assert.equal(sent[0].payload.teamId, team.id);
+
+    sent.length = 0;
+    await call('coach', 'POST', `/teams/${team.id}/announcements`, { text: 'Bus leaves at 7' });
+    await until(() => sent.length >= 1);
+    await new Promise((r) => setTimeout(r, 30));
+    assert.deepEqual(sent.map((s) => s.token), [TOKEN_A], 'ath2 muted announcements');
+
+    sent.length = 0;
+    await call('coach', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'ath1', text: 'Great effort' });
+    await until(() => sent.length >= 1);
+    assert.deepEqual(sent.map((s) => [s.token, s.payload.kind]), [[TOKEN_A, 'shoutout']]);
+    assert.doesNotMatch(JSON.stringify(sent[0].payload), /Great effort/, 'a private note stays out of the lock screen');
+
+    sent.length = 0;
+    await call('ath1', 'PATCH', `/teams/${team.id}/membership`, { shareHealth: true });
+    await call('ath1', 'POST', '/teams/health', { day: '2026-09-30', kind: 'pain', areas: ['knee'], level: 'some' });
+    await until(() => sent.length >= 2);
+    assert.deepEqual(sent.map((s) => s.token).sort(), ['c'.repeat(64), 'd'.repeat(64)]);
+    assert.doesNotMatch(JSON.stringify(sent[0].payload), /Sam|knee/, 'no name or body part');
+    await call('ath1', 'POST', '/teams/health', { day: '2026-09-30', kind: 'pain', areas: ['ankle'], level: 'some' });
+    await new Promise((r) => setTimeout(r, 40));
+    assert.equal(sent.length, 2, 'only the first pain note of the day pings staff');
+
+    sent.length = 0;
+    await call('trainer', 'POST', `/teams/${team.id}/rtp`, { memberId: 'ath1', step: 2 });
+    await until(() => sent.length >= 1);
+    assert.deepEqual(sent.map((s) => [s.token, s.payload.kind]), [[TOKEN_A, 'rtp']]);
+
+    // A dead token is forgotten; signing out removes the phone.
+    apns.send = async () => ({ ok: false, status: 410, reason: 'Unregistered' });
+    await call('coach', 'POST', `/teams/${team.id}/announcements`, { text: 'Practice moved' });
+    await until(() => !prisma._db.pushDevice.some((d) => d.token === TOKEN_A));
+    assert.equal(prisma._db.pushDevice.some((d) => d.token === TOKEN_A), false);
+    assert.equal((await call('ath2', 'DELETE', '/push/device', { token: TOKEN_B })).status, 204);
+    assert.equal(prisma._db.pushDevice.some((d) => d.token === TOKEN_B), false);
   } finally {
     await close();
   }

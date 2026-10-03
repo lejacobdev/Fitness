@@ -93,9 +93,21 @@ function assignmentJSON(a, teamName) {
  *   POST   /teams/:id/shoutouts           coach: { memberId, text }
  *   GET    /teams/shoutouts               mine, the last 14 days
  */
-export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
+export function teamsRouter({ prisma, sessionSecret, notifier = null, now = () => new Date() }) {
   const router = express.Router();
   router.use(requireAuth({ sessionSecret }));
+
+  const notify = (ids, message) => notifier?.notify(ids, message);
+
+  async function memberIds(teamId) {
+    const rows = await prisma.teamMember.findMany({ where: { teamId } });
+    return rows.map((m) => m.athleteId);
+  }
+
+  async function staffIds(team) {
+    const rows = await prisma.teamStaff.findMany({ where: { teamId: team.id } });
+    return [team.coachId, ...rows.map((s) => s.athleteId)];
+  }
 
   async function coachedTeam(req, res) {
     const team = await prisma.team.findUnique({ where: { id: req.params.id } });
@@ -216,8 +228,21 @@ export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
     }
     const areas = Array.isArray(req.body?.areas) ? req.body.areas.filter((a) => PAIN_AREAS.has(a)).slice(0, 12) : [];
     const level = PAIN_LEVELS.has(req.body?.level) ? req.body.level : null;
+    const already = await prisma.healthNote.count({ where: { athleteId: req.athleteId, day: date, kind } });
     await prisma.healthNote.create({ data: { athleteId: req.athleteId, day: date, kind, areas, level } });
     res.status(201).json({ ok: true });
+    // Staff hear about the first note of a kind each day, without a name or body part on the lock screen.
+    if (!already && (kind === 'pain' || kind === 'paused')) {
+      const teams = await prisma.teamMember.findMany({ where: { athleteId: req.athleteId, shareHealth: true }, include: { team: true } });
+      for (const m of teams) {
+        notify(await staffIds(m.team), {
+          kind: 'health',
+          teamId: m.team.id,
+          title: m.team.name,
+          body: kind === 'paused' ? 'An athlete has paused training. Open the health board.' : 'A new pain report is on the health board.',
+        });
+      }
+    }
   });
 
   router.post('/join-staff', async (req, res) => {
@@ -377,6 +402,7 @@ export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
     }
     await prisma.rtpEntry.create({ data: { teamId: team.id, athleteId: memberId, step, note, recordedBy: req.athleteId } });
     res.status(201).json({ ok: true });
+    notify([memberId], { kind: 'rtp', teamId: team.id, title: team.name, body: 'Your return-to-play step was updated.' });
   });
 
   // Coach or athletic trainer: one athlete's return-to-play steps, newest first.
@@ -454,6 +480,7 @@ export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
     }
     await prisma.shoutout.create({ data: { teamId: team.id, athleteId: memberId, text } });
     res.status(201).json({ ok: true });
+    notify([memberId], { kind: 'shoutout', teamId: team.id, title: team.name, body: 'Your coach left you a note.' });
   });
 
   router.get('/:id/announcements', async (req, res) => {
@@ -478,6 +505,7 @@ export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
     }
     const created = await prisma.announcement.create({ data: { teamId: team.id, text } });
     res.status(201).json({ announcement: announcementJSON(created, team.name) });
+    notify(await memberIds(team.id), { kind: 'announcement', teamId: team.id, title: team.name, body: text.length > 110 ? `${text.slice(0, 107)}…` : text });
   });
 
   router.delete('/:id/announcements/:announcementId', async (req, res) => {
@@ -570,6 +598,7 @@ export function teamsRouter({ prisma, sessionSecret, now = () => new Date() }) {
     }
     const created = await prisma.assignment.create({ data: { teamId: team.id, date, title, note, items } });
     res.status(201).json({ assignment: assignmentJSON(created, team.name) });
+    notify(await memberIds(team.id), { kind: 'assignment', teamId: team.id, title: team.name, body: `New workout from your coach: ${title}` });
   });
 
   router.delete('/:id/assignments/:assignmentId', async (req, res) => {

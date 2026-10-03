@@ -10,6 +10,8 @@ struct RemindersSheet: View {
     @State private var time = Date.now
     @State private var reflectionTime = Date.now
     @State private var denied = false
+    @State private var teamUpdates = PushSettings.teamUpdatesOn
+    @State private var healthNotes = PushSettings.healthNotesOn
 
     var body: some View {
         NavigationStack {
@@ -70,6 +72,25 @@ struct RemindersSheet: View {
                     }
                     .cardStyle(padding: 16)
 
+                    if PushSettings.hasTeam {
+                        VStack(spacing: 0) {
+                            Toggle(isOn: $teamUpdates) {
+                                row("Team updates", "A new workout, a note or a return-to-play step", "person.3.fill", AppTheme.brand)
+                            }
+                            .tint(AppTheme.green)
+                            .padding(.vertical, 8)
+                            if PushSettings.isStaff {
+                                Divider().overlay(AppTheme.hairline)
+                                Toggle(isOn: $healthNotes) {
+                                    row("Pain reports", "When an athlete shares a new one — no names on the lock screen", "cross.case.fill", AppTheme.red)
+                                }
+                                .tint(AppTheme.green)
+                                .padding(.vertical, 8)
+                            }
+                        }
+                        .cardStyle(padding: 16)
+                    }
+
                     if denied {
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: "bell.slash.fill")
@@ -121,8 +142,11 @@ struct RemindersSheet: View {
         settings.reflectionHour = evening.hour ?? 20
         settings.reflectionMinute = evening.minute ?? 30
         ReminderScheduler.settings = settings
+        PushSettings.teamUpdatesOn = teamUpdates
+        PushSettings.healthNotesOn = healthNotes
         let games = AthleteStats.upcomingCompetitions(athlete).map { (date: $0.date, kind: $0.kind.rawValue.capitalized) }
-        let wantsAny = settings.anyEnabled
+        let wantsPush = PushSettings.hasTeam && (teamUpdates || (PushSettings.isStaff && healthNotes))
+        let wantsAny = settings.anyEnabled || wantsPush
         Task {
             if wantsAny {
                 let granted = await ReminderScheduler.requestAuthorization()
@@ -132,6 +156,7 @@ struct RemindersSheet: View {
                 }
             }
             await ReminderScheduler.reschedule(games: games)
+            if wantsPush { await PushSettings.enable() } else { await PushSettings.syncIfNeeded() }
             dismiss()
         }
     }

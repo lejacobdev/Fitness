@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct StudentAthleteApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     private let container: ModelContainer
 
     init() {

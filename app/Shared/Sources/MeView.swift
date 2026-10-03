@@ -48,6 +48,12 @@ struct MeView: View {
 
     private var apiClient: APIClient { APIClient(baseURL: AppConfig.backendBaseURL) }
 
+    private func takePushRoute() {
+        guard let raw = PushRoute.shared.meSheet else { return }
+        PushRoute.shared.meSheet = nil
+        if let sheet = MeSheet(rawValue: raw) { activeSheet = sheet }
+    }
+
     enum MeSheet: String, Identifiable {
         case sport, season, equipment, experience, name, reports, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, safety, struggles, trends, mindset, schedule, decisions, emergency
         var id: String { rawValue }
@@ -250,6 +256,9 @@ struct MeView: View {
             .onChange(of: activeSheet) { _, sheet in
                 if let sheet { UsageCounts.count("me.\(sheet.rawValue)") }
             }
+            // A tapped notification about a team or its health notes.
+            .onAppear(perform: takePushRoute)
+            .onChange(of: PushRoute.shared.meSheet) { takePushRoute() }
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
                 case .sport: SportEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)

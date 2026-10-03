@@ -79,6 +79,7 @@ model Athlete {
   parentLink        ParentLink?
   parentEmail       ParentEmail?
   sharedWorkouts    SharedWorkout[]
+  pushDevices       PushDevice[]
 }
 
 /// Everything else the app keeps per athlete — sports, games, profile, skill
@@ -555,4 +556,20 @@ model WebLogin {
   expiresAt  DateTime
 
   @@index([expiresAt])
+}
+
+/// A phone that can receive push notifications for this athlete (APNs device
+/// token). `muted` lists the kinds the athlete switched off in the app; the
+/// server skips them. Removed on sign-out, when Apple says the token is dead,
+/// and with the account.
+model PushDevice {
+  token     String   @id
+  athleteId String
+  muted     String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId])
 }

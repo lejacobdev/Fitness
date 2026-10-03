@@ -188,7 +188,7 @@ struct MyTeamView: View {
             .toolbar {
                 CloseToolbarItem { dismiss() }
             }
-            .task { await load() }
+            .liveReload { await load() }
             .onAppear { if let initialCode, code.isEmpty { code = initialCode } }
             .sheet(item: $trainerTeam) { team in
                 TrainerHealthView(teamID: team.id, teamName: team.name)
@@ -217,6 +217,7 @@ struct MyTeamView: View {
         working = true
         do {
             try await apiClient.joinAsTrainer(code: trainerCode.uppercased(), sessionToken: token)
+            Task { await PushSettings.enable() }
             trainerCode = ""
             message = nil
             await load()
@@ -231,8 +232,12 @@ struct MyTeamView: View {
             message = "Teams need an account — sign in with Apple in Me → Account."
             return
         }
-        teams = try? await apiClient.teams(sessionToken: token)
-        if teams == nil { message = "Couldn't reach the server — check your connection." }
+        if let fresh = try? await apiClient.teams(sessionToken: token) {
+            teams = fresh
+            PushSettings.noteTeams(fresh)
+        } else if teams == nil {
+            message = "Couldn't reach the server — check your connection."
+        }
     }
 
     /// What went wrong, and what to do about it.
@@ -258,6 +263,7 @@ struct MyTeamView: View {
             try await apiClient.joinTeam(code: code.trimmingCharacters(in: .whitespaces).uppercased(), nickname: nickname, sessionToken: token)
             code = ""
             message = nil
+            Task { await PushSettings.enable() }
             await load()
             await CoachAssignments.refresh(apiClient: apiClient)
         } catch {
@@ -323,6 +329,7 @@ struct CoachView: View {
                                 do {
                                     try await apiClient.createTeam(name: newTeamName, sessionToken: token)
                                     newTeamName = ""
+                                    Task { await PushSettings.enable() }
                                     await load()
                                 } catch {
                                     message = "Couldn't create the team — check your connection."
@@ -343,7 +350,7 @@ struct CoachView: View {
             .toolbar {
                 CloseToolbarItem { dismiss() }
             }
-            .task { await load() }
+            .liveReload { await load() }
             .sheet(item: $openTeam, onDismiss: { Task { await load() } }) { team in
                 TeamBoardView(team: team)
             }
@@ -355,8 +362,12 @@ struct CoachView: View {
             message = "Sign in to use coach mode."
             return
         }
-        teams = try? await apiClient.teams(sessionToken: token)
-        if teams == nil { message = "Couldn't reach the server — check your connection." }
+        if let fresh = try? await apiClient.teams(sessionToken: token) {
+            teams = fresh
+            PushSettings.noteTeams(fresh)
+        } else if teams == nil {
+            message = "Couldn't reach the server — check your connection."
+        }
     }
 }
 
@@ -424,7 +435,7 @@ struct TeamBoardView: View {
             .toolbar {
                 CloseToolbarItem { dismiss() }
             }
-            .task { await load() }
+            .liveReload { await load() }
             .proFeature(isPresented: $showingPaywall, athlete: context?.athlete, feature: .coachWorkouts)
             .sheet(isPresented: $inviting) {
                 CodeShareSheet(title: "Invite athletes", subtitle: "They scan the QR code, open the link, or enter the code in Me → My team.",
@@ -1053,12 +1064,13 @@ struct TrainerHealthView: View {
             .sheet(item: $recording, onDismiss: { Task { await reload() } }) { target in
                 RtpRecordSheet(teamID: teamID, target: target)
             }
-            .task {
+            .liveReload {
                 guard let token = try? KeychainTokenStore().read() else { failed = true; return }
                 do {
                     health = try await apiClient.teamHealth(teamID: teamID, sessionToken: token)
+                    failed = false
                 } catch {
-                    failed = true
+                    if health == nil { failed = true }
                 }
             }
         }
