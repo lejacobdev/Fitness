@@ -240,19 +240,28 @@ public struct PaywallView: View {
                     }
                     if let offer = offer(for: product) {
                         // The regular price, struck through, next to the offer — and what it renews at.
-                        HStack(spacing: 6) {
-                            Text(product.displayPrice)
-                                .strikethrough()
-                                .foregroundStyle(AppTheme.secondaryText)
-                            Text(offer.displayPrice)
+                        if offer.paymentMode == .freeTrial {
+                            let total = offer.periodCount * offer.period.value
+                            Text("Free for \(total) \(unitWord(offer.period.unit, count: total))")
                                 .font(.title3.bold())
                                 .foregroundStyle(AppTheme.brand)
-                            Text("/ \(unitWord(offer.period.unit, count: 1))")
-                                .foregroundStyle(AppTheme.ink)
+                        } else {
+                            HStack(spacing: 6) {
+                                Text(product.displayPrice)
+                                    .strikethrough()
+                                    .foregroundStyle(AppTheme.secondaryText)
+                                Text(offer.displayPrice)
+                                    .font(.title3.bold())
+                                    .foregroundStyle(AppTheme.brand)
+                                Text("/ \(unitWord(offer.period.unit, count: 1))")
+                                    .foregroundStyle(AppTheme.ink)
+                            }
+                            .font(.subheadline.weight(.semibold))
                         }
-                        .font(.subheadline.weight(.semibold))
                         // What it renews at, as readable as the offer itself.
-                        Text(offerTerms(offer, regular: product))
+                        Text(offer.paymentMode == .freeTrial
+                             ? "Then \(product.displayPrice) per \(product.subscription.map { unitWord($0.subscriptionPeriod.unit, count: 1) } ?? "month")."
+                             : offerTerms(offer, regular: product))
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(AppTheme.ink)
                             .fixedSize(horizontal: false, vertical: true)
@@ -391,6 +400,12 @@ public struct PaywallView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
         .background(AppTheme.background)
+        .overlay(alignment: .top) {
+            LinearGradient(colors: [AppTheme.background.opacity(0), AppTheme.background], startPoint: .top, endPoint: .bottom)
+                .frame(height: 20)
+                .offset(y: -20)
+                .allowsHitTesting(false)
+        }
     }
 }
 

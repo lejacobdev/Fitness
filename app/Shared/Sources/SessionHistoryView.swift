@@ -93,7 +93,7 @@ struct SessionDetailView: View {
 
     private func setText(_ set: SetLog) -> String {
         var parts: [String] = []
-        if let reps = set.reps { parts.append("\(reps) reps") }
+        if let reps = set.reps { parts.append(countedNoun(reps, "rep")) }
         if let weight = set.weightKg { parts.append(WeightUnit.current.format(kg: weight)) }
         if let seconds = set.seconds { parts.append("\(seconds)s") }
         if let distance = set.distanceM { parts.append("\(Int(distance)) m") }

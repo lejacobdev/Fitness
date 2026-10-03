@@ -231,6 +231,10 @@ struct BenchmarkHistoryView: View {
         }
     }
 
+    private func chartValue(_ value: Double) -> Double {
+        test.unit == .centimeters && Measure.imperial ? value / 2.54 : value
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -238,9 +242,9 @@ struct BenchmarkHistoryView: View {
                     ScreenTitle(test.name, subtitle: test.higherIsBetter ? "Higher is better." : "Lower is better.")
                     if results.count >= 2 {
                         Chart(results) { result in
-                            LineMark(x: .value("Date", result.date), y: .value(test.name, result.value))
+                            LineMark(x: .value("Date", result.date), y: .value(test.name, chartValue(result.value)))
                                 .foregroundStyle(AppTheme.accent)
-                            PointMark(x: .value("Date", result.date), y: .value(test.name, result.value))
+                            PointMark(x: .value("Date", result.date), y: .value(test.name, chartValue(result.value)))
                                 .foregroundStyle(AppTheme.accent)
                         }
                         .chartYScale(domain: .automatic(includesZero: false))

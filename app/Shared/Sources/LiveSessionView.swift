@@ -402,7 +402,7 @@ public struct LiveSessionView: View {
                             .foregroundStyle(AppTheme.ink)
                             .lineLimit(1)
                         Spacer()
-                        Text("\(done) of \(item.dose.sets) sets")
+                        Text("\(done) of \(countedNoun(item.dose.sets, "set"))")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(AppTheme.secondaryText)
                     }

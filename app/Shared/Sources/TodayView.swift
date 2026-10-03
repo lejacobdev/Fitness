@@ -37,7 +37,7 @@ struct SessionRow: View {
                 }
                 HStack(spacing: 10) {
                     Label("\(session.minutes) min", systemImage: "clock")
-                    Label("\(session.sets.count) sets done", systemImage: "list.bullet")
+                    Label("\(countedNoun(session.sets.count, "set")) done", systemImage: "list.bullet")
                     if let rpe = session.sessionRPE {
                         Label("Effort \(rpe)/10", systemImage: "flame")
                     }

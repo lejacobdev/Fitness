@@ -11,7 +11,7 @@ public enum BenchmarkUnit: String, Codable, Sendable {
     public func format(_ value: Double) -> String {
         switch self {
         case .centimeters: Measure.length(cm: value)
-        case .seconds: value >= 100 ? Self.minutes(value) : String(format: "%.2f s", value)
+        case .seconds: value >= 60 ? Self.minutes(value) : String(format: "%.2f s", value)
         case .reps: "\(Int(value.rounded()))"
         case .outOf10: "\(Int(value.rounded()))/10"
         }
@@ -22,12 +22,16 @@ public enum BenchmarkUnit: String, Codable, Sendable {
         let better = higherIsBetter ? delta > 0 : delta < 0
         let size = abs(delta)
         switch self {
-        case .centimeters: return "\(Measure.length(cm: size)) \(better ? "higher" : "lower")"
+        case .centimeters: return "\(Measure.length(cm: size)) \(delta > 0 ? "higher" : "lower")"
         case .seconds:
-            let amount = size >= 100 ? Self.minutes(size) : String(format: "%.2f s", size)
+            let amount = size >= 60 ? Self.minutes(size) : String(format: "%.2f s", size)
+            if higherIsBetter { return "\(amount) \(better ? "longer" : "shorter")" }
             return "\(amount) \(better ? "faster" : "slower")"
-        case .reps: return "\(better ? "+" : "−")\(Int(size.rounded()))"
-        case .outOf10: return "\(better ? "+" : "−")\(Int(size.rounded())) of 10"
+        case .reps:
+            return "\(Int(size.rounded())) \(delta > 0 ? "more" : "fewer")"
+        case .outOf10:
+            let n = Int(size.rounded())
+            return "\(n) \(n == 1 ? "point" : "points") \(delta > 0 ? "higher" : "lower")"
         }
     }
 
@@ -41,7 +45,7 @@ public enum BenchmarkUnit: String, Codable, Sendable {
 
     /// A goal step that suits the size of the number (whole seconds for runs).
     public func goalStep(near value: Double) -> Double {
-        self == .seconds && value >= 100 ? 1 : goalStep
+        self == .seconds && value >= 60 ? 1 : goalStep
     }
 
     private static func minutes(_ seconds: Double) -> String {

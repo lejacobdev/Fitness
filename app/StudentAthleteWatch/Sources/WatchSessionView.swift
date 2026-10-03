@@ -299,7 +299,7 @@ struct WatchSessionListPage: View {
                             .foregroundStyle(model.setsLogged[position] >= item.sets ? .green : .white)
                         VStack(alignment: .leading) {
                             Text(item.name).font(.footnote).lineLimit(2)
-                            Text("\(model.setsLogged[position])/\(item.sets) sets")
+                            Text("\(model.setsLogged[position])/\(countedNoun(item.sets, "set"))")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -327,7 +327,7 @@ struct WatchMetricsPage: View {
                 Text(model.workout.heartRate > 0 ? "\(Int(model.workout.heartRate)) bpm" : "-- bpm")
                     .font(.headline)
             }
-            Text("\(model.loggedSets)/\(model.totalSets) sets · \(Int(model.workout.activeEnergy)) kcal")
+            Text("\(model.loggedSets)/\(countedNoun(model.totalSets, "set")) · \(Int(model.workout.activeEnergy)) kcal")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Button(role: .destructive, action: onEnd) {

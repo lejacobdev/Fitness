@@ -836,7 +836,7 @@ struct ProgressTabView: View {
                     Circle().fill(color(kind)).frame(width: 14, height: 14)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(label(kind)).font(.headline).foregroundStyle(AppTheme.ink)
-                        Text("\(session.startedAt.formatted(.dateTime.weekday(.abbreviated).month().day())) · \(session.minutes) min · \(session.sets.count) sets")
+                        Text("\(session.startedAt.formatted(.dateTime.weekday(.abbreviated).month().day())) · \(session.minutes) min · \(countedNoun(session.sets.count, "set"))")
                             .font(.caption)
                             .foregroundStyle(AppTheme.secondaryText)
                     }
@@ -911,7 +911,7 @@ struct DayDetailSheet: View {
                     ForEach(done) { session in
                         let kind = kinds[session.clientId] ?? .gym
                         item(kind == .afterPractice ? "After-practice workout" : (kind == .mobility ? "Stretching & mobility" : "Workout"),
-                             "\(session.minutes) min · \(session.sets.count) sets\(session.sessionRPE.map { " · effort \($0)/10" } ?? "")",
+                             "\(session.minutes) min · \(countedNoun(session.sets.count, "set"))\(session.sessionRPE.map { " · effort \($0)/10" } ?? "")",
                              color: kind == .afterPractice ? ProgressColors.afterPractice : (kind == .mobility ? ProgressColors.mobility : ProgressColors.workout))
                     }
                     if let log = PracticeLogStore.log(on: dayKey) {

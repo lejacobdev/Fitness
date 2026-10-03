@@ -37,6 +37,12 @@ final class BenchmarkTests: XCTestCase {
         let sprint = BenchmarkMath.change(results, test: BenchmarkCatalog.sprint30)
         XCTAssertEqual(sprint?.improved, true, "lower is better for a sprint")
         XCTAssertEqual(BenchmarkCatalog.sprint30.unit.formatChange(-0.2, higherIsBetter: false), "0.20 s faster")
+        XCTAssertEqual(BenchmarkUnit.seconds.formatChange(21, higherIsBetter: true), "21.00 s longer")
+        XCTAssertEqual(BenchmarkUnit.reps.formatChange(5, higherIsBetter: true), "5 more")
+        XCTAssertEqual(countedNoun(1, "set"), "1 set")
+        XCTAssertEqual(countedNoun(3, "set"), "3 sets")
+        XCTAssertEqual(BenchmarkUnit.reps.format(1), "1")
+        XCTAssertEqual(BenchmarkUnit.seconds.format(96), "1:36")
         XCTAssertEqual(BenchmarkMath.headline(results, tests: BenchmarkCatalog.body), "Vertical jump: 3 cm higher")
     }
 

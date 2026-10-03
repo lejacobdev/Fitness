@@ -1215,14 +1215,19 @@ public struct ItemThumbnail: View {
     }
 }
 
+/// "1 set", "3 sets".
+public func countedNoun(_ n: Int, _ singular: String, plural: String? = nil) -> String {
+    "\(n) \(n == 1 ? singular : (plural ?? singular + "s"))"
+}
+
 /// Human-readable dose, e.g. "3 × 8", "3 × 20s", "2 × 10 contacts".
 public enum DoseFormatter {
     /// In plain words: "3 sets of 8 reps", "2 sets of 30 seconds each side".
     public static func text(_ dose: Dose) -> String {
         let perSide = dose.perSide == true ? " each side" : ""
-        let sets = dose.sets == 1 ? "1 set" : "\(dose.sets) sets"
+        let sets = countedNoun(dose.sets, "set")
         switch dose.kind {
-        case "reps": return "\(sets) of \(dose.reps ?? 0) reps\(perSide)"
+        case "reps": return "\(sets) of \(countedNoun(dose.reps ?? 0, "rep"))\(perSide)"
         case "time": return "\(sets) of \(duration(dose.seconds ?? 0))\(perSide)"
         case "distance": return "\(dose.sets == 1 ? "1 time" : "\(dose.sets) times") \(Measure.distance(m: dose.metres ?? 0))"
         case "contacts": return "\(sets) of \(dose.contacts ?? 0) jumps"

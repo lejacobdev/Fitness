@@ -675,7 +675,7 @@ struct HomeView: View {
         case .logWorkout: liveLaunch = LiveSessionLaunch(planned: nil)
         case .checkIn: activeSheet = .checkIn
         case .addGame: activeSheet = .addGame
-        case .improve: selectedTab = .workout
+        case .improve: searchDestination = SearchBox(target: .skillPlans)
         case .history: activeSheet = .history
         case .fuel: activeSheet = .fuel
         }

@@ -283,13 +283,12 @@ struct MusclePickerSheet: View {
                     .cardStyle()
                     .accessibilityHidden(true)
 
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    FlowLayout(spacing: 8) {
                         ForEach(MuscleRegion.allCases, id: \.self) { region in
                             Button {
                                 pending = pending == region ? nil : region
                             } label: {
                                 Chip(region.displayName, isSelected: pending == region)
-                                    .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.plain)
                         }
@@ -337,7 +336,7 @@ struct LibraryFilterSheet: View {
                             .buttonStyle(.plain)
                     }
                     filterGroup("Surface") {
-                        Button { surface = nil } label: { Chip("Anywhere", isSelected: surface == nil) }
+                        Button { surface = nil } label: { Chip("All", isSelected: surface == nil) }
                             .buttonStyle(.plain)
                         ForEach(surfaces, id: \.self) { value in
                             Button { surface = value } label: { Chip(value.capitalized, isSelected: surface == value) }
@@ -464,10 +463,12 @@ struct ItemDetailView: View {
 
                 StartWorkoutButton("Try it now", session: .single(item))
 
-                HStack(spacing: 12) {
-                    factCard(DoseFormatter.text(item.defaultDose), "How much", "repeat")
-                    factCard(DoseFormatter.duration(item.restSeconds), "Rest between sets", "timer")
-                    factCard(item.surface.capitalized, "Where", "mappin.and.ellipse")
+                VStack(spacing: 12) {
+                    factCard(DoseFormatter.text(item.defaultDose), "Suggested start", "repeat")
+                    HStack(spacing: 12) {
+                        factCard(DoseFormatter.duration(item.restSeconds), "Rest between sets", "timer")
+                        factCard(item.surface.capitalized, "Where", "mappin.and.ellipse")
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 12) {

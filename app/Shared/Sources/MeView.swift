@@ -97,7 +97,7 @@ struct MeView: View {
                                     : [sportInfo?.name, positionName].compactMap { $0 }.joined(separator: " · ")) { activeSheet = .sports }
                         menuDivider
                         menuRow("Practice schedule", icon: "calendar.badge.clock", tint: AppTheme.orange,
-                                detail: PracticeSchedule.isSet ? "Set" : "Not set") { activeSheet = .schedule }
+                                detail: practiceDetail) { activeSheet = .schedule }
                         menuDivider
                         menuRow("Season dates", icon: "calendar", tint: AppTheme.ink,
                                 detail: athlete.sports.count > 1 ? "\(sportInfo?.name ?? "") · \(seasonDetail)" : seasonDetail) { activeSheet = .season }
@@ -314,6 +314,13 @@ struct MeView: View {
                 Text(problem.message)
             }
         }
+    }
+
+    private var practiceDetail: String {
+        guard PracticeSchedule.isSet else { return "Not set" }
+        let symbols = Calendar.current.shortWeekdaySymbols
+        let days = [2, 3, 4, 5, 6, 7, 1].filter { PracticeSchedule.weekdays.contains($0) }.map { symbols[$0 - 1] }
+        return days.isEmpty ? "From your calendar" : days.joined(separator: ", ")
     }
 
     private var seasonDetail: String {
@@ -1095,7 +1102,7 @@ struct ExerciseProgressListView: View {
                                         .font(.headline)
                                         .foregroundStyle(AppTheme.ink)
                                         .multilineTextAlignment(.leading)
-                                    Text("\(summary.sessionCount) sessions · \(summary.totalSets) sets")
+                                    Text("\(countedNoun(summary.sessionCount, "session")) · \(countedNoun(summary.totalSets, "set"))")
                                         .font(.caption)
                                         .foregroundStyle(AppTheme.secondaryText)
                                 }
@@ -1238,7 +1245,7 @@ struct ExerciseProgressDetailView: View {
                             Text(point.date.formatted(.dateTime.weekday(.abbreviated).month().day()))
                                 .font(.subheadline.bold())
                                 .foregroundStyle(AppTheme.ink)
-                            Text("\(point.sets) sets")
+                            Text(countedNoun(point.sets, "set"))
                                 .font(.caption)
                                 .foregroundStyle(AppTheme.secondaryText)
                         }
