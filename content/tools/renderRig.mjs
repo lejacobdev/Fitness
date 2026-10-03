@@ -22,7 +22,7 @@ const scheme = process.argv[5] ?? 'light';
 const keyframesOnly = process.env.KEYFRAMES === '1';
 const patterns = POSE_PATTERNS.filter((p) => !only || only.includes(p.slug));
 
-const cellW = 150, cellH = 170;
+const [cellW, cellH] = (process.env.CELL ?? '150,170').split(',').map(Number);
 let body = '';
 let cols = 0;
 patterns.forEach((p, row) => {

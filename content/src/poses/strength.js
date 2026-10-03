@@ -8,13 +8,31 @@ const def = lib.def;
 // Push-up --------------------------------------------------------------
 const pushTop = handsToFloor(P(both({ shoulder: 88, elbow: 0, shoulderAbd: 10, ankle: 30, wrist: -85 }), { neck: -10 }));
 const pushBottom = handsToFloor(P(both({ shoulder: 30, elbow: 72, shoulderAbd: 30, ankle: 30, wrist: -85 }), { neck: -10 }));
-const pushDown = kf(pushTop, 'hands', { hold: 0.3, move: 0.8 });
-const pushLow = kf(pushBottom, 'hands', { hold: 0.15, move: 0.7 });
+const pushUpTop = flatHands(handsToFloor(flatHands(P(both({ shoulder: 88, elbow: 0, shoulderAbd: 10, ankle: 30, wrist: -85 }), { neck: -10 }))));
+// The body is one rigid plank pivoting on the toes while the hands stay put: the spine
+// tilts down, the elbows fold back and flare out, the chest ends about 25 cm off the floor.
+const pushHandReach = (() => { const sk = skeleton(pushUpTop); return sk.L.wrist[0] - sk.L.toe[0]; })();
+const pushHandHeight = (() => { const sk = skeleton(pushUpTop); return sk.L.wrist[1] - Math.min(sk.L.toe[1], sk.L.heel[1]); })();
+const pushUpAt = (t) => {
+  if (t === 0) return pushUpTop;
+  const mix = (a, b) => a + (b - a) * t;
+  const arms = { shoulder: mix(88, 70), elbow: mix(0, 115), shoulderAbd: mix(10, 60) };
+  const p = { ...pushUpTop, spine: mix(pushUpTop.spine, 83), shoulderL: arms.shoulder, shoulderR: arms.shoulder, elbowL: arms.elbow, elbowR: arms.elbow, shoulderAbdL: arms.shoulderAbd, shoulderAbdR: arms.shoulderAbd };
+  const rots = []; for (let r = 55 * t - 20; r <= 55 * t + 20; r += 5) rots.push(r);
+  const prefer = (sk, s) => {
+    const e = sk[s].elbow, toe = sk[s].toe;
+    return Math.hypot(e[0] - toe[0] - mix(100, 105), e[1] - Math.min(toe[1], sk[s].heel[1]) - mix(27, 18), Math.abs(e[2]) - mix(20, 38)) * 3;
+  };
+  const hand = (side) => (sk) => [sk.L.toe[0] + pushHandReach, Math.min(sk.L.toe[1], sk.L.heel[1]) + pushHandHeight, side * 23.5];
+  return flatHands(reach(reach(p, 'L', hand(1), { rot: rots, prefer }), 'R', hand(-1), { rot: rots, prefer }));
+};
+const pushFrames = (ts, hold, move) => ts.map((t, i) => kf(pushUpAt(t), 'hands', { hold: i === 0 ? hold : 0, move }));
 def('push-up', 'Push-up', {
   keyframes: [
-    ...tween(pushDown, pushLow, 3, handsToFloor),
-    ...tween(pushLow, kf(pushTop, 'hands', { hold: 0.1 }), 3, handsToFloor),
-    kf(pushTop, 'hands', { hold: 0.1 }),
+    ...pushFrames([0, 0.25, 0.5, 0.75], 0.3, 0.2),
+    kf(pushUpAt(1), 'hands', { hold: 0.15, move: 0.175 }),
+    ...pushFrames([0.75, 0.5, 0.25], 0, 0.175),
+    kf(pushUpTop, 'hands', { hold: 0.1 }),
   ],
   thumb: 4,
 });

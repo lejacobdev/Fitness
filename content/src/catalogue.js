@@ -13,6 +13,7 @@ import { EXERCISES } from './items/exercises.js';
 import { EXTRA_EXERCISES } from './items/exercisesExtra.js';
 import { VARIANT_TEXT } from './items/variantText.js';
 import { POSE_ASSIGNMENTS } from './poseAssignments/index.js';
+import { TEMPO_PATTERN_SPEC, tempoPatternSlug } from './tempoSpec.js';
 import { isPosePattern } from './poses.js';
 
 /**
@@ -59,7 +60,8 @@ export const BASE_ITEMS = RAW_BASE_ITEMS.map(withPose);
 // that equipment, a single-side version one side, an opposed drill the defender).
 export const CATALOGUE = expandCatalogue(BASE_ITEMS).map((i) => {
   if (!i.baseSlug) return i;
-  const pose = POSE_ASSIGNMENTS[i.slug];
+  const pose = POSE_ASSIGNMENTS[i.slug]
+    ?? (i.variant?.axis === 'tempo' && TEMPO_PATTERN_SPEC[i.startPose] ? tempoPatternSlug(i.startPose, i.variant.tempo) : undefined);
   return { ...i, ...VARIANT_TEXT[i.slug], ...(pose ? { startPose: pose, endPose: pose } : {}) };
 });
 

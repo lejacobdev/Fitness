@@ -45,6 +45,8 @@ import { PRECISION } from './poses/precision.js';
 import { OUTDOOR } from './poses/outdoor.js';
 import { KEEPERS } from './poses/keepers.js';
 
+import { TEMPO_PATTERN_SPEC, TEMPO_PATTERN_NAME, tempoPatternSlug, tempoKeyframes } from './tempoSpec.js';
+
 export const POSE_MODEL_VERSION = 3;
 export { JOINTS };
 
@@ -118,6 +120,15 @@ for (const p of PATTERNS) {
     const pel = keyframeAt(p, i, placed).pelvis;
     const d = [spot[0] - pel[0], spot[1] - pel[1], spot[2] - pel[2]];
     p.keyframes[i] = { ...p.keyframes[i], ball: { at: [d[0] * fw[0] + d[2] * fw[2], d[1], d[0] * lt[0] + d[2] * lt[2]] } };
+  }
+}
+
+// Slow-lowering, held and fast-lift versions of the tempo-eligible base patterns.
+for (const [slug, spec] of Object.entries(TEMPO_PATTERN_SPEC)) {
+  const base = PATTERNS.find((p) => p.slug === slug);
+  if (!base) throw new Error(`tempo spec for unknown pattern ${slug}`);
+  for (const kind of Object.keys(TEMPO_PATTERN_NAME)) {
+    PATTERNS.push({ ...base, slug: tempoPatternSlug(slug, kind), name: TEMPO_PATTERN_NAME[kind](base.name), keyframes: tempoKeyframes(base.keyframes, spec, kind) });
   }
 }
 
