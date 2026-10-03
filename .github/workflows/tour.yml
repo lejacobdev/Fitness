@@ -1,0 +1,88 @@
+name: tour
+
+# Walks the real app on a simulator: every button on every tab and on the
+# screen it opens, one screenshot each, plus a report of buttons that are
+# unlabeled or do nothing. Dispatch-only; never gates anything.
+on:
+  workflow_dispatch:
+
+jobs:
+  tour:
+    runs-on: macos-26
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        tab: [today, campus, workout, progress, me]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build content packs
+        run: cd content && npm ci && npm run build
+
+      - name: XcodeGen
+        working-directory: app
+        run: xcodegen generate --spec project.yml
+
+      - name: Build for testing
+        working-directory: app
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing \
+            -project StudentAthlete.xcodeproj \
+            -scheme StudentAthlete \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Seed the real content packs into the simulator app
+        run: |
+          set -euo pipefail
+          UDID=$(xcrun simctl list devices available | grep -E "iPhone 17 Pro Max" | head -1 | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}')
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          APP=$(find app/build/Build/Products -maxdepth 2 -name 'Sportvisor.app' -path '*iphonesimulator*' | head -1)
+          rm -rf "$APP/PlugIns" "$APP/Watch"
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl launch "$UDID" com.studentathlete.app -demoData >/dev/null
+          sleep 5
+          xcrun simctl terminate "$UDID" com.studentathlete.app || true
+          DATA=$(xcrun simctl get_app_container "$UDID" com.studentathlete.app data)
+          mkdir -p "$DATA/Library/Application Support/packs"
+          cp content/dist/*.json "$DATA/Library/Application Support/packs/"
+          xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+          echo "$UDID" > udid.txt
+
+      - name: Run the tour
+        working-directory: app
+        run: |
+          set -o pipefail
+          TEST_RUNNER_AOS_TOUR=1 xcodebuild test-without-building \
+            -project StudentAthlete.xcodeproj \
+            -scheme StudentAthlete \
+            -destination "id=$(cat ../udid.txt)" \
+            -derivedDataPath build \
+            -resultBundlePath ../tour.xcresult \
+            -only-testing:StudentAthleteUITests/AppTourUITests/testTour${{ matrix.tab == 'today' && 'Today' || matrix.tab == 'campus' && 'Campus' || matrix.tab == 'workout' && 'Workout' || matrix.tab == 'progress' && 'Progress' || 'Me' }} \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Export screenshots and report
+        if: always()
+        run: |
+          mkdir -p out
+          xcrun xcresulttool export attachments --path tour.xcresult --output-path out || true
+          ls out | head -5
+          ls out | wc -l
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tour-${{ matrix.tab }}
+          path: out/
