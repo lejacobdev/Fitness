@@ -43,7 +43,7 @@ def('water-support-partner', 'Supporting a swimmer (partner)', {
 });
 def('swim-supported-float', 'Supported float', {
   view: 'three-quarter', loop: true, thumb: 0, fixture: { kind: 'water', level: 8 },
-  cast: [{ pattern: 'water-support-partner', at: [10, -44, -86], facing: 90 }],
+  cast: [{ pattern: 'water-support-partner', at: [-60, -44, -86], facing: 90 }],
   keyframes: [
     kf(P(both({ shoulder: 170, shoulderAbd: 16, elbow: 8, ankle: -40 }), { spine: 88, neck: -8 }), 'water', { hold: 0.8, move: 1.2 }),
     kf(P(both({ shoulder: 170, shoulderAbd: 18, elbow: 10, ankle: -40, hip: 8, knee: 14 }), { spine: 86, neck: -8 }), 'water', { hold: 0.4, move: 0.6 }),

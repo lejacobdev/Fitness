@@ -136,7 +136,7 @@ withPartners('side-fall-partner', 'side-fall', [{ pattern: 'stand-watch', at: [6
 // ── Football, rugby ───────────────────────────────────────────────────────
 withPartners('football-tackle-shield', 'football-tackle', [{ pattern: 'pad-holder', at: [150, 0] }]);
 withPartners('hand-strike-shield', 'hand-strike', [{ pattern: 'pad-holder', at: [104, 0] }]);
-withPartners('ruck-drive', 'sled-push', [{ pattern: 'pad-holder', at: [62, 0], follow: true }],
+withPartners('ruck-drive', 'sled-push', [{ pattern: 'pad-holder', at: [104, 0], follow: true }],
   { extra: { fixture: undefined, ball: { r: 5.2, color: 'white' } }, balls: { 0: { floor: 'L', dx: 30 }, 1: { floor: 'L', dx: 30 }, 2: { floor: 'L', dx: 30 }, 3: { floor: 'L', dx: 30 } } });
 withPartners('catch-high-thrown', 'catch-high', [{ pattern: 'throw-partner', at: [420, 60], facing: 190, sync: [0, 1] }], { balls: { 0: 'c0:hands' }, arcs: { 0: 40 } });
 withPartners('catch-high-traffic', 'catch-high', [{ pattern: 'throw-partner', at: [420, 60], facing: 190, sync: [0, 1] }, { pattern: 'pad-holder', at: [30, -48], facing: 90 }],
@@ -186,7 +186,7 @@ withPartners('lateral-shuffle-mirror', 'lateral-shuffle', [{ pattern: 'lateral-s
 withPartners('sprint-pursuit', 'sprint', [{ pattern: 'ball-carry-run', at: [80, -150], facing: 0, follow: true }]);
 withPartners('sprint-from-keeper', 'sprint', [{ pattern: 'overarm-pass', at: [-80, 60], facing: 0 }], { extra: { ball: { r: 7, color: 'blue' } }, balls: Object.fromEntries([0, 1, 2, 3, 4, 5, 6, 7].map((i) => [i, 'c0:R'])) });
 withPartners('sprint-to-base', 'sprint', [{ pattern: 'stand-watch', at: [470, 80] }]);
-withPartners('acceleration-start-guided', 'acceleration-start', [{ pattern: 'acceleration-start', at: [0, 48], facing: 0, tether: true }]);
+withPartners('acceleration-start-guided', 'acceleration-start', [{ pattern: 'acceleration-start', at: [-36, 48], facing: 0, tether: true }]);
 withPartners('acceleration-start-band', 'acceleration-start', [{ pattern: 'band-resist-partner', at: [-95, 0], facing: 0 }],
   { extra: { implement: { kind: 'band', at: 'hips', to: [-66, 92, 0] } } });
 withPartners('burpee-called', 'burpee', [{ pattern: 'signal-partner', at: [220, 0] }]);

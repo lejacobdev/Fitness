@@ -92,7 +92,7 @@ def('lax-defend-stance', 'Defensive stance with stick', {
 });
 def('lax-roll-dodge', 'Roll dodge off the defender', {
   view: 'three-quarter', ball: LAX_BALL, implement: LAX, thumb: 2,
-  cast: [{ pattern: 'lax-defend-stance', at: [120, 34], facing: 180 }],
+  cast: [{ pattern: 'lax-defend-stance', at: [140, 44], facing: 180 }],
   keyframes: [
     kf(carry(P(runL, { spine: 16 })), 'air', { move: 0.2, ball: 'head' }),
     kf(carry(P({ spine: 20, hipL: 50, kneeL: 54, ankleL: 20, hipR: -10, kneeR: 40, ankleR: -20, hipAbdL: 12 })), 'L', { hold: 0.1, move: 0.2, ball: 'head', travel: [50, 0] }),
@@ -142,7 +142,7 @@ def('lax-cradle-carrier', 'Ball carrier protecting the stick', {
 });
 def('lax-cradle-protect', 'Cradle under pressure', {
   view: 'three-quarter', ball: LAX_BALL, implement: LAX, loop: true, thumb: 0,
-  cast: [{ pattern: 'lax-defend-stance', at: [84, 64], facing: 200 }],
+  cast: [{ pattern: 'lax-defend-stance', at: [120, 64], facing: 200 }],
   keyframes: [
     kf(holdLax(P(laxStance, { spine: 22, turn: -30, neck: -10 }), air(10, 10, -12), air(-50, 70, -50)), 'feet', { hold: 0.2, move: 0.4, ball: 'head' }),
     kf(holdLax(P(laxStance, { spine: 24, turn: -60, neck: -10, twist: -10 }), air(6, 14, -16), air(-60, 76, -40)), 'feet', { hold: 0.2, move: 0.4, ball: 'head' }),
@@ -194,7 +194,7 @@ def('lax-screen', 'Setting a screen', {
 });
 def('lax-pick-and-roll', 'Pick-and-roll dodge', {
   view: 'three-quarter', ball: LAX_BALL, implement: LAX, thumb: 2,
-  cast: [{ pattern: 'lax-screen', at: [110, 40], facing: 90 }],
+  cast: [{ pattern: 'lax-screen', at: [120, 58], facing: 90 }],
   keyframes: [
     kf(carry(P(runL, { spine: 16 })), 'air', { move: 0.2, ball: 'head' }),
     kf(carry(P(mirror(P(runL)), { spine: 18 })), 'air', { move: 0.2, ball: 'head', travel: [50, 0] }),

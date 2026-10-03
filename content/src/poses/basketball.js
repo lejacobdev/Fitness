@@ -157,7 +157,7 @@ def('bb-box-out-opponent', 'Box-out opponent', {
   ],
 });
 def('bb-box-out-vs', 'Box-out and rebound (with opponent)', {
-  ...lib.get('bb-box-out'), cast: [{ pattern: 'bb-box-out-opponent', at: [-42, 22], facing: 0 }],
+  ...lib.get('bb-box-out'), cast: [{ pattern: 'bb-box-out-opponent', at: [-74, 32], facing: 0 }],
 });
 
 // Defence ----------------------------------------------------------------------

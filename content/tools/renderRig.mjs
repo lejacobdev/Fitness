@@ -14,6 +14,8 @@ function timeOfKeyframe(p, i) {
   return (at + 1e-6) / cycleSeconds(p);
 }
 import { sceneShapes as figureShapes } from '../src/rigDraw.js';
+import { applyOverrides } from './_override.mjs';
+applyOverrides(POSE_PATTERNS);
 
 const out = process.argv[2] ?? '/tmp/rig.png';
 const only = process.argv[3] && process.argv[3] !== 'all' ? process.argv[3].split(',') : null;

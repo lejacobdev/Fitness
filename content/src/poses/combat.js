@@ -75,7 +75,7 @@ def('wrestling-ties-partner', 'Hand fighting (partner)', {
 });
 def('wrestling-hand-fighting', 'Hand fighting for ties', {
   view: 'three-quarter', loop: true, thumb: 0,
-  cast: [{ pattern: 'wrestling-ties-partner', at: [70, 0], facing: 180, phase: 0.3 }],
+  cast: [{ pattern: 'wrestling-ties-partner', at: [88, 16], facing: 180, phase: 0.3 }],
   keyframes: [
     kf(tie(6, -16), 'feet', { hold: 0.3, move: 0.35 }),
     kf(reachBoth(stance(-6), air(40, 14, 16), air(40, 20, 12)), 'feet', { hold: 0.3, move: 0.35 }),
