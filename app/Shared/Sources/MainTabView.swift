@@ -43,7 +43,7 @@ public struct MainTabView: View {
         self.apiClient = apiClient
     }
 
-    public var body: some View {
+    private var tabView: some View {
         TabView(selection: $selectedTab) {
             HomeView(athlete: athlete, apiClient: apiClient, week: week, selectedTab: $selectedTab, onPlanInputsChanged: regenerate)
                 .tabItem { Label("Home", systemImage: "house.fill") }
@@ -83,6 +83,10 @@ public struct MainTabView: View {
             default: break
             }
         }
+    }
+
+    private var chrome: some View {
+        tabView
         .modifier(CompactTabBar())
         .environment(\.workoutContext, workoutContext)
         .sheet(isPresented: $showingHealthPermission) {
@@ -99,6 +103,10 @@ public struct MainTabView: View {
         .onChange(of: athlete.sports.count) { regenerate() }
         .onChange(of: ProAccess.isPro) { regenerate() }
         .proPaywall(isPresented: $demoPaywall, athlete: athlete, feature: .skillBlocks)
+    }
+
+    private var links: some View {
+        chrome
         .sheet(item: $linkSheet, onDismiss: {
             if let workout = startFromLink {
                 startFromLink = nil
@@ -134,6 +142,19 @@ public struct MainTabView: View {
         .onChange(of: DeepLinkCenter.shared.pending) {
             Task { await openPendingLink() }
         }
+    }
+
+    private var lifecycle: some View {
+        links
+        // A tapped notification opens the screen it is about.
+        .onAppear(perform: takePushRoute)
+        .onChange(of: PushRoute.shared.tab) { takePushRoute() }
+        // Quietly checks for the coach's news while the app is open.
+        .task(id: scenePhase) { await pollLiveUpdates() }
+    }
+
+    public var body: some View {
+        lifecycle
         // Back up when the athlete leaves the app, pick up other phones'
         // changes when they come back.
         .onChange(of: scenePhase) { _, phase in
@@ -156,18 +177,6 @@ public struct MainTabView: View {
                 Task { await LiveUpdates.shared.refresh(apiClient: apiClient) }
             }
         }
-        // Quietly checks for the coach's news while the app is open.
-        .task(id: scenePhase) {
-            guard scenePhase == .active, !DemoData.isEnabled else { return }
-            for _ in 0..<2000 {
-                try? await Task.sleep(for: .seconds(45))
-                if Task.isCancelled { break }
-                await LiveUpdates.shared.refresh(apiClient: apiClient)
-            }
-        }
-        // A tapped notification opens the screen it is about.
-        .onAppear(perform: takePushRoute)
-        .onChange(of: PushRoute.shared.tab) { takePushRoute() }
         .task {
             _ = RatingMoment.firstUse
             StreakFreeze.protectTodayIfResting()
@@ -230,6 +239,15 @@ public struct MainTabView: View {
         await PushSettings.syncIfNeeded(apiClient: apiClient)
         await LeagueSync.report(apiClient: apiClient)
         if !athlete.isDeleted, scenePhase != .background { regenerate() }
+    }
+
+    private func pollLiveUpdates() async {
+        guard scenePhase == .active, !DemoData.isEnabled else { return }
+        for _ in 0..<2000 {
+            try? await Task.sleep(for: .seconds(45))
+            if Task.isCancelled { break }
+            await LiveUpdates.shared.refresh(apiClient: apiClient)
+        }
     }
 
     private func takePushRoute() {
