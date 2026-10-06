@@ -54,10 +54,10 @@ public enum DayPhase: String, Sendable, CaseIterable {
     /// morning, pure in the day, deeper crimson in the evening.
     public var red: Color {
         switch self {
-        case .morning: Color(hex: "#F0523A")
+        case .morning: Color(hex: "#A06BF5")
         case .day: AppTheme.red
-        case .evening: Color(hex: "#D23A4E")
-        case .night: Color(hex: "#B23447")
+        case .evening: Color(hex: "#7C4DDB")
+        case .night: Color(hex: "#6A3FBF")
         }
     }
 }
@@ -82,10 +82,10 @@ public struct AmbientLight: Equatable, Sendable {
         (1440, .night),
     ]
 
-    static let night = AmbientLight(red: 0.36, green: 0.05, blue: 0.09, strength: 0.22)
-    static let morning = AmbientLight(red: 0.94, green: 0.33, blue: 0.20, strength: 0.30)
-    static let day = AmbientLight(red: 0.94, green: 0.27, blue: 0.27, strength: 0.22)
-    static let evening = AmbientLight(red: 0.52, green: 0.08, blue: 0.16, strength: 0.38)
+    static let night = AmbientLight(red: 0.16, green: 0.07, blue: 0.36, strength: 0.22)
+    static let morning = AmbientLight(red: 0.66, green: 0.42, blue: 0.98, strength: 0.30)
+    static let day = AmbientLight(red: 0.55, green: 0.36, blue: 0.96, strength: 0.22)
+    static let evening = AmbientLight(red: 0.33, green: 0.13, blue: 0.62, strength: 0.38)
 
     public static func at(_ date: Date, calendar: Calendar = .current) -> AmbientLight {
         at(minute: DayPhase.minuteOfDay(date, calendar: calendar))
