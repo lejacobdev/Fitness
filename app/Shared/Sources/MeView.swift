@@ -55,12 +55,13 @@ struct MeView: View {
     }
 
     enum MeSheet: String, Identifiable {
-        case sport, season, equipment, experience, name, reports, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, safety, struggles, trends, mindset, schedule, decisions, emergency
+        case athleteScore, sport, season, equipment, experience, name, reports, history, checkIns, exercises, dataExport, reminders, downloads, fuel, health, sports, help, tests, team, coach, parent, safety, struggles, trends, mindset, schedule, decisions, emergency
         var id: String { rawValue }
     }
 
     private var athleteSport: AthleteSport? { athlete.activeSport }
     @State private var showingPaywall = false
+    @State private var athleteScore: AthleteScoreSnapshot?
     private var sportInfo: SportInfo? { athleteSport.flatMap { allSportsBySlug[$0.sportSlug] } }
     private var positionName: String? {
         athleteSport?.positionSlug.flatMap { slug in sportInfo?.positions.first { $0.slug == slug }?.name }
@@ -258,9 +259,12 @@ struct MeView: View {
             }
             // A tapped notification about a team or its health notes.
             .onAppear(perform: takePushRoute)
+
             .onChange(of: PushRoute.shared.meSheet) { takePushRoute() }
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
+                case .athleteScore:
+                    if let athleteScore { AthleteScoreSheet(snapshot: athleteScore) }
                 case .sport: SportEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
                 case .season: SeasonEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
                 case .equipment: EquipmentEditorSheet(athlete: athlete, onSaved: onPlanInputsChanged)
@@ -362,24 +366,28 @@ struct MeView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Edit sport and position")
             }
-            VStack(alignment: .leading, spacing: 8) {
-                Button { activeSheet = .name } label: {
-                    Text(athlete.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? "Add your name")
-                        .font(.system(size: hasName ? 48 : 30, weight: .bold))
-                        .foregroundStyle(hasName ? AppTheme.ink : AppTheme.secondaryText)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.6)
-                        .multilineTextAlignment(.leading)
-                        .background(alignment: .leading) { HeroBloom(color: AppTheme.brand).offset(x: -60) }
+            HStack(alignment: .center, spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Button { activeSheet = .name } label: {
+                        Text(athlete.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? "Add your name")
+                            .font(.system(size: hasName ? 48 : 30, weight: .bold))
+                            .foregroundStyle(hasName ? AppTheme.ink : AppTheme.secondaryText)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.6)
+                            .multilineTextAlignment(.leading)
+                            .background(alignment: .leading) { HeroBloom(color: AppTheme.brand).offset(x: -60) }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Edit your first name")
+                    Text([sportInfo?.name, positionName, "age \(age)"].compactMap { $0 }.joined(separator: " · "))
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                    Text(AthleteStats.phaseLabel(phase))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppTheme.brightRed)
                 }
-                .buttonStyle(.plain)
-                .accessibilityHint("Edit your first name")
-                Text([sportInfo?.name, positionName, "age \(age)"].compactMap { $0 }.joined(separator: " · "))
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.secondaryText)
-                Text(AthleteStats.phaseLabel(phase))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppTheme.brightRed)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if athleteScore != nil { scoreButton }
             }
             HStack(alignment: .bottom, spacing: 10) {
                 // V6 §21: training first; the streak is there, quietly.
@@ -389,6 +397,30 @@ struct MeView: View {
             }
         }
         .padding(.top, 8)
+        .onAppear(perform: refreshAthleteScore)
+        .onChange(of: sessions.count) { refreshAthleteScore() }
+        .onChange(of: athlete.checkIns.count) { refreshAthleteScore() }
+        .onChange(of: activeSheet) { _, sheet in if sheet == nil { refreshAthleteScore() } }
+    }
+
+    /// The Athlete Score beside the name: only for the athlete, tap for why.
+    private var scoreButton: some View {
+        Button { activeSheet = .athleteScore } label: {
+            VStack(spacing: 6) {
+                AthleteScoreRing(snapshot: athleteScore, size: 76)
+                Text("Athlete Score")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(AppTheme.secondaryText)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(athleteScore?.shown.map { "Athlete Score \($0) of 100, \(athleteScore?.score.word ?? "")" } ?? "Athlete Score, still getting to know you")
+        .accessibilityHint("Shows what it means and what it is made of")
+    }
+
+    private func refreshAthleteScore() {
+        athleteScore = AthleteScoreStore.snapshot(athlete: athlete, sessions: sessions)
     }
 
     /// My Development Goals: what the plan leans towards.

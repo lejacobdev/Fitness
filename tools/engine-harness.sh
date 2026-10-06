@@ -16,7 +16,7 @@ rm -rf "$H"
 mkdir -p "$H/Sources/Engine" "$H/Tests/EngineTests"
 
 for f in CatalogueModels ExerciseProfile SportDemands WorkoutEngine ConditioningEngine SessionBuilder PlanExplanation \
-         PlanGenerator SeasonPhase TrainingExperience SeededGenerator Mindset ReflectionInsight \
+         PlanGenerator SeasonPhase TrainingExperience SeededGenerator Mindset ReflectionInsight AthleteScore \
          CampusContent CampusQuiz CampusLibrary CampusLessonsSupplements CampusLessonsDigital CampusLessonsPsychology \
          CampusLessonsTraining CampusLessonsAnatomy CampusLessonsNutrition CampusLessonsSleep CampusLessonsSelfCoaching \
          Generated/Qualities Generated/Equipment Generated/AllSports; do
@@ -33,7 +33,7 @@ awk '/^\/\/\/ Today.s workouts with today.s pain/{exit} {print}' "$SRC/PainFilte
   awk '/^public struct Dose: Codable/,/^}/' "$SRC/AthleteModels.swift"
 } > "$H/Sources/Engine/Shims.swift"
 
-for t in WorkoutEngineTests ReflectionInsightTests CampusLessonTests; do
+for t in WorkoutEngineTests ReflectionInsightTests CampusLessonTests AthleteScoreTests; do
   ln -s "$TESTS/$t.swift" "$H/Tests/EngineTests/$t.swift"
 done
 

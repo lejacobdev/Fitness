@@ -1,5 +1,4 @@
 import XCTest
-@testable import StudentAthlete
 
 @MainActor
 final class PushRouteTests: XCTestCase {

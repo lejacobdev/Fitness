@@ -1,5 +1,4 @@
 import XCTest
-@testable import StudentAthlete
 
 final class WeekPlanProgressTests: XCTestCase {
     func testCountsDoneAgainstPlanned() {
