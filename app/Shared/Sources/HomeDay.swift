@@ -407,15 +407,98 @@ public struct WeekSummary: Equatable, Sendable {
     }
 }
 
+/// How much of the week's plan is done: one segment per planned workout and
+/// practice. Doing more than planned never overflows the bar, it is only
+/// mentioned. Rest days and missed sessions are never counted against anyone.
+struct WeekPlanProgress: Equatable {
+    enum Kind: Equatable { case workout, practice }
+    struct Segment: Equatable {
+        let kind: Kind
+        let done: Bool
+    }
+
+    let workoutsPlanned: Int
+    let workoutsDone: Int
+    let practicesPlanned: Int
+    let practicesDone: Int
+
+    init(workoutsPlanned: Int, workoutsDone: Int, practicesPlanned: Int, practicesDone: Int) {
+        self.workoutsPlanned = max(0, workoutsPlanned)
+        self.workoutsDone = max(0, workoutsDone)
+        self.practicesPlanned = max(0, practicesPlanned)
+        self.practicesDone = max(0, practicesDone)
+    }
+
+    var plannedTotal: Int { workoutsPlanned + practicesPlanned }
+    var doneTotal: Int { min(workoutsDone, workoutsPlanned) + min(practicesDone, practicesPlanned) }
+    var extraTotal: Int { max(0, workoutsDone - workoutsPlanned) + max(0, practicesDone - practicesPlanned) }
+    var remaining: Int { plannedTotal - doneTotal }
+    var isVisible: Bool { plannedTotal > 0 }
+    var isComplete: Bool { plannedTotal > 0 && remaining == 0 }
+
+    var segments: [Segment] {
+        let workouts = (0..<min(workoutsPlanned, 14)).map { Segment(kind: .workout, done: $0 < workoutsDone) }
+        let practices = (0..<min(practicesPlanned, 14)).map { Segment(kind: .practice, done: $0 < practicesDone) }
+        return workouts + practices
+    }
+
+    var statusLine: String {
+        if isComplete {
+            return extraTotal > 0 ? "Week complete, plus \(extraTotal) extra" : "Week complete"
+        }
+        return remaining == 1 ? "1 still ahead" : "\(remaining) still ahead"
+    }
+}
+
+/// The week as one bar (V6): a big count, a segment per planned session
+/// (workouts red, practices orange) that lights up when it is done.
+struct WeekPlanBar: View {
+    let plan: WeekPlanProgress
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(String(plan.doneTotal))
+                    .font(.system(size: 40, weight: .semibold, design: .rounded))
+                    .foregroundStyle(AppTheme.ink)
+                    .contentTransition(.numericText())
+                Text("of \(plan.plannedTotal) planned")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+                Spacer(minLength: 8)
+                Text(plan.statusLine)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(plan.isComplete ? AppTheme.ink : AppTheme.secondaryText)
+            }
+            HStack(spacing: 6) {
+                ForEach(Array(plan.segments.enumerated()), id: \.offset) { _, segment in
+                    let color = segment.kind == .workout ? AppTheme.red : AppTheme.orange
+                    Capsule()
+                        .fill(segment.done ? color : AppTheme.fill)
+                        .frame(height: 6)
+                        .shadow(color: segment.done ? color.opacity(0.6) : .clear, radius: 6)
+                }
+            }
+        }
+        .padding(18)
+        .glassSurface()
+        .animation(.easeInOut(duration: 0.4), value: plan.doneTotal)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("This week: \(plan.doneTotal) of \(plan.plannedTotal) planned sessions done. \(plan.statusLine)")
+    }
+}
+
 /// The week (V5): one 2x2 of glass numbers and a dot per day. The only
 /// weekly summary on Home.
 struct HomeWeekBlock: View {
     let week: WeekSummary
     let accent: Color
+    var plan: WeekPlanProgress?
 
     var body: some View {
         VStack(spacing: 14) {
             HomeEyebrow("This week")
+            if let plan, plan.isVisible { WeekPlanBar(plan: plan).frame(maxWidth: 400) }
             Grid(horizontalSpacing: 10, verticalSpacing: 10) {
                 GridRow {
                     GlassMetric(value: Self.twoDigits(week.practices), label: week.practices == 1 ? "Practice" : "Practices",

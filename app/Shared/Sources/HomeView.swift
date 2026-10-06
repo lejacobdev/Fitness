@@ -376,7 +376,7 @@ struct HomeView: View {
                     if gameToday != nil && status == .active && phase != .night { gameRoutinesCard }
                     if let tips = gameFuelTips, !tips.isEmpty { gameFuelCard(tips) }
                     if askPrePracticeFuel { prePracticeFuelCard }
-                    if loaded { HomeWeekBlock(week: weekSummary, accent: phase.red) }
+                    if loaded { HomeWeekBlock(week: weekSummary, accent: phase.red, plan: weekPlan) }
                     widgetsSection
                 }
                 .animation(.easeInOut(duration: 0.45), value: contentKey)
@@ -813,6 +813,12 @@ struct HomeView: View {
                     workoutPlanned: todaysWorkout != nil && status == .active, workoutDone: workoutDoneToday,
                     mobilityDone: mobilityDoneToday, reflected: reflectedToday,
                     restDay: todaysWorkout == nil && status == .active && gameToday == nil)
+    }
+
+    private var weekPlan: WeekPlanProgress {
+        let summary = weekSummary
+        return WeekPlanProgress(workoutsPlanned: week?.sessions.count ?? 0, workoutsDone: summary.workouts,
+                                practicesPlanned: practiceDays.count, practicesDone: summary.practices)
     }
 
     private var weekSummary: WeekSummary {
