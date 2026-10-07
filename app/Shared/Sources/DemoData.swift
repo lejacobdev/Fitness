@@ -44,7 +44,7 @@ public enum DemoData {
         let calendar = Calendar.current
 
         let athlete = Athlete(
-            appleUserId: "demo", birthDate: calendar.date(byAdding: .year, value: -16, to: now) ?? now,
+            appleUserId: "demo", displayName: "Maya", birthDate: calendar.date(byAdding: .year, value: -16, to: now) ?? now,
             trainsUnderCoach: true, equipmentAvailable: ["ball", "cones", "band", "med-ball", "box", "dumbbell", "goal"]
         )
         context.insert(athlete)

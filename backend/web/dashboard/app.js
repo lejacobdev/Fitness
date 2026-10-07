@@ -11,7 +11,7 @@ const RTP_STEPS = [
   [5, 'Full-contact practice — only after a doctor clears them'],
   [6, 'Back to games'],
 ];
-const LOGO = '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="aos-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#10131A"/><stop offset="1" stop-color="#1D2330"/></linearGradient></defs><rect width="100" height="100" rx="22" fill="url(#aos-g)"/><g fill="none" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"><path d="M28.5 47.3 50 32.3l21.5 15" stroke="#F5F7FA"/><path d="M28.5 67.8 50 52.8l21.5 15" stroke="#E5383B"/></g></svg>';
+const LOGO = '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="aos-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#10131A"/><stop offset="1" stop-color="#1D2330"/></linearGradient></defs><rect width="100" height="100" rx="22" fill="url(#aos-g)"/><g fill="none" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"><path d="M28.5 47.3 50 32.3l21.5 15" stroke="#F5F7FA"/><path d="M28.5 67.8 50 52.8l21.5 15" stroke="#8B5CF6"/></g></svg>';
 
 // ---------- Session ----------
 const session = {
@@ -328,8 +328,8 @@ function metrics(members) {
   return [
     ['Ready', count((m) => bandOf(m) === 'GREEN'), 'var(--green)'],
     ['A bit tired', count((m) => bandOf(m) === 'AMBER'), 'var(--amber)'],
-    ['Go easy', count((m) => bandOf(m) === 'RED'), 'var(--red)'],
-    ['Paused', count((m) => bandOf(m) === 'PAUSED'), 'var(--red)'],
+    ['Go easy', count((m) => bandOf(m) === 'RED'), 'var(--danger)'],
+    ['Paused', count((m) => bandOf(m) === 'PAUSED'), 'var(--danger)'],
     ['No check-in', count((m) => !m.checkedInToday), 'var(--faint)'],
   ].map(([label, n, color]) => h('div.glass.metric', {}, h('div.n', { style: `color:${n ? color : 'var(--faint)'}` }, n), h('div.l', {}, label)));
 }
@@ -339,7 +339,7 @@ function tile(m) {
   return h(`div.glass.tile${band ? `.${band}` : ''}`, {},
     bandView(m),
     h('div.name', { title: m.nickname }, m.nickname),
-    h('div.meta', {}, `${m.sessionsThisWeek} workouts · ${m.minutesThisWeek} min this week`),
+    h('div.meta', {}, `${m.sessionsThisWeek} workout${m.sessionsThisWeek === 1 ? '' : 's'} · ${m.minutesThisWeek} min this week`),
     m.health?.pain ? h('div.flag', {}, `Pain: ${m.health.pain.areas.join(', ')}`) : null,
     m.health?.rtpStep ? h('div.flag.rtp', {}, `Return to play: step ${m.health.rtpStep}`) : null);
 }
@@ -463,7 +463,7 @@ function rtpDialog(team, member, done) {
   let step = member.rtpStep ?? 1;
   dialog((close) => {
     const list = h('div.rtp-steps');
-    const warn = h('p.small', { style: 'color:var(--red);font-weight:650;min-height:20px' });
+    const warn = h('p.small', { style: 'color:var(--danger);font-weight:650;min-height:20px' });
     const draw = () => {
       list.replaceChildren(...RTP_STEPS.map(([n, label]) => h(`button${n === step ? '.on' : ''}`, { type: 'button', onclick: () => { step = n; draw(); } }, h('b', {}, n), label)));
       warn.textContent = step >= 5 ? "Step 5 and up need a doctor's clearance (in writing where your school requires it)." : '';
