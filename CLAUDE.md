@@ -49,7 +49,10 @@ The repo is public: no secrets, key IDs or server internals go in this file.
   edges, the selected tab — never a flat fill. Real red `AppTheme.danger` only for warnings
   (pain, head injury, emergency, stop). Mind/sleep/reflection accent `AppTheme.purple` is
   indigo #818CF8 so it never reads as the brand. App icon: `tools/generate-app-icon.py`.
-  Website and coach dashboard are still red (not yet switched). Three layers: atmosphere, frosted glass (`glassSurface`, `glassCapsule`), type.
+  Website and coach dashboard are violet too (dashboard keeps `--danger` red for go easy,
+  paused, pain). Website images are real screenshots only (`website/screens.py` from the
+  `screenshots` workflow artifact, `website/dashboard-shot.mjs` for the dashboard); publish
+  with `sh website/deploy.sh`. Three layers: atmosphere, frosted glass (`glassSurface`, `glassCapsule`), type.
 - Sport atmosphere = abstract geometry at 2–8% opacity (`SportAtmosphere`), never photos.
 - V6 component levels: one **hero** per screen (big type, open), **information panels**
   (glass) for important data, flat **utility rows** for the rest — not every block in a

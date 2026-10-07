@@ -1,4 +1,4 @@
-import { APP_STORE, DASHBOARD, LOGO, appStoreButton, dashboardMock, icon, phoneCampus, phoneCheckIn, phoneHome, phoneSchedule, watchWorkout } from './parts.mjs';
+import { APP_STORE, DASHBOARD, LOGO, appStoreButton, dashboardShot, icon, phoneShot, watchShot } from './parts.mjs';
 
 export const SPORTS = ['Archery', 'Badminton', 'Baseball', 'Basketball', 'BMX', 'Boccia', 'Bowling', 'Climbing', 'Color Guard', 'Competitive Dance / Drill', 'Competitive Cheer / Spirit', 'Cross Country', 'Strength & Conditioning Team', 'Cycling', 'Disc Golf', 'Equestrian', 'Esports (Physical Conditioning)', 'Fencing', 'Field Hockey', 'Flag Football', 'Football', 'Goalball', 'Golf', 'Gymnastics', 'Ice Hockey', 'Indoor Track & Field', 'Judo', 'Lacrosse', 'Marching Band (Physical Conditioning)', 'Mountain Biking', 'Netball', 'Orienteering', 'Pickleball', 'Powerlifting', 'Racquetball', 'Rifle', 'Rowing / Crew', 'Rugby', 'Sailing', 'Skateboarding', 'Skiing', 'Snowboarding', 'Soccer', 'Softball', 'Spikeball (Roundnet)', 'Squash', 'Step / Dance Team', 'Surfing', 'Swimming', 'Table Tennis', 'Team Handball', 'Tennis', 'Track & Field', 'Triathlon', 'Ultimate (Frisbee)', 'Unified Sports', 'Volleyball', 'Water Polo', 'Weightlifting', 'Wrestling'];
 
@@ -34,7 +34,7 @@ export const home = {
       <div class="ctas">${appStoreButton()}<a class="btn" href="#how">How it works <span class="arrow">→</span></a></div>
       <p class="hero-note">iPhone, iPad and Apple Watch · Free to start · No ads, no tracking</p>
     </div>
-    <div class="device-stage">${phoneSchedule().replace('class="phone"', 'class="phone back"')}${phoneHome()}</div>
+    <div class="device-stage">${phoneShot('workout', 'AthleteOS Workout tab: today\'s session, how long it takes and why', 'back')}${phoneShot('home', 'AthleteOS Home: the day, what is done and what is next', 'tilt')}</div>
   </div>
 </section>
 
@@ -77,7 +77,7 @@ export const home = {
     </ul>
     <a class="btn" href="/features/#schedule">More about scheduling <span class="arrow">→</span></a>
   </div>
-  <div class="device-stage reveal">${phoneSchedule()}</div>
+  <div class="device-stage reveal">${phoneShot('schedule', 'AthleteOS schedule: team and school calendars, practice days, exam weeks and school hours')}</div>
 </div></section>
 
 <section class="band tight" aria-label="Sports">
@@ -106,7 +106,7 @@ export const home = {
     <p class="lede">Your workout on your wrist: the exercise, the set, the rest timer and your heart rate. Tap “Count my reps” and the Watch counts them for you — you can always correct the number.</p>
     <ul class="checks"><li><span>Pre-fills your check-in from sleep and resting heart rate</span></li><li><span>Workouts go back to Apple Health</span></li><li><span>Your emergency card, one tap away</span></li></ul>
   </div>
-  <div class="device-stage reveal" style="min-height:440px">${watchWorkout()}</div>
+  <div class="device-stage reveal" style="min-height:440px">${watchShot('watch', 'AthleteOS on Apple Watch: today at a glance')}</div>
 </div></section>
 
 <section class="band"><div class="wrap split">
@@ -121,7 +121,7 @@ export const home = {
     </ul>
     <div class="ctas"><a class="btn primary" href="/coaches/">For coaches <span class="arrow">→</span></a><a class="btn" href="${DASHBOARD}">Open the dashboard</a></div>
   </div>
-  <div class="reveal">${dashboardMock()}</div>
+  <div class="reveal">${dashboardShot()}</div>
 </div></section>
 
 <section class="band"><div class="wrap">
@@ -171,7 +171,7 @@ export const features = {
       <li><span><b>Long school day?</b> Tell it when school ends and late days get shorter sessions</span></li>
     </ul>
   </div>
-  <div class="device-stage reveal">${phoneCheckIn()}</div>
+  <div class="device-stage reveal">${phoneShot('home', 'AthleteOS Home: the day, the check-in and the next session', 'tilt')}</div>
 </div></section>
 
 <div class="wrap divider"></div>
@@ -208,7 +208,7 @@ export const features = {
       <li><span>Month view with every activity colour-coded</span></li>
     </ul>
   </div>
-  <div class="device-stage reveal">${phoneSchedule()}</div>
+  <div class="device-stage reveal">${phoneShot('schedule', 'AthleteOS schedule: team and school calendars, practice days, exam weeks and school hours')}</div>
 </div></section>
 
 <div class="wrap divider"></div>
@@ -219,7 +219,7 @@ export const features = {
     <p class="lede">About 100 short lessons in nine areas and five levels — from foundations to coaching yourself. Each one: a hook, the idea, an athlete's example and what it means for you.</p>
     <ul class="checks"><li><span><b>Recommended for your day</b> — a short night, a game tomorrow, a hard practice</span></li><li><span><b>Supplements, explained honestly</b> — evidence, risks and marketing; never "take this"</span></li><li><span><b>Phones, attention and sleep</b> — without the scare stories</span></li><li><span>Spaced review so it sticks; XP and badges stay in the background</span></li></ul>
   </div>
-  <div class="device-stage reveal">${phoneCampus()}</div>
+  <div class="device-stage reveal">${phoneShot('campus', 'AthleteOS Campus: short lessons in nine areas')}</div>
 </div></section>
 
 <div class="wrap divider"></div>
@@ -265,7 +265,7 @@ export const coaches = {
   <div class="ctas"><a class="btn primary" href="${DASHBOARD}">Open the coach dashboard <span class="arrow">→</span></a>${appStoreButton()}</div>
 </div></section>
 
-<section class="wrap reveal">${dashboardMock()}</section>
+<section class="wrap reveal">${dashboardShot()}</section>
 
 <section class="band"><div class="wrap">
   <div class="section-head reveal"><p class="eyebrow">Set up in two minutes</p><h2 class="big">Code in. <em>Done.</em></h2></div>
@@ -307,7 +307,7 @@ export const coaches = {
     <p class="muted">Paused since Mon, Sep 28</p>
     <div style="display:grid;gap:8px;margin-top:20px">
       ${[[1, "Everyday activity that doesn't make symptoms worse", 'done'], [2, 'Light exercise', 'done'], [3, 'Sport-specific exercise', 'on'], [4, 'Non-contact training drills', ''], [5, 'Full-contact practice — after a doctor clears them', ''], [6, 'Back to games', '']]
-    .map(([n, t, s]) => `<div style="display:flex;gap:14px;align-items:center;padding:12px 14px;border-radius:14px;border:1px solid ${s === 'on' ? 'rgba(255,90,95,.6)' : 'var(--hair)'};background:${s === 'on' ? 'rgba(239,68,68,.12)' : 'var(--fill)'};${s === '' ? 'opacity:.55' : ''}"><b style="width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:none;background:${s === 'on' ? '#fff' : 'rgba(255,255,255,.08)'};color:${s === 'on' ? '#050608' : '#fff'}">${n}</b><span>${t}</span></div>`).join('')}
+    .map(([n, t, s]) => `<div style="display:flex;gap:14px;align-items:center;padding:12px 14px;border-radius:14px;border:1px solid ${s === 'on' ? 'rgba(167,139,250,.6)' : 'var(--hair)'};background:${s === 'on' ? 'rgba(139,92,246,.12)' : 'var(--fill)'};${s === '' ? 'opacity:.55' : ''}"><b style="width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:none;background:${s === 'on' ? '#fff' : 'rgba(255,255,255,.08)'};color:${s === 'on' ? '#050608' : '#fff'}">${n}</b><span>${t}</span></div>`).join('')}
     </div>
   </div>
 </div></section>
