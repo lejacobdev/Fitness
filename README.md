@@ -65,3 +65,6 @@ any Xcode build.
 
 Tracked in `docs/BUILD-PLAN.md` §22, M0 through M14. Each ends with something
 demonstrable; the next does not start until the current one's acceptance criteria pass.
+
+
+<!-- Security scan triggered at 2026-10-07 11:43:45 -->
