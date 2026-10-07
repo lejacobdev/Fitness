@@ -82,7 +82,7 @@ struct RemindersSheet: View {
                             if PushSettings.isStaff {
                                 Divider().overlay(AppTheme.hairline)
                                 Toggle(isOn: $healthNotes) {
-                                    row("Pain reports", "When an athlete shares a new one — no names on the lock screen", "cross.case.fill", AppTheme.red)
+                                    row("Pain reports", "When an athlete shares a new one — no names on the lock screen", "cross.case.fill", AppTheme.danger)
                                 }
                                 .tint(AppTheme.green)
                                 .padding(.vertical, 8)

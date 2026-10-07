@@ -145,9 +145,9 @@ struct MeView: View {
                     }
 
                     menuCard {
-                        menuRow("Safety Center", icon: "cross.case.fill", tint: AppTheme.red, detail: "Pain, head injury, illness") { activeSheet = .safety }
+                        menuRow("Safety Center", icon: "cross.case.fill", tint: AppTheme.danger, detail: "Pain, head injury, illness") { activeSheet = .safety }
                         menuDivider
-                        menuRow("Emergency card", icon: "staroflife.fill", tint: AppTheme.red, detail: "Allergies, who to call") { activeSheet = .emergency }
+                        menuRow("Emergency card", icon: "staroflife.fill", tint: AppTheme.danger, detail: "Allergies, who to call") { activeSheet = .emergency }
                         menuDivider
                         menuRow("How AthleteOS decides", icon: "list.bullet.rectangle", tint: AppTheme.ink, detail: "Rules and sources") { activeSheet = .decisions }
                     }

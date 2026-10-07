@@ -190,7 +190,7 @@ struct WatchRootView: View {
                     let days = AthleteStats.daysUntil(next)
                     Label(days == 0 ? "Game today" : "Next game in \(days)d", systemImage: "sportscourt.fill")
                         .font(.caption)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(AppTheme.brightRed)
                 }
 
                 if let card = payload.emergency {

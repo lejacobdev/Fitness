@@ -24,7 +24,7 @@ SUPERSAMPLE = 4  # draw large, downsample once — cheap antialiasing without a 
 BACKDROP_TOP = (16, 19, 26)
 BACKDROP_BOTTOM = (29, 35, 48)
 CHEVRON_UPPER = (245, 247, 250)
-CHEVRON_LOWER = (229, 56, 59)  # the §9 primary-muscle accent
+CHEVRON_LOWER = (139, 92, 246)  # the signature violet
 
 
 def _vertical_gradient(size: int, top: tuple[int, int, int],

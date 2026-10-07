@@ -249,7 +249,7 @@ struct SeasonCard: View {
                 Text("Most done: \(top)").font(.system(size: 17, weight: .semibold))
             }
             Spacer()
-            Text("AthleteOS").font(.system(size: 15, weight: .bold)).foregroundStyle(Color(hex: "#E5383B"))
+            Text("AthleteOS").font(.system(size: 15, weight: .bold)).foregroundStyle(Color(hex: "#8B5CF6"))
         }
         .padding(32)
         .frame(width: 360, height: 640, alignment: .topLeading)

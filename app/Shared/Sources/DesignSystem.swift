@@ -4,7 +4,7 @@ import UIKit
 #endif
 
 /// AthleteOS V5: a cinematic performance environment — near-black space,
-/// crimson light behind frosted glass, oversized type, precise data. Red
+/// violet light behind frosted glass, oversized type, precise data. Violet
 /// behaves like light (glows, reflections, selected marks), not like paint.
 /// Always dark (the app forces the dark appearance).
 public enum AppTheme {
@@ -25,13 +25,13 @@ public enum AppTheme {
     /// Glass borders and dividers.
     public static let hairline = Color.white.opacity(0.08)
 
-    // Red, as light.
-    public static let brand = Color(rgb: 0xEF4444)
-    public static let brightRed = Color(rgb: 0xFF5A5F)
-    public static let crimson = Color(rgb: 0xC81E2A)
-    public static let atmosphere = Color(rgb: 0x351014)
-    /// The second accent (rings, highlights): a lighter coral red.
-    public static let coral = Color(hex: "#FF6B6B")
+    // The signature violet, as light (the names are from the red era).
+    public static let brand = Color(rgb: 0x8B5CF6)
+    public static let brightRed = Color(rgb: 0xA78BFA)
+    public static let crimson = Color(rgb: 0x6D28D9)
+    public static let atmosphere = Color(rgb: 0x1E1238)
+    /// The second accent (rings, highlights): a soft lavender.
+    public static let coral = Color(hex: "#C4B5FD")
     public static let orange = Color(hex: "#FF8A3D")
     public static let yellow = Color(hex: "#FACC15")
     public static let cyan = Color(hex: "#22D3EE")
@@ -42,10 +42,14 @@ public enum AppTheme {
     public static let waterDeep = Color(hex: "#1899D6")
     /// A solid dark surface with white on it.
     public static let solid = Color(rgb: 0x1A1B1F)
-    public static let purple = Color(hex: "#7C5CF2")
+    /// Mind, sleep and reflection: indigo, so it never reads as the brand violet.
+    public static let purple = Color(hex: "#818CF8")
     public static let green = Color(hex: "#22C55E")
     public static let amber = Color(hex: "#F59E0B")
-    public static let red = Color(hex: "#EF4444")
+    /// Gym in the activity colours, and the brand mark on data.
+    public static let red = Color(hex: "#8B5CF6")
+    /// Real warnings only: pain, head injury, emergency, stop.
+    public static let danger = Color(hex: "#EF4444")
 
     /// Glass panels are rounder; controls stay compact.
     public static let cardCornerRadius: CGFloat = 24

@@ -42,17 +42,21 @@ The repo is public: no secrets, key IDs or server internals go in this file.
   all workout modes, logging, Watch, safety, Campus 3 lessons/day, sport guides, teams).
 
 ## Design (V5: "cinematic premium sports performance")
-- Always dark (`.preferredColorScheme(.dark)`): near-black #050608 space with soft crimson
-  light fields (`AppBackground`, `.appScreen(.hero, sportSlug:)` on the main tabs). Red
-  #EF4444 / #FF5A5F / crimson #C81E2A is **light** — glows, edges, the selected tab — never
-  a flat fill. Three layers: atmosphere, frosted glass (`glassSurface`, `glassCapsule`), type.
+- Always dark (`.preferredColorScheme(.dark)`): near-black #050608 space with soft violet
+  light fields (`AppBackground`, `.appScreen(.hero, sportSlug:)` on the main tabs).
+  **Signature colour is violet** (owner, 2026-10-07; was red): #8B5CF6 / #A78BFA / deep
+  #6D28D9 (tokens still named `brand`, `brightRed`, `crimson`, `red`) is **light** — glows,
+  edges, the selected tab — never a flat fill. Real red `AppTheme.danger` only for warnings
+  (pain, head injury, emergency, stop). Mind/sleep/reflection accent `AppTheme.purple` is
+  indigo #818CF8 so it never reads as the brand. App icon: `tools/generate-app-icon.py`.
+  Website and coach dashboard are still red (not yet switched). Three layers: atmosphere, frosted glass (`glassSurface`, `glassCapsule`), type.
 - Sport atmosphere = abstract geometry at 2–8% opacity (`SportAtmosphere`), never photos.
 - V6 component levels: one **hero** per screen (big type, open), **information panels**
   (glass) for important data, flat **utility rows** for the rest — not every block in a
   card. Sentence case, not all-caps (eyebrows, buttons, labels). Big numbers, few icons,
-  section spacing 48–72. Primary button = glass lit red (`.primary`, `HeroCTALabel("…")` →);
+  section spacing 48–72. Primary button = glass lit violet (`.primary`, `HeroCTALabel("…")` →);
   secondary = outlined. Data on glass: `GlassMetric` (asymmetric heights).
-- Activity colours: gym red, practice orange, after-practice yellow, mobility cyan, game
+- Activity colours: gym violet (`AppTheme.red`), practice orange, after-practice yellow, mobility cyan, game
   green; a day with several splits the dot (`PieDot`). Campus categories have their own
   accent (`CampusView.color(for:)`). Readiness is a word + `ReadinessScale`, never a %.
 - Strongest treatment only on Home, Workout hero, Campus hero, Progress overview, Me header;

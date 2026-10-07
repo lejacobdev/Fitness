@@ -50,14 +50,14 @@ public enum DayPhase: String, Sendable, CaseIterable {
         }
     }
 
-    /// Athlete OS red, with the character of the hour: warmer in the
-    /// morning, pure in the day, deeper crimson in the evening.
+    /// AthleteOS violet, with the character of the hour: lighter in the
+    /// morning, pure in the day, deeper in the evening.
     public var red: Color {
         switch self {
-        case .morning: Color(hex: "#F0523A")
+        case .morning: Color(hex: "#A06BF5")
         case .day: AppTheme.red
-        case .evening: Color(hex: "#D23A4E")
-        case .night: Color(hex: "#B23447")
+        case .evening: Color(hex: "#7C4DDB")
+        case .night: Color(hex: "#6A3FBF")
         }
     }
 }
@@ -75,17 +75,17 @@ public struct AmbientLight: Equatable, Sendable {
 
     /// (minute of the day, light). Wraps around midnight.
     static let anchors: [(minute: Int, light: AmbientLight)] = [
-        (0, .night), (270, .night),          // until 4:30 near-black with faint dark red
-        (390, .morning), (630, .morning),    // 6:30–10:30 warm red morning light
-        (750, .day), (990, .day),            // 12:30–16:30 sharp Athlete OS red
-        (1110, .evening), (1350, .evening),  // 18:30–22:30 crimson / burgundy
+        (0, .night), (270, .night),          // until 4:30 near-black with faint deep violet
+        (390, .morning), (630, .morning),    // 6:30–10:30 soft lavender morning light
+        (750, .day), (990, .day),            // 12:30–16:30 pure AthleteOS violet
+        (1110, .evening), (1350, .evening),  // 18:30–22:30 deep violet
         (1440, .night),
     ]
 
-    static let night = AmbientLight(red: 0.36, green: 0.05, blue: 0.09, strength: 0.22)
-    static let morning = AmbientLight(red: 0.94, green: 0.33, blue: 0.20, strength: 0.30)
-    static let day = AmbientLight(red: 0.94, green: 0.27, blue: 0.27, strength: 0.22)
-    static let evening = AmbientLight(red: 0.52, green: 0.08, blue: 0.16, strength: 0.38)
+    static let night = AmbientLight(red: 0.16, green: 0.07, blue: 0.36, strength: 0.22)
+    static let morning = AmbientLight(red: 0.66, green: 0.42, blue: 0.98, strength: 0.30)
+    static let day = AmbientLight(red: 0.55, green: 0.36, blue: 0.96, strength: 0.22)
+    static let evening = AmbientLight(red: 0.33, green: 0.13, blue: 0.62, strength: 0.38)
 
     public static func at(_ date: Date, calendar: Calendar = .current) -> AmbientLight {
         at(minute: DayPhase.minuteOfDay(date, calendar: calendar))

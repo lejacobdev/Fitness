@@ -39,7 +39,7 @@ struct ConcussionGuideContent: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Label("Get emergency help now if…", systemImage: "cross.case.fill")
                         .font(.title3.bold())
-                        .foregroundStyle(AppTheme.red)
+                        .foregroundStyle(AppTheme.danger)
                     ForEach(ConcussionGuide.emergency, id: \.self) { sign in
                         Label(sign, systemImage: "exclamationmark.triangle.fill")
                             .font(.body)
@@ -48,7 +48,7 @@ struct ConcussionGuideContent: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(18)
-                .background(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous).stroke(AppTheme.red, lineWidth: 2))
+                .background(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous).stroke(AppTheme.danger, lineWidth: 2))
 
                 SectionHeader("Coming back, step by step", subtitle: "Tap the step your doctor or athletic trainer says you're on.")
                 ForEach(ConcussionGuide.steps, id: \.number) { item in
@@ -227,11 +227,11 @@ struct HeadKnockNote: View {
         Label("Hit your head? Stop training today and tell an adult. A possible concussion needs a doctor's check.", systemImage: "exclamationmark.triangle.fill")
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(AppTheme.ink)
-            .labelStyle(TintedIconLabelStyle(color: AppTheme.red))
+            .labelStyle(TintedIconLabelStyle(color: AppTheme.danger))
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .background(RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous).strokeBorder(AppTheme.red, lineWidth: 1.5))
+            .background(RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous).strokeBorder(AppTheme.danger, lineWidth: 1.5))
     }
 }
 
@@ -310,7 +310,7 @@ struct SafetyCenterView: View {
                                     SafetyTopicView(topic: topic)
                                 }
                             } label: {
-                                ListRow(systemImage: topic.systemImage, color: topic == .headInjury || topic == .whenToStop ? AppTheme.red : AppTheme.ink,
+                                ListRow(systemImage: topic.systemImage, color: topic == .headInjury || topic == .whenToStop ? AppTheme.danger : AppTheme.ink,
                                         title: topic.title, detail: topic.summary)
                             }
                             .buttonStyle(.plain)
@@ -351,7 +351,7 @@ struct SafetyTopicView: View {
                     ForEach(topic.points, id: \.self) { point in
                         HStack(alignment: .top, spacing: 12) {
                             Circle()
-                                .fill(topic == .whenToStop ? AppTheme.red : AppTheme.ink)
+                                .fill(topic == .whenToStop ? AppTheme.danger : AppTheme.ink)
                                 .frame(width: 7, height: 7)
                                 .padding(.top, 8)
                             Text(point)

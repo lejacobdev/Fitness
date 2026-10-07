@@ -548,7 +548,7 @@ struct SprintStopwatch: View {
                 if split == nil {
                     bigButton("10 m", color: AppTheme.orange) { split = Date.now.timeIntervalSince(startedAt) }
                 }
-                bigButton("Stop at 30 m", color: AppTheme.red) { finished = Date.now.timeIntervalSince(startedAt) }
+                bigButton("Stop at 30 m", color: AppTheme.danger) { finished = Date.now.timeIntervalSince(startedAt) }
             } else {
                 bigButton("Go", color: AppTheme.green) { startedAt = .now }
             }
@@ -585,7 +585,7 @@ struct TestStopwatch: View {
                 Button("Start over") { startedAt = nil; self.finished = nil }
                     .buttonStyle(.secondary)
             } else if let startedAt {
-                bigButton("Stop", color: AppTheme.red) { finished = Date.now.timeIntervalSince(startedAt) }
+                bigButton("Stop", color: AppTheme.danger) { finished = Date.now.timeIntervalSince(startedAt) }
             } else {
                 bigButton("Start", color: AppTheme.green) { startedAt = .now }
             }
