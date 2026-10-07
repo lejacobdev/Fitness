@@ -20,6 +20,7 @@ struct StudentAthleteWatchApp: App {
     var body: some Scene {
         WindowGroup {
             WatchRootView()
+                .tint(AppTheme.brightRed)
         }
         .modelContainer(container)
     }
@@ -127,9 +128,9 @@ struct WatchRootView: View {
         let today = payload.isForToday
         return ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                Text(payload.sportName.uppercased())
-                    .font(.caption2.bold())
-                    .foregroundStyle(.secondary)
+                Text(payload.sportName)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.brightRed)
 
                 if !checkedInToday {
                     Button {
@@ -140,8 +141,8 @@ struct WatchRootView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(.white)
-                    .foregroundStyle(.black)
+                    .tint(AppTheme.brand)
+                    .foregroundStyle(.white)
                 }
 
                 if Calendar.current.component(.hour, from: .now) >= 18, !reflectedToday {
@@ -177,11 +178,13 @@ struct WatchRootView: View {
                             Text("Start").font(.headline).frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
-                        .tint(.white)
-                        .foregroundStyle(.black)
+                        .tint(AppTheme.brand)
+                        .foregroundStyle(.white)
                     }
                     .padding(10)
-                    .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(LinearGradient(colors: [AppTheme.brand.opacity(0.32), .white.opacity(0.08)],
+                                               startPoint: .topLeading, endPoint: .bottomTrailing),
+                                in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 } else {
                     card(big: today ? "Rest" : "—", label: today ? "Recovery day" : "Open the iPhone app to refresh today's plan", icon: "moon.zzz.fill")
                 }
@@ -312,7 +315,7 @@ struct WatchEmergencyView: View {
 
     private func row(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(label.uppercased()).font(.caption2.bold()).foregroundStyle(.secondary)
+            Text(label).font(.caption2.bold()).foregroundStyle(.secondary)
             Text(value).font(.footnote)
         }
     }

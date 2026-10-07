@@ -237,8 +237,8 @@ struct WatchCurrentItemPage: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.white)
-                .foregroundStyle(.black)
+                .tint(AppTheme.brand)
+                .foregroundStyle(.white)
             }
         } else {
             VStack(spacing: 8) {
@@ -360,8 +360,8 @@ struct WatchRPEView: View {
                 Text(model.loggedSets == 0 ? "Close" : "Save").frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .tint(.white)
-            .foregroundStyle(.black)
+            .tint(AppTheme.brand)
+            .foregroundStyle(.white)
         }
     }
 }

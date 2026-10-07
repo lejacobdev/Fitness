@@ -99,7 +99,7 @@ struct WatchCheckInView: View {
             HStack(spacing: 3) {
                 ForEach(0..<4, id: \.self) { index in
                     Capsule()
-                        .fill(index <= step ? Color.white : Color.white.opacity(0.2))
+                        .fill(index <= step ? AppTheme.brightRed : Color.white.opacity(0.2))
                         .frame(height: 3)
                 }
             }
