@@ -33,6 +33,8 @@ public enum ProFeature: String, CaseIterable, Sendable {
     case moreCalendars
     /// Coaches: send workouts to the whole team.
     case coachWorkouts
+    /// Coaches: free sends one private note per athlete a week; Pro has no limit.
+    case coachNotes
     case visualization
 
     /// Available to every athlete regardless of subscription.
@@ -64,6 +66,7 @@ public enum ProFeature: String, CaseIterable, Sendable {
         case .videoJumpTest: "Measure your jump height with the camera"
         case .moreCalendars: "Connect every team, club and school calendar"
         case .coachWorkouts: "Coaches: send workouts to your whole team"
+        case .coachNotes: "Coaches: as many private notes to each athlete as you like"
         case .visualization: "Guided game-day visualization"
         default: ""
         }
@@ -86,6 +89,7 @@ public extension ProFeature {
         case .visualization: "Game-day visualization"
         case .moreCalendars: "More calendars"
         case .coachWorkouts: "Coach tools"
+        case .coachNotes: "More notes"
         case .skillBlocks: "More skill plans"
         case .muscleWorkouts: "More muscle workouts"
         case .multipleSports: "Several sports"
@@ -109,6 +113,7 @@ public extension ProFeature {
         case .visualization: "A guided 5-minute visualization before games."
         case .moreCalendars: "Connect every team, club and school calendar."
         case .coachWorkouts: "Send workouts to your whole team."
+        case .coachNotes: "Send each athlete as many private notes as you like. Free includes one a week per athlete."
         case .multipleSports: "Add every sport you play and switch between them any time. Free covers one sport."
         default: proDescription
         }

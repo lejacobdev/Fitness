@@ -40,6 +40,8 @@ The repo is public: no secrets, key IDs or server internals go in this file.
   $24.99. Change prices only with the owner's say-so (`asc-pricing.yml`). The paywall
   lists only features that really are gated. The daily habit stays free (check-in, plan,
   all workout modes, logging, Watch, safety, Campus 3 lessons/day, sport guides, teams).
+  Coach notes: free coaches one private note per athlete a week, Pro unlimited (owner, 2026-10-10;
+  enforced server-side from `proUntil`).
 
 ## Design (V5: "cinematic premium sports performance")
 - Always dark (`.preferredColorScheme(.dark)`): near-black #050608 space with soft violet

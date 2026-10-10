@@ -33,7 +33,7 @@ public struct PaywallView: View {
         let all: [ProFeature] = [
             .workoutEditor, .myWorkouts, .shareWorkouts, .unlimitedLessons, .skillBlocks, .muscleWorkouts,
             .multipleSports, .fullSeasonCalendar, .detailedTracking, .exerciseProgress, .fullHistory,
-            .videoJumpTest, .visualization, .moreCalendars, .coachWorkouts, .dataExport,
+            .videoJumpTest, .visualization, .moreCalendars, .coachWorkouts, .coachNotes, .dataExport,
         ]
         guard let highlight, all.contains(highlight) else { return all }
         return [highlight] + all.filter { $0 != highlight }

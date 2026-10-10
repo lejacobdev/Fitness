@@ -445,7 +445,7 @@ struct TeamBoardView: View {
                 AssignWorkoutSheet(teamID: team.id)
             }
             .sheet(item: $noteFor) { target in
-                ShoutoutSheet(teamID: team.id, memberId: target.memberId, nickname: target.nickname)
+                ShoutoutSheet(teamID: team.id, memberId: target.memberId, nickname: target.nickname, athlete: context?.athlete)
             }
             #if os(iOS) && !APP_EXTENSION
             .fullScreenCover(isPresented: $sideline, onDismiss: { Task { await load() } }) {
@@ -1128,14 +1128,17 @@ struct ShareHealthToggle: View {
 }
 
 
-/// A coach's private, positive note to one athlete.
+/// A coach's private, positive note to one athlete (free: one a week each; Pro: no limit).
 struct ShoutoutSheet: View {
     let teamID: String
     let memberId: String
     let nickname: String
+    let athlete: Athlete?
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
     @State private var message: String?
+    @State private var weeklyLimitReached = false
+    @State private var showingPro = false
     private let apiClient = APIClient(baseURL: AppConfig.backendBaseURL)
 
     var body: some View {
@@ -1146,15 +1149,25 @@ struct ShoutoutSheet: View {
                     .lineLimit(2...5)
                     .padding(14)
                     .background(AppTheme.fill, in: RoundedRectangle(cornerRadius: AppTheme.controlCornerRadius, style: .continuous))
-                if let message { Text(message).font(.caption).foregroundStyle(AppTheme.red) }
-                Button("Send") { Task { await send() } }
-                    .buttonStyle(.primary)
-                    .disabled(text.trimmingCharacters(in: .whitespaces).count < 3 || text.count > 200)
+                if weeklyLimitReached {
+                    Text("You already sent \(nickname) a note this week. With Pro you can send as many as you like.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Upgrade") { showingPro = true }
+                        .buttonStyle(.primary)
+                } else {
+                    if let message { Text(message).font(.caption).foregroundStyle(AppTheme.danger) }
+                    Button("Send") { Task { await send() } }
+                        .buttonStyle(.primary)
+                        .disabled(text.trimmingCharacters(in: .whitespaces).count < 3 || text.count > 200)
+                }
                 Spacer()
             }
             .padding(20)
             .appScreen()
             .toolbar { CloseToolbarItem { dismiss() } }
+            .proFeature(isPresented: $showingPro, athlete: athlete, feature: .coachNotes)
         }
         .presentationDetents([.medium])
     }
@@ -1164,6 +1177,8 @@ struct ShoutoutSheet: View {
         do {
             try await apiClient.sendShoutout(teamID: teamID, memberId: memberId, text: text, sessionToken: token)
             dismiss()
+        } catch APIClient.APIError.http(status: 429, _) {
+            weeklyLimitReached = true
         } catch APIClient.APIError.http(status: 400, _) {
             message = "Keep it under 200 characters and friendly."
         } catch {

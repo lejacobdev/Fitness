@@ -112,6 +112,7 @@ const errorText = (err) => ({
   invalid_items: 'Pick at least one exercise (up to 20).',
   invalid_date: 'Pick a date.',
   too_many: 'Too many tries — wait a few minutes.',
+  one_a_week: 'You already sent this athlete a note this week. With AthleteOS Pro (in the app: Me → AthleteOS Pro) you can send as many as you like.',
 }[err?.code] ?? (err?.status ? 'Something went wrong — try again.' : "Couldn't reach AthleteOS — check your connection."));
 
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

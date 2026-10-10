@@ -282,7 +282,7 @@ export const coaches = {
     ${feature('chart', 'Readiness board', 'Today\'s readiness in words, a 14-day trend, check-ins missed, and workouts and minutes this week.')}
     ${feature('qr', 'Sideline mode', 'Full-screen tiles on an iPad or laptop that refresh every minute and keep the screen on.')}
     ${feature('sparkle', 'Announcements', 'One-way messages on every athlete\'s Home for 14 days. No replies, no chat to moderate.')}
-    ${feature('heart', 'Private notes', 'Specific, private notes to one athlete. Praise that lands, without a public ranking.')}
+    ${feature('heart', 'Private notes', 'Specific, private notes to one athlete — one a week each on free, as many as you like with Pro. Praise that lands, without a public ranking.')}
     ${feature('dumbbell', 'Send workouts', 'Pick exercises from the library and send them for a day — they appear ready to start. (Pro)')}
     ${feature('team', 'CSV export', 'Download the week from the web dashboard for your own records.')}
   </dl>
@@ -512,6 +512,7 @@ export const pricing = {
       ${row('Season and year calendar, more calendars', 0, 1)}
       ${row('Video jump test and game-day visualization', 0, 1)}
       ${row('Share workouts; send workouts to a team', 0, 1)}
+      ${row('Unlimited private notes to each athlete (free: one a week)', 0, 1)}
       ${row('A second sport', 0, 1)}
     </tbody>
   </table></div>

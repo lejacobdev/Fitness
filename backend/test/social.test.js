@@ -9,7 +9,7 @@ const SESSION_SECRET = 'test-session-secret';
 
 /** A tiny in-memory stand-in for the Prisma calls these routes make. */
 function fakePrisma() {
-  const db = { league: [], leagueMember: [], weeklyXP: [], team: [], teamMember: [], teamStaff: [], assignment: [], announcement: [], shoutout: [], healthNote: [], partnerSession: [], partnerProgress: [], rtpEntry: [], parentLink: [], parentEmail: [], checkIn: [], session: [], syncedState: [], sharedWorkout: [], pushDevice: [] };
+  const db = { league: [], leagueMember: [], weeklyXP: [], team: [], teamMember: [], teamStaff: [], assignment: [], announcement: [], shoutout: [], healthNote: [], partnerSession: [], partnerProgress: [], rtpEntry: [], parentLink: [], parentEmail: [], checkIn: [], session: [], syncedState: [], sharedWorkout: [], pushDevice: [], athlete: [] };
 
   const matches = (row, where = {}) => Object.entries(where).every(([field, cond]) => {
     if (cond && typeof cond === 'object' && !(cond instanceof Date)) {
@@ -328,7 +328,7 @@ test('parent email: confirmed by the parent first, stopped with one link', async
   }
 });
 
-test('teams: coach notes are private and a coach can send several', async () => {
+test('teams: coach notes are private; free coaches send one a week per athlete, Pro coaches more', async () => {
   const prisma = fakePrisma();
   const { call, close } = await serve(prisma);
   try {
@@ -336,7 +336,9 @@ test('teams: coach notes are private and a coach can send several', async () => 
     await call('ath1', 'POST', '/teams/join', { code: team.code, nickname: 'Lee' });
     assert.equal((await call('ath1', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'ath1', text: 'Nice' })).status, 404, 'coach only');
     assert.equal((await call('coach', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'ath1', text: 'Great focus on the range today' })).status, 201);
-    assert.equal((await call('coach', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'ath1', text: 'Strong finish in the last drill' })).status, 201, 'no weekly limit');
+    assert.equal((await call('coach', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'ath1', text: 'Strong finish in the last drill' })).status, 429, 'free: one a week');
+    await prisma.athlete.create({ data: { id: 'coach', proUntil: new Date(Date.now() + 30 * 86_400_000) } });
+    assert.equal((await call('coach', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'ath1', text: 'Strong finish in the last drill' })).status, 201, 'Pro: no weekly limit');
     assert.equal((await call('coach', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'stranger', text: 'Hi' })).status, 404);
     const mine = await (await call('ath1', 'GET', '/teams/shoutouts')).json();
     assert.deepEqual(mine.shoutouts.map((s) => s.text).sort(), ['Great focus on the range today', 'Strong finish in the last drill']);

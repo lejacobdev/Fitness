@@ -89,7 +89,7 @@ function assignmentJSON(a, teamName) {
  *   DELETE /teams/:id/announcements/:announcementId
  *   GET    /teams/announcements           the last 14 days', from every team I'm on
  *
- * Shout-outs (private coach notes):
+ * Shout-outs (private coach notes; free coaches one a week per athlete, Pro unlimited):
  *   POST   /teams/:id/shoutouts           coach: { memberId, text }
  *   GET    /teams/shoutouts               mine, the last 14 days
  */
@@ -455,6 +455,7 @@ export function teamsRouter({ prisma, sessionSecret, notifier = null, now = () =
   });
 
   // A private positive note to one athlete (no public praise, no ranking).
+  // Free coaches: one a week per athlete. Pro coaches: as many as they like.
   router.post('/:id/shoutouts', async (req, res) => {
     const team = await coachedTeam(req, res);
     if (!team) return;
@@ -472,6 +473,15 @@ export function teamsRouter({ prisma, sessionSecret, notifier = null, now = () =
     if (!member) {
       res.status(404).json({ error: 'not_a_member' });
       return;
+    }
+    const coach = await prisma.athlete.findUnique({ where: { id: req.athleteId } });
+    const coachIsPro = Boolean(coach?.proUntil && coach.proUntil > now());
+    if (!coachIsPro) {
+      const recent = await prisma.shoutout.count({ where: { teamId: team.id, athleteId: memberId, createdAt: { gte: new Date(now().getTime() - 7 * DAY_MS) } } });
+      if (recent > 0) {
+        res.status(429).json({ error: 'one_a_week' });
+        return;
+      }
     }
     await prisma.shoutout.create({ data: { teamId: team.id, athleteId: memberId, text } });
     res.status(201).json({ ok: true });

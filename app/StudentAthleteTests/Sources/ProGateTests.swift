@@ -104,7 +104,7 @@ final class ProGateTests: XCTestCase {
 
     func testTheNewGatesAreProAndTheHabitStaysFree() {
         for feature in [ProFeature.workoutEditor, .myWorkouts, .unlimitedLessons, .detailedTracking, .videoJumpTest,
-                        .moreCalendars, .coachWorkouts, .visualization, .shareWorkouts] {
+                        .moreCalendars, .coachWorkouts, .coachNotes, .visualization, .shareWorkouts] {
             XCTAssertFalse(feature.isFreeForever, "\(feature)")
         }
         XCTAssertTrue(ProFeature.weeklyPlan.isFreeForever, "the plan itself is never gated")
