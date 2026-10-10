@@ -1141,7 +1141,7 @@ struct ShoutoutSheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
-                ScreenTitle("A note for \(nickname)", subtitle: "Private, just for them. One a week — make it specific.")
+                ScreenTitle("A note for \(nickname)", subtitle: "Private, just for them. Make it specific.")
                 TextField("e.g. Great call on the switch in the second half", text: $text, axis: .vertical)
                     .lineLimit(2...5)
                     .padding(14)
