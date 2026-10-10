@@ -404,7 +404,7 @@ function noteDialog(team, member) {
     text.addEventListener('input', () => { count.textContent = `${text.value.length}/200`; });
     return [
       h('p.eyebrow', {}, 'Private note'), h('h2', {}, `To ${member.nickname}`),
-      h('p.muted', {}, 'Only they see it, on their Home screen. One a week per athlete — make it specific.'),
+      h('p.muted', {}, 'Only they see it, on their Home screen. Make it specific.'),
       h('div.field', { style: 'margin-top:16px' }, text, count), err,
       h('div.row.end', { style: 'margin-top:20px' }, h('button.btn.ghost', { onclick: close }, 'Cancel'),
         h('button.btn.primary', {

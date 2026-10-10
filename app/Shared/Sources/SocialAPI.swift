@@ -290,7 +290,7 @@ public extension APIClient {
         return wire.announcements
     }
 
-    // MARK: Shout-outs (private, one a week)
+    // MARK: Shout-outs (private coach notes)
 
     func sendShoutout(teamID: String, memberId: String, text: String, sessionToken: String) async throws {
         let _: Ignored = try await social("POST", "teams/\(teamID)/shoutouts", body: ["memberId": memberId, "text": text], sessionToken: sessionToken)

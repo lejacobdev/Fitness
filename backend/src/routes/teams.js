@@ -89,7 +89,7 @@ function assignmentJSON(a, teamName) {
  *   DELETE /teams/:id/announcements/:announcementId
  *   GET    /teams/announcements           the last 14 days', from every team I'm on
  *
- * Shout-outs (private, one a week per athlete):
+ * Shout-outs (private coach notes):
  *   POST   /teams/:id/shoutouts           coach: { memberId, text }
  *   GET    /teams/shoutouts               mine, the last 14 days
  */
