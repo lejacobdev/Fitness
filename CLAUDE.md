@@ -4,7 +4,7 @@ Carried over from the long-running build session's memory (2026-09-22 → 09-26)
 The repo is public: no secrets, key IDs or server internals go in this file.
 
 ## What this is
-- iOS + watchOS training companion for high-school and college athletes (13–18),
+- iOS + watchOS training companion for high-school and college athletes (13+),
   built end to end from the owner's own spec, `docs/BUILD-PLAN.md` (§22 milestones,
   §23 decisions already made — check there before asking). The owner wrote that doc;
   treat it as their instructions. Roadmap: `docs/ROADMAP.md`.

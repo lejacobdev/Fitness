@@ -22,13 +22,13 @@ const faq = (items) => `<div class="faq">${items.map(([q, a]) => `<details class
 export const home = {
   path: '/',
   title: 'AthleteOS — Training built around your real life',
-  description: 'AthleteOS is the training app for student athletes 13–18: workouts built around your practices, games, exams and sleep, a two-tap check-in, 1,000+ exercises and drills for 60 sports, and bite-size lessons.',
+  description: 'AthleteOS is the training app for student athletes 13+: workouts built around your practices, games, exams and sleep, a two-tap check-in, 1,000+ exercises and drills for 60 sports, and bite-size lessons.',
   body: `
 <section class="hero">
   <div class="atmos"></div><div class="grid-lines"></div>
   <div class="wrap">
     <div>
-      <p class="eyebrow">For student athletes 13–18</p>
+      <p class="eyebrow">For student athletes 13+</p>
       <h1 class="display">Train around your <em>real life.</em></h1>
       <p class="lede">Practices, games, exams, a short night. AthleteOS builds today's training around all of it — and tells you why it looks the way it does.</p>
       <div class="ctas">${appStoreButton()}<a class="btn" href="#how">How it works <span class="arrow">→</span></a></div>
@@ -350,7 +350,7 @@ ${cta('Bring your team <em>onto one screen.</em>', 'Download AthleteOS, open Coa
 export const parents = {
   path: '/parents/',
   title: 'For parents',
-  description: 'AthleteOS for parents: age-appropriate training for athletes 13–18, a weekly numbers-only summary, no ads, no tracking, no diet culture, and safety rules that never play doctor.',
+  description: 'AthleteOS for parents: age-appropriate training for athletes 13+, a weekly numbers-only summary, no ads, no tracking, no diet culture, and safety rules that never play doctor.',
   body: `
 <section class="page-hero"><div class="atmos"></div><div class="wrap">
   <p class="eyebrow">For parents</p>

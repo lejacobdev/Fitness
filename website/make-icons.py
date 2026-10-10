@@ -30,7 +30,7 @@ reg = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 d = ImageDraw.Draw(og)
 d.text((90, 300), "Train around your", font=ImageFont.truetype(bold, 78), fill=(255, 255, 255))
 d.text((90, 392), "real life.", font=ImageFont.truetype(bold, 78), fill=(167, 139, 250))
-d.text((90, 516), "AthleteOS · for student athletes 13–18 · athleteos.lejacob.dev", font=ImageFont.truetype(reg, 26), fill=(170, 170, 176))
+d.text((90, 516), "AthleteOS · for student athletes 13+ · athleteos.lejacob.dev", font=ImageFont.truetype(reg, 26), fill=(170, 170, 176))
 d.text((270, 140), "AthleteOS", font=ImageFont.truetype(bold, 54), fill=(255, 255, 255))
 d.text((272, 205), "TRAINING · CAMPUS · MINDSET", font=ImageFont.truetype(bold, 20), fill=(139, 92, 246))
 og.save(out / "og.png", optimize=True)
