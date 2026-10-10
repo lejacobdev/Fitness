@@ -107,7 +107,6 @@ function confirmDialog({ title, text, action, danger = true, onConfirm }) {
 
 const errorText = (err) => ({
   inappropriate: "That wording isn't allowed — try different words.",
-  one_a_week: 'You already sent this athlete a note this week.',
   not_shared: "This athlete doesn't share health with the team any more.",
   invalid_title: 'Give it a title of 2–40 characters.',
   invalid_items: 'Pick at least one exercise (up to 20).',

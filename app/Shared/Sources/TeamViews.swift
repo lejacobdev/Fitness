@@ -1128,7 +1128,7 @@ struct ShareHealthToggle: View {
 }
 
 
-/// A coach's private, positive note to one athlete (one a week).
+/// A coach's private, positive note to one athlete.
 struct ShoutoutSheet: View {
     let teamID: String
     let memberId: String
@@ -1164,8 +1164,6 @@ struct ShoutoutSheet: View {
         do {
             try await apiClient.sendShoutout(teamID: teamID, memberId: memberId, text: text, sessionToken: token)
             dismiss()
-        } catch APIClient.APIError.http(status: 429, _) {
-            message = "You already sent \(nickname) a note this week."
         } catch APIClient.APIError.http(status: 400, _) {
             message = "Keep it under 200 characters and friendly."
         } catch {

@@ -328,7 +328,7 @@ test('parent email: confirmed by the parent first, stopped with one link', async
   }
 });
 
-test('teams: a coach shout-out is private and at most one a week', async () => {
+test('teams: coach notes are private and a coach can send several', async () => {
   const prisma = fakePrisma();
   const { call, close } = await serve(prisma);
   try {
@@ -336,10 +336,10 @@ test('teams: a coach shout-out is private and at most one a week', async () => {
     await call('ath1', 'POST', '/teams/join', { code: team.code, nickname: 'Lee' });
     assert.equal((await call('ath1', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'ath1', text: 'Nice' })).status, 404, 'coach only');
     assert.equal((await call('coach', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'ath1', text: 'Great focus on the range today' })).status, 201);
-    assert.equal((await call('coach', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'ath1', text: 'Again' })).status, 429, 'one a week');
+    assert.equal((await call('coach', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'ath1', text: 'Strong finish in the last drill' })).status, 201, 'no weekly limit');
     assert.equal((await call('coach', 'POST', `/teams/${team.id}/shoutouts`, { memberId: 'stranger', text: 'Hi' })).status, 404);
     const mine = await (await call('ath1', 'GET', '/teams/shoutouts')).json();
-    assert.deepEqual(mine.shoutouts.map((s) => [s.teamName, s.text]), [['Golf', 'Great focus on the range today']]);
+    assert.deepEqual(mine.shoutouts.map((s) => s.text).sort(), ['Great focus on the range today', 'Strong finish in the last drill']);
     assert.deepEqual((await (await call('ath2', 'GET', '/teams/shoutouts')).json()).shoutouts, [], 'nobody else sees it');
   } finally {
     await close();

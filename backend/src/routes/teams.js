@@ -454,7 +454,7 @@ export function teamsRouter({ prisma, sessionSecret, notifier = null, now = () =
     res.status(204).end();
   });
 
-  // One private positive note per athlete per week (no public praise, no ranking).
+  // A private positive note to one athlete (no public praise, no ranking).
   router.post('/:id/shoutouts', async (req, res) => {
     const team = await coachedTeam(req, res);
     if (!team) return;
@@ -471,11 +471,6 @@ export function teamsRouter({ prisma, sessionSecret, notifier = null, now = () =
     const member = await prisma.teamMember.findUnique({ where: { teamId_athleteId: { teamId: team.id, athleteId: memberId } } });
     if (!member) {
       res.status(404).json({ error: 'not_a_member' });
-      return;
-    }
-    const recent = await prisma.shoutout.count({ where: { teamId: team.id, athleteId: memberId, createdAt: { gte: new Date(now().getTime() - 7 * DAY_MS) } } });
-    if (recent > 0) {
-      res.status(429).json({ error: 'one_a_week' });
       return;
     }
     await prisma.shoutout.create({ data: { teamId: team.id, athleteId: memberId, text } });
