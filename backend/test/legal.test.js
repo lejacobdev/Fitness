@@ -37,3 +37,21 @@ test('the privacy policy states account deletion and no third parties', async ()
     await new Promise((r) => server.close(r));
   }
 });
+
+test('the bare API address sends a browser to the website and answers JSON otherwise', async () => {
+  const app = createApp({});
+  const server = await new Promise((resolve) => {
+    const s = app.listen(0, '127.0.0.1', () => resolve(s));
+  });
+  const { port } = server.address();
+  try {
+    const page = await fetch(`http://127.0.0.1:${port}/`, { redirect: 'manual', headers: { accept: 'text/html,application/xhtml+xml,*/*;q=0.8' } });
+    assert.equal(page.status, 302);
+    assert.equal(page.headers.get('location'), 'https://athleteos.lejacob.dev/');
+    const api = await fetch(`http://127.0.0.1:${port}/`, { headers: { accept: 'application/json' } });
+    assert.equal(api.status, 200);
+    assert.equal((await api.json()).service, 'AthleteOS API');
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+});

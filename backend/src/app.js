@@ -52,6 +52,16 @@ export function createApp({
     res.json({ ok: true, service: 'student-athlete', version: process.env.APP_VERSION ?? 'dev' });
   });
 
+  // The bare API address: a browser goes to the website, anything else gets
+  // a short pointer instead of a 404.
+  app.get('/', (req, res) => {
+    if (req.accepts(['json', 'html']) === 'html') {
+      res.redirect(302, 'https://athleteos.lejacob.dev/');
+      return;
+    }
+    res.json({ service: 'AthleteOS API', website: 'https://athleteos.lejacob.dev/', health: 'health' });
+  });
+
   // Readiness: touches the database, so a redeploy against an unmigrated or
   // unreachable database fails the check instead of serving errors.
   app.get('/ready', async (_req, res) => {
